@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles_index.css') }}">
+    <title>Управление VPN клиентами</title>
+</head>
+<body>
+    <h1>Управление VPN клиентами</h1>
+    <div class="form-container">
+        <form method="post">
+            <div class="input-group">
+                <label for="option">Выберите действие:</label>
+                <select id="option" name="option" required>
+                    <option value="" disabled selected>Выберите действие</option>
+                    <option value="1">Добавить клиента OpenVPN</option>
+                    <!-- <option value="2">Удалить клиента OpenVPN (Криво работает отключате все OV)</option> -->
+                    <option value="4">Добавить клиента WireGuard</option>
+                    <option value="5">Удалить клиента WireGuard</option>
+                </select><br><br>
+            </div>
+    
+            <div class="form-row">
+                <div class="form-group" id="client-name-container">
+                    <label for="client-name">Имя клиента:</label>
+                    <input type="text" id="client-name" name="client-name">
+                </div>
+    
+                <div class="form-group" id="work-term-container">
+                    <label for="work-term" id="cert_expire_label">Срок работы (1-365):</label>
+                    <input type="number" id="work-term" name="work-term" min="1" max="365">
+                </div>
+            </div>
+    
+            <div class="form-group" id="client-select-container" style="display: none;">
+                <label for="client-select">Выберите клиента:</label>
+                <select id="client-select" name="client-select">
+                </select>
+            </div>
+    
+            <button type="submit">Отправить</button>
+        </form>
+    </div>
+    
+    <div class="file-list">
+        <div class="column">
+            <h3>OpenVPN Конфигурации</h3>
+            <div class="scrollable">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="sticky-column">Имя клиента</th>
+                            <th class="sticky-column">Скачать</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set openvpn_files_dict = {} %}
+                        {% for file in openvpn_files %}
+                            {% set filename = file.split('/')[-1] %}
+                            {% set client_name = filename.split('-')[1] %}
+                            {% if client_name not in openvpn_files_dict %}
+                                {% set openvpn_files_dict = openvpn_files_dict.update({client_name: {'antizapret': None, 'vpn': None}}) or openvpn_files_dict %}
+                            {% endif %}
+                            {% if 'antizapret' in filename %}
+                                {% set _ = openvpn_files_dict[client_name].update({'antizapret': file}) %}
+                            {% elif 'vpn' in filename %}
+                                {% set _ = openvpn_files_dict[client_name].update({'vpn': file}) %}
+                            {% endif %}
+                        {% endfor %}
+                        {% for client_name, files in openvpn_files_dict.items() %}
+                            <tr>
+                                <td rowspan="2" style="border: 1px solid black;">{{ client_name }}</td>
+                                <td style="border: none;">
+                                    {% if files['vpn'] %}
+                                        <a href="{{ url_for('download', file_type='openvpn', filename=files['vpn'].split('/')[-1]) }}" download>
+                                            <button class="download-button">VPN</button>
+                                        </a>
+                                    {% else %}
+                                        <button class="download-button" disabled>файла (VPN)</button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="border: none;">
+                                    {% if files['antizapret'] %}
+                                        <a href="{{ url_for('download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) }}" download>
+                                            <button class="download-button">Antizapret</button>
+                                        </a>
+                                    {% else %}
+                                        <button class="download-button" disabled>Нет файла (Antizapret)</button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    
+        <div class="column">
+            <h3>WireGuard Конфигурации</h3>
+            <div class="scrollable">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="sticky-column">Имя клиента</th>
+                            <th class="sticky-column">Скачать</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set wg_files_dict = {} %}
+                        {% for file in wg_files %}
+                            {% set filename = file.split('/')[-1] %}
+                            {% set client_name = filename.split('-')[1] %}
+                            {% if client_name not in wg_files_dict %}
+                                {% set wg_files_dict = wg_files_dict.update({client_name: {'antizapret': None, 'vpn': None}}) or wg_files_dict %}
+                            {% endif %}
+                            {% if 'antizapret' in filename %}
+                                {% set _ = wg_files_dict[client_name].update({'antizapret': file}) %}
+                            {% elif 'vpn' in filename %}
+                                {% set _ = wg_files_dict[client_name].update({'vpn': file}) %}
+                            {% endif %}
+                        {% endfor %}
+                        {% for client_name, files in wg_files_dict.items() %}
+                            <tr>
+                                <td rowspan="2" style="border: 1px solid black;">{{ client_name }}</td>
+                                <td style="border: none;">
+                                    {% if files['vpn'] %}
+                                        <a href="{{ url_for('download', file_type='wg', filename=files['vpn'].split('/')[-1]) }}" download>
+                                            <button class="download-button">VPN</button>
+                                        </a>
+                                    {% else %}
+                                        <button class="download-button" disabled>Нет файла (VPN)</button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="border: none;">
+                                    {% if files['antizapret'] %}
+                                        <a href="{{ url_for('download', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}" download>
+                                            <button class="download-button">Antizapret</button>
+                                        </a>
+                                    {% else %}
+                                        <button class="download-button" disabled>Нет файла (Antizapret)</button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='assets/js/main_index.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #333;
+    background-image: url(https://cdn.steamstatic.com/steamcommunity/public/images/items/553640/bdc359ddba30e8a0cd99703f1071c1f698ef10fc.jpg);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+h1 {
+    text-align: center;
+    margin-top: 30px;
+    color: #fff;
+}
+.form-container {
+    width: 40%;
+    margin: 20px auto;
+    background-color: #444;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+.form-container label {
+    margin-bottom: 5px;
+    color: #fff;
+}
+.form-container input, .form-container select {
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    background-color: #666;
+    color: #fff;
+    margin-bottom: 10px;
+    width: 100%;
+    box-sizing: border-box;
+}
+.form-container button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+}
+.form-container button:hover {
+    background-color: #45a049;
+}
+.form-row {
+    display: flex;
+    gap: 10px;
+}
+.form-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.file-list {
+    display: flex;
+    margin: 30px auto;
+    height: auto;
+    background-color: #444;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    width: 819px;
+}
+.file-list .column {
+    width: 50%;
+    padding: 0;
+}
+.file-list h3 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #fff;
+}
+.file-list table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    color: #fff;
+}
+.file-list th, .file-list td {
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #555;
+}
+.file-list th {
+    background-color: #555;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.file-list td {
+    background-color: #666;
+}
+.file-list .sticky-column {
+    position: sticky;
+    left: 0;
+    background-color: #555;
+    z-index: 2;
+}
+.file-list ul {
+    list-style-type: none;
+    padding: 0;
+}
+.file-list li {
+    margin: 10px 0;
+    text-align: center;
+}
+#cert_expire {
+    display: block;
+}
+#cert_expire_label {
+    color: #fff;
+}
+.form-container input, .form-container select, .form-container button {
+    display: inline-block;
+}
+.form-container .inline-input {
+    display: inline-block;
+    width: 100%;
+}
+.form-container .inline-label {
+    display: inline-block;
+    width: 30%;
+}
+.form-container .input-group {
+    display: flex;
+    flex-direction: column;
+    max-height: 80px;
+}
+#client-select-container {
+margin-top: 10px;
+}
+
+#client-select {
+padding: 10px;
+border-radius: 4px;
+border: 1px solid #555;
+background-color: #666;
+color: #fff;
+width: 100%;
+}
+
+#client-name-container,
+#work-term-container,
+#client-select-container {
+display: none; /* По умолчанию скрываем все дополнительные поля */
+}
+/* Добавляем черную обводку для блоков с именем клиента и конфигурациями */
+.file-list table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.file-list th, .file-list td {
+    border: 1px solid black; /* Черная обводка для всех ячеек */
+    padding: 10px;
+    text-align: center;
+}
+
+.file-list th {
+    background-color: #555;
+    color: white;
+}
+
+.file-list td {
+    background-color: #666;
+    color: white;
+}
+
+/* Убираем границы между строками внутри одного клиента */
+.file-list tr:not(:last-child) {
+    border-bottom: 1px solid black;
+}
+
+/* Убираем границы между ячейками в строке с именем клиента */
+.file-list tr:first-child td {
+    border-bottom: none;
+}
+
+/* Убираем границы между ячейками в строке с конфигурациями */
+.file-list tr:last-child td {
+    border-top: none;
+}
+/* Стили для кнопки "Скачать" */
+.download-button {
+    background-color: #4CAF50; /* Зеленый цвет */
+    color: rgb(255, 255, 255);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    display: inline-block;
+    width: 150px; /* Фиксированная ширина кнопки */
+    text-align: center; /* Выравнивание текста по центру */
+}
+
+.download-button:hover {
+    background-color: #45a049; /* Темно-зеленый при наведении */
+}
+
+.download-button:disabled {
+    background-color: #cccccc; /* Серый цвет для неактивной кнопки */
+    cursor: not-allowed;
+}
+
+/* Убираем стандартные стили для кнопки */
+.download-button:focus {
+    outline: none;
+}
+
+/* Стили для таблицы */
+.file-list table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.file-list th, .file-list td {
+    padding: 10px;
+    text-align: center;
+}
+
+.file-list th {
+    background-color: #555;
+    color: white;
+}
+
+.file-list td {
+    background-color: #666;
+    color: white;
+}
+
+/* Убираем границы между ячейками в строках */
+.file-list tr:not(:last-child) {
+    border-bottom: none;
+}
+
+Убираем границы между ячейками в строке с именем клиента
+.file-list tr:first-child td {
+    border-bottom: none;
+}
+
+/* Убираем границы между ячейками в строке с конфигурациями */
+.file-list tr:last-child td {
+    border-top: none;
+}
+
+/* Границы только вокруг блоков с именем клиента и его конфигурациями */
+.file-list tr {
+    border: 1px solid black;
+}
+
+/* Убираем границы между кнопками */
+.file-list td {
+    border: none;
+}
+/* Увеличиваем шрифт для имени конфигурации */
+.file-list td:first-child {
+    font-size: 18px; /* Увеличиваем размер шрифта */
+    font-weight: bold; /* Делаем текст жирным */
+}
+
