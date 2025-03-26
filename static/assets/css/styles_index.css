@@ -1,270 +1,270 @@
+/*=============== GOOGLE FONTS ===============*/
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap");
+
+/*=============== BASE STYLES ===============*/
 body {
-    font-family: Arial, sans-serif;
-    background-color: #333;
-    background-image: url(https://cdn.steamstatic.com/steamcommunity/public/images/items/553640/bdc359ddba30e8a0cd99703f1071c1f698ef10fc.jpg);
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
-    color: #f4f4f4;
-    margin: 0;
-    padding: 0;
+  font-family: "Poppins", sans-serif;
+  color: hsl(0, 0%, 100%);
+  margin: 0;
+  padding: 0;
+  background-image: url('../img/login-bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  min-height: 100vh;
 }
-h1 {
-    text-align: center;
-    margin-top: 30px;
-    color: #fff;
-}
-.form-container {
-    width: 40%;
-    margin: 20px auto;
-    background-color: #444;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+
+/*=============== MAIN CONTAINER ===============*/
+.container {
     display: flex;
     flex-direction: column;
-}
-.form-container label {
-    margin-bottom: 5px;
-    color: #fff;
-}
-.form-container input, .form-container select {
-    padding: 10px;
-    border-radius: 4px;
-    border: 1px solid #555;
-    background-color: #666;
-    color: #fff;
-    margin-bottom: 10px;
-    width: 100%;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
     box-sizing: border-box;
 }
+
+/*=============== HEADER ===============*/
+h1 {
+    text-align: center;
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: hsl(0, 0%, 100%);
+    position: relative;
+    width: 100%;
+}
+
+/*=============== FORM STYLES ===============*/
+.form-container {
+    position: relative;
+    background-color: hsla(0, 0%, 10%, 0.1);
+    border: 2px solid #4CAF50;
+    padding: 2.5rem;
+    border-radius: 1rem;
+    backdrop-filter: blur(8px);
+    margin: 2rem auto;
+    width: 60%;
+    max-width: 800px;
+    min-width: 300px;
+    box-sizing: border-box;
+}
+
+.form-container label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: hsl(0, 0%, 90%);
+}
+
+.form-container input,
+.form-container select,
 .form-container button {
-    padding: 10px 20px;
-    background-color: #4CAF50;
-    border: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 16px;
+    width: 100%;
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+    background: hsla(0, 0%, 20%, 0.7);
+    border: 1px solid hsl(0, 0%, 50%);
+    border-radius: 0.5rem;
+    color: hsl(0, 0%, 90%);
+    font-family: "Poppins", sans-serif;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+}
+
+.form-container button {
+    background-color: hsl(0, 0%, 100%);
+    color: hsl(0, 0%, 0%);
+    font-weight: 500;
     cursor: pointer;
+    transition: all 0.3s;
 }
+
 .form-container button:hover {
-    background-color: #45a049;
+    background-color: hsla(0, 0%, 100%, 0.8);
 }
-.form-row {
-    display: flex;
-    gap: 10px;
-}
-.form-group {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
+
+/*=============== FILE LIST STYLES ===============*/
 .file-list {
     display: flex;
-    margin: 30px auto;
-    height: auto;
-    background-color: #444;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-    width: 819px;
+    justify-content: center; /* Центрируем колонки */
+    gap: 1rem;
+    margin: 2rem auto; /* Центрируем весь блок */
+    max-width: 1200px; /* Максимальная ширина контейнера */
+    width: 90%; /* Ширина относительно экрана */
 }
-.file-list .column {
-    width: 50%;
-    padding: 0;
+
+.column {
+    flex: 1;
+    background-color: hsla(0, 0%, 10%, 0.1);
+    border: 2px solid hsl(0, 0%, 100%);
+    border-radius: 1rem;
+    backdrop-filter: blur(8px);
+    padding: 1.5rem;
+    min-width: 0;
+    border-color: #4CAF50; /* Зеленый цвет для отличия */
+    width: 60%; /* Каждая колонка занимает 60% от file-list */
+    max-width: 500px; /* Максимальная ширина колонки */
 }
-.file-list h3 {
-    text-align: center;
-    margin-bottom: 20px;
-    color: #fff;
+
+.scrollable {
+    overflow: visible; /* Полностью убираем прокрутку */
+    max-height: none; /* Убираем ограничение высоты */
 }
-.file-list table {
+/* Увеличиваем отступы между строками таблицы */
+.file-list tbody tr {
+    height: 48px; /* Фиксированная высота строк */
+  }
+
+table {
     width: 100%;
     border-collapse: collapse;
-    margin: 0;
-    color: #fff;
-}
-.file-list th, .file-list td {
-    padding: 10px;
-    text-align: center;
-    border: 1px solid #555;
-}
-.file-list th {
-    background-color: #555;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-.file-list td {
-    background-color: #666;
-}
-.file-list .sticky-column {
-    position: sticky;
-    left: 0;
-    background-color: #555;
-    z-index: 2;
-}
-.file-list ul {
-    list-style-type: none;
-    padding: 0;
-}
-.file-list li {
-    margin: 10px 0;
-    text-align: center;
-}
-#cert_expire {
-    display: block;
-}
-#cert_expire_label {
-    color: #fff;
-}
-.form-container input, .form-container select, .form-container button {
-    display: inline-block;
-}
-.form-container .inline-input {
-    display: inline-block;
-    width: 100%;
-}
-.form-container .inline-label {
-    display: inline-block;
-    width: 30%;
-}
-.form-container .input-group {
-    display: flex;
-    flex-direction: column;
-    max-height: 80px;
-}
-#client-select-container {
-margin-top: 10px;
+    table-layout: auto; /* Автоматический расчет ширины */
 }
 
-#client-select {
-padding: 10px;
-border-radius: 4px;
-border: 1px solid #555;
-background-color: #666;
-color: #fff;
-width: 100%;
+th, td {
+    padding: 0.75rem;
+    text-align: left;
+    word-break: break-word; /* Перенос длинных слов */
 }
 
-#client-name-container,
-#work-term-container,
-#client-select-container {
-display: none; /* По умолчанию скрываем все дополнительные поля */
-}
-/* Добавляем черную обводку для блоков с именем клиента и конфигурациями */
-.file-list table {
-    border-collapse: collapse;
-    width: 100%;
+th {
+  position: sticky;
+  top: 0;
+  background-color: hsla(0, 0%, 10%, 0.7);
 }
 
-.file-list th, .file-list td {
-    border: 1px solid black; /* Черная обводка для всех ячеек */
-    padding: 10px;
-    text-align: center;
-}
-
-.file-list th {
-    background-color: #555;
-    color: white;
-}
-
-.file-list td {
-    background-color: #666;
-    color: white;
-}
-
-/* Убираем границы между строками внутри одного клиента */
-.file-list tr:not(:last-child) {
-    border-bottom: 1px solid black;
-}
-
-/* Убираем границы между ячейками в строке с именем клиента */
-.file-list tr:first-child td {
-    border-bottom: none;
-}
-
-/* Убираем границы между ячейками в строке с конфигурациями */
-.file-list tr:last-child td {
-    border-top: none;
-}
-/* Стили для кнопки "Скачать" */
 .download-button {
-    background-color: #4CAF50; /* Зеленый цвет */
-    color: rgb(255, 255, 255);
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
+    background-color: transparent;
+    border: 1px solid hsl(0, 0%, 100%);
+    color: hsl(0, 0%, 100%);
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
     cursor: pointer;
-    font-size: 14px;
-    text-decoration: none;
-    display: inline-block;
-    width: 150px; /* Фиксированная ширина кнопки */
-    text-align: center; /* Выравнивание текста по центру */
+    transition: all 0.3s;
+    margin: 0.2rem;
+    width: 120px; /* Фиксированная ширина для единообразия */
 }
 
 .download-button:hover {
-    background-color: #45a049; /* Темно-зеленый при наведении */
+    background-color: hsla(0, 0%, 100%, 0.1);
 }
 
 .download-button:disabled {
-    background-color: #cccccc; /* Серый цвет для неактивной кнопки */
+    opacity: 0.5;
     cursor: not-allowed;
 }
 
-/* Убираем стандартные стили для кнопки */
-.download-button:focus {
+/*=============== RESPONSIVE STYLES ===============*/
+@media (max-width: 768px) {
+  .file-list {
+    flex-direction: column;
+    align-items: center; /* Центрируем колонки вертикально */
+    width: 95%;
+  }
+  .column {
+    width: 100%; /* На мобильных - полная ширина */
+    max-width: 100%;
+    margin-bottom: 1rem;
+  }
+  .form-container {
+    padding: 1.5rem;
+  }
+}
+.form-container input,
+.form-container select {
+  width: 100%;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  background: hsla(0, 0%, 100%, 0.1);
+  border: 1px solid hsl(0, 0%, 100%);
+  border-radius: 0.5rem;
+  color: hsl(0, 0%, 100%);
+  font-family: "Poppins", sans-serif;
+  box-sizing: border-box; /* Важно для одинаковых размеров */
+}
+
+/* Специальные стили для группы полей в одной строке */
+.form-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-group {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Стиль для select элемента */
+.form-container select {
+    background: hsla(0, 0%, 20%, 0.9);
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.8rem center;
+    background-size: 1rem;
+    padding-right: 2.5rem;
+    cursor: pointer;
+  }
+  
+  .form-container select option {
+    background: hsla(0, 0%, 15%, 0.95);
+    color: hsl(0, 0%, 90%);
+    padding: 0.5rem;
+  }
+  
+  .form-container select option:hover {
+    background: hsla(0, 0%, 30%, 0.95);
+  }
+  
+  .form-container select option:checked {
+    background: hsla(0, 0%, 25%, 0.95);
+    font-weight: 500;
+  }
+  
+  .form-container input:focus,
+  .form-container select:focus {
+    border-color: hsl(0, 0%, 70%);
+    box-shadow: 0 0 0 2px hsla(0, 0%, 70%, 0.3);
     outline: none;
+  }
+
+/* Для мобильных устройств */
+@media (max-width: 1200px) {
+    .form-container {
+      width: 70%;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .form-container {
+      width: 90%;
+      padding: 1.5rem;
+    }
+    
+    .form-row {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .form-container {
+      width: 95%;
+      padding: 1rem;
+    }
+  }
+
+/* Общий стиль для всех контейнеров полей */
+#client-name-container,
+#work-term-container,
+#client-select-container {
+    min-height: 60px; /* Фиксированная высота */
+    margin-bottom: 10px;
 }
 
-/* Стили для таблицы */
-.file-list table {
-    border-collapse: collapse;
-    width: 100%;
-}
 
-.file-list th, .file-list td {
-    padding: 10px;
-    text-align: center;
+.column .download-button {
+    background-color: hsla(120, 100%, 25%, 0.2);
 }
-
-.file-list th {
-    background-color: #555;
-    color: white;
-}
-
-.file-list td {
-    background-color: #666;
-    color: white;
-}
-
-/* Убираем границы между ячейками в строках */
-.file-list tr:not(:last-child) {
-    border-bottom: none;
-}
-
-Убираем границы между ячейками в строке с именем клиента
-.file-list tr:first-child td {
-    border-bottom: none;
-}
-
-/* Убираем границы между ячейками в строке с конфигурациями */
-.file-list tr:last-child td {
-    border-top: none;
-}
-
-/* Границы только вокруг блоков с именем клиента и его конфигурациями */
-.file-list tr {
-    border: 1px solid black;
-}
-
-/* Убираем границы между кнопками */
-.file-list td {
-    border: none;
-}
-/* Увеличиваем шрифт для имени конфигурации */
-.file-list td:first-child {
-    font-size: 18px; /* Увеличиваем размер шрифта */
-    font-weight: bold; /* Делаем текст жирным */
-}
-
