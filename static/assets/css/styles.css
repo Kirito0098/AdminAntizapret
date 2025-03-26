@@ -130,7 +130,7 @@ img {
 .login__check {
   margin-bottom: 1.5rem;
 }
-.login__check-label, .login__forgot, .login__register {
+.login__check-label {
   font-size: var(--small-font-size);
 }
 .login__check-group {
@@ -139,12 +139,6 @@ img {
 .login__check-input {
   width: 16px;
   height: 16px;
-}
-.login__forgot {
-  color: var(--white-color);
-}
-.login__forgot:hover {
-  text-decoration: underline;
 }
 .login__button {
   width: 100%;
@@ -155,17 +149,6 @@ img {
   cursor: pointer;
   margin-bottom: 2rem;
 }
-.login__register {
-  text-align: center;
-}
-.login__register a {
-  color: var(--white-color);
-  font-weight: var(--font-medium);
-}
-.login__register a:hover {
-  text-decoration: underline;
-}
-
 /* Input focus move up label */
 .login__input:focus + .login__label {
   top: -12px;
