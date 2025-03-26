@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, make_response
 import subprocess
 import os
-
+ 
 app = Flask(__name__)
 
 # Путь к директориям с конфигурациями
