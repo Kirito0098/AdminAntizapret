@@ -17,9 +17,7 @@ app.secret_key = os.urandom(24)
 
 # Список пользователей
 users = {
-    'claymore': '159753qQSIROV',
-    'andrew': '1qaz@WSX#EDC',
-    'user1': 'password2'
+    'admin': 'password'
 }
 
 # Запуск Bash-скрипта с передачей параметров
