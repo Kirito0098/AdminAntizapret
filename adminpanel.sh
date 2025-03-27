@@ -16,7 +16,6 @@ DEFAULT_PORT="5050"
 REPO_URL="https://github.com/Kirito0098/AdminAntizapret.git"
 APP_PORT="$DEFAULT_PORT"
 
-<<<<<<< HEAD
 # Функция проверки занятости порта (универсальная)
 check_port() {
     local port=$1
@@ -45,8 +44,6 @@ check_port() {
     return 1
 }
 
-=======
->>>>>>> 8c94b6ece9abce63207ccf79c6949ac01b8231ca
 # Функция проверки ошибок
 check_error() {
   if [ $? -ne 0 ]; then
@@ -83,11 +80,7 @@ install() {
   APP_PORT=${APP_PORT:-$DEFAULT_PORT}
   
   # Проверка занятости порта
-<<<<<<< HEAD
   while check_port $APP_PORT; do
-=======
-  while lsof -i :$APP_PORT >/dev/null; do
->>>>>>> 8c94b6ece9abce63207ccf79c6949ac01b8231ca
     echo -e "${RED}Порт $APP_PORT уже занят!${NC}"
     read -p "Введите другой порт: " APP_PORT
   done
@@ -239,11 +232,7 @@ check_updates() {
 test_installation() {
   echo -e "${YELLOW}Тестирование работы сервиса...${NC}"
   
-<<<<<<< HEAD
   if ! check_port $APP_PORT; then
-=======
-  if ! lsof -i :$APP_PORT > /dev/null; then
->>>>>>> 8c94b6ece9abce63207ccf79c6949ac01b8231ca
     echo -e "${RED}Сервис не слушает порт $APP_PORT!${NC}"
   else
     response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$APP_PORT/login)
