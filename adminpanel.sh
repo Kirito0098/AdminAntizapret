@@ -91,12 +91,12 @@ install() {
 
   # Обновление пакетов
   echo "${YELLOW}Обновление списка пакетов...${NC}"
-  apt-get update
+  apt-get update -qq
   check_error "Не удалось обновить пакеты"
 
   # Установка зависимостей
   echo "${YELLOW}Установка системных зависимостей...${NC}"
-  apt-get install -y python3 python3-pip python3-venv git
+  apt-get install -y -qq python3 python3-pip python3-venv git 
   check_error "Не удалось установить зависимости"
 
   # Клонирование репозитория
@@ -105,9 +105,15 @@ install() {
     echo "${YELLOW}Директория уже существует, обновляем...${NC}"
     cd "$INSTALL_DIR" && git pull
   else
-    git clone "$REPO_URL" "$INSTALL_DIR"
+    git clone "$REPO_URL" "$INSTALL_DIR" > /dev/null 2>&1
   fi
   check_error "Не удалось клонировать репозиторий"
+
+# Создание директории и копирование скрипта
+echo "${YELLOW}Копирование adminpanel.sh в /root/adminpanel/...${NC}"
+mkdir -p /root/adminpanel
+cp "$INSTALL_DIR/adminpanel.sh" /root/adminpanel/
+chmod +x /root/adminpanel/adminpanel.sh
 
   # Создание виртуального окружения
   echo "${YELLOW}Создание виртуального окружения...${NC}"
@@ -116,7 +122,7 @@ install() {
 
   # Установка Python-зависимостей
   echo "${YELLOW}Установка Python-зависимостей...${NC}"
-  "$VENV_PATH/bin/pip" install flask flask-sqlalchemy werkzeug
+  "$VENV_PATH/bin/pip" install -q flask flask-sqlalchemy werkzeug
   check_error "Не удалось установить Python-зависимости"
 
   # Настройка конфигурации
@@ -332,58 +338,7 @@ uninstall() {
   esac
 }
 
-add_user() {
-  printf "%s\n" "${GREEN}"
-  printf "┌────────────────────────────────────────────┐\n"
-  printf "│          Добавление нового пользователя    │\n"
-  printf "└────────────────────────────────────────────┘\n"
-  printf "%s\n" "${NC}"
-
-  # Запрос имени пользователя
-  while :; do
-    printf "Введите имя пользователя: "
-    read username
-    [ -z "$username" ] && printf "%s\n" "${RED}Имя пользователя не может быть пустым!${NC}" || break
-  done
-
-  # Проверка существования пользователя
-  if "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --check-user "$username"; then
-    printf "%s\n" "${RED}Пользователь '$username' уже существует!${NC}"
-    press_any_key
-    return 1
-  fi
-
-  # Запрос пароля
-  while :; do
-    stty -echo
-    printf "Введите пароль: "
-    read password
-    stty echo
-    printf "\n"
-    [ -z "$password" ] && printf "%s\n" "${RED}Пароль не может быть пустым!${NC}" || break
-  done
-
-  # Подтверждение пароля
-  while :; do
-    stty -echo
-    printf "Повторите пароль: "
-    read password_confirm
-    stty echo
-    printf "\n"
-    [ "$password" != "$password_confirm" ] && printf "%s\n" "${RED}Пароли не совпадают!${NC}" || break
-  done
-
-  # Добавление пользователя
-  if "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --add-user "$username" "$password"; then
-    printf "%s\n" "${GREEN}Пользователь '$username' успешно добавлен!${NC}"
-  else
-    printf "%s\n" "${RED}Ошибка при добавлении пользователя!${NC}"
-  fi
-
-  press_any_key
-}
-
-# Обновленное главное меню
+# Главное меню
 main_menu() {
   while true; do
     clear
@@ -398,13 +353,12 @@ main_menu() {
     printf "│ 5. Протестировать работу                   │\n"
     printf "│ 6. Создать резервную копию                 │\n"
     printf "│ 7. Восстановить из резервной копии         │\n"
-    printf "│ 8. Добавить пользователя                   │\n"
-    printf "│ 9. Удалить AdminAntizapret                 │\n"
+    printf "│ 8. Удалить AdminAntizapret                 │\n"
     printf "│ 0. Выход                                   │\n"
     printf "└────────────────────────────────────────────┘\n"
     printf "%s\n" "${NC}"
     
-    printf "Выберите действие [0-9]: "
+    printf "Выберите действие [0-8]: "
     read choice
     case $choice in
       1) restart_service;;
@@ -414,8 +368,7 @@ main_menu() {
       5) test_installation;;
       6) create_backup;;
       7) restore_backup;;
-      8) add_user;;
-      9) uninstall;;
+      8) uninstall;;
       0) exit 0;;
       *) printf "%s\n" "${RED}Неверный выбор!${NC}"; sleep 1;;
     esac
