@@ -1,0 +1,5 @@
+flask==2.3.2
+pyopenssl==23.2.0
+gunicorn==20.1.0
+python-dotenv==1.0.0
+requests==2.31.0
