@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Полный менеджер AdminAntizapret
 
@@ -16,6 +16,8 @@ DEFAULT_PORT="5050"
 REPO_URL="https://github.com/Kirito0098/AdminAntizapret.git"
 APP_PORT="$DEFAULT_PORT"
 DB_FILE="$INSTALL_DIR/users.db"
+ANTIZAPRET_INSTALL_DIR="/root/antizapret"
+ANTIZAPRET_INSTALL_SCRIPT="https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/main/setup.sh"
 
 # Функция проверки занятости порта
 check_port() {
@@ -63,6 +65,28 @@ press_any_key() {
   read -r _
 }
 
+# Проверка установки AntiZapret-VPN
+check_antizapret_installed() {
+  if [ -d "$ANTIZAPRET_INSTALL_DIR" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Установка AntiZapret-VPN
+install_antizapret() {
+  echo "${YELLOW}Установка AntiZapret-VPN...${NC}"
+  bash <(wget --no-hsts -qO- "$ANTIZAPRET_INSTALL_SCRIPT")
+  check_error "Не удалось установить AntiZapret-VPN"
+  
+  if check_antizapret_installed; then
+    echo "${GREEN}AntiZapret-VPN успешно установлен!${NC}"
+  else
+    echo "${YELLOW}AntiZapret-VPN не установлен, но это не критично.${NC}"
+  fi
+}
+
 # Инициализация базы данных
 init_db() {
   echo "${YELLOW}Инициализация базы данных...${NC}"
@@ -96,7 +120,7 @@ install() {
 
   # Установка зависимостей
   echo "${YELLOW}Установка системных зависимостей...${NC}"
-  apt-get install -y -qq python3 python3-pip python3-venv git 
+  apt-get install -y -qq python3 python3-pip python3-venv git wget
   check_error "Не удалось установить зависимости"
 
   # Клонирование репозитория
@@ -109,11 +133,11 @@ install() {
   fi
   check_error "Не удалось клонировать репозиторий"
 
-# Создание директории и копирование скрипта
-echo "${YELLOW}Копирование adminpanel.sh в /root/adminpanel/...${NC}"
-mkdir -p /root/adminpanel
-cp "$INSTALL_DIR/adminpanel.sh" /root/adminpanel/
-chmod +x /root/adminpanel/adminpanel.sh
+  # Создание директории и копирование скрипта
+  echo "${YELLOW}Копирование adminpanel.sh в /root/adminpanel/...${NC}"
+  mkdir -p /root/adminpanel
+  cp "$INSTALL_DIR/adminpanel.sh" /root/adminpanel/
+  chmod +x /root/adminpanel/adminpanel.sh
 
   # Создание виртуального окружения
   echo "${YELLOW}Создание виртуального окружения...${NC}"
@@ -158,7 +182,7 @@ EOL
   check_error "Не удалось запустить сервис"
 
   # Проверка установки
-  echo "${YELLOW}Проверка установки...${NC}"
+  echo "${YELLOW}Проверка установки AntiZapret-VPN...${NC}"
   sleep 3
   if systemctl is-active --quiet "$SERVICE_NAME"; then
     echo "${GREEN}"
@@ -175,6 +199,18 @@ EOL
     echo "${RED}Ошибка при запуске сервиса!${NC}"
     journalctl -u "$SERVICE_NAME" -n 10 --no-pager
     exit 1
+  fi
+
+  # Проверка и установка AntiZapret-VPN
+  if ! check_antizapret_installed; then
+    echo "${YELLOW}AntiZapret-VPN не установлен. Установить сейчас? (y/n)${NC}"
+    read -r answer
+    case $answer in
+      [Yy]*) install_antizapret;;
+      *) echo "${YELLOW}Пропускаем установку AntiZapret-VPN${NC}";;
+    esac
+  else
+    echo "${GREEN}AntiZapret-VPN уже установлен.${NC}"
   fi
 
   press_any_key
