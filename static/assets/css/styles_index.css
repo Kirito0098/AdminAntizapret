@@ -144,7 +144,7 @@ th {
     cursor: pointer;
     transition: all 0.3s;
     margin: 0.2rem;
-    width: 120px; /* Фиксированная ширина для единообразия */
+    width: 120px;
 }
 
 .download-button:hover {
@@ -160,11 +160,11 @@ th {
 @media (max-width: 768px) {
   .file-list {
     flex-direction: column;
-    align-items: center; /* Центрируем колонки вертикально */
+    align-items: center; 
     width: 95%;
   }
   .column {
-    width: 100%; /* На мобильных - полная ширина */
+    width: 100%;
     max-width: 100%;
     margin-bottom: 1rem;
   }
@@ -260,11 +260,47 @@ th {
 #client-name-container,
 #work-term-container,
 #client-select-container {
-    min-height: 60px; /* Фиксированная высота */
+    min-height: 60px; 
     margin-bottom: 10px;
 }
 
 
 .column .download-button {
     background-color: hsla(120, 100%, 25%, 0.2);
+}
+/*=============== LOGOUT BUTTON ===============*/
+.logout-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.logout-button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: hsla(0, 100%, 50%, 0.2);
+  color: hsl(0, 0%, 100%);
+  border: 1px solid hsl(0, 100%, 50%);
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.3s;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+}
+
+.logout-button:hover {
+  background-color: hsla(0, 100%, 50%, 0.4);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .logout-container {
+      top: 10px;
+      right: 10px;
+  }
+  .logout-button {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+  }
 }
