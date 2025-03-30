@@ -1,7 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, make_response
 import subprocess
 import os
- 
+from werkzeug.utils import secure_filename
+from flask import abort
+import shlex
+
 app = Flask(__name__)
 
 # Путь к директориям с конфигурациями
@@ -22,10 +25,26 @@ users = {
 
 # Запуск Bash-скрипта с передачей параметров
 def run_bash_script(option, client_name, cert_expire=None):
-    command = ['./client.sh', option, client_name]
+    # Валидация option (только цифры)
+    if not option.isdigit():
+        raise ValueError("Некорректный параметр option")
+    
+    # Экранирование всех параметров
+    safe_client_name = shlex.quote(client_name)
+    command = ['./client.sh', option, safe_client_name]
+    
     if cert_expire:
+        if not cert_expire.isdigit() or not (1 <= int(cert_expire) <= 365):
+            raise ValueError("Некорректный срок действия сертификата")
         command.append(cert_expire)
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    
+    # Безопасный вызов subprocess
+    result = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=False  
+    )
     return result.stdout.decode(), result.stderr.decode()
 
 # Получение списка конфигурационных файлов
@@ -86,21 +105,21 @@ def index():
             openvpn_files, wg_files, amneziawg_files = get_config_files()
 
             response = make_response(render_template('index.html', 
-                                                  stdout=stdout, 
-                                                  stderr=stderr, 
-                                                  openvpn_files=openvpn_files, 
-                                                  wg_files=wg_files,
-                                                  amneziawg_files=amneziawg_files,
-                                                  option=option))
+                stdout=stdout, 
+                stderr=stderr, 
+                openvpn_files=openvpn_files, 
+                wg_files=wg_files,
+                amneziawg_files=amneziawg_files,
+                option=option))
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             response.headers['Pragma'] = 'no-cache'
             response.headers['Expires'] = '0'
             return response
     
     return render_template('index.html', 
-                         openvpn_files=openvpn_files, 
-                         wg_files=wg_files,
-                         amneziawg_files=amneziawg_files)
+        openvpn_files=openvpn_files, 
+        wg_files=wg_files,
+        amneziawg_files=amneziawg_files)
 
 # Страница логина
 @app.route('/login', methods=['GET', 'POST'])
@@ -126,33 +145,55 @@ def logout():
 # Роут для скачивания конфигурационных файлов
 @app.route('/download/<file_type>/<filename>')
 def download(file_type, filename):
+    # Проверка и очистка имени файла
+    safe_filename = secure_filename(filename)
+    if safe_filename != filename:
+        abort(400, description="Некорректное имя файла")
+    
+    # Проверка допустимых типов файлов
+    allowed_types = ['openvpn', 'wg', 'amneziawg']
+    if file_type not in allowed_types:
+        abort(404, description="Тип файла не поддерживается")
+    
+    # Определяем разрешенные расширения для каждого типа
+    extensions = {
+        'openvpn': ['.ovpn'],
+        'wg': ['.conf'],
+        'amneziawg': ['.conf']
+    }
+    
+    # Проверяем расширение файла
+    if not any(safe_filename.endswith(ext) for ext in extensions[file_type]):
+        abort(400, description="Недопустимое расширение файла")
+    
+    # Безопасный поиск файла
     file_path = None
-
-    if file_type == 'openvpn':
-        for config_dir in [config_dir_openvpn_1, config_dir_openvpn_2]:
-            potential_path = os.path.join(config_dir, filename)
+    config_dirs = {
+        'openvpn': [config_dir_openvpn_1, config_dir_openvpn_2],
+        'wg': [config_dir_wg_1, config_dir_wg_2],
+        'amneziawg': [config_dir_amneziawg_1, config_dir_amneziawg_2]
+    }
+    
+    for config_dir in config_dirs[file_type]:
+        try:
+            potential_path = os.path.abspath(os.path.join(config_dir, safe_filename))
+            # Дополнительная проверка, что файл внутри разрешенной директории
+            if not potential_path.startswith(os.path.abspath(config_dir)):
+                continue
+                
             if os.path.exists(potential_path):
                 file_path = potential_path
                 break
-    elif file_type == 'wg':
-        for config_dir in [config_dir_wg_1, config_dir_wg_2]:
-            potential_path = os.path.join(config_dir, filename)
-            if os.path.exists(potential_path):
-                file_path = potential_path
-                break
-    elif file_type == 'amneziawg':
-        for config_dir in [config_dir_amneziawg_1, config_dir_amneziawg_2]:
-            potential_path = os.path.join(config_dir, filename)
-            if os.path.exists(potential_path):
-                file_path = potential_path
-                break
-    else:
-        return abort(404, description="File type not found")
-
+        except Exception:
+            continue
+    
     if file_path and os.path.exists(file_path):
-        return send_from_directory(os.path.dirname(file_path), os.path.basename(file_path), as_attachment=True)
-    else:
-        return abort(404, description="File not found")
+        return send_from_directory(
+            os.path.dirname(file_path),
+            os.path.basename(file_path),
+            as_attachment=True
+        )
+    abort(404, description="Файл не найден")
         
 
 if __name__ == '__main__':
