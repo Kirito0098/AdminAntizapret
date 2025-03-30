@@ -19,7 +19,7 @@ getClientName(){
 	if ! [[ "$CLIENT_NAME" =~ ^[a-zA-Z0-9_-]{1,32}$ ]]; then
 		echo ""
 		echo "Enter the client's name"
-		echo "The client's name must consist of 1 to 32 alphanumeric characters, it may also include an underscore or a dash"
+		echo "The client's name: 1–32 alphanumeric characters (a-z, A-Z, 0-9) with underscore (_) or dash (-)"
 		until [[ "$CLIENT_NAME" =~ ^[a-zA-Z0-9_-]{1,32}$ ]]; do
 			read -rp "Client name: " -e CLIENT_NAME
 		done
@@ -53,34 +53,36 @@ render() {
 	done < $File
 }
 
-addOpenVPN(){
+initEasyRSA(){
+	mkdir -p /etc/openvpn/server/keys
 	mkdir -p /etc/openvpn/easyrsa3
 	cd /etc/openvpn/easyrsa3
 
 	if [[ ! -f ./pki/ca.crt ]] || \
 	   [[ ! -f ./pki/issued/antizapret-server.crt ]] || \
 	   [[ ! -f ./pki/private/antizapret-server.key ]]; then
-		rm -rf ./pki/
+		rm -rf ./pki
 		/usr/share/easy-rsa/easyrsa init-pki
 		EASYRSA_CA_EXPIRE=3650 /usr/share/easy-rsa/easyrsa --batch --req-cn="AntiZapret CA" build-ca nopass
 		EASYRSA_CERT_EXPIRE=3650 /usr/share/easy-rsa/easyrsa --batch build-server-full "antizapret-server" nopass
-		echo "Created new PKI and CA"
-	fi
-
-	if [[ ! -f ./pki/crl.pem ]]; then
-		EASYRSA_CRL_DAYS=3650 /usr/share/easy-rsa/easyrsa gen-crl
-		echo "Created new CRL"
 	fi
 
 	if [[ ! -f /etc/openvpn/server/keys/ca.crt ]] || \
 	   [[ ! -f /etc/openvpn/server/keys/antizapret-server.crt ]] || \
-	   [[ ! -f /etc/openvpn/server/keys/antizapret-server.key ]] || \
-	   [[ ! -f ./pki/crl.pem ]]; then
+	   [[ ! -f /etc/openvpn/server/keys/antizapret-server.key ]]; then
 		cp ./pki/ca.crt /etc/openvpn/server/keys/ca.crt
 		cp ./pki/issued/antizapret-server.crt /etc/openvpn/server/keys/antizapret-server.crt
 		cp ./pki/private/antizapret-server.key /etc/openvpn/server/keys/antizapret-server.key
+	fi
+
+	if [[ ! -f /etc/openvpn/server/keys/crl.pem ]]; then
+		EASYRSA_CRL_DAYS=3650 /usr/share/easy-rsa/easyrsa gen-crl
 		cp ./pki/crl.pem /etc/openvpn/server/keys/crl.pem
 	fi
+}
+
+addOpenVPN(){
+	initEasyRSA
 
 	if [[ ! -f ./pki/issued/$CLIENT_NAME.crt ]] || \
 	   [[ ! -f ./pki/private/$CLIENT_NAME.key ]]; then
@@ -123,17 +125,9 @@ deleteOpenVPN(){
 	cd /etc/openvpn/easyrsa3
 
 	/usr/share/easy-rsa/easyrsa --batch revoke $CLIENT_NAME
-	if [[ $? -ne 0 ]]; then
-		echo "Failed to revoke certificate for client '$CLIENT_NAME', please check if the client exists"
-		exit 12
-	fi
 
 	EASYRSA_CRL_DAYS=3650 /usr/share/easy-rsa/easyrsa gen-crl
 	cp ./pki/crl.pem /etc/openvpn/server/keys/crl.pem
-	if [[ $? -ne 0 ]]; then
-		echo "Failed to update CRL"
-		exit 13
-	fi
 
 	FILE_NAME="${CLIENT_NAME#antizapret-}"
 	FILE_NAME="${FILE_NAME#vpn-}"
@@ -155,7 +149,6 @@ listOpenVPN(){
 }
 
 addWireGuard_AmneziaWG(){
-	IPS=$(cat /etc/wireguard/ips)
 	if [[ ! -f /etc/wireguard/key ]]; then
 		PRIVATE_KEY=$(wg genkey)
 		PUBLIC_KEY=$(echo "${PRIVATE_KEY}" | wg pubkey)
@@ -167,6 +160,7 @@ PUBLIC_KEY=${PUBLIC_KEY}" > /etc/wireguard/key
 		source /etc/wireguard/key
 	fi
 
+	IPS=$(cat /etc/wireguard/ips)
 	CLIENT_BLOCK_ANTIZAPRET=$(sed -n "/^# Client = ${CLIENT_NAME}\$/,/^AllowedIPs/ {p; /^AllowedIPs/q}" /etc/wireguard/antizapret.conf)
 	CLIENT_BLOCK_VPN=$(sed -n "/^# Client = ${CLIENT_NAME}\$/,/^AllowedIPs/ {p; /^AllowedIPs/q}" /etc/wireguard/vpn.conf)
 
@@ -260,6 +254,7 @@ AllowedIPs = ${CLIENT_IP}/32
 		wg syncconf vpn <(wg-quick strip vpn 2>/dev/null)
 	fi
 
+	echo ""
 	echo "WireGuard/AmneziaWG profile files for the client '$CLIENT_NAME' has been (re)created at '/root/antizapret/client/wireguard' and '/root/antizapret/client/amneziawg'"
 }
 
@@ -290,6 +285,7 @@ deleteWireGuard_AmneziaWG(){
 		wg syncconf vpn <(wg-quick strip vpn 2>/dev/null)
 	fi
 
+	echo ""
 	echo "WireGuard/AmneziaWG client '$CLIENT_NAME' successfull deleted"
 }
 
@@ -301,8 +297,10 @@ listWireGuard_AmneziaWG(){
 }
 
 recreate(){
+	echo ""
+
 	# OpenVPN
-	if [[ -f /etc/openvpn/easyrsa3/pki/index.txt ]]; then
+	if [[ -d "/etc/openvpn/easyrsa3/pki/issued" ]]; then
 		ls /etc/openvpn/easyrsa3/pki/issued | sed 's/\.crt$//' | grep -v "^antizapret-server$" | sort | while read -r CLIENT_NAME; do
 			if [[ "$CLIENT_NAME" =~ ^[a-zA-Z0-9_-]{1,32}$ ]]; then
 				addOpenVPN >/dev/null
@@ -316,9 +314,13 @@ recreate(){
 		CLIENT_CERT_EXPIRE=3650
 		addOpenVPN >/dev/null
 	fi
+	
+	if [[ ! -d "/etc/openvpn/server/keys" ]]; then
+		initEasyRSA
+	fi
 
 	# WireGuard/AmneziaWG
-	if [[ -f /etc/wireguard/antizapret.conf && -f /etc/wireguard/vpn.conf ]]; then
+	if [[ -f /etc/wireguard/key && -f /etc/wireguard/antizapret.conf && -f /etc/wireguard/vpn.conf ]]; then
 		cat /etc/wireguard/antizapret.conf /etc/wireguard/vpn.conf | grep -E "^# Client" | cut -d '=' -f 2 | sed 's/ //g' | sort -u | while read -r CLIENT_NAME; do
 			if [[ "$CLIENT_NAME" =~ ^[a-zA-Z0-9_-]{1,32}$ ]]; then
 				addWireGuard_AmneziaWG >/dev/null
@@ -333,21 +335,35 @@ recreate(){
 	fi
 }
 
+backup(){
+	rm -rf /root/antizapret/backup
+	mkdir -p /root/antizapret/backup/wireguard
+	cp -r /etc/openvpn/easyrsa3 /root/antizapret/backup
+	cp -r /etc/wireguard/antizapret.conf /root/antizapret/backup/wireguard
+	cp -r /etc/wireguard/vpn.conf /root/antizapret/backup/wireguard
+	cp -r /etc/wireguard/key /root/antizapret/backup/wireguard
+	tar -czf /root/antizapret/backup.tar.gz -C /root/antizapret/backup easyrsa3 wireguard
+	tar -tzf /root/antizapret/backup.tar.gz > /dev/null
+	rm -rf /root/antizapret/backup
+	echo ""
+	echo "Created clients backup: /root/antizapret/backup.tar.gz"
+}
+
 OPTION=$1
-if ! [[ "$OPTION" =~ ^[1-7]$ ]]; then
+if ! [[ "$OPTION" =~ ^[1-8]$ ]]; then
 	echo ""
 	echo "Please choose an option:"
-	echo "	1) OpenVPN - Add client"
-	echo "	2) OpenVPN - Delete client"
-	echo "	3) OpenVPN - List clients"
-	echo "	4) WireGuard/AmneziaWG - Add client"
-	echo "	5) WireGuard/AmneziaWG - Delete client"
-	echo "	6) WireGuard/AmneziaWG - List clients"
-	echo "	7) (Re)create client profile files"
-	until [[ "$OPTION" =~ ^[1-7]$ ]]; do
-		read -rp "Option choice [1-7]: " -e OPTION
+	echo "    1) OpenVPN - Add client"
+	echo "    2) OpenVPN - Delete client"
+	echo "    3) OpenVPN - List clients"
+	echo "    4) WireGuard/AmneziaWG - Add client"
+	echo "    5) WireGuard/AmneziaWG - Delete client"
+	echo "    6) WireGuard/AmneziaWG - List clients"
+	echo "    7) (Re)create clients profile files"
+	echo "    8) Create clients backup"
+	until [[ "$OPTION" =~ ^[1-8]$ ]]; do
+		read -rp "Option choice [1-8]: " -e OPTION
 	done
-	echo ""
 fi
 
 CLIENT_NAME=$2
@@ -389,8 +405,12 @@ case "$OPTION" in
 		listWireGuard_AmneziaWG
 		;;
 	7)
-		echo "(Re)create client profile files"
+		echo "(Re)create clients profile files"
 		getServerIP
 		recreate
+		;;
+	8)
+		echo "Create clients backup"
+		backup
 		;;
 esac
