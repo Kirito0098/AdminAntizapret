@@ -99,7 +99,7 @@ def is_authenticated():
     return 'username' in session
 
 # Главная страница
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
     if 'username' not in session:
         return redirect(url_for('login'))
