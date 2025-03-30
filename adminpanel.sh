@@ -332,7 +332,58 @@ uninstall() {
   esac
 }
 
-# Главное меню
+add_user() {
+  printf "%s\n" "${GREEN}"
+  printf "┌────────────────────────────────────────────┐\n"
+  printf "│          Добавление нового пользователя    │\n"
+  printf "└────────────────────────────────────────────┘\n"
+  printf "%s\n" "${NC}"
+
+  # Запрос имени пользователя
+  while :; do
+    printf "Введите имя пользователя: "
+    read username
+    [ -z "$username" ] && printf "%s\n" "${RED}Имя пользователя не может быть пустым!${NC}" || break
+  done
+
+  # Проверка существования пользователя
+  if "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --check-user "$username"; then
+    printf "%s\n" "${RED}Пользователь '$username' уже существует!${NC}"
+    press_any_key
+    return 1
+  fi
+
+  # Запрос пароля
+  while :; do
+    stty -echo
+    printf "Введите пароль: "
+    read password
+    stty echo
+    printf "\n"
+    [ -z "$password" ] && printf "%s\n" "${RED}Пароль не может быть пустым!${NC}" || break
+  done
+
+  # Подтверждение пароля
+  while :; do
+    stty -echo
+    printf "Повторите пароль: "
+    read password_confirm
+    stty echo
+    printf "\n"
+    [ "$password" != "$password_confirm" ] && printf "%s\n" "${RED}Пароли не совпадают!${NC}" || break
+  done
+
+  # Добавление пользователя
+  if "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --add-user "$username" "$password"; then
+    printf "%s\n" "${GREEN}Пользователь '$username' успешно добавлен!${NC}"
+  else
+    printf "%s\n" "${RED}Ошибка при добавлении пользователя!${NC}"
+  fi
+
+  press_any_key
+}
+
+# Обновленное главное меню
 main_menu() {
   while true; do
     clear
@@ -347,12 +398,13 @@ main_menu() {
     printf "│ 5. Протестировать работу                   │\n"
     printf "│ 6. Создать резервную копию                 │\n"
     printf "│ 7. Восстановить из резервной копии         │\n"
-    printf "│ 8. Удалить AdminAntizapret                 │\n"
+    printf "│ 8. Добавить пользователя                   │\n"
+    printf "│ 9. Удалить AdminAntizapret                 │\n"
     printf "│ 0. Выход                                   │\n"
     printf "└────────────────────────────────────────────┘\n"
     printf "%s\n" "${NC}"
     
-    printf "Выберите действие [0-8]: "
+    printf "Выберите действие [0-9]: "
     read choice
     case $choice in
       1) restart_service;;
@@ -362,7 +414,8 @@ main_menu() {
       5) test_installation;;
       6) create_backup;;
       7) restore_backup;;
-      8) uninstall;;
+      8) add_user;;
+      9) uninstall;;
       0) exit 0;;
       *) printf "%s\n" "${RED}Неверный выбор!${NC}"; sleep 1;;
     esac
