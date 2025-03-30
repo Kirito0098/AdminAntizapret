@@ -4,6 +4,8 @@ import os
 from werkzeug.utils import secure_filename
 from flask import abort
 import shlex
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 
@@ -15,13 +17,25 @@ config_dir_wg_2 = '/root/antizapret/client/wireguard/vpn'
 config_dir_amneziawg_1 = '/root/antizapret/client/amneziawg/antizapret'
 config_dir_amneziawg_2 = '/root/antizapret/client/amneziawg/vpn'
 
+# Настройка БД
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
 # Секретный ключ для сессий
 app.secret_key = os.urandom(24)
 
 # Список пользователей
-users = {
-    'admin': 'password'
-}
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(120), nullable=False)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 # Запуск Bash-скрипта с передачей параметров
 def run_bash_script(option, client_name, cert_expire=None):
@@ -85,9 +99,9 @@ def is_authenticated():
     return 'username' in session
 
 # Главная страница
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 def index():
-    if not is_authenticated():
+    if 'username' not in session:
         return redirect(url_for('login'))
     
     # Получаем все три списка файлов
@@ -128,11 +142,14 @@ def login():
         username = request.form['username']
         password = request.form['password']
         
-        if users.get(username) == password:
-            session['username'] = username
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            session['username'] = user.username
             return redirect(url_for('index'))
-        else:
-            return 'Неверные данные для входа!', 401
+        
+        flash('Неверные учетные данные')
+        return redirect(url_for('login'))
     
     return render_template('login.html')
 
