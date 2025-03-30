@@ -297,34 +297,39 @@ restore_backup() {
 
 # Удаление сервиса
 uninstall() {
-  echo "${YELLOW}Подготовка к удалению AdminAntizapret...${NC}"
-  echo "${RED}ВНИМАНИЕ! Это действие необратимо!${NC}"
+  printf "%s\n" "${YELLOW}Подготовка к удалению AdminAntizapret...${NC}"
+  printf "%s\n" "${RED}ВНИМАНИЕ! Это действие необратимо!${NC}"
   
-  read -p "Вы уверены, что хотите удалить AdminAntizapret? (y/n) " -r
-  if [ "$REPLY" != "y" ] && [ "$REPLY" != "Y" ]; then
-    echo "${GREEN}Удаление отменено.${NC}"
-    press_any_key
-    return
-  fi
+  printf "Вы уверены, что хотите удалить AdminAntizapret? (y/n) "
+  read answer
   
-  # Создать резервную копию перед удалением
-  create_backup
-  
-  # Остановка и удаление сервиса
-  echo "${YELLOW}Остановка сервиса...${NC}"
-  systemctl stop $SERVICE_NAME
-  systemctl disable $SERVICE_NAME
-  rm -f "/etc/systemd/system/$SERVICE_NAME.service"
-  systemctl daemon-reload
-  
-  # Удаление файлов
-  echo "${YELLOW}Удаление файлов...${NC}"
-  rm -rf "$INSTALL_DIR"
-  
-  echo "${GREEN}Удаление завершено успешно!${NC}"
-  echo "Резервная копия сохранена в /var/backups/antizapret"
-  press_any_key
-  exit 0
+  case "$answer" in
+    [Yy]*)
+      # Создать резервную копию перед удалением
+      create_backup
+      
+      # Остановка и удаление сервиса
+      printf "%s\n" "${YELLOW}Остановка сервиса...${NC}"
+      systemctl stop $SERVICE_NAME
+      systemctl disable $SERVICE_NAME
+      rm -f "/etc/systemd/system/$SERVICE_NAME.service"
+      systemctl daemon-reload
+      
+      # Удаление файлов
+      printf "%s\n" "${YELLOW}Удаление файлов...${NC}"
+      rm -rf "$INSTALL_DIR"
+      
+      printf "%s\n" "${GREEN}Удаление завершено успешно!${NC}"
+      printf "Резервная копия сохранена в /var/backups/antizapret\n"
+      press_any_key
+      exit 0
+      ;;
+    *)
+      printf "%s\n" "${GREEN}Удаление отменено.${NC}"
+      press_any_key
+      return
+      ;;
+  esac
 }
 
 # Главное меню
