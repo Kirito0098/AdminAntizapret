@@ -49,12 +49,11 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-ALLOWED_OPTIONS = {'1', '2', '3'}  # Пример значений 
 
 # Запуск Bash-скрипта с передачей параметров
 def run_bash_script(option, client_name, cert_expire=None):
     # Валидация option
-    if option not in ALLOWED_OPTIONS:
+    if not option.isdigit():
         raise ValueError("Недопустимый параметр option")
 
     # Экранирование всех параметров
