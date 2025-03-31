@@ -24,3 +24,31 @@ const showHiddenPass = (loginPass, loginEye) =>{
 }
 
 showHiddenPass('login-pass','login-eye')
+
+document.addEventListener('DOMContentLoaded', function () {
+    const notification = document.getElementById('notification');
+    const flashContainer = document.getElementById('flash-container'); // Контейнер для flash-сообщений
+
+    // Функция для отображения уведомлений
+    function showNotification(message, type = 'info') {
+        notification.textContent = message;
+        notification.className = `notification notification-${type}`;
+        notification.style.display = 'block';
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 3000);
+    }
+
+    // Проверяем наличие сообщений flash
+    const flashMessages = JSON.parse(document.getElementById('flash-messages').textContent || '[]');
+    flashMessages.forEach(([category, message]) => {
+        showNotification(message, category);
+    });
+
+    // Автоматическое скрытие flash-сообщений
+    if (flashContainer) {
+        setTimeout(() => {
+            flashContainer.style.display = 'none';
+        }, 3000); // Скрыть через 3 секунды
+    }
+});

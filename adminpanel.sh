@@ -181,7 +181,7 @@ EOL
   systemctl start "$SERVICE_NAME"
   check_error "Не удалось запустить сервис"
 
-  # Проверка установки
+  # Проверка установки AntiZapret-VPN
   echo "${YELLOW}Проверка установки AntiZapret-VPN...${NC}"
   sleep 3
   if systemctl is-active --quiet "$SERVICE_NAME"; then
@@ -199,6 +199,15 @@ EOL
     echo "${RED}Ошибка при запуске сервиса!${NC}"
     journalctl -u "$SERVICE_NAME" -n 10 --no-pager
     exit 1
+  fi
+
+  # Установка прав выполнения для client.sh и doall.sh
+  echo "${YELLOW}Установка прав выполнения для client.sh и doall.sh...${NC}"
+  chmod +x "$ANTIZAPRET_INSTALL_DIR/client.sh" "/root/antizapret/doall.sh"
+  if [ $? -eq 0 ]; then
+    echo "${GREEN}Права выполнения успешно установлены!${NC}"
+  else
+    echo "${RED}Ошибка при установке прав выполнения!${NC}"
   fi
 
   # Проверка и установка AntiZapret-VPN
@@ -374,6 +383,53 @@ uninstall() {
   esac
 }
 
+# Добавление администратора
+add_admin() {
+  echo "${YELLOW}Добавление нового администратора...${NC}"
+  
+  read -p "Введите логин администратора: " username
+  while true; do
+    read -s -p "Введите пароль: " password
+    echo
+    read -s -p "Повторите пароль: " password_confirm
+    echo
+    if [ "$password" != "$password_confirm" ]; then
+      echo "${RED}Пароли не совпадают! Попробуйте снова.${NC}"
+    else
+      break
+    fi
+  done
+
+  "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --add-user "$username" "$password"
+  check_error "Не удалось добавить администратора"
+  press_any_key
+}
+
+# Проверка и установка прав выполнения для файлов
+check_and_set_permissions() {
+  echo "${YELLOW}Проверка и установка прав выполнения для client.sh и doall.sh...${NC}"
+  
+  files=("$INSTALL_DIR/client.sh" "$ANTIZAPRET_INSTALL_DIR/doall.sh")
+  for file in "${files[@]}"; do
+    if [ -f "$file" ]; then
+      if [ ! -x "$file" ]; then
+        chmod +x "$file"
+        if [ $? -eq 0 ]; then
+          echo "${GREEN}Права выполнения установлены для $file${NC}"
+        else
+          echo "${RED}Ошибка при установке прав выполнения для $file!${NC}"
+        fi
+      else
+        echo "${GREEN}Права выполнения уже установлены для $file${NC}"
+      fi
+    else
+      echo "${RED}Файл $file не найден!${NC}"
+    fi
+  done
+  
+  press_any_key
+}
+
 # Главное меню
 main_menu() {
   while true; do
@@ -382,29 +438,33 @@ main_menu() {
     printf "┌────────────────────────────────────────────┐\n"
     printf "│          Меню управления AdminAntizapret   │\n"
     printf "├────────────────────────────────────────────┤\n"
-    printf "│ 1. Перезапустить сервис                    │\n"
-    printf "│ 2. Проверить статус сервиса                │\n"
-    printf "│ 3. Просмотреть логи                        │\n"
-    printf "│ 4. Проверить обновления                    │\n"
-    printf "│ 5. Протестировать работу                   │\n"
-    printf "│ 6. Создать резервную копию                 │\n"
-    printf "│ 7. Восстановить из резервной копии         │\n"
-    printf "│ 8. Удалить AdminAntizapret                 │\n"
+    printf "│ 1. Добавить администратора                 │\n"
+    printf "│ 2. Перезапустить сервис                    │\n"
+    printf "│ 3. Проверить статус сервиса                │\n"
+    printf "│ 4. Просмотреть логи                        │\n"
+    printf "│ 5. Проверить обновления                    │\n"
+    printf "│ 6. Протестировать работу                   │\n"
+    printf "│ 7. Создать резервную копию                 │\n"
+    printf "│ 8. Восстановить из резервной копии         │\n"
+    printf "│ 9. Удалить AdminAntizapret                 │\n"
+    printf "│ 10. Проверить и установить права           │\n"
     printf "│ 0. Выход                                   │\n"
     printf "└────────────────────────────────────────────┘\n"
     printf "%s\n" "${NC}"
     
-    printf "Выберите действие [0-8]: "
+    printf "Выберите действие [0-10]: "
     read choice
     case $choice in
-      1) restart_service;;
-      2) check_status;;
-      3) show_logs;;
-      4) check_updates;;
-      5) test_installation;;
-      6) create_backup;;
-      7) restore_backup;;
-      8) uninstall;;
+      1) add_admin;;
+      2) restart_service;;
+      3) check_status;;
+      4) show_logs;;
+      5) check_updates;;
+      6) test_installation;;
+      7) create_backup;;
+      8) restore_backup;;
+      9) uninstall;;
+      10) check_and_set_permissions;;
       0) exit 0;;
       *) printf "%s\n" "${RED}Неверный выбор!${NC}"; sleep 1;;
     esac

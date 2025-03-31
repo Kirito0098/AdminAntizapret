@@ -13,8 +13,28 @@
     <title>AdminVPN Claymore</title>
 </head>
 <body>
+    <div id="notification" class="notification" style="display: none;"></div>
     <div class="login">
         <img src="{{ url_for('static', filename='assets/img/login-bg.png') }}" alt="login image" class="login__img">
+
+        <script id="flash-messages" type="application/json">
+            {{ get_flashed_messages(with_categories=True) | tojson }}
+        </script>
+
+        <div id="notification" class="notification" style="display: none;"></div>
+
+        <!-- Удален блок flash-messages -->
+        <!--
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div id="flash-container" class="flash-messages">
+            {% for message in messages %}
+            <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        -->
 
         <form action="{{ url_for('login') }}" method="POST" class="login__form">
          <h1 class="login__title">Login</h1>

@@ -65,7 +65,8 @@ if __name__ == "__main__":
         
         if args.add_user:
             username, password = args.add_user
-            add_user(username, password)
+            if not add_user(username, password):
+                sys.exit(1)
         elif args.check_user:
             exists = check_user(args.check_user)
             sys.exit(0 if exists else 1)

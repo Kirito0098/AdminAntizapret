@@ -32,6 +32,11 @@ button {
 
 body {
   color: var(--white-color);
+  background-image: url('{{ url_for("static", filename="assets/img/login-bg.png") }}'); /* Убедитесь, что путь корректен */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 input,
@@ -51,27 +56,36 @@ img {
 
 /*=============== LOGIN ===============*/
 .login {
-  position: relative;
-  height: 100vh;
+  position: relative; /* Изменено с absolute на relative */
   display: grid;
   align-items: center;
+  justify-content: center;
+  height: 100vh; /* Занимает всю высоту экрана */
+  width: 100%; /* Занимает всю ширину экрана */
 }
+
 .login__img {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center;
+  z-index: -1; /* Перемещаем изображение на задний план */
 }
+
 .login__form {
   position: relative;
-  background-color: hsla(0, 0%, 10%, 0.1);
+  background-color: hsla(0, 0%, 10%, 0.7); /* Увеличена прозрачность */
   border: 2px solid var(--white-color);
   margin-inline: 1.5rem;
   padding: 2.5rem 1.5rem;
   border-radius: 1rem;
   backdrop-filter: blur(8px);
+  z-index: 1; /* Устанавливаем форму поверх фона */
 }
+
 .login__title {
   text-align: center;
   font-size: var(--h1-font-size);
@@ -159,6 +173,48 @@ img {
 .login__input:not(:placeholder-shown).login__input:not(:focus) + .login__label {
   top: -12px;
   font-size: var(--small-font-size);
+}
+
+/*=============== NOTIFICATIONS ===============*/
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    font-family: "Poppins", sans-serif;
+    font-size: 1rem;
+    color: #fff;
+    z-index: 2000;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    animation: fadeInOut 3s ease-in-out;
+}
+
+.notification-info {
+    background-color: #2196F3; /* Синий цвет для информационных сообщений */
+}
+
+.notification-success {
+    background-color: #4CAF50;
+}
+
+.notification-error {
+    background-color: #f44336;
+}
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    10%, 90% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
 }
 
 /*=============== BREAKPOINTS ===============*/

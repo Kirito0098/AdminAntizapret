@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles_index.css') }}">
+    <title>Редактирование файлов АнтиЗапрета</title>
+</head>
+<body>
+    <nav class="navigation">
+        <a href="{{ url_for('index') }}" class="nav-link">Главная</a>
+        <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
+        <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>
+    </nav>
+    <h1>Редактирование файлов АнтиЗапрета</h1>
+    <div id="loading-overlay" style="display: none;">
+        <div class="loading-modal">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Пожалуйста, подождите... Выполняется сохранение изменений.</p>
+        </div>
+    </div>
+    <div id="notification" class="notification" style="display: none;"></div>
+    <div class="form-container">
+        {% for file_type, content in file_contents.items() %}
+        <div class="file-section">
+            <button class="file-toggle" data-target="{{ file_type }}">
+                {% if file_type == "include_hosts" %}
+                    Добавить свои сайты в список АнтиЗапрета
+                {% elif file_type == "exclude_hosts" %}
+                    Исключить свои сайты из списка АнтиЗапрета
+                {% elif file_type == "include_ips" %}
+                    Добавить свои IP-адреса в список АнтиЗапрета
+                {% else %}
+                    {{ file_type.replace('_', ' ').capitalize() }}
+                {% endif %}
+            </button>
+            <form method="post" action="/edit-files" class="file-edit-form" id="{{ file_type }}" style="display: none;">
+                <input type="hidden" name="file_type" value="{{ file_type }}">
+                <textarea name="content" rows="10">{{ content }}</textarea>
+                <button type="submit">Сохранить</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="form-container">
+        <button id="run-doall">Обновить список АнтиЗапрета</button>
+    </div>
+    <script>
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const notification = document.getElementById('notification');
+
+        function showNotification(message, type = 'success') {
+            notification.textContent = message;
+            notification.className = `notification notification-${type}`;
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        document.getElementById('run-doall').addEventListener('click', function() {
+            loadingOverlay.style.display = 'flex'; // Показываем уведомление
+            fetch('/run-doall', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    loadingOverlay.style.display = 'none'; // Скрываем уведомление
+                    showNotification(data.message, data.success ? 'success' : 'error');
+                    if (data.output) console.log(data.output);
+                })
+                .catch(error => {
+                    loadingOverlay.style.display = 'none'; // Скрываем уведомление
+                    showNotification('Ошибка выполнения запроса.', 'error');
+                    console.error('Ошибка:', error);
+                });
+        });
+
+        document.querySelectorAll('.file-toggle').forEach(button => {
+            button.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const form = document.getElementById(targetId);
+                if (form.style.display === 'none') {
+                    form.style.display = 'block';
+                } else {
+                    form.style.display = 'none';
+                }
+            });
+        });
+
+        document.querySelectorAll('.file-edit-form').forEach(form => {
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+                loadingOverlay.style.display = 'flex'; // Показываем уведомление
+                const formData = new FormData(form);
+                fetch('/edit-files', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loadingOverlay.style.display = 'none'; // Скрываем уведомление
+                    showNotification(data.message, data.success ? 'success' : 'error');
+                })
+                .catch(error => {
+                    loadingOverlay.style.display = 'none'; // Скрываем уведомление
+                    showNotification('Ошибка выполнения запроса.', 'error');
+                    console.error('Ошибка:', error);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

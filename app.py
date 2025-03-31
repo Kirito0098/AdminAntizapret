@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, make_response, jsonify, flash
 import subprocess
 import os
 from werkzeug.utils import secure_filename
@@ -6,6 +6,7 @@ from flask import abort
 import shlex
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -57,9 +58,12 @@ def run_bash_script(option, client_name, cert_expire=None):
         command,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        shell=False  
+        text=True,
+        shell=False  # shell=False для безопасности
     )
-    return result.stdout.decode(), result.stderr.decode()
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, command, output=result.stdout, stderr=result.stderr)
+    return result.stdout, result.stderr
 
 # Получение списка конфигурационных файлов
 def get_config_files():
@@ -93,47 +97,54 @@ def get_config_files():
     
     return openvpn_files, wg_files, amneziawg_files
 
-
 # Проверка авторизации
 def is_authenticated():
     return 'username' in session
 
+# Декоратор для проверки авторизации
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'username' not in session:
+            flash('Пожалуйста, войдите в систему для доступа к этой странице. Если у вас нет учетной записи, обратитесь к администратору.', 'info')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # Главная страница
 @app.route('/', methods=['GET', 'POST'])
+@login_required
 def index():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    # Получаем все три списка файлов
-    openvpn_files, wg_files, amneziawg_files = get_config_files()
+    if request.method == 'GET':
+        # Отображение главной страницы
+        openvpn_files, wg_files, amneziawg_files = get_config_files()
+        return render_template('index.html', 
+                               openvpn_files=openvpn_files, 
+                               wg_files=wg_files, 
+                               amneziawg_files=amneziawg_files)
 
     if request.method == 'POST':
-        option = request.form.get('option')
-        client_name = request.form.get('client-name')
-        cert_expire = request.form.get('work-term')
+        try:
+            option = request.form.get('option')
+            client_name = request.form.get('client-name', '').strip()
+            cert_expire = request.form.get('work-term', '').strip()
 
-        if option in ['1', '2', '4', '5', '6']:  # Добавлена опция '6' для AmneziaWG
+            # Проверка обязательных параметров
+            if not option or not client_name:
+                return jsonify({"success": False, "message": "Не указаны обязательные параметры."}), 400
+
+            # Выполнение логики
             stdout, stderr = run_bash_script(option, client_name, cert_expire)
-            
-            # Обновляем списки файлов после выполнения скрипта
-            openvpn_files, wg_files, amneziawg_files = get_config_files()
+            return jsonify({"success": True, "message": "Операция выполнена успешно.", "output": stdout})
+        except subprocess.CalledProcessError as e:
+            return jsonify({"success": False, "message": f"Ошибка выполнения скрипта: {e.stderr}", "output": e.stdout}), 500
+        except Exception as e:
+            return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
-            response = make_response(render_template('index.html', 
-                stdout=stdout, 
-                stderr=stderr, 
-                openvpn_files=openvpn_files, 
-                wg_files=wg_files,
-                amneziawg_files=amneziawg_files,
-                option=option))
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            response.headers['Pragma'] = 'no-cache'
-            response.headers['Expires'] = '0'
-            return response
-    
-    return render_template('index.html', 
-        openvpn_files=openvpn_files, 
-        wg_files=wg_files,
-        amneziawg_files=amneziawg_files)
+@app.route('/home')
+@login_required
+def home():
+    return render_template('index.html')
 
 # Страница логина
 @app.route('/login', methods=['GET', 'POST'])
@@ -148,7 +159,7 @@ def login():
             session['username'] = user.username
             return redirect(url_for('index'))
         
-        flash('Неверные учетные данные')
+        flash('Неверные учетные данные. Попробуйте снова.', 'error')  # Добавлено 'error'
         return redirect(url_for('login'))
     
     return render_template('login.html')
@@ -161,6 +172,7 @@ def logout():
 
 # Роут для скачивания конфигурационных файлов
 @app.route('/download/<file_type>/<filename>')
+@login_required
 def download(file_type, filename):
     # Проверка и очистка имени файла
     safe_filename = secure_filename(filename)
@@ -212,6 +224,75 @@ def download(file_type, filename):
         )
     abort(404, description="Файл не найден")
         
+@app.route('/edit-files', methods=['GET', 'POST'])
+@login_required
+def edit_files():
+    files = {
+        "include_hosts": "/root/antizapret/config/include-hosts.txt",
+        "exclude_hosts": "/root/antizapret/config/exclude-hosts.txt",
+        "include_ips": "/root/antizapret/config/include-ips.txt"
+    }
+
+    if request.method == 'POST':
+        file_type = request.form.get('file_type')
+        content = request.form.get('content', '')
+
+        if file_type in files:
+            try:
+                # Сохраняем изменения в файл
+                with open(files[file_type], 'w', encoding='utf-8') as f:
+                    f.write(content)
+                
+                # Перезапуск скрипта для применения изменений
+                result = subprocess.run(
+                    ['/root/antizapret/doall.sh'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=True
+                )
+                return jsonify({"success": True, "message": "Файл успешно обновлен и изменения применены.", "output": result.stdout})
+            except subprocess.CalledProcessError as e:
+                return jsonify({
+                    "success": False,
+                    "message": f"Ошибка выполнения скрипта: {e.stderr}",
+                    "output": e.stdout
+                }), 500
+            except Exception as e:
+                return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
+
+        return jsonify({"success": False, "message": "Неверный тип файла."}), 400
+
+    file_contents = {}
+    for key, path in files.items():
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                file_contents[key] = f.read()
+        except FileNotFoundError:
+            file_contents[key] = ""
+
+    return render_template('edit_files.html', file_contents=file_contents)
+
+@app.route('/run-doall', methods=['POST'])
+@login_required
+def run_doall():
+    try:
+        result = subprocess.run(
+            ['/root/antizapret/doall.sh'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
+        return jsonify({"success": True, "message": "Скрипт успешно выполнен.", "output": result.stdout})
+    except subprocess.CalledProcessError as e:
+        return jsonify({
+            "success": False,
+            "message": f"Ошибка выполнения скрипта: {e.stderr}",
+            "output": e.stdout
+        }), 500
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5050)

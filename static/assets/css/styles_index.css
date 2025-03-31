@@ -119,14 +119,21 @@ h1 {
 
 table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
     table-layout: auto; /* Автоматический расчет ширины */
+    text-align: center; /* Выравнивание текста по центру */
 }
 
 th, td {
+    border: 1px solid hsl(0, 0%, 80%); /* Цвет обводки */
     padding: 0.75rem;
-    text-align: left;
+    text-align: center; /* Выравнивание текста по центру */
+    vertical-align: middle; /* Выравнивание содержимого по вертикали */
     word-break: break-word; /* Перенос длинных слов */
+}
+
+td {
+    border: 1px solid hsl(0, 0%, 80%);
 }
 
 th {
@@ -303,4 +310,226 @@ th {
       padding: 0.4rem 0.8rem;
       font-size: 0.8rem;
   }
+}
+
+/*=============== NAVIGATION STYLES ===============*/
+.navigation {
+    background-color: hsla(0, 0%, 10%, 0.8);
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    border-bottom: 2px solid #4CAF50;
+}
+
+.nav-link {
+    color: hsl(0, 0%, 100%);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 1rem;
+    transition: color 0.3s;
+}
+
+.nav-link:hover {
+    color: #4CAF50;
+}
+
+/*=============== FILE EDIT FORM ===============*/
+/* Обновленный стиль для textarea */
+.file-edit-form textarea {
+    width: 100%; /* Занимает 100% ширины экрана */
+    margin: 1rem auto; /* Центрирование */
+    display: block; /* Блоковый элемент */
+    padding: 0.8rem;
+    background: hsla(0, 0%, 20%, 0.7);
+    border: 1px solid hsl(0, 0%, 50%);
+    border-radius: 0.5rem;
+    color: hsl(0, 0%, 90%);
+    font-family: "Poppins", sans-serif;
+    font-size: 1rem;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+}
+
+.file-edit-form textarea:focus {
+    border-color: hsl(0, 0%, 70%);
+    box-shadow: 0 0 0 2px hsla(0, 0%, 70%, 0.3);
+    outline: none;
+}
+
+/* Обновленный стиль для кнопки file-toggle */
+.file-toggle {
+    width: 100%; /* Занимает 100% ширины экрана */
+    margin: 1rem auto; /* Центрирование */
+    display: block; /* Блоковый элемент */
+    padding: 0.8rem;
+    background: hsla(0, 0%, 20%, 0.7);
+    border: 1px solid hsl(0, 0%, 50%);
+    border-radius: 0.5rem;
+    color: hsl(0, 0%, 90%);
+    font-family: "Poppins", sans-serif;
+    font-size: 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.file-toggle:hover {
+    background: hsla(0, 0%, 30%, 0.7);
+    border-color: hsl(0, 0%, 70%);
+}
+
+/*=============== LOADING OVERLAY ===============*/
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.loading-message {
+    color: white;
+    font-size: 1.5rem;
+    font-family: "Poppins", sans-serif;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 1rem 2rem;
+    border-radius: 0.5rem;
+    border: 2px solid #4CAF50;
+}
+
+/* Стили для модального уведомления */
+.loading-modal {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    border: 2px solid #4CAF50;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(0, 0, 0, 0.1);
+    border-top: 5px solid #4CAF50;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+.loading-text {
+    font-family: "Poppins", sans-serif;
+    font-size: 1.2rem;
+    color: #333;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/*=============== FLASH MESSAGES ===============*/
+.flash-messages {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background-color: rgba(255, 0, 0, 0.1);
+    border: 1px solid rgba(255, 0, 0, 0.5);
+    border-radius: 0.5rem;
+    color: red;
+    font-family: "Poppins", sans-serif;
+    font-size: 1rem;
+}
+
+.flash-message {
+    margin-bottom: 0.5rem;
+}
+
+/* Стили для уведомлений */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    font-family: "Poppins", sans-serif;
+    font-size: 1rem;
+    color: #fff;
+    z-index: 2000;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    animation: fadeInOut 3s ease-in-out;
+}
+
+.notification-success {
+    background-color: #4CAF50;
+}
+
+.notification-error {
+    background-color: #f44336;
+}
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    10%, 90% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+/* Стили для ненавязчивого индикатора загрузки */
+#loading-indicator {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 0.8rem 1.2rem;
+    border-radius: 0.5rem;
+    font-family: "Poppins", sans-serif;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#loading-indicator .loading-indicator-text {
+    margin: 0;
+}
+
+#loading-indicator::before {
+    content: '';
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid #4CAF50;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
 }
