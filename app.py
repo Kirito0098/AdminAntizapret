@@ -11,12 +11,23 @@ from functools import wraps
 app = Flask(__name__)
 
 # Путь к директориям с конфигурациями
-config_dir_openvpn_1 = '/root/antizapret/client/openvpn/antizapret'
-config_dir_openvpn_2 = '/root/antizapret/client/openvpn/vpn'
-config_dir_wg_1 = '/root/antizapret/client/wireguard/antizapret'
-config_dir_wg_2 = '/root/antizapret/client/wireguard/vpn'
-config_dir_amneziawg_1 = '/root/antizapret/client/amneziawg/antizapret'
-config_dir_amneziawg_2 = '/root/antizapret/client/amneziawg/vpn'
+CONFIG_PATHS = {
+    "openvpn": [
+        '/root/antizapret/client/openvpn/antizapret',
+        '/root/antizapret/client/openvpn/vpn'
+    ],
+    "wg": [
+        '/root/antizapret/client/wireguard/antizapret',
+        '/root/antizapret/client/wireguard/vpn'
+    ],
+    "amneziawg": [
+        '/root/antizapret/client/amneziawg/antizapret',
+        '/root/antizapret/client/amneziawg/vpn'
+    ]
+}
+
+MIN_CERT_EXPIRE = 1
+MAX_CERT_EXPIRE = 365
 
 # Настройка БД
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -38,18 +49,20 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+ALLOWED_OPTIONS = {'1', '2', '3'}  # Пример значений 
+
 # Запуск Bash-скрипта с передачей параметров
 def run_bash_script(option, client_name, cert_expire=None):
-    # Валидация option (только цифры)
-    if not option.isdigit():
-        raise ValueError("Некорректный параметр option")
-    
+    # Валидация option
+    if option not in ALLOWED_OPTIONS:
+        raise ValueError("Недопустимый параметр option")
+
     # Экранирование всех параметров
     safe_client_name = shlex.quote(client_name)
     command = ['./client.sh', option, safe_client_name]
     
     if cert_expire:
-        if not cert_expire.isdigit() or not (1 <= int(cert_expire) <= 365):
+        if not cert_expire.isdigit() or not (MIN_CERT_EXPIRE <= int(cert_expire) <= MAX_CERT_EXPIRE):
             raise ValueError("Некорректный срок действия сертификата")
         command.append(cert_expire)
     
@@ -59,43 +72,29 @@ def run_bash_script(option, client_name, cert_expire=None):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        shell=False  # shell=False для безопасности
+        shell=False
     )
     if result.returncode != 0:
         raise subprocess.CalledProcessError(result.returncode, command, output=result.stdout, stderr=result.stderr)
     return result.stdout, result.stderr
 
 # Получение списка конфигурационных файлов
+def find_config_files(dirs, extensions):
+    found_files = []
+    for directory in dirs:
+        if os.path.exists(directory):
+            for root, _, files in os.walk(directory):
+                for file in files:
+                    if any(file.endswith(ext) for ext in extensions):
+                        found_files.append(os.path.join(root, file))
+    return found_files
+
 def get_config_files():
-    openvpn_files = []
-    wg_files = []
-    amneziawg_files = []
-    
-    # Поиск файлов OpenVPN
-    for directory in [config_dir_openvpn_1, config_dir_openvpn_2]:
-        if os.path.exists(directory):
-            for root, dirs, files in os.walk(directory):
-                for file in files:
-                    if file.endswith('.ovpn'):
-                        openvpn_files.append(os.path.join(root, file))
-    
-    # Поиск файлов WireGuard
-    for directory in [config_dir_wg_1, config_dir_wg_2]:
-        if os.path.exists(directory):
-            for root, dirs, files in os.walk(directory):
-                for file in files:
-                    if file.endswith('.conf'):
-                        wg_files.append(os.path.join(root, file))
-    
-    # Поиск файлов AmneziaWG
-    for directory in [config_dir_amneziawg_1, config_dir_amneziawg_2]:
-        if os.path.exists(directory):
-            for root, dirs, files in os.walk(directory):
-                for file in files:
-                    if file.endswith('.conf'):  # или другое расширение для AmneziaWG
-                        amneziawg_files.append(os.path.join(root, file))
-    
-    return openvpn_files, wg_files, amneziawg_files
+    return (
+        find_config_files(CONFIG_PATHS["openvpn"], ['.ovpn']),
+        find_config_files(CONFIG_PATHS["wg"], ['.conf']),
+        find_config_files(CONFIG_PATHS["amneziawg"], ['.conf'])
+    )
 
 # Проверка авторизации
 def is_authenticated():
@@ -170,46 +169,33 @@ def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
 
-# Роут для скачивания конфигурационных файлов
+# Роут для скачивания конфигурационных файлов (адаптирован под CONFIG_PATHS)
 @app.route('/download/<file_type>/<filename>')
 @login_required
 def download(file_type, filename):
-    # Проверка и очистка имени файла
     safe_filename = secure_filename(filename)
     if safe_filename != filename:
         abort(400, description="Некорректное имя файла")
     
-    # Проверка допустимых типов файлов
     allowed_types = ['openvpn', 'wg', 'amneziawg']
     if file_type not in allowed_types:
         abort(404, description="Тип файла не поддерживается")
     
-    # Определяем разрешенные расширения для каждого типа
     extensions = {
         'openvpn': ['.ovpn'],
         'wg': ['.conf'],
         'amneziawg': ['.conf']
     }
     
-    # Проверяем расширение файла
     if not any(safe_filename.endswith(ext) for ext in extensions[file_type]):
         abort(400, description="Недопустимое расширение файла")
     
-    # Безопасный поиск файла
     file_path = None
-    config_dirs = {
-        'openvpn': [config_dir_openvpn_1, config_dir_openvpn_2],
-        'wg': [config_dir_wg_1, config_dir_wg_2],
-        'amneziawg': [config_dir_amneziawg_1, config_dir_amneziawg_2]
-    }
-    
-    for config_dir in config_dirs[file_type]:
+    for config_dir in CONFIG_PATHS[file_type]:
         try:
             potential_path = os.path.abspath(os.path.join(config_dir, safe_filename))
-            # Дополнительная проверка, что файл внутри разрешенной директории
             if not potential_path.startswith(os.path.abspath(config_dir)):
                 continue
-                
             if os.path.exists(potential_path):
                 file_path = potential_path
                 break
