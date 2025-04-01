@@ -216,11 +216,24 @@ def download(file_type, filename):
         except Exception:
             continue
     
+    #Проверка типа файла для определения кол-ва удаляемых частей с конца имени файла до имени клиента
+    if os.path.basename(file_path).split('.')[-1] == 'ovpn': 
+        idx_join=-1
+    elif os.path.basename(file_path).split('.')[-1] == 'conf':
+        idx_join=-2
+    #Проверка Antizapret или обычный VPN
+    if os.path.basename(file_path).split("-")[0] == 'antizapret':
+        vpn_type='-AZ'
+    elif os.path.basename(file_path).split("-")[0] == 'vpn':
+        vpn_type=''
+    #Загрузка файла
     if file_path and os.path.exists(file_path):
         return send_from_directory(
             os.path.dirname(file_path),
             os.path.basename(file_path),
             as_attachment=True
+            #приведение имени выгружаемого файла к короткому формату clientname[-AZ].extension
+            download_name='-'.join(os.path.basename(file_path).split('-')[1:idx_join]) + vpn_type + '.' + os.path.basename(file_path).split('.')[-1]
         )
     abort(404, description="Файл не найден")
         
