@@ -22,7 +22,7 @@
                     <select id="option" name="option" required>
                         <option value="" disabled selected>Выберите действие</option>
                         <option value="1">Добавить клиента OpenVPN</option>
-                        <option value="2">Удалить клиента OpenVPN (Криво работает отключате все OV)</option>
+                        <option value="2">Удалить клиента OpenVPN (Криво работает отключает все OV)</option>
                         <option value="4">Добавить клиента WireGuard/AmneziaWG</option>
                         <option value="5">Удалить клиента WireGuard/AmneziaWG</option>
                     </select>
@@ -32,12 +32,12 @@
             <div class="form-row">
                 <div class="form-group" id="client-name-container">
                     <label for="client-name">Имя клиента:</label>
-                    <input type="text" id="client-name" name="client-name" placeholder=" ">
+                    <input type="text" id="client-name" name="client-name" placeholder=" " oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');">
                 </div>
     
                 <div class="form-group" id="work-term-container">
                     <label for="work-term" id="cert_expire_label">Срок работы (1-365):</label>
-                    <input type="number" id="work-term" name="work-term" min="1" max="365" placeholder=" ">
+                    <input type="number" id="work-term" name="work-term" min="1" max="365" placeholder=" " oninput="this.value = this.value.replace(/[^0-9]/g, '');">
                 </div>
             </div>
     
