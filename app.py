@@ -231,7 +231,7 @@ def download(file_type, filename):
         return send_from_directory(
             os.path.dirname(file_path),
             os.path.basename(file_path),
-            as_attachment=True
+            as_attachment=True,
             #приведение имени выгружаемого файла к короткому формату clientname[-AZ].extension
             download_name='-'.join(os.path.basename(file_path).split('-')[1:idx_join]) + vpn_type + '.' + os.path.basename(file_path).split('.')[-1]
         )
