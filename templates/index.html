@@ -32,7 +32,7 @@
             <div class="form-row">
                 <div class="form-group" id="client-name-container">
                     <label for="client-name">Имя клиента:</label>
-                    <input type="text" id="client-name" name="client-name" placeholder=" " oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');">
+                    <input type="text" id="client-name" name="client-name" placeholder=" " oninput="this.value = this.value.replace(/[^a-zA-Z0-9\-]/g, '').slice(0, 15);";>
                 </div>
     
                 <div class="form-group" id="work-term-container">
@@ -66,7 +66,7 @@
                         {% set openvpn_files_dict = {} %}
                         {% for file in openvpn_files %}
                             {% set filename = file.split('/')[-1] %}
-                            {% set client_name = filename.split('-')[1] %}
+                            {% set client_name = '-'.join(filename.split('-')[1:-1]) %} <!-- Изменено: учитываем все части между первым и предпоследним элементами -->
                             {% if client_name not in openvpn_files_dict %}
                                 {% set openvpn_files_dict = openvpn_files_dict.update({client_name: {'antizapret': None, 'vpn': None}}) or openvpn_files_dict %}
                             {% endif %}
@@ -120,7 +120,7 @@
                         {% set amneziawg_files_dict = {} %}
                         {% for file in amneziawg_files %}
                             {% set filename = file.split('/')[-1] %}
-                            {% set client_name = filename.split('-')[1] %}
+                            {% set client_name = '-'.join(filename.split('-')[1:-2]) %}
                             {% if client_name not in amneziawg_files_dict %}
                                 {% set amneziawg_files_dict = amneziawg_files_dict.update({client_name: {'antizapret': None, 'vpn': None}}) or amneziawg_files_dict %}
                             {% endif %}
@@ -174,7 +174,7 @@
                         {% set wg_files_dict = {} %}
                         {% for file in wg_files %}
                             {% set filename = file.split('/')[-1] %}
-                            {% set client_name = filename.split('-')[1] %}
+                            {% set client_name = '-'.join(filename.split('-')[1:-2]) %}
                             {% if client_name not in wg_files_dict %}
                                 {% set wg_files_dict = wg_files_dict.update({client_name: {'antizapret': None, 'vpn': None}}) or wg_files_dict %}
                             {% endif %}

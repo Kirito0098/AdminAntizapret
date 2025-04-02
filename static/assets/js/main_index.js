@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Функция для извлечения имени клиента из имени файла
     function extractClientName(filename) {
         const parts = filename.split('-');
-        return parts.length >= 2 ? parts[1] : filename;
+        return parts.slice(1, -2).join('-'); // Извлекаем имя клиента между первым и предпоследними частями
     }
 
     // Функция для обновления видимости элементов формы
@@ -59,12 +59,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const table = document.querySelectorAll('.file-list .column')[tableIndex]?.querySelector('table');
 
         if (table) {
-            const rows = table.querySelectorAll('tbody tr');
+            const rows = table.querySelectorAll('tbody tr:nth-child(odd)'); // Берем только строки с именами клиентов
             rows.forEach(row => {
                 const clientNameCell = row.querySelector('td:first-child');
                 if (clientNameCell) {
-                    const clientName = extractClientName(clientNameCell.textContent);
-                    if (clientName && !clientName.toLowerCase().includes('client')) {
+                    const clientName = clientNameCell.textContent.trim();
+                    if (clientName) {
                         uniqueClientNames.add(clientName);
                     }
                 }
