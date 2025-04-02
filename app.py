@@ -9,13 +9,23 @@ import shlex
 
 app = Flask(__name__)
 
-# Путь к директориям с конфигурациями
-config_dir_openvpn_1 = '/root/antizapret/client/openvpn/antizapret'
-config_dir_openvpn_2 = '/root/antizapret/client/openvpn/vpn'
-config_dir_wg_1 = '/root/antizapret/client/wireguard/antizapret'
-config_dir_wg_2 = '/root/antizapret/client/wireguard/vpn'
-config_dir_amneziawg_1 = '/root/antizapret/client/amneziawg/antizapret'
-config_dir_amneziawg_2 = '/root/antizapret/client/amneziawg/vpn'
+CONFIG_PATHS = {
+    "openvpn": [
+        '/root/antizapret/client/openvpn/antizapret',
+        '/root/antizapret/client/openvpn/vpn'
+    ],
+    "wg": [
+        '/root/antizapret/client/wireguard/antizapret',
+        '/root/antizapret/client/wireguard/vpn'
+    ],
+    "amneziawg": [
+        '/root/antizapret/client/amneziawg/antizapret',
+        '/root/antizapret/client/amneziawg/vpn'
+    ]
+}
+
+MIN_CERT_EXPIRE = 1
+MAX_CERT_EXPIRE = 365
 
 # Настройка БД
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -46,7 +56,7 @@ def run_bash_script(option, client_name, cert_expire=None):
     command = ['./client.sh', option, safe_client_name]
 
     if cert_expire:
-        if not cert_expire.isdigit() or not (1 <= int(cert_expire) <= 365):
+        if not cert_expire.isdigit() or not (MIN_CERT_EXPIRE <= int(cert_expire) <= MAX_CERT_EXPIRE):
             raise ValueError("Некорректный срок действия сертификата")
         command.append(cert_expire)
 
@@ -65,17 +75,17 @@ def run_bash_script(option, client_name, cert_expire=None):
 def get_config_files():
     openvpn_files, wg_files, amneziawg_files = [], [], []
 
-    for directory in [config_dir_openvpn_1, config_dir_openvpn_2]:
+    for directory in CONFIG_PATHS["openvpn"]:
         if os.path.exists(directory):
             for root, _, files in os.walk(directory):
                 openvpn_files.extend(os.path.join(root, file) for file in files if file.endswith('.ovpn'))
 
-    for directory in [config_dir_wg_1, config_dir_wg_2]:
+    for directory in CONFIG_PATHS["wg"]:
         if os.path.exists(directory):
             for root, _, files in os.walk(directory):
                 wg_files.extend(os.path.join(root, file) for file in files if file.endswith('.conf'))
 
-    for directory in [config_dir_amneziawg_1, config_dir_amneziawg_2]:
+    for directory in CONFIG_PATHS["amneziawg"]:
         if os.path.exists(directory):
             for root, _, files in os.walk(directory):
                 amneziawg_files.extend(os.path.join(root, file) for file in files if file.endswith('.conf'))
@@ -163,14 +173,10 @@ def download(file_type, filename):
     if not any(safe_filename.endswith(ext) for ext in extensions[file_type]):
         abort(400, description="Недопустимое расширение файла")
 
-    config_dirs = {
-        'openvpn': [config_dir_openvpn_1, config_dir_openvpn_2],
-        'wg': [config_dir_wg_1, config_dir_wg_2],
-        'amneziawg': [config_dir_amneziawg_1, config_dir_amneziawg_2]
-    }
+    config_dirs = CONFIG_PATHS[file_type]
 
     file_path = None
-    for config_dir in config_dirs[file_type]:
+    for config_dir in config_dirs:
         potential_path = os.path.abspath(os.path.join(config_dir, safe_filename))
         if potential_path.startswith(os.path.abspath(config_dir)) and os.path.exists(potential_path):
             file_path = potential_path
