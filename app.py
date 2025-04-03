@@ -1,6 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, flash, abort
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, flash, abort, send_file
 import subprocess
 import os
+import io
+import qrcode
+from qrcode.image.pil import PilImage
+from PIL import Image
 from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -205,6 +209,63 @@ def download(file_type, filename):
         )
 
     abort(404, description="Файл не найден")
+
+#Роут для формирования QR кода
+@app.route('/generate_qr/<file_type>/<filename>')
+@login_required
+def generate_qr(file_type, filename):
+    safe_filename = secure_filename(filename)
+    if safe_filename != filename:
+        abort(400, description="Некорректное имя файла")
+
+    allowed_types = ['wg', 'amneziawg']
+    if file_type not in allowed_types:
+        abort(404, description="Тип файла не поддерживается")
+
+    extensions = {
+        'wg': ['.conf'],
+        'amneziawg': ['.conf']
+    }
+    if not any(safe_filename.endswith(ext) for ext in extensions[file_type]):
+        abort(400, description="Недопустимое расширение файла")
+
+    config_dirs = CONFIG_PATHS[file_type]
+
+    file_path = None
+    for config_dir in config_dirs:
+        potential_path = os.path.abspath(os.path.join(config_dir, safe_filename))
+        if potential_path.startswith(os.path.abspath(config_dir)) and os.path.exists(potential_path):
+            file_path = potential_path
+            break
+
+    try:
+        # Читаем содержимое файла
+        with open(file_path, 'r') as file:
+            config_text = file.read()
+
+        # Создаем QR-код
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(config_text)
+        qr.make(fit=True)
+
+        # Создаем изображение
+        img = qr.make_image(fill_color="black", back_color="white", image_factory=PilImage)
+
+         # Конвертируем в байты
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+        
+        return send_file(img_byte_arr, mimetype='image/png')
+        
+    except Exception as e:
+        print(f"Аларм! ошибка: {str(e)}")
+        abort(500)
 
 # Роут для редактирования файлов конфигурации
 @app.route('/edit-files', methods=['GET', 'POST'])

@@ -114,6 +114,7 @@
                         <tr>
                             <th class="sticky-column">Имя клиента</th>
                             <th class="sticky-column">Скачать</th>
+                            <th class="sticky-column">QR</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -142,6 +143,9 @@
                                         <button class="download-button" disabled>Нет файла (VPN)</button>
                                     {% endif %}
                                 </td>
+                                <td style="border: 1px solid rgb(255, 255, 255);">
+                                    <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}"></button>
+                                </td>
                             </tr>
                             <tr>
                                 <td style="border: 1px solid rgb(255, 255, 255);">
@@ -152,6 +156,9 @@
                                     {% else %}
                                         <button class="download-button" disabled>Нет файла (Antizapret)</button>
                                     {% endif %}
+                                </td>
+                                <td style="border: 1px solid rgb(255, 255, 255);">
+                                    <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}"></button>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -168,6 +175,7 @@
                         <tr>
                             <th class="sticky-column">Имя клиента</th>
                             <th class="sticky-column">Скачать</th>
+                            <th class="sticky-column">QR</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -196,6 +204,9 @@
                                         <button class="download-button" disabled>Нет файла (VPN)</button>
                                     {% endif %}
                                 </td>
+                                <td style="border: 1px solid rgb(255, 255, 255);">
+                                    <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='wg', filename=files['vpn'].split('/')[-1]) }}"></button>
+                                </td>
                             </tr>
                             <tr>
                                 <td style="border: 1px solid rgb(255, 255, 255);">
@@ -207,6 +218,9 @@
                                         <button class="download-button" disabled>Нет файла (Antizapret)</button>
                                     {% endif %}
                                 </td>
+                                <td style="border: 1px solid rgb(255, 255, 255);">
+                                    <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}"></button>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -214,6 +228,20 @@
             </div>
         </div>
     </div>
+    
+    <!-- #Модальное окно -->
+    <div class="qr-modal-container" id="modalQRContainer" style="display: none;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body">
+                    <div class="qr-code-container">
+                        <img id="qrImage" src="" alt="QR-код">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='assets/js/main_index.js') }}"></script>
 </body>
 </html>

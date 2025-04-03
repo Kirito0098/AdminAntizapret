@@ -1,5 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Элементы формы
+    const qrImage = document.getElementById('qrImage');
+    const modalContainer = document.getElementById('modalQRContainer');
     const optionSelect = document.getElementById('option');
     const clientNameInput = document.getElementById('client-name');
     const clientNameContainer = document.getElementById('client-name-container');
@@ -176,12 +178,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         currentTables[index].innerHTML = newTable.innerHTML;
                     }
                 });
-
-                // Обновляем выпадающий список клиентов
+                 // Обновляем выпадающий список клиентов
                 const selectedOption = optionSelect.value;
-                if (selectedOption === '2' || selectedOption === '5' || selectedOption === '6') {
-                    populateClientSelect(selectedOption);
-                }
             })
             .catch(error => {
                 console.error('Ошибка обновления данных:', error);
@@ -239,9 +237,32 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification(`Ошибка выполнения запроса: ${error.message}`, 'error');
             console.error('Ошибка:', error);
         });
+    });   
+ 
+    // Обработчик для модального окна
+    document.addEventListener('click', function(event) {
+        // Проверка на клик по модальному окну
+        if (event.target === modalContainer || 
+            event.target.closest('.qr-modal-container')) {
+            modalContainer.style.display = 'none';
+            return;
+        } 
+        // Открытие модального окна
+        if (event.target.classList.contains('vpn-qr-button')) {
+            const configUrl = event.target.dataset.config;
+            if (configUrl) {
+                qrImage.src = configUrl;
+                modalContainer.style.display = 'flex';
+            }
+        }
     });
-
+    // Проверка на клик вне модального окна
+    window.addEventListener('click', function(event) {
+        if (event.target === modalContainer) {
+            modalContainer.style.display = 'none';
+        }
+    }); 
     // Инициализация при загрузке
-    updateFormVisibility();
-    optionSelect.addEventListener('change', updateFormVisibility);
+       updateFormVisibility();
+       optionSelect.addEventListener('change', updateFormVisibility); 
 });
