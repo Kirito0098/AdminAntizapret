@@ -146,7 +146,7 @@ install() {
 
   # Установка Python-зависимостей
   echo "${YELLOW}Установка Python-зависимостей...${NC}"
-  "$VENV_PATH/bin/pip" install -q flask flask-sqlalchemy werkzeug
+  "$VENV_PATH/bin/pip" install -q flask flask-sqlalchemy werkzeug qrcode pillow
   check_error "Не удалось установить Python-зависимости"
 
   # Настройка конфигурации
