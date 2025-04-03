@@ -145,8 +145,8 @@ install() {
   check_error "Не удалось создать виртуальное окружение"
 
   # Установка Python-зависимостей
-  echo "${YELLOW}Установка Python-зависимостей...${NC}"
-  "$VENV_PATH/bin/pip" install -q flask flask-sqlalchemy werkzeug qrcode pillow
+  echo "${YELLOW}Установка Python-зависимостей из requirements.txt...${NC}"
+  "$VENV_PATH/bin/pip" install -q -r requirements.txt
   check_error "Не удалось установить Python-зависимости"
 
   # Настройка конфигурации
