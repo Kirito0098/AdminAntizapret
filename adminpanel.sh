@@ -146,7 +146,7 @@ install() {
 
   # Установка Python-зависимостей
   echo "${YELLOW}Установка Python-зависимостей из requirements.txt...${NC}"
-  "$VENV_PATH/bin/pip" install -q -r requirements.txt
+  "$VENV_PATH/bin/pip" install -q -r "$INSTALL_DIR/requirements.txt"
   check_error "Не удалось установить Python-зависимости"
 
   # Настройка конфигурации
