@@ -405,6 +405,34 @@ add_admin() {
   press_any_key
 }
 
+# Удаление администратора
+delete_admin() {
+  echo "${YELLOW}Удаление администратора...${NC}"
+  
+  echo "${YELLOW}Список администраторов:${NC}"
+  "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --list-users
+  if [ $? -ne 0 ]; then
+    echo "${RED}Ошибка при получении списка администраторов!${NC}"
+    press_any_key
+    return
+  fi
+
+  read -p "Введите логин администратора для удаления: " username
+  if [ -z "$username" ]; then
+    echo "${RED}Логин не может быть пустым!${NC}"
+    press_any_key
+    return
+  fi
+
+  "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --delete-user "$username"
+  if [ $? -eq 0 ]; then
+    echo "${GREEN}Администратор '$username' успешно удалён!${NC}"
+  else
+    echo "${RED}Ошибка при удалении администратора '$username'!${NC}"
+  fi
+  press_any_key
+}
+
 # Проверка и установка прав выполнения для файлов
 check_and_set_permissions() {
   echo "${YELLOW}Проверка и установка прав выполнения для client.sh и doall.sh...${NC}"
@@ -439,14 +467,14 @@ main_menu() {
     printf "│          Меню управления AdminAntizapret   │\n"
     printf "├────────────────────────────────────────────┤\n"
     printf "│ 1. Добавить администратора                 │\n"
-    printf "│ 2. Перезапустить сервис                    │\n"
-    printf "│ 3. Проверить статус сервиса                │\n"
-    printf "│ 4. Просмотреть логи                        │\n"
-    printf "│ 5. Проверить обновления                    │\n"
-    printf "│ 6. Протестировать работу                   │\n"
-    printf "│ 7. Создать резервную копию                 │\n"
-    printf "│ 8. Восстановить из резервной копии         │\n"
-    printf "│ 9. Удалить AdminAntizapret                 │\n"
+    printf "│ 2. Удалить администратора                  │\n"
+    printf "│ 3. Перезапустить сервис                    │\n"
+    printf "│ 4. Проверить статус сервиса                │\n"
+    printf "│ 5. Просмотреть логи                        │\n"
+    printf "│ 6. Проверить обновления                    │\n"
+    printf "│ 7. Протестировать работу                   │\n"
+    printf "│ 8. Создать резервную копию                 │\n"
+    printf "│ 9. Восстановить из резервной копии         │\n"
     printf "│ 10. Проверить и установить права           │\n"
     printf "│ 0. Выход                                   │\n"
     printf "└────────────────────────────────────────────┘\n"
@@ -456,11 +484,11 @@ main_menu() {
     read choice
     case $choice in
       1) add_admin;;
-      2) restart_service;;
-      3) check_status;;
-      4) show_logs;;
-      5) check_updates;;
-      6) test_installation;;
+      2) delete_admin;;
+      3) restart_service;;
+      4) check_status;;
+      5) show_logs;;
+      6) check_updates;;
       7) create_backup;;
       8) restore_backup;;
       9) uninstall;;
