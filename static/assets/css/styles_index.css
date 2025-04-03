@@ -176,13 +176,13 @@ th {
 }
 
 .modal-dialog {
-    max-width: 400px;
+    max-width: 40%; /* Увеличиваем ширину */
     margin: 0;
     overflow: auto;
 }
 
 .qr-code-container img {
-    max-width: 100%;
+    max-width: 90%; /* Увеличиваем размер изображения */
     height: auto;
     display: block;
     margin: 0 auto;
