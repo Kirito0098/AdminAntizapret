@@ -22,7 +22,7 @@
                     <select id="option" name="option" required>
                         <option value="" disabled selected>Выберите действие</option>
                         <option value="1">Добавить клиента OpenVPN</option>
-                        <option value="2">Удалить клиента OpenVPN (Криво работает отключает все OV)</option>
+                        <option value="2">Удалить клиента OpenVPN</option>
                         <option value="4">Добавить клиента WireGuard/AmneziaWG</option>
                         <option value="5">Удалить клиента WireGuard/AmneziaWG</option>
                     </select>
@@ -58,7 +58,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th class="sticky-column">Имя клиента</th>
+                            <th class="sticky-column">Клиент</th>
                             <th class="sticky-column">Скачать</th>
                         </tr>
                     </thead>
@@ -76,7 +76,7 @@
                                 {% set _ = openvpn_files_dict[client_name].update({'vpn': file}) %}
                             {% endif %}
                         {% endfor %}
-                        {% for client_name, files in openvpn_files_dict.items() %}
+                        {% for client_name, files in openvpn_files_dict | dictsort %} <!-- Добавлена сортировка -->
                             <tr>
                                 <td rowspan="2" style="border: 1px solid rgb(255, 255, 255);">{{ client_name }}</td>
                                 <td style="border: 1px solid rgb(255, 255, 255);">
@@ -112,7 +112,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th class="sticky-column">Имя клиента</th>
+                            <th class="sticky-column">Клиент</th>
                             <th class="sticky-column">Скачать</th>
                             <th class="sticky-column">QR</th>
                         </tr>
@@ -131,7 +131,7 @@
                                 {% set _ = amneziawg_files_dict[client_name].update({'vpn': file}) %}
                             {% endif %}
                         {% endfor %}
-                        {% for client_name, files in amneziawg_files_dict.items() %}
+                        {% for client_name, files in amneziawg_files_dict | dictsort %} <!-- Добавлена сортировка -->
                             <tr>
                                 <td rowspan="2" style="border: 1px solid rgb(255, 255, 255);">{{ client_name }}</td>
                                 <td style="border: 1px solid rgb(255, 255, 255);">
@@ -173,7 +173,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th class="sticky-column">Имя клиента</th>
+                            <th class="sticky-column">Клиент</th>
                             <th class="sticky-column">Скачать</th>
                             <th class="sticky-column">QR</th>
                         </tr>
@@ -192,7 +192,7 @@
                                 {% set _ = wg_files_dict[client_name].update({'vpn': file}) %}
                             {% endif %}
                         {% endfor %}
-                        {% for client_name, files in wg_files_dict.items() %}
+                        {% for client_name, files in wg_files_dict | dictsort %} <!-- Добавлена сортировка -->
                             <tr>
                                 <td rowspan="2" style="border: 1px solid rgb(255, 255, 255);">{{ client_name }}</td>
                                 <td style="border: 1px solid rgb(255, 255, 255);">
