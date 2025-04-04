@@ -49,14 +49,40 @@ def add_user(username, password):
         print(f"Пользователь '{username}' успешно добавлен!")
         return True
 
+def delete_user(username):
+    with app.app_context():
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            print(f"Пользователь '{username}' не найден!")
+            return False
+        
+        db.session.delete(user)
+        db.session.commit()
+        print(f"Пользователь '{username}' успешно удалён!")
+        return True
+
 def check_user(username):
     with app.app_context():
         return User.query.filter_by(username=username).first() is not None
 
+def list_users():
+    with app.app_context():
+        users = User.query.all()
+        if not users:
+            print("Нет зарегистрированных пользователей.")
+            return False
+        
+        print("Список пользователей:")
+        for user in users:
+            print(f"- {user.username}")
+        return True
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Управление пользователями AdminAntizapret')
     parser.add_argument('--add-user', nargs=2, metavar=('USERNAME', 'PASSWORD'), help='Добавить нового пользователя')
+    parser.add_argument('--delete-user', metavar='USERNAME', help='Удалить пользователя')
     parser.add_argument('--check-user', metavar='USERNAME', help='Проверить существование пользователя')
+    parser.add_argument('--list-users', action='store_true', help='Вывести список пользователей')
     
     args = parser.parse_args()
     
@@ -67,9 +93,15 @@ if __name__ == "__main__":
             username, password = args.add_user
             if not add_user(username, password):
                 sys.exit(1)
+        elif args.delete_user:
+            if not delete_user(args.delete_user):
+                sys.exit(1)
         elif args.check_user:
             exists = check_user(args.check_user)
             sys.exit(0 if exists else 1)
+        elif args.list_users:
+            if not list_users():
+                sys.exit(1)
         else:
             # Оригинальное интерактивное создание администратора
             if User.query.count() == 0:
