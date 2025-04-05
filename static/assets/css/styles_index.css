@@ -176,9 +176,15 @@ th {
 }
 
 .modal-dialog {
-    max-width: 40%; /* Увеличиваем ширину */
+    max-width: 30%; /* 30% ширина для экранов компьютера и планшетов */
     margin: 0;
     overflow: auto;
+}
+
+@media (max-width: 480px) {  /* Устанавливаем размер на 80% ширины экрана для устройств с низким CSS viewport разрешением экрана (мобильные телефоны)*/
+    .modal-dialog {
+        max-width: 80%;
+    }
 }
 
 .qr-code-container img {
@@ -200,7 +206,7 @@ th {
 .vpn-qr-button {
     background-color: transparent;
     background-image: url('../img/qr.png');
-    background-size: 32px 32px;
+    background-size: 28px 28px;
     background-repeat: no-repeat;
     background-position: center;
     border: none;
@@ -208,8 +214,8 @@ th {
     cursor: pointer;
     transition: all 0.3s;
     margin: 0.2rem;
-    width: 40px;
-    height: 40px;
+    width: 28px;
+    height: 28px;
 }
 
 .vpn-qr-button:hover {

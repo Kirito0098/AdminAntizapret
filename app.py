@@ -157,87 +157,76 @@ def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
 
+# Декоратор для проверки существования файла
+def validate_file(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        file_type = kwargs.get('file_type')
+        filename = kwargs.get('filename')
+        
+        # Проверка безопасного имени файла
+        safe_filename = secure_filename(filename)
+        if safe_filename != filename:
+            abort(400, description="Некорректное имя файла")
+            
+        # Проверка расширения файла
+        extensions = {
+            'openvpn': ['.ovpn'],
+            'wg': ['.conf'],
+            'amneziawg': ['.conf']
+        }
+        if not any(safe_filename.endswith(ext) for ext in extensions.get(file_type, [])):
+            abort(400, description="Недопустимое расширение файла")
+            
+        # Поиск файла в конфигурационных директориях
+        config_dirs = CONFIG_PATHS.get(file_type)
+        file_path = None
+        if config_dirs:
+            for config_dir in config_dirs:
+                potential_path = os.path.abspath(os.path.join(config_dir, safe_filename))
+                if potential_path.startswith(os.path.abspath(config_dir)) and os.path.exists(potential_path):
+                    file_path = potential_path
+                    break
+        
+        if not file_path:
+            abort(404, description="Файл не найден")
+            
+        # Добавляем путь к файлу в kwargs
+        kwargs['file_path'] = file_path
+        return func(*args, **kwargs)
+    return wrapper
+
 # Роут для скачивания конфигурационных файлов
 @app.route('/download/<file_type>/<filename>')
 @login_required
-def download(file_type, filename):
-    safe_filename = secure_filename(filename)
-    if safe_filename != filename:
-        abort(400, description="Некорректное имя файла")
+@validate_file
+def download(file_type, filename, file_path):
+    basename = os.path.basename(file_path)
+    name_parts = basename.split('-')
+    extension = basename.split('.')[-1]
+    vpn_type = '-AZ' if name_parts[0] == 'antizapret' else ''
+    
+    if extension == 'ovpn':
+        client_name = '-'.join(name_parts[1:-1])
+        download_name = f"{client_name}{vpn_type}.{extension}"
+    elif extension == 'conf':
+        client_name = '-'.join(name_parts[1:-2])
+        download_name = f"{client_name}{vpn_type}.{extension}"
+    else:
+        download_name = basename
+    
+    return send_from_directory(
+        os.path.dirname(file_path),
+        os.path.basename(file_path),
+        as_attachment=True,
+        download_name=download_name
+    )
 
-    allowed_types = ['openvpn', 'wg', 'amneziawg']
-    if file_type not in allowed_types:
-        abort(404, description="Тип файла не поддерживается")
-
-    extensions = {
-        'openvpn': ['.ovpn'],
-        'wg': ['.conf'],
-        'amneziawg': ['.conf']
-    }
-    if not any(safe_filename.endswith(ext) for ext in extensions[file_type]):
-        abort(400, description="Недопустимое расширение файла")
-
-    config_dirs = CONFIG_PATHS[file_type]
-
-    file_path = None
-    for config_dir in config_dirs:
-        potential_path = os.path.abspath(os.path.join(config_dir, safe_filename))
-        if potential_path.startswith(os.path.abspath(config_dir)) and os.path.exists(potential_path):
-            file_path = potential_path
-            break
-
-    if file_path:
-        basename = os.path.basename(file_path)
-        name_parts = basename.split('-')
-        extension = basename.split('.')[-1]
-        vpn_type = '-AZ' if name_parts[0] == 'antizapret' else ''
-
-        if extension == 'ovpn':
-            client_name = '-'.join(name_parts[1:-1])
-            download_name = f"{client_name}{vpn_type}.{extension}"
-        elif extension == 'conf':
-            client_name = '-'.join(name_parts[1:-2])
-            download_name = f"{client_name}{vpn_type}.{extension}"
-        else:
-            download_name = basename
-
-        return send_from_directory(
-            os.path.dirname(file_path),
-            os.path.basename(file_path),
-            as_attachment=True,
-            download_name=download_name
-        )
-
-    abort(404, description="Файл не найден")
-
-#Роут для формирования QR кода
+# Роут для формирования QR кода
 @app.route('/generate_qr/<file_type>/<filename>')
 @login_required
-def generate_qr(file_type, filename):
-    safe_filename = secure_filename(filename)
-    if safe_filename != filename:
-        abort(400, description="Некорректное имя файла")
-
-    allowed_types = ['wg', 'amneziawg']
-    if file_type not in allowed_types:
-        abort(404, description="Тип файла не поддерживается")
-
-    extensions = {
-        'wg': ['.conf'],
-        'amneziawg': ['.conf']
-    }
-    if not any(safe_filename.endswith(ext) for ext in extensions[file_type]):
-        abort(400, description="Недопустимое расширение файла")
-
-    config_dirs = CONFIG_PATHS[file_type]
-
-    file_path = None
-    for config_dir in config_dirs:
-        potential_path = os.path.abspath(os.path.join(config_dir, safe_filename))
-        if potential_path.startswith(os.path.abspath(config_dir)) and os.path.exists(potential_path):
-            file_path = potential_path
-            break
-
+@validate_file
+def generate_qr(file_type, filename, file_path):
     try:
         # Читаем содержимое файла
         with open(file_path, 'r') as file:
@@ -256,13 +245,13 @@ def generate_qr(file_type, filename):
         # Создаем изображение
         img = qr.make_image(fill_color="black", back_color="white", image_factory=PilImage)
 
-         # Конвертируем в байты
+        # Конвертируем в байты
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format='PNG')
         img_byte_arr.seek(0)
         
         return send_file(img_byte_arr, mimetype='image/png')
-        
+
     except Exception as e:
         print(f"Аларм! ошибка: {str(e)}")
         abort(500)
