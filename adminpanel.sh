@@ -130,8 +130,6 @@ install() {
   cd "$INSTALL_DIR" && git pull
   else
     git clone "$REPO_URL" "$INSTALL_DIR" > /dev/null 2>&1
-    cp "$INSTALL_DIR/adminpanel.sh" /root/adminpanel/
-    chmod +x /root/adminpanel/adminpanel.sh
   fi
   check_error "Не удалось клонировать репозиторий"
 
@@ -266,6 +264,8 @@ check_updates() {
       $VENV_PATH/bin/pip install -r requirements.txt 2>/dev/null || \
         echo "${YELLOW}Файл requirements.txt не найден, пропускаем...${NC}"
       systemctl restart $SERVICE_NAME
+        cp "$INSTALL_DIR/adminpanel.sh" /root/adminpanel/
+        chmod +x /root/adminpanel/adminpanel.sh
       echo "${GREEN}Обновление завершено!${NC}"
     fi
   else
