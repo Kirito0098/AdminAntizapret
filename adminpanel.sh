@@ -203,7 +203,7 @@ EOL
 
   # Установка прав выполнения для client.sh и doall.sh
   echo "${YELLOW}Установка прав выполнения для client.sh и doall.sh...${NC}"
-  chmod +x "$ANTIZAPRET_INSTALL_DIR/client.sh" "/root/antizapret/doall.sh"
+  chmod +x "$INSTALL_DIR/client.sh" "$ANTIZAPRET_INSTALL_DIR/doall.sh"
   if [ $? -eq 0 ]; then
     echo "${GREEN}Права выполнения успешно установлены!${NC}"
   else
@@ -272,22 +272,6 @@ check_updates() {
   press_any_key
 }
 
-# Тестирование работы
-test_installation() {
-  echo "${YELLOW}Тестирование работы сервиса...${NC}"
-  
-  if ! check_port $APP_PORT; then
-    echo "${RED}Сервис не слушает порт $APP_PORT!${NC}"
-  else
-    response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$APP_PORT/login)
-    if [ "$response" -eq 200 ]; then
-      echo "${GREEN}Тест пройден успешно! Код ответа: $response${NC}"
-    else
-      echo "${RED}Ошибка тестирования! Код ответа: $response${NC}"
-    fi
-  fi
-  press_any_key
-}
 
 # Создание резервной копии
 create_backup() {
@@ -472,9 +456,9 @@ main_menu() {
     printf "│ 4. Проверить статус сервиса                │\n"
     printf "│ 5. Просмотреть логи                        │\n"
     printf "│ 6. Проверить обновления                    │\n"
-    printf "│ 7. Протестировать работу                   │\n"
-    printf "│ 8. Создать резервную копию                 │\n"
-    printf "│ 9. Восстановить из резервной копии         │\n"
+    printf "│ 7. Создать резервную копию                 │\n"
+    printf "│ 8. Восстановить из резервной копии         │\n"
+    printf "│ 9. Удалить AdminAntizapret                 │\n"
     printf "│ 10. Проверить и установить права           │\n"
     printf "│ 0. Выход                                   │\n"
     printf "└────────────────────────────────────────────┘\n"
