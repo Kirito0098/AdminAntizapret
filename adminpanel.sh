@@ -2,6 +2,9 @@
 
 # Полный менеджер AdminAntizapret
 
+export LC_ALL="en_US.UTF-8"
+export LANG="en_US.UTF-8"
+
 # Цвета для вывода
 RED=$(printf '\033[31m')
 GREEN=$(printf '\033[32m')
@@ -90,7 +93,7 @@ install_antizapret() {
 # Инициализация базы данных
 init_db() {
   echo "${YELLOW}Инициализация базы данных...${NC}"
-  "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py"
+  PYTHONIOENCODING=utf-8 "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py"
   check_error "Не удалось инициализировать базу данных"
 }
 
