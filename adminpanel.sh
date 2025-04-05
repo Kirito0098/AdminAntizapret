@@ -116,6 +116,8 @@ install() {
   # Обновление пакетов
   echo "${YELLOW}Обновление списка пакетов...${NC}"
   apt-get update -qq
+  cp "$INSTALL_DIR/adminpanel.sh" /root/adminpanel/
+  chmod +x /root/adminpanel/adminpanel.sh
   check_error "Не удалось обновить пакеты"
 
   # Установка зависимостей
@@ -126,8 +128,8 @@ install() {
   # Клонирование репозитория
   echo "${YELLOW}Клонирование репозитория...${NC}"
   if [ -d "$INSTALL_DIR" ]; then
-    echo "${YELLOW}Директория уже существует, обновляем...${NC}"
-    cd "$INSTALL_DIR" && git pull
+  echo "${YELLOW}Директория уже существует, обновляем...${NC}"
+  cd "$INSTALL_DIR" && git pull
   else
     git clone "$REPO_URL" "$INSTALL_DIR" > /dev/null 2>&1
   fi
