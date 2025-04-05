@@ -116,8 +116,6 @@ install() {
   # Обновление пакетов
   echo "${YELLOW}Обновление списка пакетов...${NC}"
   apt-get update -qq
-  cp "$INSTALL_DIR/adminpanel.sh" /root/adminpanel/
-  chmod +x /root/adminpanel/adminpanel.sh
   check_error "Не удалось обновить пакеты"
 
   # Установка зависимостей
@@ -132,6 +130,8 @@ install() {
   cd "$INSTALL_DIR" && git pull
   else
     git clone "$REPO_URL" "$INSTALL_DIR" > /dev/null 2>&1
+    cp "$INSTALL_DIR/adminpanel.sh" /root/adminpanel/
+    chmod +x /root/adminpanel/adminpanel.sh
   fi
   check_error "Не удалось клонировать репозиторий"
 
