@@ -319,4 +319,4 @@ def run_doall():
         return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5050)
+    app.run(host='0.0.0.0', port=8080)
