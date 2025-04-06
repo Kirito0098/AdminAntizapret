@@ -35,6 +35,7 @@
                 {% endif %}
             </button>
             <form method="post" action="/edit-files" class="file-edit-form" id="{{ file_type }}" style="display: none;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="file_type" value="{{ file_type }}">
                 <textarea name="content" rows="10">{{ content }}</textarea>
                 <button type="submit">Сохранить</button>

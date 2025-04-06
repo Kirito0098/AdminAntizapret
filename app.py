@@ -10,8 +10,14 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import shlex
+from flask_wtf.csrf import CSRFProtect
+from dotenv import load_dotenv
+
+load_dotenv() 
 
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY")
+csrf = CSRFProtect(app) 
 
 CONFIG_PATHS = {
     "openvpn": [

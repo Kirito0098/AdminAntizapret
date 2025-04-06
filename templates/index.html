@@ -16,6 +16,7 @@
     <div id="notification" class="notification" style="display: none;"></div>
     <div class="form-container">
         <form method="post" id="client-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-row">
                 <div class="form-group">
                     <label for="option">Выберите действие:</label>

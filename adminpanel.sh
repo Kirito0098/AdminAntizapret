@@ -22,6 +22,11 @@ DB_FILE="$INSTALL_DIR/users.db"
 ANTIZAPRET_INSTALL_DIR="/root/antizapret"
 ANTIZAPRET_INSTALL_SCRIPT="https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/main/setup.sh"
 
+# Генерируем случайный секретный ключ
+SECRET_KEY=$(openssl rand -hex 32)
+echo "SECRET_KEY='$SECRET_KEY'" > "$INSTALL_DIR/.env"
+chmod 600 "$INSTALL_DIR/.env"  
+
 # Функция проверки занятости порта
 check_port() {
     port=$1

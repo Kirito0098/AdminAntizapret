@@ -37,6 +37,7 @@
         -->
 
         <form action="{{ url_for('login') }}" method="POST" class="login__form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
          <h1 class="login__title">Login</h1>
      
          <div class="login__content">
