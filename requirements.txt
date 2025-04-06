@@ -10,3 +10,4 @@ SQLAlchemy==2.0.30
 qrcode==7.4.2
 Pillow==10.3.0
 python-dotenv
+flask_wtf
