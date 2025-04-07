@@ -10,8 +10,10 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import shlex
+import psutil
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
+import time
 
 load_dotenv() 
 
@@ -59,12 +61,6 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-@app.after_request
-def add_security_headers(response):
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    return response
-    
 # Запуск Bash-скрипта с передачей параметров
 def run_bash_script(option, client_name, cert_expire=None):
     if not option.isdigit():
@@ -331,6 +327,35 @@ def run_doall():
         return jsonify({"success": False, "message": f"Ошибка выполнения скрипта: {e.stderr}", "output": e.stdout}), 500
     except Exception as e:
         return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
+
+# Функции для получения данных о сервере
+def get_cpu_usage():
+    return psutil.cpu_percent(interval=1)
+
+def get_memory_usage():
+    memory = psutil.virtual_memory()
+    return memory.percent
+
+def get_uptime():
+    boot_time = psutil.boot_time()
+    current_time = time.time()
+    uptime_seconds = current_time - boot_time
+    days, remainder = divmod(uptime_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{int(days)}д {int(hours)}ч {int(minutes)}м {int(seconds)}с"
+
+# Маршрут для страницы мониторинга
+@app.route('/server_monitor')
+def server_monitor():
+    try:
+        cpu_usage = get_cpu_usage()
+        memory_usage = get_memory_usage()
+        uptime = get_uptime()
+        return render_template('server_monitor.html', cpu_usage=cpu_usage, memory_usage=memory_usage, uptime=uptime)
+    except Exception as e:
+        app.logger.error(f"Ошибка при загрузке данных мониторинга: {e}")
+        return "Ошибка при загрузке данных мониторинга", 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port)

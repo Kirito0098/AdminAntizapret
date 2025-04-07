@@ -598,3 +598,35 @@ th {
         transform: rotate(360deg);
     }
 }
+/*=============== SERVER MONITOR ===============*/
+.server-info {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 2rem;
+    width: 90%;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.info-item {
+    background-color: hsla(0, 0%, 10%, 0.7);
+    border: 2px solid var(--white-color);
+    padding: 1.5rem;
+    border-radius: 1rem;
+    text-align: center;
+    width: 30%;
+    backdrop-filter: blur(8px);
+}
+
+.info-item h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: hsl(0, 0%, 90%);
+}
+
+.info-item p {
+    font-size: 1.5rem;
+    font-weight: var(--font-medium);
+    color: hsl(0, 0%, 100%);
+}
