@@ -24,7 +24,6 @@ ANTIZAPRET_INSTALL_SCRIPT="https://raw.githubusercontent.com/GubernievS/AntiZapr
 
 # Генерируем случайный секретный ключ
 SECRET_KEY=$(openssl rand -hex 32)
-echo "SECRET_KEY='$SECRET_KEY'" > "$INSTALL_DIR/.env"
 
 # Функция проверки занятости порта
 check_port() {
@@ -157,9 +156,12 @@ install() {
   check_error "Не удалось установить Python-зависимости"
 
   # Настройка конфигурации
-  echo "${YELLOW}Настройка конфигурации...${NC}"
-  echo "APP_PORT=$APP_PORT" >> "$INSTALL_DIR/.env"
-  chmod 600 "$INSTALL_DIR/.env"
+echo "${YELLOW}Настройка конфигурации...${NC}"
+cat > "$INSTALL_DIR/.env" <<EOL
+SECRET_KEY='$SECRET_KEY'
+APP_PORT=$APP_PORT
+EOL
+chmod 600 "$INSTALL_DIR/.env"
 
   # Инициализация базы данных
   init_db
@@ -453,6 +455,35 @@ check_and_set_permissions() {
   press_any_key
 }
 
+change_port() {
+    echo "${YELLOW}Изменение порта сервиса...${NC}"
+    read -p "Введите новый порт: " new_port
+    
+    # Проверка валидности порта
+    if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
+        echo "${RED}Неверный номер порта! Должен быть от 1 до 65535.${NC}"
+        press_any_key
+        return
+    fi
+    
+    # Сохраняем SECRET_KEY если он есть
+    if [ -f "$INSTALL_DIR/.env" ]; then
+        secret_key=$(grep '^SECRET_KEY=' "$INSTALL_DIR/.env" || echo "SECRET_KEY='$(openssl rand -hex 32)'")
+    else
+        secret_key="SECRET_KEY='$(openssl rand -hex 32)'"
+    fi
+    
+    # Обновляем .env
+    cat > "$INSTALL_DIR/.env" <<EOL
+$secret_key
+APP_PORT=$new_port
+EOL
+    
+    chmod 600 "$INSTALL_DIR/.env"
+    echo "${GREEN}Порт изменен на $new_port. Перезапустите сервис для применения изменений.${NC}"
+    press_any_key
+}
+
 # Главное меню
 main_menu() {
   while true; do
@@ -471,6 +502,7 @@ main_menu() {
     printf "│ 8. Восстановить из резервной копии         │\n"
     printf "│ 9. Удалить AdminAntizapret                 │\n"
     printf "│ 10. Проверить и установить права           │\n"
+    printf "│ 11. Изменить порт сервиса                  │\n"
     printf "│ 0. Выход                                   │\n"
     printf "└────────────────────────────────────────────┘\n"
     printf "%s\n" "${NC}"
@@ -488,6 +520,7 @@ main_menu() {
       8) restore_backup;;
       9) uninstall;;
       10) check_and_set_permissions;;
+      11) change_port;;
       0) exit 0;;
       *) printf "%s\n" "${RED}Неверный выбор!${NC}"; sleep 1;;
     esac
