@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 
 load_dotenv() 
 
+port = int(os.getenv('APP_PORT', '5050'))
+
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 csrf = CSRFProtect(app) 
@@ -325,4 +327,4 @@ def run_doall():
         return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=port)

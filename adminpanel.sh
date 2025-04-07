@@ -25,7 +25,6 @@ ANTIZAPRET_INSTALL_SCRIPT="https://raw.githubusercontent.com/GubernievS/AntiZapr
 # Генерируем случайный секретный ключ
 SECRET_KEY=$(openssl rand -hex 32)
 echo "SECRET_KEY='$SECRET_KEY'" > "$INSTALL_DIR/.env"
-chmod 600 "$INSTALL_DIR/.env"  
 
 # Функция проверки занятости порта
 check_port() {
@@ -159,7 +158,8 @@ install() {
 
   # Настройка конфигурации
   echo "${YELLOW}Настройка конфигурации...${NC}"
-  sed -i "s/port=5050/port=$APP_PORT/" "$INSTALL_DIR/app.py"
+  echo "APP_PORT=$APP_PORT" >> "$INSTALL_DIR/.env"
+  chmod 600 "$INSTALL_DIR/.env"
 
   # Инициализация базы данных
   init_db
@@ -175,6 +175,7 @@ After=network.target
 User=root
 Group=root
 WorkingDirectory=$INSTALL_DIR
+EnvironmentFile=$INSTALL_DIR/.env
 ExecStart=$VENV_PATH/bin/python $INSTALL_DIR/app.py
 Restart=always
 Environment="PYTHONUNBUFFERED=1"
