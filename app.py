@@ -59,6 +59,12 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
+    
 # Запуск Bash-скрипта с передачей параметров
 def run_bash_script(option, client_name, cert_expire=None):
     if not option.isdigit():
