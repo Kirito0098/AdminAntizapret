@@ -343,19 +343,31 @@ def get_uptime():
     days, remainder = divmod(uptime_seconds, 86400)
     hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
-    return f"{int(days)}д {int(hours)}ч {int(minutes)}м {int(seconds)}с"
+    return f"{int(days)}д {int(hours)}ч {int(minutes)}м"
 
-# Маршрут для страницы мониторинга
-@app.route('/server_monitor')
+# Маршрут для страницы мониторинга и обновления данных
+@app.route('/server_monitor', methods=['GET', 'POST'])
 def server_monitor():
-    try:
+    if request.method == 'GET':
+        # Рендеринг страницы
         cpu_usage = get_cpu_usage()
         memory_usage = get_memory_usage()
         uptime = get_uptime()
         return render_template('server_monitor.html', cpu_usage=cpu_usage, memory_usage=memory_usage, uptime=uptime)
-    except Exception as e:
-        app.logger.error(f"Ошибка при загрузке данных мониторинга: {e}")
-        return "Ошибка при загрузке данных мониторинга", 500
+    elif request.method == 'POST':
+        # Обновление данных через AJAX
+        try:
+            cpu_usage = get_cpu_usage()
+            memory_usage = get_memory_usage()
+            uptime = get_uptime()
+            return jsonify({
+                'cpu_usage': cpu_usage,
+                'memory_usage': memory_usage,
+                'uptime': uptime
+            })
+        except Exception as e:
+            app.logger.error(f"Ошибка при обновлении данных мониторинга: {e}")
+            return jsonify({'error': 'Ошибка при обновлении данных мониторинга'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port)

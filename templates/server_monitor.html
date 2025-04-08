@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles_index.css') }}">
+    <script src="{{ url_for('static', filename='assets/js/main_index.js') }}" defer></script>
     <title>Мониторинг сервера</title>
 </head>
 <body>
@@ -17,15 +19,15 @@
     <div class="server-info">
         <div class="info-item">
             <h3>Использование CPU</h3>
-            <p>{{ cpu_usage }}%</p>
+            <p id="cpu-usage">{{ cpu_usage }}%</p>
         </div>
         <div class="info-item">
             <h3>Использование памяти</h3>
-            <p>{{ memory_usage }}%</p>
+            <p id="memory-usage">{{ memory_usage }}%</p>
         </div>
         <div class="info-item">
             <h3>Аптайм</h3>
-            <p>{{ uptime }}</p>
+            <p id="uptime">{{ uptime }}</p>
         </div>
     </div>
 </body>
