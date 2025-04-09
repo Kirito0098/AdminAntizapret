@@ -207,30 +207,36 @@ def validate_file(func):
     return wrapper
 
 # Роут для скачивания конфигурационных файлов
-@app.route('/download/<file_type>/<filename>')
+@app.route('/download/<file_type>/<path:filename>')  # Используем <path:filename> для сложных имён
 @login_required
-@validate_file
-def download(file_type, filename, file_path):
-    basename = os.path.basename(file_path)
-    name_parts = basename.split('-')
-    extension = basename.split('.')[-1]
-    vpn_type = '-AZ' if name_parts[0] == 'antizapret' else ''
-    
-    if extension == 'ovpn':
-        client_name = '-'.join(name_parts[1:-1])
-        download_name = f"{client_name}{vpn_type}.{extension}"
-    elif extension == 'conf':
-        client_name = '-'.join(name_parts[1:-2])
-        download_name = f"{client_name}{vpn_type}.{extension}"
-    else:
-        download_name = basename
-    
-    return send_from_directory(
-        os.path.dirname(file_path),
-        os.path.basename(file_path),
-        as_attachment=True,
-        download_name=download_name
-    )
+def download(file_type, filename):
+    try:
+        # Проверяем тип файла
+        if file_type not in CONFIG_PATHS:
+            abort(400, description="Недопустимый тип файла")
+
+        # Ищем файл в разрешённых директориях (игнорируя спецсимволы в пути)
+        for config_dir in CONFIG_PATHS[file_type]:
+            for root, _, files in os.walk(config_dir):
+                for file in files:
+                    # Сравниваем имена файлов без учёта спецсимволов
+                    if file.replace("(", "").replace(")", "") == filename.replace("(", "").replace(")", ""):
+                        file_path = os.path.join(root, file)
+                        
+                        # Формируем имя для скачивания (без скобок)
+                        clean_name = file.replace("(", "").replace(")", "")
+                        return send_from_directory(
+                            os.path.dirname(file_path),
+                            file,
+                            as_attachment=True,
+                            download_name=clean_name
+                        )
+
+        abort(404, description="Файл не найден")
+
+    except Exception as e:
+        app.logger.error(f"Ошибка скачивания: {str(e)}")
+        abort(500, description="Внутренняя ошибка сервера")
 
 # Роут для формирования QR кода
 @app.route('/generate_qr/<file_type>/<filename>')

@@ -188,6 +188,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Функция для обновления данных о сервере
     function updateServerInfo() {
+        if (window.location.pathname !== '/server_monitor') {
+            return; 
+        }
+    
         fetch('/server_monitor', {
             method: 'POST',
             headers: {
@@ -201,9 +205,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Ошибка:', data.error);
                 return;
             }
-            document.getElementById('cpu-usage').textContent = data.cpu_usage + '%';
-            document.getElementById('memory-usage').textContent = data.memory_usage + '%';
-            document.getElementById('uptime').textContent = data.uptime;
+            const cpuElement = document.getElementById('cpu-usage');
+            const memoryElement = document.getElementById('memory-usage');
+            const uptimeElement = document.getElementById('uptime');
+    
+            if (cpuElement) cpuElement.textContent = data.cpu_usage + '%';
+            if (memoryElement) memoryElement.textContent = data.memory_usage + '%';
+            if (uptimeElement) uptimeElement.textContent = data.uptime;
         })
         .catch(error => console.error('Ошибка при обновлении данных:', error));
     }
@@ -293,8 +301,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }); 
     // Инициализация при загрузке
-       updateFormVisibility();
-       optionSelect.addEventListener('change', updateFormVisibility); 
-    updateServerInfo();
-    setInterval(updateServerInfo, 5000); // Обновление каждые 5 секунд
+    updateFormVisibility();
+    optionSelect.addEventListener('change', updateFormVisibility);
+    
+    if (window.location.pathname === '/server_monitor') {
+        updateServerInfo();
+        setInterval(updateServerInfo, 5000);
+    }
 });
