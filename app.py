@@ -5,7 +5,6 @@ import io
 import qrcode
 from qrcode.image.pil import PilImage
 from PIL import Image
-from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -170,79 +169,69 @@ def logout():
 # Декоратор для проверки существования файла
 def validate_file(func):
     @wraps(func)
-    def wrapper(*args, **kwargs):
-        file_type = kwargs.get('file_type')
-        filename = kwargs.get('filename')
-        
-        # Проверка безопасного имени файла
-        safe_filename = secure_filename(filename)
-        if safe_filename != filename:
-            abort(400, description="Некорректное имя файла")
-            
-        # Проверка расширения файла
-        extensions = {
-            'openvpn': ['.ovpn'],
-            'wg': ['.conf'],
-            'amneziawg': ['.conf']
-        }
-        if not any(safe_filename.endswith(ext) for ext in extensions.get(file_type, [])):
-            abort(400, description="Недопустимое расширение файла")
-            
-        # Поиск файла в конфигурационных директориях
-        config_dirs = CONFIG_PATHS.get(file_type)
-        file_path = None
-        if config_dirs:
-            for config_dir in config_dirs:
-                potential_path = os.path.abspath(os.path.join(config_dir, safe_filename))
-                if potential_path.startswith(os.path.abspath(config_dir)) and os.path.exists(potential_path):
-                    file_path = potential_path
-                    break
-        
-        if not file_path:
+    def wrapper(file_type, filename, *args, **kwargs):
+        try:
+            # Проверяем тип файла
+            if file_type not in CONFIG_PATHS:
+                abort(400, description="Недопустимый тип файла")
+
+            # Ищем файл в разрешённых директориях
+            for config_dir in CONFIG_PATHS[file_type]:
+                for root, _, files in os.walk(config_dir):
+                    for file in files:
+                        # Сравниваем имена файлов без учёта спецсимволов
+                        if file.replace("(", "").replace(")", "") == filename.replace("(", "").replace(")", ""):
+                            file_path = os.path.join(root, file)
+                            clean_name = file.replace("(", "").replace(")", "")
+                            return func(file_path, clean_name, *args, **kwargs)
+
             abort(404, description="Файл не найден")
-            
-        # Добавляем путь к файлу в kwargs
-        kwargs['file_path'] = file_path
-        return func(*args, **kwargs)
+
+        except Exception as e:
+            print(f"Аларм! ошибка: {str(e)}")
+            abort(500)
+
     return wrapper
 
 # Роут для скачивания конфигурационных файлов
-@app.route('/download/<file_type>/<path:filename>')  # Используем <path:filename> для сложных имён
-@login_required
-def download(file_type, filename):
-    try:
-        # Проверяем тип файла
-        if file_type not in CONFIG_PATHS:
-            abort(400, description="Недопустимый тип файла")
-
-        # Ищем файл в разрешённых директориях (игнорируя спецсимволы в пути)
-        for config_dir in CONFIG_PATHS[file_type]:
-            for root, _, files in os.walk(config_dir):
-                for file in files:
-                    # Сравниваем имена файлов без учёта спецсимволов
-                    if file.replace("(", "").replace(")", "") == filename.replace("(", "").replace(")", ""):
-                        file_path = os.path.join(root, file)
-                        
-                        # Формируем имя для скачивания (без скобок)
-                        clean_name = file.replace("(", "").replace(")", "")
-                        return send_from_directory(
-                            os.path.dirname(file_path),
-                            file,
-                            as_attachment=True,
-                            download_name=clean_name
-                        )
-
-        abort(404, description="Файл не найден")
-
-    except Exception as e:
-        app.logger.error(f"Ошибка скачивания: {str(e)}")
-        abort(500, description="Внутренняя ошибка сервера")
-
-# Роут для формирования QR кода
-@app.route('/generate_qr/<file_type>/<filename>')
+@app.route('/download/<file_type>/<path:filename>')
 @login_required
 @validate_file
-def generate_qr(file_type, filename, file_path):
+def download(file_path, clean_name):
+    try:
+        # Получаем базовое имя файла
+        basename = os.path.basename(file_path)
+        
+        # Разбираем имя файла
+        name_parts = basename.split('-')
+        extension = basename.split('.')[-1]
+        vpn_type = '-AZ' if name_parts[0] == 'antizapret' else ''
+        
+        # Формируем новое имя в зависимости от расширения
+        if extension == 'ovpn':
+            client_name = '-'.join(name_parts[1:-1])
+            download_name = f"{client_name}{vpn_type}.{extension}"
+        elif extension == 'conf':
+            client_name = '-'.join(name_parts[1:-2])[:12 if vpn_type == '-AZ' else 15]
+            download_name = f"{client_name}{vpn_type}.{extension}"
+        else:
+            download_name = basename
+        
+        return send_from_directory(
+            os.path.dirname(file_path),
+            os.path.basename(file_path),
+            as_attachment=True,
+            download_name=download_name
+        )
+    except Exception as e:
+        print(f"Аларм! ошибка: {str(e)}")
+        abort(500)
+
+# Роут для формирования QR кода
+@app.route('/generate_qr/<file_type>/<path:filename>')
+@login_required
+@validate_file
+def generate_qr(file_path, clean_name):
     try:
         # Читаем содержимое файла
         with open(file_path, 'r') as file:
@@ -267,7 +256,6 @@ def generate_qr(file_type, filename, file_path):
         img_byte_arr.seek(0)
         
         return send_file(img_byte_arr, mimetype='image/png')
-
     except Exception as e:
         print(f"Аларм! ошибка: {str(e)}")
         abort(500)
