@@ -186,6 +186,36 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    // Функция для обновления данных о сервере
+    function updateServerInfo() {
+        fetch('/server_monitor', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Ошибка:', data.error);
+                return;
+            }
+            document.getElementById('cpu-usage').textContent = data.cpu_usage + '%';
+            document.getElementById('memory-usage').textContent = data.memory_usage + '%';
+            document.getElementById('uptime').textContent = data.uptime;
+        })
+        .catch(error => console.error('Ошибка при обновлении данных:', error));
+    }
+
+    // Проверяем, находимся ли мы на странице мониторинга
+    if (window.location.pathname === '/server_monitor') {
+        // Запускаем первоначальное обновление
+        updateServerInfo();
+        // Запускаем периодическое обновление каждые 5 секунд
+        setInterval(updateServerInfo, 5000);
+    }
+
     // Обработчик отправки формы
     clientForm.addEventListener('submit', function(event) {
         event.preventDefault();
@@ -265,4 +295,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Инициализация при загрузке
        updateFormVisibility();
        optionSelect.addEventListener('change', updateFormVisibility); 
+    updateServerInfo();
+    setInterval(updateServerInfo, 5000); // Обновление каждые 5 секунд
 });

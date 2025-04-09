@@ -507,7 +507,7 @@ main_menu() {
     printf "└────────────────────────────────────────────┘\n"
     printf "%s\n" "${NC}"
     
-    printf "Выберите действие [0-10]: "
+    printf "Выберите действие [0-11]: "
     read choice
     case $choice in
       1) add_admin;;
