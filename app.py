@@ -347,6 +347,7 @@ def get_uptime():
 
 # Маршрут для страницы мониторинга и обновления данных
 @app.route('/server_monitor', methods=['GET', 'POST'])
+@login_required
 def server_monitor():
     if request.method == 'GET':
         # Рендеринг страницы
