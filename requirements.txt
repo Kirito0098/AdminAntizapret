@@ -12,3 +12,4 @@ Pillow==10.3.0
 python-dotenv
 flask_wtf
 psutil
+flask_cors

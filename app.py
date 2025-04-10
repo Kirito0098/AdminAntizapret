@@ -15,6 +15,7 @@ import psutil
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
+import platform
 
 load_dotenv() 
 
@@ -482,6 +483,66 @@ def server_monitor():
         except Exception as e:
             app.logger.error(f"Ошибка при обновлении данных мониторинга: {e}")
             return jsonify({'error': 'Ошибка при обновлении данных мониторинга'}), 500
+
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    if request.method == 'POST':
+        # Обработка изменения порта
+        new_port = request.form.get('port')
+        if new_port and new_port.isdigit():
+            with open('.env', 'r') as file:
+                lines = file.readlines()
+            with open('.env', 'w') as file:
+                for line in lines:
+                    if line.startswith('APP_PORT='):
+                        file.write(f'APP_PORT={new_port}\n')
+                    else:
+                        file.write(line)
+            flash('Порт успешно изменён. Перезапуск службы...', 'success')
+
+            # Перезапуск службы
+            try:
+                if platform.system() == "Linux":
+                    subprocess.run(["systemctl", "restart", "admin-antizapret.service"], check=True)
+            except subprocess.CalledProcessError as e:
+                flash(f'Ошибка при перезапуске службы: {e}', 'error')
+        
+        # Обработка добавления пользователя
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if username and password:
+            if len(password) < 8:
+                flash('Пароль должен содержать минимум 8 символов!', 'error')
+            else:
+                with app.app_context():
+                    if User.query.filter_by(username=username).first():
+                        flash(f"Пользователь '{username}' уже существует!", 'error')
+                    else:
+                        user = User(username=username)
+                        user.set_password(password)
+                        db.session.add(user)
+                        db.session.commit()
+                        flash(f"Пользователь '{username}' успешно добавлен!", 'success')
+        
+        # Обработка удаления пользователя
+        delete_username = request.form.get('delete_username')
+        if delete_username:
+            with app.app_context():
+                user = User.query.filter_by(username=delete_username).first()
+                if user:
+                    db.session.delete(user)
+                    db.session.commit()
+                    flash(f"Пользователь '{delete_username}' успешно удалён!", 'success')
+                else:
+                    flash(f"Пользователь '{delete_username}' не найден!", 'error')
+        
+        return redirect(url_for('settings'))
+
+    # Получение текущего порта и списка пользователей
+    current_port = os.getenv('APP_PORT', '5050')
+    users = User.query.all()
+    return render_template('settings.html', port=current_port, users=users)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port)

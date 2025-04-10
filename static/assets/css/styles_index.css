@@ -684,3 +684,71 @@ th {
         padding: 0.2rem;
     }
 }
+
+/*=============== SETTINGS PAGE STYLES ===============*/
+.title {
+    text-align: center;
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    color: hsl(0, 0%, 100%);
+}
+
+.form-container {
+    background-color: hsla(0, 0%, 10%, 0.7);
+    border: 2px solid #4CAF50;
+    padding: 2rem;
+    border-radius: 1rem;
+    margin: 1rem auto;
+    width: 100%;
+    max-width: 600px;
+    box-sizing: border-box;
+}
+
+.form-container h2, .form-container h3 {
+    color: hsl(0, 0%, 90%);
+    margin-bottom: 1rem;
+}
+
+.form-container input, .form-container button {
+    width: 100%;
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+    background: hsla(0, 0%, 20%, 0.7);
+    border: 1px solid hsl(0, 0%, 50%);
+    border-radius: 0.5rem;
+    color: hsl(0, 0%, 100%);
+    font-family: "Poppins", sans-serif;
+}
+
+.form-container button {
+    background-color: #4CAF50;
+    color: hsl(0, 0%, 100%);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.form-container button:hover {
+    background-color: #45A049;
+}
+
+.notifications {
+    margin-top: 1rem;
+}
+
+.notification {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-family: "Poppins", sans-serif;
+    font-size: 1rem;
+    color: #fff;
+}
+
+.notification-success {
+    background-color: #4CAF50;
+}
+
+.notification-error {
+    background-color: #f44336;
+}

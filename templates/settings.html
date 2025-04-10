@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles_index.css') }}">
+    <title>Настройки</title>
+</head>
+<body>
+    <nav class="navigation">
+        <a href="{{ url_for('index') }}" class="nav-link">Главная</a>
+        <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
+        <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
+        <a href="{{ url_for('settings') }}" class="nav-link">Настройки</a>
+        <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>
+    </nav>
+    <div class="container">
+        <h1 class="title">Настройки</h1>
+        
+        <div class="form-container">
+            <h2>Изменить порт</h2>
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label for="port">Текущий порт: {{ port }}</label>
+                <input type="text" id="port" name="port" placeholder="Введите новый порт">
+                <button type="submit" class="button">Сохранить</button>
+            </form>
+        </div>
+        
+        <div class="form-container">
+            <h2>Управление пользователями</h2>
+            <h3>Добавить пользователя</h3>
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="username" placeholder="Логин" required>
+                <input type="password" name="password" placeholder="Пароль" required>
+                <button type="submit" class="button">Добавить</button>
+            </form>
+            
+            <h3>Список пользователей</h3>
+            <ul>
+                {% for user in users %}
+                    <li>{{ user.username }}</li>
+                {% endfor %}
+            </ul>
+            
+            <h3>Удалить пользователя</h3>
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="delete_username" placeholder="Логин пользователя" required>
+                <button type="submit" class="button">Удалить</button>
+            </form>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="notifications">
+                    {% for category, message in messages %}
+                        <div class="notification notification-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+</body>
+</html>
