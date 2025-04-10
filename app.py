@@ -1,10 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, flash, abort, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, flash, abort, send_file, make_response
 import subprocess
 import os
 import io
 import qrcode
+import random
+import string
 from qrcode.image.pil import PilImage
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -146,25 +148,142 @@ def index():
 # Страница логина
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+
+    # Генерация капчи при загрузке страницы
+    if 'captcha' not in session:
+        session['captcha'] = generate_captcha()
+    
     if request.method == 'POST':
+        attempts = session.get('attempts', 0)
+        attempts += 1
+        session['attempts'] = attempts
+        # Проверяем капчу только после двух попыток
+        if attempts > 2:
+            user_captcha = request.form.get('captcha', '').upper()
+            correct_captcha = session.get('captcha', '')
+            
+            if user_captcha != correct_captcha:
+                flash('Неверный код!', 'error')
+                session['captcha'] = generate_captcha()
+                return redirect(url_for('login'))
+                
+        # Проверка логина/пароля
         username = request.form['username']
         password = request.form['password']
 
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
             session['username'] = user.username
+            # Сброс счетчика попыток при успешном входе
+            session['attempts'] = 0
             return redirect(url_for('index'))
-
         flash('Неверные учетные данные. Попробуйте снова.', 'error')
         return redirect(url_for('login'))
-
-    return render_template('login.html')
+    return render_template('login.html', captcha=session['captcha'])
 
 # Страница выхода
 @app.route('/logout')
 def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
+
+# Генерация текстовой капчи
+def generate_captcha():
+    text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return text
+
+# Роут обновления капчи
+@app.route('/refresh_captcha')
+def refresh_captcha():
+    session['captcha'] = generate_captcha()
+    return session['captcha']
+
+# Декоратор для капчи (графическое представление)
+@app.route('/captcha.png')
+def captcha():
+    # Получаем текст
+    session['captcha'] = generate_captcha()
+    text = session.get('captcha', '')
+
+    # Создаем изображение
+    width = 200
+    height = 60
+    image = Image.new('RGB', (width, height), color=(255, 255, 255))
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.truetype('./static/assets/fonts/SabirMono-Regular.ttf', 42)
+    x_offset = 22
+    y_offset = 10
+    current_x = x_offset
+
+    # Отрисовка символов капчи со случайным наклоном
+    for char in text:
+        try:
+            # Пробуем новый способ получения размера
+            bbox = draw.textbbox((0, 0), char, font=font)
+            char_width = bbox[2] - bbox[0]
+            char_height = bbox[3] - bbox[1]
+            # Используем старый если не прокатило
+        except AttributeError:
+            char_width, char_height = draw.textsize(char, font=font)
+        
+        # Случайный угол наклона
+        angle = random.randint(-15, 15)
+        
+        # Создаем временное изображение для символа
+        char_img = Image.new('RGBA', (char_width*2, char_height*2), (255, 255, 255, 0))
+        char_draw = ImageDraw.Draw(char_img)
+        char_draw.text((0, 0), char, font=font, fill=(0, 0, 0))
+        
+        # Поворачиваем символ
+        char_img = char_img.rotate(angle, expand=1, resample=Image.BICUBIC)
+        new_width, new_height = char_img.size
+        
+        # Рассчитываем позицию с учетом поворота
+        char_x = current_x + (char_width//2) - (new_width//2)
+        char_y = y_offset + (char_height//2) - (new_height//2)
+        
+        # Накладываем символ на основное изображение
+        image.paste(char_img, (char_x, char_y), char_img)
+        
+        # Передвигаемся к следующей позиции
+        current_x += char_width + 10
+
+    # Добавляем шум
+    for _ in range(200):
+        x = random.randint(0, width)
+        y = random.randint(0, height)
+        size = random.randint(1, 3)
+        draw.ellipse((x, y, x+size, y+size), fill=(200, 200, 200))
+
+    # Добавляем искажение
+    distortion = Image.new('L', (width, height), 255)
+    draw_dist = ImageDraw.Draw(distortion)
+    for _ in range(5):
+        x1 = random.randint(0, width)
+        y1 = random.randint(0, height)
+        x2 = random.randint(0, width)
+        y2 = random.randint(0, height)
+        draw_dist.line((x1, y1, x2, y2), fill=0, width=2)
+
+    # Применяем искажение
+    image = Image.composite(image, Image.new('RGB', (width, height), (255, 255, 255)), distortion)
+    
+    # Добавляем размытие
+    image = image.filter(ImageFilter.GaussianBlur(radius=0.5))
+    
+    # Увеличиваем контрастность
+    enhancer = ImageEnhance.Contrast(image)
+    image = enhancer.enhance(1.5)
+
+    # Теперь все это в байты и обратно в HTML
+    image = image.convert('RGB')
+    img_io = io.BytesIO()
+    image.save(img_io, 'PNG')
+    img_io.seek(0)
+    
+    response = make_response(img_io.getvalue())
+    response.headers.set('Content-Type', 'image/png')
+    return response
 
 # Декоратор для проверки существования файла
 def validate_file(func):
@@ -341,6 +460,7 @@ def get_uptime():
 
 # Маршрут для страницы мониторинга и обновления данных
 @app.route('/server_monitor', methods=['GET', 'POST'])
+@login_required
 def server_monitor():
     if request.method == 'GET':
         # Рендеринг страницы

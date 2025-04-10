@@ -36,7 +36,7 @@
         {% endwith %}
         -->
 
-        <form action="{{ url_for('login') }}" method="POST" class="login__form">
+        <form action="{{ url_for('login') }}" method="POST" class="login__form" data-attempts="{{ session.get('attempts', 0) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
          <h1 class="login__title">Login</h1>
      
@@ -66,6 +66,18 @@
                  <input type="checkbox" class="login__check-input" id="login-check">
                  <label for="login-check" class="login__check-label">Remember me</label>
              </div>
+         </div>
+
+         <!-- Капча -->
+         <div class="captcha-container hidden">
+            <div class="captcha-wrapper">
+                <input type="text" id="captcha-input" name="captcha" maxlength="6" placeholder=" " autocomplete="off">
+                <label class="captcha__label">Code</label>
+            </div>
+            <div class="captcha-image-group">
+                <img src="/captcha.png" alt="Captcha" id="captcha-img">
+                <button type="button" id="refresh-captcha">🔄</button>
+            </div>
          </div>
      
          <button type="submit" class="login__button">Login</button>

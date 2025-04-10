@@ -93,10 +93,10 @@ h1 {
     margin: 2rem auto; /* Центрируем весь блок */
     max-width: 1200px; /* Максимальная ширина контейнера */
     width: 90%; /* Ширина относительно экрана */
+    overflow-x: auto;
 }
 
 .column {
-    flex: 1;
     background-color: hsla(0, 0%, 10%, 0.1);
     border: 2px solid hsl(0, 0%, 100%);
     border-radius: 1rem;
@@ -106,6 +106,8 @@ h1 {
     border-color: #4CAF50; /* Зеленый цвет для отличия */
     width: 60%; /* Каждая колонка занимает 60% от file-list */
     max-width: 500px; /* Максимальная ширина колонки */
+    box-sizing: border-box;
+    align-items: center;
 }
 
 .scrollable {
@@ -163,85 +165,28 @@ th {
     cursor: not-allowed;
 }
 
-.qr-modal-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: none;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-dialog {
-    max-width: 30%; /* 30% ширина для экранов компьютера и планшетов */
-    margin: 0;
-    overflow: auto;
-}
-
-@media (max-width: 480px) {  /* Устанавливаем размер на 80% ширины экрана для устройств с низким CSS viewport разрешением экрана (мобильные телефоны)*/
-    .modal-dialog {
-        max-width: 80%;
-    }
-}
-
-.qr-code-container img {
-    max-width: 90%; /* Увеличиваем размер изображения */
-    height: auto;
-    display: block;
-    margin: 0 auto;
-}
-
-.modal-content {
-    padding: 20px;
-}
-
-.qr-modal-container img {
-    display: block;
-    margin: 0 auto;
-}
-
-.vpn-qr-button {
-    background-color: transparent;
-    background-image: url('../img/qr.png');
-    background-size: 28px 28px;
-    background-repeat: no-repeat;
-    background-position: center;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    transition: all 0.3s;
-    margin: 0.2rem;
-    width: 28px;
-    height: 28px;
-}
-
-.vpn-qr-button:hover {
-    transform: scale(1.1);
-    opacity: 0.8;
-}
-
-.vpn-qr-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
 /*=============== RESPONSIVE STYLES ===============*/
 @media (max-width: 768px) {
   .file-list {
     flex-direction: column;
     align-items: center; 
-    width: 95%;
+    width: 100%;
   }
   .column {
     width: 100%;
-    max-width: 100%;
     margin-bottom: 1rem;
+    padding: 0.5rem;
+    height: auto;
   }
   .form-container {
     padding: 1.5rem;
+  }
+  .download-button {
+    width: 100px;
+    padding: 0.4rem 0.6rem;
+  }
+  th, td {
+    padding: 0.2rem;
   }
 }
 .form-container input,
@@ -382,9 +327,15 @@ th {
     background-color: hsla(0, 0%, 10%, 0.8);
     padding: 1rem;
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
     gap: 1.5rem;
     border-bottom: 2px solid #4CAF50;
+}
+
+.nav-group {
+    display: flex;
+    gap: 1.5rem;
 }
 
 .nav-link {
@@ -397,6 +348,20 @@ th {
 
 .nav-link:hover {
     color: #4CAF50;
+}
+
+/* Стили для мобильников */
+@media (max-width: 768px) {
+    .nav-group {
+        width: 100%;
+        justify-content: space-between;
+        margin-bottom: 0rem;
+    }
+    
+    .nav-link {
+        flex: 1;
+        text-align: center;
+    }
 }
 
 /*=============== FILE EDIT FORM ===============*/
@@ -504,6 +469,72 @@ th {
     }
 }
 
+/*=============== QR-CODE STYLES ===============*/
+.qr-modal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-dialog {
+    max-width: 30%;
+    margin: 0;
+    overflow: auto;
+}
+
+.qr-code-container img {
+    max-width: 90%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.modal-content {
+    padding: 20px;
+}
+
+.qr-modal-container img {
+    display: block;
+    margin: 0 auto;
+}
+
+.vpn-qr-button {
+    background-color: transparent;
+    background-image: url('../img/qr.png');
+    background-size: 28px 28px;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin: 0.2rem;
+    width: 28px;
+    height: 28px;
+}
+
+.vpn-qr-button:hover {
+    transform: scale(1.1);
+    opacity: 0.8;
+}
+
+.vpn-qr-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+    .modal-dialog {
+        max-width: 80%;
+    }
+}
+
 /*=============== FLASH MESSAGES ===============*/
 .flash-messages {
     margin-bottom: 1rem;
@@ -607,26 +638,49 @@ th {
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
+    gap: 1rem;
 }
 
-.info-item {
-    background-color: hsla(0, 0%, 10%, 0.7);
+.info-item {   
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;    
     border: 2px solid var(--white-color);
     padding: 1.5rem;
     border-radius: 1rem;
     text-align: center;
-    width: 30%;
-    backdrop-filter: blur(8px);
 }
 
 .info-item h3 {
     font-size: 1.25rem;
     margin-bottom: 1rem;
     color: hsl(0, 0%, 90%);
+    text-align: center;
 }
 
 .info-item p {
     font-size: 1.5rem;
     font-weight: var(--font-medium);
     color: hsl(0, 0%, 100%);
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .server-info {
+        flex-direction: column;
+        align-items: center;
+        margin-top: 1rem;
+        gap: 0rem;
+    }
+     
+    .info-item {
+        margin-bottom: 0.5rem;
+        padding: 0.2rem;
+    }
+
+    .column .info-item {
+        padding: 0.2rem;
+    }
 }

@@ -29,6 +29,28 @@ document.addEventListener('DOMContentLoaded', function () {
     const notification = document.getElementById('notification');
     const flashContainer = document.getElementById('flash-container'); // Контейнер для flash-сообщений
 
+     // Включение капчи после 2 неудачных авторизаций
+     const loginForm = document.querySelector('.login__form');
+     const captchaContainer = document.querySelector('.captcha-container');
+     const attempts = parseInt(loginForm.dataset.attempts);
+     if (attempts >= 2) {
+        captchaContainer.classList.remove('hidden');
+    }
+
+     // Обновление капчи
+     const refreshButton = document.querySelector('#refresh-captcha');
+     const captchaImg = document.querySelector('#captcha-img');
+     if (refreshButton && captchaImg) {
+        refreshButton.addEventListener('click', function() {
+            captchaImg.src = '/captcha.png?' + new Date().getTime();  
+            // Делаем запрос на сервер для генерации новой капчи
+            fetch('/refresh_captcha')
+                .catch(error => {
+                    console.error('Ошибка обновления капчи:', error);
+                });
+        });
+    }
+    
     // Функция для отображения уведомлений
     function showNotification(message, type = 'info') {
         notification.textContent = message;

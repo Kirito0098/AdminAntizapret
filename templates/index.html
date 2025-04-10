@@ -9,10 +9,14 @@
 </head>
 <body>
     <nav class="navigation">
-        <a href="{{ url_for('index') }}" class="nav-link">Главная</a>
-        <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
-        <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
-        <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>
+        <div class="nav-group">
+            <a href="{{ url_for('index') }}" class="nav-link">Главная</a>
+            <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
+        </div>
+        <div class="nav-group">
+            <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
+            <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>
+        </div>
     </nav>
     <h1>Управление VPN клиентами</h1>
     <div id="notification" class="notification" style="display: none;"></div>
@@ -88,7 +92,7 @@
                                             <button class="download-button">VPN</button>
                                         </a>
                                     {% else %}
-                                        <button class="download-button" disabled>файла (VPN)</button>
+                                        <button class="download-button" disabled>Нет файла</button>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -99,7 +103,7 @@
                                             <button class="download-button">Antizapret</button>
                                         </a>
                                     {% else %}
-                                        <button class="download-button" disabled>Нет файла (Antizapret)</button>
+                                        <button class="download-button" disabled>Нет файла</button>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -143,12 +147,16 @@
                                             <button class="download-button">VPN</button>
                                         </a>
                                     {% else %}
-                                        <button class="download-button" disabled>Нет файла (VPN)</button>
+                                        <button class="download-button" disabled>Нет файла</button>
                                     {% endif %}
                                 </td>
                                 <td style="border: 1px solid rgb(255, 255, 255);">
-                                    <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}"></button>
-                                </td>
+                                    {% if files['vpn'] %}
+                                        <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}"></button>
+                                    {% else %}
+                                         <button class="vpn-qr-button" disabled></button>
+                                    {% endif %}
+                                </td>                              
                             </tr>
                             <tr>
                                 <td style="border: 1px solid rgb(255, 255, 255);">
@@ -157,11 +165,15 @@
                                             <button class="download-button">Antizapret</button>
                                         </a>
                                     {% else %}
-                                        <button class="download-button" disabled>Нет файла (Antizapret)</button>
+                                        <button class="download-button" disabled>Нет файла</button>
                                     {% endif %}
                                 </td>
                                 <td style="border: 1px solid rgb(255, 255, 255);">
-                                    <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}"></button>
+                                    {% if files['antizapret'] %}
+                                        <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}"></button>
+                                    {% else %}
+                                        <button class="vpn-qr-button" disabled></button>
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}
@@ -204,11 +216,15 @@
                                             <button class="download-button">VPN</button>
                                         </a>
                                     {% else %}
-                                        <button class="download-button" disabled>Нет файла (VPN)</button>
+                                        <button class="download-button" disabled>Нет файла</button>
                                     {% endif %}
                                 </td>
                                 <td style="border: 1px solid rgb(255, 255, 255);">
-                                    <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='wg', filename=files['vpn'].split('/')[-1]) }}"></button>
+                                    {% if files['vpn'] %}
+                                        <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='wg', filename=files['vpn'].split('/')[-1]) }}"></button>
+                                    {% else %}
+                                         <button class="vpn-qr-button" disabled></button>
+                                    {% endif %}
                                 </td>
                             </tr>
                             <tr>
@@ -218,11 +234,15 @@
                                             <button class="download-button">Antizapret</button>
                                         </a>
                                     {% else %}
-                                        <button class="download-button" disabled>Нет файла (Antizapret)</button>
+                                        <button class="download-button" disabled>Нет файла</button>
                                     {% endif %}
                                 </td>
                                 <td style="border: 1px solid rgb(255, 255, 255);">
-                                    <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}"></button>
+                                    {% if files['antizapret'] %}
+                                        <button class="vpn-qr-button" data-config="{{ url_for('generate_qr', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}"></button>
+                                    {% else %}
+                                        <button class="vpn-qr-button" disabled></button>
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}
