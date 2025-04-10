@@ -32,7 +32,6 @@ button {
 
 body {
   color: var(--white-color);
-  background-image: url('{{ url_for("static", filename="assets/img/login-bg.png") }}'); /* Убедитесь, что путь корректен */
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -173,6 +172,96 @@ img {
 .login__input:not(:placeholder-shown).login__input:not(:focus) + .login__label {
   top: -12px;
   font-size: var(--small-font-size);
+}
+
+.captcha-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  justify-content: space-between;
+}
+
+.captcha-image-group {
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .captcha-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  #captcha-img,
+  #refresh-captcha {
+    margin-top: 20px;
+  }
+}
+
+.captcha-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+#captcha-img {
+  width: 90%;
+  height: auto;
+  margin-left: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+#captcha-input {
+  padding: 0.8rem 0rem;
+  background: none;
+  color: var(--white-color);
+  border: none;
+  border-bottom: 2px solid var(--white-color);
+  width: 100%;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.captcha__label {
+  position: absolute;
+  left: 0;
+  top: 13px;
+  font-weight: var(--font-medium);
+  transition: top 0.3s, font-size 0.3s;
+  color: var(--white-color);
+  font-size: var(--normal-font-size);
+  pointer-events: none;
+}
+
+/* Input focus move up label */
+#captcha-input:focus + .captcha__label {
+  top: -12px;
+  font-size: var(--small-font-size);
+}
+
+/* Input focus sticky top label */
+#captcha-input:not(:placeholder-shown):not(:focus) + .captcha__label {
+  top: -12px;
+  font-size: var(--small-font-size);
+}
+
+#refresh-captcha {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--white-color);
+  cursor: pointer;
+  margin-left: 5px;
+}
+
+#refresh-captcha:hover {
+  transform: scale(1.4);
+  opacity: 0.8;
+}
+
+.hidden {
+  display: none;
 }
 
 /*=============== NOTIFICATIONS ===============*/
