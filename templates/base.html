@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles_index.css') }}">
+    {% block extra_css %}{% endblock %}
+    <title>{% block title %}AdminVPN Claymore{% endblock %}</title>
+</head>
+<body>
+    <nav class="navigation">
+        <div class="nav-group">
+            <a href="{{ url_for('index') }}" class="nav-link">Главная</a>
+            <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
+        </div>
+        <div class="nav-group">
+            <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
+            <a href="{{ url_for('settings') }}" class="nav-link">Настройки</a>
+            <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>
+        </div>
+    </nav>
+
+    {% block content %}{% endblock %}
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
