@@ -8,11 +8,15 @@
 </head>
 <body>
     <nav class="navigation">
-        <a href="{{ url_for('index') }}" class="nav-link">Главная</a>
-        <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
-        <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
-        <a href="{{ url_for('settings') }}" class="nav-link">Настройки</a>
-        <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>
+        <div class="nav-group">
+            <a href="{{ url_for('index') }}" class="nav-link">Главная</a>
+            <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
+        </div>
+        <div class="nav-group">
+            <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
+            <a href="{{ url_for('settings') }}" class="nav-link">Настройки</a>
+            <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>
+        </div>
     </nav>
     <h1>Редактирование файлов АнтиЗапрета</h1>
     <div id="loading-overlay" style="display: none;">
