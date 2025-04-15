@@ -545,4 +545,16 @@ def settings():
     return render_template('settings.html', port=current_port, users=users)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=port)
+    use_https = os.getenv('USE_HTTPS', 'false').lower() == 'true'
+    ssl_context = None
+    
+    if use_https:
+        cert_file = os.getenv('SSL_CERT')
+        key_file = os.getenv('SSL_KEY')
+        
+        if cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file):
+            ssl_context = (cert_file, key_file)
+        else:
+            print("Предупреждение: HTTPS включен, но сертификаты не найдены. Используется HTTP.")
+    
+    app.run(host='0.0.0.0', port=port, ssl_context=ssl_context)
