@@ -859,7 +859,7 @@ main_menu() {
         printf "└────────────────────────────────────────────┘\n"
         printf "%s\n" "${NC}"
         
-        printf "Выберите действие [0-15]: "
+        printf "Выберите действие [0-13]: "
         read choice
         case $choice in
             1) add_admin;;
