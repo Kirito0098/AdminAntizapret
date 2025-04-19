@@ -22,7 +22,10 @@ load_dotenv()
 port = int(os.getenv('APP_PORT', '5050'))
 
 app = Flask(__name__)
-# app.secret_key = os.getenv("SECRET_KEY")  # ??? Секретный ключ переопределяется далее в коде ???
+app.secret_key = os.getenv("SECRET_KEY")
+if not app.secret_key:
+    raise ValueError("SECRET_KEY is not set in .env!")
+    
 csrf = CSRFProtect(app) 
 
 CONFIG_PATHS = {
@@ -47,9 +50,6 @@ MAX_CERT_EXPIRE = 365
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-
-# Секретный ключ для сессий
-app.secret_key = os.urandom(24)
 
 # Модель пользователя для работы с БД
 class User(db.Model):
@@ -114,9 +114,6 @@ class AuthenticationManager:
     def __init__(self):
         pass
 
-    def is_authenticated(self): # ??? не используется ???
-        return 'username' in session
-
     def login_required(self, f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
@@ -135,10 +132,8 @@ class CaptchaGenerator:
         return text
     
     def generate_captcha_image(self):
-        # Получаем текст
         text = session.get('captcha', '')
 
-        # Создаем изображение
         width = 200
         height = 60
         image = Image.new('RGB', (width, height), color=(255, 255, 255))
@@ -148,47 +143,36 @@ class CaptchaGenerator:
         y_offset = 10
         current_x = x_offset
 
-        # Отрисовка символов капчи со случайным наклоном
         for char in text:
             try:
-                # Пробуем новый способ получения размера
                 bbox = draw.textbbox((0, 0), char, font=font)
                 char_width = bbox[2] - bbox[0]
                 char_height = bbox[3] - bbox[1]
-                # Используем старый если не прокатило
             except AttributeError:
                 char_width, char_height = draw.textsize(char, font=font)
             
-            # Случайный угол наклона
             angle = random.randint(-15, 15)
             
-            # Создаем временное изображение для символа
             char_img = Image.new('RGBA', (char_width*2, char_height*2), (255, 255, 255, 0))
             char_draw = ImageDraw.Draw(char_img)
             char_draw.text((0, 0), char, font=font, fill=(0, 0, 0))
             
-            # Поворачиваем символ
             char_img = char_img.rotate(angle, expand=1, resample=Image.BICUBIC)
             new_width, new_height = char_img.size
             
-            # Рассчитываем позицию с учетом поворота
             char_x = current_x + (char_width//2) - (new_width//2)
             char_y = y_offset + (char_height//2) - (new_height//2)
             
-            # Накладываем символ на основное изображение
             image.paste(char_img, (char_x, char_y), char_img)
             
-            # Передвигаемся к следующей позиции
             current_x += char_width + 10
 
-        # Добавляем шум
         for _ in range(200):
             x = random.randint(0, width)
             y = random.randint(0, height)
             size = random.randint(1, 3)
             draw.ellipse((x, y, x+size, y+size), fill=(200, 200, 200))
 
-        # Добавляем искажение
         distortion = Image.new('L', (width, height), 255)
         draw_dist = ImageDraw.Draw(distortion)
         for _ in range(5):
@@ -198,17 +182,13 @@ class CaptchaGenerator:
             y2 = random.randint(0, height)
             draw_dist.line((x1, y1, x2, y2), fill=0, width=2)
 
-        # Применяем искажение
         image = Image.composite(image, Image.new('RGB', (width, height), (255, 255, 255)), distortion)
         
-        # Добавляем размытие
         image = image.filter(ImageFilter.GaussianBlur(radius=0.5))
         
-        # Увеличиваем контрастность
         enhancer = ImageEnhance.Contrast(image)
         image = enhancer.enhance(1.5)
 
-        # Теперь все это в байты и обратно в HTML
         image = image.convert('RGB')
         img_io = io.BytesIO()
         image.save(img_io, 'PNG')
@@ -224,15 +204,12 @@ class FileValidator:
         @wraps(func)
         def wrapper(file_type, filename, *args, **kwargs):
             try:
-                # Проверяем тип файла
                 if file_type not in self.config_paths:
                     abort(400, description="Недопустимый тип файла")
 
-                # Ищем файл в разрешённых директориях
                 for config_dir in self.config_paths[file_type]:
                     for root, _, files in os.walk(config_dir):
                         for file in files:
-                            # Сравниваем имена файлов без учёта спецсимволов
                             if file.replace("(", "").replace(")", "") == filename.replace("(", "").replace(")", ""):
                                 file_path = os.path.join(root, file)
                                 clean_name = file.replace("(", "").replace(")", "")
@@ -251,7 +228,6 @@ class QRGenerator:
         pass
 
     def generate_qr_code(self, config_text):
-        # Создаем QR-код
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -261,10 +237,8 @@ class QRGenerator:
         qr.add_data(config_text)
         qr.make(fit=True)
 
-        # Создаем изображение
         img = qr.make_image(fill_color="black", back_color="white", image_factory=PilImage)
 
-        # Конвертируем в байты
         img_byte_arr = io.BytesIO()
         img.save(img_byte_arr, format='PNG')
         img_byte_arr.seek(0)
@@ -357,8 +331,6 @@ def index():
 # Страница логина
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-
-    # Генерация капчи при загрузке страницы
     if 'captcha' not in session:
         session['captcha'] = captcha_generator.generate_captcha()
     
@@ -366,7 +338,6 @@ def login():
         attempts = session.get('attempts', 0)
         attempts += 1
         session['attempts'] = attempts
-        # Проверяем капчу только после двух попыток
         if attempts > 2:
             user_captcha = request.form.get('captcha', '').upper()
             correct_captcha = session.get('captcha', '')
@@ -376,14 +347,12 @@ def login():
                 session['captcha'] = captcha_generator.generate_captcha()
                 return redirect(url_for('login'))
                 
-        # Проверка логина/пароля
         username = request.form['username']
         password = request.form['password']
 
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
             session['username'] = user.username
-            # Сброс счетчика попыток при успешном входе
             session['attempts'] = 0
             return redirect(url_for('index'))
         flash('Неверные учетные данные. Попробуйте снова.', 'error')
@@ -405,7 +374,6 @@ def refresh_captcha():
 # Декоратор для капчи (графическое представление)
 @app.route('/captcha.png')
 def captcha():
-    # Получаем текст
     session['captcha'] = captcha_generator.generate_captcha()
     img_io = captcha_generator.generate_captcha_image()
     
@@ -419,15 +387,12 @@ def captcha():
 @file_validator.validate_file
 def download(file_path, clean_name):
     try:
-        # Получаем базовое имя файла
         basename = os.path.basename(file_path)
         
-        # Разбираем имя файла
         name_parts = basename.split('-')
         extension = basename.split('.')[-1]
         vpn_type = '-AZ' if name_parts[0] == 'antizapret' else ''
         
-        # Формируем новое имя в зависимости от расширения
         if extension == 'ovpn':
             client_name = '-'.join(name_parts[1:-1])
             download_name = f"{client_name}{vpn_type}.{extension}"
@@ -453,7 +418,6 @@ def download(file_path, clean_name):
 @file_validator.validate_file
 def generate_qr(file_path, clean_name):
     try:
-        # Читаем содержимое файла
         with open(file_path, 'r') as file:
             config_text = file.read()
 
@@ -515,13 +479,11 @@ def run_doall():
 @auth_manager.login_required
 def server_monitor():
     if request.method == 'GET':
-        # Рендеринг страницы
         cpu_usage = server_monitor_proc.get_cpu_usage()
         memory_usage = server_monitor_proc.get_memory_usage()
         uptime = server_monitor_proc.get_uptime()
         return render_template('server_monitor.html', cpu_usage=cpu_usage, memory_usage=memory_usage, uptime=uptime)
     elif request.method == 'POST':
-        # Обновление данных через AJAX
         try:
             cpu_usage = server_monitor_proc.get_cpu_usage()
             memory_usage = server_monitor_proc.get_memory_usage()
@@ -539,7 +501,6 @@ def server_monitor():
 @auth_manager.login_required
 def settings():
     if request.method == 'POST':
-        # Обработка изменения порта
         new_port = request.form.get('port')
         if new_port and new_port.isdigit():
             with open('.env', 'r') as file:
@@ -552,14 +513,12 @@ def settings():
                         file.write(line)
             flash('Порт успешно изменён. Перезапуск службы...', 'success')
 
-            # Перезапуск службы
             try:
                 if platform.system() == "Linux":
                     subprocess.run(["systemctl", "restart", "admin-antizapret.service"], check=True)
             except subprocess.CalledProcessError as e:
                 flash(f'Ошибка при перезапуске службы: {e}', 'error')
         
-        # Обработка добавления пользователя
         username = request.form.get('username')
         password = request.form.get('password')
         if username and password:
@@ -576,7 +535,6 @@ def settings():
                         db.session.commit()
                         flash(f"Пользователь '{username}' успешно добавлен!", 'success')
         
-        # Обработка удаления пользователя
         delete_username = request.form.get('delete_username')
         if delete_username:
             with app.app_context():
@@ -590,7 +548,6 @@ def settings():
         
         return redirect(url_for('settings'))
 
-    # Получение текущего порта и списка пользователей
     current_port = os.getenv('APP_PORT', '5050')
     users = User.query.all()
     return render_template('settings.html', port=current_port, users=users)
