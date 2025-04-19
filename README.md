@@ -41,7 +41,7 @@
    ```bash
    bash <(wget -qO- https://raw.githubusercontent.com/Kirito0098/AdminAntizapret/refs/heads/main/install.sh)
    ```
-> **Примечание:** Если вы хотите использовать порт `443` для HTTPS, необходимо отключить резервные порты для OpenVPN. Для этого выполните следующие шаги:
+> **Примечание:** Если вы хотите хотите использовать HTTPS и Let's Encrypt, необходимо отключить резервные порты `80` и `443` для OpenVPN. Для этого выполните следующие шаги:
 > 1. Откройте файл конфигурации:
 >    ```bash
 >    nano /root/antizapret/setup
