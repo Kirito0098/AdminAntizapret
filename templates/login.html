@@ -1,30 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!--=============== REMIXICONS ===============-->
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link
+      href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css"
+      rel="stylesheet"
+    />
 
     <!--=============== CSS ===============-->
-    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles.css') }}">
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='assets/css/styles.css') }}"
+    />
 
     <title>AdminVPN Claymore</title>
-</head>
-<body>
-    <div id="notification" class="notification" style="display: none;"></div>
+  </head>
+  <body>
+    <div id="notification" class="notification" style="display: none"></div>
     <div class="login">
-        <img src="{{ url_for('static', filename='assets/img/login-bg.png') }}" alt="login image" class="login__img">
+      <img
+        src="{{ url_for('static', filename='assets/img/login-bg.png') }}"
+        alt="login image"
+        class="login__img"
+      />
 
-        <script id="flash-messages" type="application/json">
-            {{ get_flashed_messages(with_categories=True) | tojson }}
-        </script>
+      <script id="flash-messages" type="application/json">
+        {{ get_flashed_messages(with_categories=True) | tojson }}
+      </script>
 
-        <div id="notification" class="notification" style="display: none;"></div>
+      <div id="notification" class="notification" style="display: none"></div>
 
-        <!-- Удален блок flash-messages -->
-        <!--
+      <!-- Удален блок flash-messages -->
+      <!--
         {% with messages = get_flashed_messages() %}
         {% if messages %}
         <div id="flash-container" class="flash-messages">
@@ -36,55 +46,89 @@
         {% endwith %}
         -->
 
-        <form action="{{ url_for('login') }}" method="POST" class="login__form" data-attempts="{{ session.get('attempts', 0) }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-         <h1 class="login__title">Login</h1>
-     
-         <div class="login__content">
-             <div class="login__box">
-                 <i class="ri-user-3-line login__icon"></i>
-     
-                 <div class="login__box-input">
-                     <input type="text" required class="login__input" id="login-email" name="username" placeholder=" " autocomplete="off">
-                     <label for="login-email" class="login__label">Username</label>
-                 </div>
-             </div>
-     
-             <div class="login__box">
-                 <i class="ri-lock-2-line login__icon"></i>
-     
-                 <div class="login__box-input">
-                     <input type="password" required class="login__input" id="login-pass" name="password" placeholder=" " autocomplete="off">
-                     <label for="login-pass" class="login__label">Password</label>
-                     <i class="ri-eye-off-line login__eye" id="login-eye"></i>
-                 </div>
-             </div>
-         </div>
-     
-         <div class="login__check">
-             <div class="login__check-group">
-                 <input type="checkbox" class="login__check-input" id="login-check">
-                 <label for="login-check" class="login__check-label">Remember me</label>
-             </div>
-         </div>
+      <form
+        action="{{ url_for('login') }}"
+        method="POST"
+        class="login__form"
+        data-attempts="{{ session.get('attempts', 0) }}"
+      >
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <h1 class="login__title">Login</h1>
 
-         <!-- Капча -->
-         <div class="captcha-container hidden">
-            <div class="captcha-wrapper">
-                <input type="text" id="captcha-input" name="captcha" maxlength="6" placeholder=" " autocomplete="off">
-                <label class="captcha__label">Code</label>
+        <div class="login__content">
+          <div class="login__box">
+            <i class="ri-user-3-line login__icon"></i>
+
+            <div class="login__box-input">
+              <input
+                type="text"
+                required
+                class="login__input"
+                id="login-email"
+                name="username"
+                placeholder=" "
+                autocomplete="off"
+              />
+              <label for="login-email" class="login__label">Username</label>
             </div>
-            <div class="captcha-image-group">
-                <img src="/captcha.png" alt="Captcha" id="captcha-img">
-                <button type="button" id="refresh-captcha">🔄</button>
+          </div>
+
+          <div class="login__box">
+            <i class="ri-lock-2-line login__icon"></i>
+
+            <div class="login__box-input">
+              <input
+                type="password"
+                required
+                class="login__input"
+                id="login-pass"
+                name="password"
+                placeholder=" "
+                autocomplete="off"
+              />
+              <label for="login-pass" class="login__label">Password</label>
+              <i class="ri-eye-off-line login__eye" id="login-eye"></i>
             </div>
-         </div>
-     
-         <button type="submit" class="login__button">Login</button>
-     </form>
+          </div>
+        </div>
+
+        <div class="login__check">
+          <div class="login__check-group">
+            <input
+              type="checkbox"
+              class="login__check-input"
+              id="login-check"
+            />
+            <label for="login-check" class="login__check-label"
+              >Remember me</label
+            >
+          </div>
+        </div>
+
+        <!-- Капча -->
+        <div class="captcha-container hidden">
+          <div class="captcha-wrapper">
+            <input
+              type="text"
+              id="captcha-input"
+              name="captcha"
+              maxlength="6"
+              placeholder=" "
+              autocomplete="off"
+            />
+            <label class="captcha__label">Code</label>
+          </div>
+          <div class="captcha-image-group">
+            <img src="/captcha.png" alt="Captcha" id="captcha-img" />
+            <button type="button" id="refresh-captcha">🔄</button>
+          </div>
+        </div>
+
+        <button type="submit" class="login__button">Login</button>
+      </form>
     </div>
-    
+
     <!--=============== MAIN JS ===============-->
     <script src="{{ url_for('static', filename='assets/js/main.js') }}"></script>
-</body>
+  </body>
 </html>

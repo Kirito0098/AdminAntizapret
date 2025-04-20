@@ -1,4 +1,17 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, jsonify, flash, abort, send_file, make_response
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    session,
+    send_from_directory,
+    jsonify,
+    flash,
+    abort,
+    send_file,
+    make_response,
+)
 import subprocess
 import os
 import io
@@ -17,39 +30,40 @@ from dotenv import load_dotenv
 import time
 import platform
 
-load_dotenv() 
+load_dotenv()
 
-port = int(os.getenv('APP_PORT', '5050'))
+port = int(os.getenv("APP_PORT", "5050"))
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 if not app.secret_key:
     raise ValueError("SECRET_KEY is not set in .env!")
-    
-csrf = CSRFProtect(app) 
+
+csrf = CSRFProtect(app)
 
 CONFIG_PATHS = {
     "openvpn": [
-        '/root/antizapret/client/openvpn/antizapret',
-        '/root/antizapret/client/openvpn/vpn'
+        "/root/antizapret/client/openvpn/antizapret",
+        "/root/antizapret/client/openvpn/vpn",
     ],
     "wg": [
-        '/root/antizapret/client/wireguard/antizapret',
-        '/root/antizapret/client/wireguard/vpn'
+        "/root/antizapret/client/wireguard/antizapret",
+        "/root/antizapret/client/wireguard/vpn",
     ],
     "amneziawg": [
-        '/root/antizapret/client/amneziawg/antizapret',
-        '/root/antizapret/client/amneziawg/vpn'
-    ]
+        "/root/antizapret/client/amneziawg/antizapret",
+        "/root/antizapret/client/amneziawg/vpn",
+    ],
 }
 
 MIN_CERT_EXPIRE = 1
 MAX_CERT_EXPIRE = 365
 
 # Настройка БД
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
+
 
 # Модель пользователя для работы с БД
 class User(db.Model):
@@ -63,6 +77,7 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+
 class ScriptExecutor:
     def __init__(self):
         self.min_cert_expire = MIN_CERT_EXPIRE
@@ -73,10 +88,12 @@ class ScriptExecutor:
             raise ValueError("Некорректный параметр option")
 
         safe_client_name = shlex.quote(client_name)
-        command = ['./client.sh', option, safe_client_name]
+        command = ["./client.sh", option, safe_client_name]
 
         if cert_expire:
-            if not cert_expire.isdigit() or not (self.min_cert_expire <= int(cert_expire) <= self.max_cert_expire):
+            if not cert_expire.isdigit() or not (
+                self.min_cert_expire <= int(cert_expire) <= self.max_cert_expire
+            ):
                 raise ValueError("Некорректный срок действия сертификата")
             command.append(cert_expire)
 
@@ -85,11 +102,14 @@ class ScriptExecutor:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            shell=False
+            shell=False,
         )
         if result.returncode != 0:
-            raise subprocess.CalledProcessError(result.returncode, command, output=result.stdout, stderr=result.stderr)
+            raise subprocess.CalledProcessError(
+                result.returncode, command, output=result.stdout, stderr=result.stderr
+            )
         return result.stdout, result.stderr
+
 
 class ConfigFileHandler:
     def __init__(self, config_paths):
@@ -100,13 +120,15 @@ class ConfigFileHandler:
         for directory in paths:
             if os.path.exists(directory):
                 for root, _, files in os.walk(directory):
-                    collected.extend(os.path.join(root, f) for f in files if f.endswith(extension))
+                    collected.extend(
+                        os.path.join(root, f) for f in files if f.endswith(extension)
+                    )
         return collected
 
     def get_config_files(self):
-        openvpn_files = self._collect_files(self.config_paths["openvpn"], '.ovpn')
-        wg_files = self._collect_files(self.config_paths["wg"], '.conf')
-        amneziawg_files = self._collect_files(self.config_paths["amneziawg"], '.conf')
+        openvpn_files = self._collect_files(self.config_paths["openvpn"], ".ovpn")
+        wg_files = self._collect_files(self.config_paths["wg"], ".conf")
+        amneziawg_files = self._collect_files(self.config_paths["amneziawg"], ".conf")
         return openvpn_files, wg_files, amneziawg_files
 
 
@@ -117,28 +139,32 @@ class AuthenticationManager:
     def login_required(self, f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if 'username' not in session:
-                flash('Пожалуйста, войдите в систему для доступа к этой странице.', 'info')
-                return redirect(url_for('login'))
+            if "username" not in session:
+                flash(
+                    "Пожалуйста, войдите в систему для доступа к этой странице.", "info"
+                )
+                return redirect(url_for("login"))
             return f(*args, **kwargs)
+
         return decorated_function
+
 
 class CaptchaGenerator:
     def __init__(self):
         pass
 
     def generate_captcha(self):
-        text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        text = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
         return text
-    
+
     def generate_captcha_image(self):
-        text = session.get('captcha', '')
+        text = session.get("captcha", "")
 
         width = 200
         height = 60
-        image = Image.new('RGB', (width, height), color=(255, 255, 255))
+        image = Image.new("RGB", (width, height), color=(255, 255, 255))
         draw = ImageDraw.Draw(image)
-        font = ImageFont.truetype('./static/assets/fonts/SabirMono-Regular.ttf', 42)
+        font = ImageFont.truetype("./static/assets/fonts/SabirMono-Regular.ttf", 42)
         x_offset = 22
         y_offset = 10
         current_x = x_offset
@@ -150,30 +176,32 @@ class CaptchaGenerator:
                 char_height = bbox[3] - bbox[1]
             except AttributeError:
                 char_width, char_height = draw.textsize(char, font=font)
-            
+
             angle = random.randint(-15, 15)
-            
-            char_img = Image.new('RGBA', (char_width*2, char_height*2), (255, 255, 255, 0))
+
+            char_img = Image.new(
+                "RGBA", (char_width * 2, char_height * 2), (255, 255, 255, 0)
+            )
             char_draw = ImageDraw.Draw(char_img)
             char_draw.text((0, 0), char, font=font, fill=(0, 0, 0))
-            
+
             char_img = char_img.rotate(angle, expand=1, resample=Image.BICUBIC)
             new_width, new_height = char_img.size
-            
-            char_x = current_x + (char_width//2) - (new_width//2)
-            char_y = y_offset + (char_height//2) - (new_height//2)
-            
+
+            char_x = current_x + (char_width // 2) - (new_width // 2)
+            char_y = y_offset + (char_height // 2) - (new_height // 2)
+
             image.paste(char_img, (char_x, char_y), char_img)
-            
+
             current_x += char_width + 10
 
         for _ in range(200):
             x = random.randint(0, width)
             y = random.randint(0, height)
             size = random.randint(1, 3)
-            draw.ellipse((x, y, x+size, y+size), fill=(200, 200, 200))
+            draw.ellipse((x, y, x + size, y + size), fill=(200, 200, 200))
 
-        distortion = Image.new('L', (width, height), 255)
+        distortion = Image.new("L", (width, height), 255)
         draw_dist = ImageDraw.Draw(distortion)
         for _ in range(5):
             x1 = random.randint(0, width)
@@ -182,19 +210,22 @@ class CaptchaGenerator:
             y2 = random.randint(0, height)
             draw_dist.line((x1, y1, x2, y2), fill=0, width=2)
 
-        image = Image.composite(image, Image.new('RGB', (width, height), (255, 255, 255)), distortion)
-        
+        image = Image.composite(
+            image, Image.new("RGB", (width, height), (255, 255, 255)), distortion
+        )
+
         image = image.filter(ImageFilter.GaussianBlur(radius=0.5))
-        
+
         enhancer = ImageEnhance.Contrast(image)
         image = enhancer.enhance(1.5)
 
-        image = image.convert('RGB')
+        image = image.convert("RGB")
         img_io = io.BytesIO()
-        image.save(img_io, 'PNG')
+        image.save(img_io, "PNG")
         img_io.seek(0)
-        
+
         return img_io
+
 
 class FileValidator:
     def __init__(self, config_paths):
@@ -210,7 +241,9 @@ class FileValidator:
                 for config_dir in self.config_paths[file_type]:
                     for root, _, files in os.walk(config_dir):
                         for file in files:
-                            if file.replace("(", "").replace(")", "") == filename.replace("(", "").replace(")", ""):
+                            if file.replace("(", "").replace(
+                                ")", ""
+                            ) == filename.replace("(", "").replace(")", ""):
                                 file_path = os.path.join(root, file)
                                 clean_name = file.replace("(", "").replace(")", "")
                                 return func(file_path, clean_name, *args, **kwargs)
@@ -222,6 +255,7 @@ class FileValidator:
                 abort(500)
 
         return wrapper
+
 
 class QRGenerator:
     def __init__(self):
@@ -237,26 +271,29 @@ class QRGenerator:
         qr.add_data(config_text)
         qr.make(fit=True)
 
-        img = qr.make_image(fill_color="black", back_color="white", image_factory=PilImage)
+        img = qr.make_image(
+            fill_color="black", back_color="white", image_factory=PilImage
+        )
 
         img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format='PNG')
+        img.save(img_byte_arr, format="PNG")
         img_byte_arr.seek(0)
-        
+
         return img_byte_arr
+
 
 class FileEditor:
     def __init__(self):
         self.files = {
             "include_hosts": "/root/antizapret/config/include-hosts.txt",
             "exclude_hosts": "/root/antizapret/config/exclude-hosts.txt",
-            "include_ips": "/root/antizapret/config/include-ips.txt"
+            "include_ips": "/root/antizapret/config/include-ips.txt",
         }
 
     def update_file_content(self, file_type, content):
         if file_type in self.files:
             try:
-                with open(self.files[file_type], 'w', encoding='utf-8') as f:
+                with open(self.files[file_type], "w", encoding="utf-8") as f:
                     f.write(content)
                 return True
             except Exception as e:
@@ -268,11 +305,12 @@ class FileEditor:
         file_contents = {}
         for key, path in self.files.items():
             try:
-                with open(path, 'r', encoding='utf-8') as f:
+                with open(path, "r", encoding="utf-8") as f:
                     file_contents[key] = f.read()
             except FileNotFoundError:
                 file_contents[key] = ""
         return file_contents
+
 
 class ServerMonitor:
     def __init__(self):
@@ -294,6 +332,7 @@ class ServerMonitor:
         minutes, _ = divmod(remainder, 60)
         return f"{int(days)}д {int(hours)}ч {int(minutes)}м"
 
+
 # Инициализация классов
 script_executor = ScriptExecutor()
 config_file_handler = ConfigFileHandler(CONFIG_PATHS)
@@ -304,265 +343,353 @@ qr_generator = QRGenerator()
 file_editor = FileEditor()
 server_monitor_proc = ServerMonitor()
 
+
 # Главная страница
-@app.route('/', methods=['GET', 'POST'])
+@app.route("/", methods=["GET", "POST"])
 @auth_manager.login_required
 def index():
-    if request.method == 'GET':
-        openvpn_files, wg_files, amneziawg_files = config_file_handler.get_config_files()
-        return render_template('index.html', openvpn_files=openvpn_files, wg_files=wg_files, amneziawg_files=amneziawg_files)
+    if request.method == "GET":
+        openvpn_files, wg_files, amneziawg_files = (
+            config_file_handler.get_config_files()
+        )
+        return render_template(
+            "index.html",
+            openvpn_files=openvpn_files,
+            wg_files=wg_files,
+            amneziawg_files=amneziawg_files,
+        )
 
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
-            option = request.form.get('option')
-            client_name = request.form.get('client-name', '').strip()
-            cert_expire = request.form.get('work-term', '').strip()
+            option = request.form.get("option")
+            client_name = request.form.get("client-name", "").strip()
+            cert_expire = request.form.get("work-term", "").strip()
 
             if not option or not client_name:
-                return jsonify({"success": False, "message": "Не указаны обязательные параметры."}), 400
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": "Не указаны обязательные параметры.",
+                        }
+                    ),
+                    400,
+                )
 
-            stdout, stderr = script_executor.run_bash_script(option, client_name, cert_expire)
-            return jsonify({"success": True, "message": "Операция выполнена успешно.", "output": stdout})
+            stdout, stderr = script_executor.run_bash_script(
+                option, client_name, cert_expire
+            )
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Операция выполнена успешно.",
+                    "output": stdout,
+                }
+            )
         except subprocess.CalledProcessError as e:
-            return jsonify({"success": False, "message": f"Ошибка выполнения скрипта: {e.stderr}", "output": e.stdout}), 500
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": f"Ошибка выполнения скрипта: {e.stderr}",
+                        "output": e.stdout,
+                    }
+                ),
+                500,
+            )
         except Exception as e:
             return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
+
 # Страница логина
-@app.route('/login', methods=['GET', 'POST'])
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    if 'captcha' not in session:
-        session['captcha'] = captcha_generator.generate_captcha()
-    
-    if request.method == 'POST':
-        attempts = session.get('attempts', 0)
+    if "captcha" not in session:
+        session["captcha"] = captcha_generator.generate_captcha()
+
+    if request.method == "POST":
+        attempts = session.get("attempts", 0)
         attempts += 1
-        session['attempts'] = attempts
+        session["attempts"] = attempts
         if attempts > 2:
-            user_captcha = request.form.get('captcha', '').upper()
-            correct_captcha = session.get('captcha', '')
-            
+            user_captcha = request.form.get("captcha", "").upper()
+            correct_captcha = session.get("captcha", "")
+
             if user_captcha != correct_captcha:
-                flash('Неверный код!', 'error')
-                session['captcha'] = captcha_generator.generate_captcha()
-                return redirect(url_for('login'))
-                
-        username = request.form['username']
-        password = request.form['password']
+                flash("Неверный код!", "error")
+                session["captcha"] = captcha_generator.generate_captcha()
+                return redirect(url_for("login"))
+
+        username = request.form["username"]
+        password = request.form["password"]
 
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
-            session['username'] = user.username
-            session['attempts'] = 0
-            return redirect(url_for('index'))
-        flash('Неверные учетные данные. Попробуйте снова.', 'error')
-        return redirect(url_for('login'))
-    return render_template('login.html', captcha=session['captcha'])
+            session["username"] = user.username
+            session["attempts"] = 0
+            return redirect(url_for("index"))
+        flash("Неверные учетные данные. Попробуйте снова.", "error")
+        return redirect(url_for("login"))
+    return render_template("login.html", captcha=session["captcha"])
+
 
 # Страница выхода
-@app.route('/logout')
+@app.route("/logout")
 def logout():
-    session.pop('username', None)
-    return redirect(url_for('login'))
+    session.pop("username", None)
+    return redirect(url_for("login"))
+
 
 # Роут обновления капчи
-@app.route('/refresh_captcha')
+@app.route("/refresh_captcha")
 def refresh_captcha():
-    session['captcha'] = captcha_generator.generate_captcha()
-    return session['captcha']
+    session["captcha"] = captcha_generator.generate_captcha()
+    return session["captcha"]
+
 
 # Декоратор для капчи (графическое представление)
-@app.route('/captcha.png')
+@app.route("/captcha.png")
 def captcha():
-    session['captcha'] = captcha_generator.generate_captcha()
+    session["captcha"] = captcha_generator.generate_captcha()
     img_io = captcha_generator.generate_captcha_image()
-    
+
     response = make_response(img_io.getvalue())
-    response.headers.set('Content-Type', 'image/png')
+    response.headers.set("Content-Type", "image/png")
     return response
 
+
 # Роут для скачивания конфигурационных файлов
-@app.route('/download/<file_type>/<path:filename>')
+@app.route("/download/<file_type>/<path:filename>")
 @auth_manager.login_required
 @file_validator.validate_file
 def download(file_path, clean_name):
     try:
         basename = os.path.basename(file_path)
-        
-        name_parts = basename.split('-')
-        extension = basename.split('.')[-1]
-        vpn_type = '-AZ' if name_parts[0] == 'antizapret' else ''
-        
-        if extension == 'ovpn':
-            client_name = '-'.join(name_parts[1:-1])
+
+        name_parts = basename.split("-")
+        extension = basename.split(".")[-1]
+        vpn_type = "-AZ" if name_parts[0] == "antizapret" else ""
+
+        if extension == "ovpn":
+            client_name = "-".join(name_parts[1:-1])
             download_name = f"{client_name}{vpn_type}.{extension}"
-        elif extension == 'conf':
-            client_name = '-'.join(name_parts[1:-2])[:12 if vpn_type == '-AZ' else 15]
+        elif extension == "conf":
+            client_name = "-".join(name_parts[1:-2])[: 12 if vpn_type == "-AZ" else 15]
             download_name = f"{client_name}{vpn_type}.{extension}"
         else:
             download_name = basename
-        
+
         return send_from_directory(
             os.path.dirname(file_path),
             os.path.basename(file_path),
             as_attachment=True,
-            download_name=download_name
+            download_name=download_name,
         )
     except Exception as e:
         print(f"Аларм! ошибка: {str(e)}")
         abort(500)
 
+
 # Роут для формирования QR кода
-@app.route('/generate_qr/<file_type>/<path:filename>')
+@app.route("/generate_qr/<file_type>/<path:filename>")
 @auth_manager.login_required
 @file_validator.validate_file
 def generate_qr(file_path, clean_name):
     try:
-        with open(file_path, 'r') as file:
+        with open(file_path, "r") as file:
             config_text = file.read()
 
         img_byte_arr = qr_generator.generate_qr_code(config_text)
-        
-        return send_file(img_byte_arr, mimetype='image/png')
+
+        return send_file(img_byte_arr, mimetype="image/png")
     except Exception as e:
         print(f"Аларм! ошибка: {str(e)}")
         abort(500)
 
+
 # Роут для редактирования файлов конфигурации
-@app.route('/edit-files', methods=['GET', 'POST'])
+@app.route("/edit-files", methods=["GET", "POST"])
 @auth_manager.login_required
 def edit_files():
-    if request.method == 'POST':
-        file_type = request.form.get('file_type')
-        content = request.form.get('content', '')
+    if request.method == "POST":
+        file_type = request.form.get("file_type")
+        content = request.form.get("content", "")
 
         if file_editor.update_file_content(file_type, content):
             try:
                 result = subprocess.run(
-                    ['/root/antizapret/doall.sh'],
+                    ["/root/antizapret/doall.sh"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    check=True
+                    check=True,
                 )
-                return jsonify({"success": True, "message": "Файл успешно обновлен и изменения применены.", "output": result.stdout})
+                return jsonify(
+                    {
+                        "success": True,
+                        "message": "Файл успешно обновлен и изменения применены.",
+                        "output": result.stdout,
+                    }
+                )
             except subprocess.CalledProcessError as e:
-                return jsonify({"success": False, "message": f"Ошибка выполнения скрипта: {e.stderr}", "output": e.stdout}), 500
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": f"Ошибка выполнения скрипта: {e.stderr}",
+                            "output": e.stdout,
+                        }
+                    ),
+                    500,
+                )
             except Exception as e:
                 return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
         return jsonify({"success": False, "message": "Неверный тип файла."}), 400
 
     file_contents = file_editor.get_file_contents()
-    return render_template('edit_files.html', file_contents=file_contents)
+    return render_template("edit_files.html", file_contents=file_contents)
+
 
 # Роут для запуска скрипта doall.sh
-@app.route('/run-doall', methods=['POST'])
+@app.route("/run-doall", methods=["POST"])
 @auth_manager.login_required
 def run_doall():
     try:
         result = subprocess.run(
-            ['/root/antizapret/doall.sh'],
+            ["/root/antizapret/doall.sh"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            check=True
+            check=True,
         )
-        return jsonify({"success": True, "message": "Скрипт успешно выполнен.", "output": result.stdout})
+        return jsonify(
+            {
+                "success": True,
+                "message": "Скрипт успешно выполнен.",
+                "output": result.stdout,
+            }
+        )
     except subprocess.CalledProcessError as e:
-        return jsonify({"success": False, "message": f"Ошибка выполнения скрипта: {e.stderr}", "output": e.stdout}), 500
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": f"Ошибка выполнения скрипта: {e.stderr}",
+                    "output": e.stdout,
+                }
+            ),
+            500,
+        )
     except Exception as e:
         return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
+
 # Маршрут для страницы мониторинга и обновления данных
-@app.route('/server_monitor', methods=['GET', 'POST'])
+@app.route("/server_monitor", methods=["GET", "POST"])
 @auth_manager.login_required
 def server_monitor():
-    if request.method == 'GET':
+    if request.method == "GET":
         cpu_usage = server_monitor_proc.get_cpu_usage()
         memory_usage = server_monitor_proc.get_memory_usage()
         uptime = server_monitor_proc.get_uptime()
-        return render_template('server_monitor.html', cpu_usage=cpu_usage, memory_usage=memory_usage, uptime=uptime)
-    elif request.method == 'POST':
+        return render_template(
+            "server_monitor.html",
+            cpu_usage=cpu_usage,
+            memory_usage=memory_usage,
+            uptime=uptime,
+        )
+    elif request.method == "POST":
         try:
             cpu_usage = server_monitor_proc.get_cpu_usage()
             memory_usage = server_monitor_proc.get_memory_usage()
             uptime = server_monitor_proc.get_uptime()
-            return jsonify({
-                'cpu_usage': cpu_usage,
-                'memory_usage': memory_usage,
-                'uptime': uptime
-            })
+            return jsonify(
+                {"cpu_usage": cpu_usage, "memory_usage": memory_usage, "uptime": uptime}
+            )
         except Exception as e:
             app.logger.error(f"Ошибка при обновлении данных мониторинга: {e}")
-            return jsonify({'error': 'Ошибка при обновлении данных мониторинга'}), 500
+            return jsonify({"error": "Ошибка при обновлении данных мониторинга"}), 500
 
-@app.route('/settings', methods=['GET', 'POST'])
+
+@app.route("/settings", methods=["GET", "POST"])
 @auth_manager.login_required
 def settings():
-    if request.method == 'POST':
-        new_port = request.form.get('port')
+    if request.method == "POST":
+        new_port = request.form.get("port")
         if new_port and new_port.isdigit():
-            with open('.env', 'r') as file:
+            with open(".env", "r") as file:
                 lines = file.readlines()
-            with open('.env', 'w') as file:
+            with open(".env", "w") as file:
                 for line in lines:
-                    if line.startswith('APP_PORT='):
-                        file.write(f'APP_PORT={new_port}\n')
+                    if line.startswith("APP_PORT="):
+                        file.write(f"APP_PORT={new_port}\n")
                     else:
                         file.write(line)
-            flash('Порт успешно изменён. Перезапуск службы...', 'success')
+            flash("Порт успешно изменён. Перезапуск службы...", "success")
 
             try:
                 if platform.system() == "Linux":
-                    subprocess.run(["systemctl", "restart", "admin-antizapret.service"], check=True)
+                    subprocess.run(
+                        ["systemctl", "restart", "admin-antizapret.service"], check=True
+                    )
             except subprocess.CalledProcessError as e:
-                flash(f'Ошибка при перезапуске службы: {e}', 'error')
-        
-        username = request.form.get('username')
-        password = request.form.get('password')
+                flash(f"Ошибка при перезапуске службы: {e}", "error")
+
+        username = request.form.get("username")
+        password = request.form.get("password")
         if username and password:
             if len(password) < 8:
-                flash('Пароль должен содержать минимум 8 символов!', 'error')
+                flash("Пароль должен содержать минимум 8 символов!", "error")
             else:
                 with app.app_context():
                     if User.query.filter_by(username=username).first():
-                        flash(f"Пользователь '{username}' уже существует!", 'error')
+                        flash(f"Пользователь '{username}' уже существует!", "error")
                     else:
                         user = User(username=username)
                         user.set_password(password)
                         db.session.add(user)
                         db.session.commit()
-                        flash(f"Пользователь '{username}' успешно добавлен!", 'success')
-        
-        delete_username = request.form.get('delete_username')
+                        flash(f"Пользователь '{username}' успешно добавлен!", "success")
+
+        delete_username = request.form.get("delete_username")
         if delete_username:
             with app.app_context():
                 user = User.query.filter_by(username=delete_username).first()
                 if user:
                     db.session.delete(user)
                     db.session.commit()
-                    flash(f"Пользователь '{delete_username}' успешно удалён!", 'success')
+                    flash(
+                        f"Пользователь '{delete_username}' успешно удалён!", "success"
+                    )
                 else:
-                    flash(f"Пользователь '{delete_username}' не найден!", 'error')
-        
-        return redirect(url_for('settings'))
+                    flash(f"Пользователь '{delete_username}' не найден!", "error")
 
-    current_port = os.getenv('APP_PORT', '5050')
+        return redirect(url_for("settings"))
+
+    current_port = os.getenv("APP_PORT", "5050")
     users = User.query.all()
-    return render_template('settings.html', port=current_port, users=users)
+    return render_template("settings.html", port=current_port, users=users)
 
-if __name__ == '__main__':
-    use_https = os.getenv('USE_HTTPS', 'false').lower() == 'true'
+
+if __name__ == "__main__":
+    use_https = os.getenv("USE_HTTPS", "false").lower() == "true"
     ssl_context = None
-    
+
     if use_https:
-        cert_file = os.getenv('SSL_CERT')
-        key_file = os.getenv('SSL_KEY')
-        
-        if cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file):
+        cert_file = os.getenv("SSL_CERT")
+        key_file = os.getenv("SSL_KEY")
+
+        if (
+            cert_file
+            and key_file
+            and os.path.exists(cert_file)
+            and os.path.exists(key_file)
+        ):
             ssl_context = (cert_file, key_file)
         else:
-            print("Предупреждение: HTTPS включен, но сертификаты не найдены. Используется HTTP.")
-    
-    app.run(host='0.0.0.0', port=port, ssl_context=ssl_context)
+            print(
+                "Предупреждение: HTTPS включен, но сертификаты не найдены. Используется HTTP."
+            )
+
+    app.run(host="0.0.0.0", port=port, ssl_context=ssl_context)

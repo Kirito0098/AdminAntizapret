@@ -7,7 +7,7 @@ body {
   color: hsl(0, 0%, 100%);
   margin: 0;
   padding: 0;
-  background-image: url('../img/login-bg.png');
+  background-image: url("../img/login-bg.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -17,125 +17,126 @@ body {
 
 /*=============== MAIN CONTAINER ===============*/
 .container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 2rem;
-    box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  box-sizing: border-box;
 }
 
 /*=============== HEADER ===============*/
 h1 {
-    text-align: center;
-    font-size: 2rem;
-    margin-bottom: 1rem;
-    color: hsl(0, 0%, 100%);
-    position: relative;
-    width: 100%;
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: hsl(0, 0%, 100%);
+  position: relative;
+  width: 100%;
 }
 
 /*=============== FORM STYLES ===============*/
 .form-container {
-    position: relative;
-    background-color: hsla(0, 0%, 10%, 0.1);
-    border: 2px solid #4CAF50;
-    padding: 2.5rem;
-    border-radius: 1rem;
-    backdrop-filter: blur(8px);
-    margin: 2rem auto;
-    width: 60%;
-    max-width: 800px;
-    min-width: 300px;
-    box-sizing: border-box;
+  position: relative;
+  background-color: hsla(0, 0%, 10%, 0.1);
+  border: 2px solid #4caf50;
+  padding: 2.5rem;
+  border-radius: 1rem;
+  backdrop-filter: blur(8px);
+  margin: 2rem auto;
+  width: 60%;
+  max-width: 800px;
+  min-width: 300px;
+  box-sizing: border-box;
 }
 
 .form-container label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: hsl(0, 0%, 90%);
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: hsl(0, 0%, 90%);
 }
 
 .form-container input,
 .form-container select,
 .form-container button {
-    width: 100%;
-    padding: 0.8rem;
-    margin-bottom: 1rem;
-    background: hsla(0, 0%, 20%, 0.7);
-    border: 1px solid hsl(0, 0%, 50%);
-    border-radius: 0.5rem;
-    color: hsl(0, 0%, 90%);
-    font-family: "Poppins", sans-serif;
-    box-sizing: border-box;
-    transition: all 0.3s ease;
+  width: 100%;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  background: hsla(0, 0%, 20%, 0.7);
+  border: 1px solid hsl(0, 0%, 50%);
+  border-radius: 0.5rem;
+  color: hsl(0, 0%, 90%);
+  font-family: "Poppins", sans-serif;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
 }
 
 .form-container button {
-    background-color: hsl(0, 0%, 100%);
-    color: hsl(0, 0%, 0%);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s;
+  background-color: hsl(0, 0%, 100%);
+  color: hsl(0, 0%, 0%);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
 }
 
 .form-container button:hover {
-    background-color: hsla(0, 0%, 100%, 0.8);
+  background-color: hsla(0, 0%, 100%, 0.8);
 }
 
 /*=============== FILE LIST STYLES ===============*/
 .file-list {
-    display: flex;
-    justify-content: center; /* Центрируем колонки */
-    gap: 1rem;
-    margin: 2rem auto; /* Центрируем весь блок */
-    max-width: 1200px; /* Максимальная ширина контейнера */
-    width: 90%; /* Ширина относительно экрана */
-    overflow-x: auto;
+  display: flex;
+  justify-content: center; /* Центрируем колонки */
+  gap: 1rem;
+  margin: 2rem auto; /* Центрируем весь блок */
+  max-width: 1200px; /* Максимальная ширина контейнера */
+  width: 90%; /* Ширина относительно экрана */
+  overflow-x: auto;
 }
 
 .column {
-    background-color: hsla(0, 0%, 10%, 0.1);
-    border: 2px solid hsl(0, 0%, 100%);
-    border-radius: 1rem;
-    backdrop-filter: blur(8px);
-    padding: 1.5rem;
-    min-width: 0;
-    border-color: #4CAF50; /* Зеленый цвет для отличия */
-    width: 60%; /* Каждая колонка занимает 60% от file-list */
-    max-width: 500px; /* Максимальная ширина колонки */
-    box-sizing: border-box;
-    align-items: center;
+  background-color: hsla(0, 0%, 10%, 0.1);
+  border: 2px solid hsl(0, 0%, 100%);
+  border-radius: 1rem;
+  backdrop-filter: blur(8px);
+  padding: 1.5rem;
+  min-width: 0;
+  border-color: #4caf50; /* Зеленый цвет для отличия */
+  width: 60%; /* Каждая колонка занимает 60% от file-list */
+  max-width: 500px; /* Максимальная ширина колонки */
+  box-sizing: border-box;
+  align-items: center;
 }
 
 .scrollable {
-    overflow: visible; /* Полностью убираем прокрутку */
-    max-height: none; /* Убираем ограничение высоты */
+  overflow: visible; /* Полностью убираем прокрутку */
+  max-height: none; /* Убираем ограничение высоты */
 }
 /* Увеличиваем отступы между строками таблицы */
 .file-list tbody tr {
-    height: 48px; /* Фиксированная высота строк */
-  }
-
-table {
-    width: 100%;
-    border-collapse: separate;
-    table-layout: auto; /* Автоматический расчет ширины */
-    text-align: center; /* Выравнивание текста по центру */
+  height: 48px; /* Фиксированная высота строк */
 }
 
-th, td {
-    border: 1px solid hsl(0, 0%, 80%); /* Цвет обводки */
-    padding: 0.75rem;
-    text-align: center; /* Выравнивание текста по центру */
-    vertical-align: middle; /* Выравнивание содержимого по вертикали */
-    word-break: break-word; /* Перенос длинных слов */
+table {
+  width: 100%;
+  border-collapse: separate;
+  table-layout: auto; /* Автоматический расчет ширины */
+  text-align: center; /* Выравнивание текста по центру */
+}
+
+th,
+td {
+  border: 1px solid hsl(0, 0%, 80%); /* Цвет обводки */
+  padding: 0.75rem;
+  text-align: center; /* Выравнивание текста по центру */
+  vertical-align: middle; /* Выравнивание содержимого по вертикали */
+  word-break: break-word; /* Перенос длинных слов */
 }
 
 td {
-    border: 1px solid hsl(0, 0%, 80%);
+  border: 1px solid hsl(0, 0%, 80%);
 }
 
 th {
@@ -145,31 +146,31 @@ th {
 }
 
 .download-button {
-    background-color: transparent;
-    border: 1px solid hsl(0, 0%, 100%);
-    color: hsl(0, 0%, 100%);
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    cursor: pointer;
-    transition: all 0.3s;
-    margin: 0.2rem;
-    width: 120px;
+  background-color: transparent;
+  border: 1px solid hsl(0, 0%, 100%);
+  color: hsl(0, 0%, 100%);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin: 0.2rem;
+  width: 120px;
 }
 
 .download-button:hover {
-    background-color: hsla(0, 0%, 100%, 0.1);
+  background-color: hsla(0, 0%, 100%, 0.1);
 }
 
 .download-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /*=============== RESPONSIVE STYLES ===============*/
 @media (max-width: 768px) {
   .file-list {
     flex-direction: column;
-    align-items: center; 
+    align-items: center;
     width: 100%;
   }
   .column {
@@ -185,7 +186,8 @@ th {
     width: 100px;
     padding: 0.4rem 0.6rem;
   }
-  th, td {
+  th,
+  td {
     padding: 0.2rem;
   }
 }
@@ -204,86 +206,85 @@ th {
 
 /* Специальные стили для группы полей в одной строке */
 .form-row {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1rem;
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .form-group {
-    flex: 1;
-    min-width: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Стиль для select элемента */
 .form-container select {
-    background: hsla(0, 0%, 20%, 0.9);
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 0.8rem center;
-    background-size: 1rem;
-    padding-right: 2.5rem;
-    cursor: pointer;
-  }
-  
-  .form-container select option {
-    background: hsla(0, 0%, 15%, 0.95);
-    color: hsl(0, 0%, 90%);
-    padding: 0.5rem;
-  }
-  
-  .form-container select option:hover {
-    background: hsla(0, 0%, 30%, 0.95);
-  }
-  
-  .form-container select option:checked {
-    background: hsla(0, 0%, 25%, 0.95);
-    font-weight: 500;
-  }
-  
-  .form-container input:focus,
-  .form-container select:focus {
-    border-color: hsl(0, 0%, 70%);
-    box-shadow: 0 0 0 2px hsla(0, 0%, 70%, 0.3);
-    outline: none;
-  }
+  background: hsla(0, 0%, 20%, 0.9);
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.8rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+  cursor: pointer;
+}
+
+.form-container select option {
+  background: hsla(0, 0%, 15%, 0.95);
+  color: hsl(0, 0%, 90%);
+  padding: 0.5rem;
+}
+
+.form-container select option:hover {
+  background: hsla(0, 0%, 30%, 0.95);
+}
+
+.form-container select option:checked {
+  background: hsla(0, 0%, 25%, 0.95);
+  font-weight: 500;
+}
+
+.form-container input:focus,
+.form-container select:focus {
+  border-color: hsl(0, 0%, 70%);
+  box-shadow: 0 0 0 2px hsla(0, 0%, 70%, 0.3);
+  outline: none;
+}
 
 /* Для мобильных устройств */
 @media (max-width: 1200px) {
-    .form-container {
-      width: 70%;
-    }
+  .form-container {
+    width: 70%;
   }
-  
-  @media (max-width: 768px) {
-    .form-container {
-      width: 90%;
-      padding: 1.5rem;
-    }
-    
-    .form-row {
-      flex-direction: column;
-      gap: 0.5rem;
-    }
+}
+
+@media (max-width: 768px) {
+  .form-container {
+    width: 90%;
+    padding: 1.5rem;
   }
-  
-  @media (max-width: 480px) {
-    .form-container {
-      width: 95%;
-      padding: 1rem;
-    }
+
+  .form-row {
+    flex-direction: column;
+    gap: 0.5rem;
   }
+}
+
+@media (max-width: 480px) {
+  .form-container {
+    width: 95%;
+    padding: 1rem;
+  }
+}
 
 /* Общий стиль для всех контейнеров полей */
 #client-name-container,
 #work-term-container,
 #client-select-container {
-    min-height: 60px; 
-    margin-bottom: 10px;
+  min-height: 60px;
+  margin-bottom: 10px;
 }
 
-
 .column .download-button {
-    background-color: hsla(120, 100%, 25%, 0.2);
+  background-color: hsla(120, 100%, 25%, 0.2);
 }
 /*=============== LOGOUT BUTTON ===============*/
 .logout-container {
@@ -313,442 +314,445 @@ th {
 
 @media (max-width: 768px) {
   .logout-container {
-      top: 10px;
-      right: 10px;
+    top: 10px;
+    right: 10px;
   }
   .logout-button {
-      padding: 0.4rem 0.8rem;
-      font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
   }
 }
 
 /*=============== NAVIGATION STYLES ===============*/
 .navigation {
-    background-color: hsla(0, 0%, 10%, 0.8);
-    padding: 1rem;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 1.5rem;
-    border-bottom: 2px solid #4CAF50;
+  background-color: hsla(0, 0%, 10%, 0.8);
+  padding: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem;
+  border-bottom: 2px solid #4caf50;
 }
 
 .nav-group {
-    display: flex;
-    gap: 1.5rem;
+  display: flex;
+  gap: 1.5rem;
 }
 
 .nav-link {
-    color: hsl(0, 0%, 100%);
-    text-decoration: none;
-    font-weight: 500;
-    font-size: 1rem;
-    transition: color 0.3s;
+  color: hsl(0, 0%, 100%);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: color 0.3s;
 }
 
 .nav-link:hover {
-    color: #4CAF50;
+  color: #4caf50;
 }
 
 /* Стили для мобильников */
 @media (max-width: 768px) {
-    .nav-group {
-        width: 100%;
-        justify-content: space-between;
-        margin-bottom: 0rem;
-    }
-    
-    .nav-link {
-        flex: 1;
-        text-align: center;
-    }
+  .nav-group {
+    width: 100%;
+    justify-content: space-between;
+    margin-bottom: 0rem;
+  }
+
+  .nav-link {
+    flex: 1;
+    text-align: center;
+  }
 }
 
 /*=============== FILE EDIT FORM ===============*/
 /* Обновленный стиль для textarea */
 .file-edit-form textarea {
-    width: 100%; /* Занимает 100% ширины экрана */
-    margin: 1rem auto; /* Центрирование */
-    display: block; /* Блоковый элемент */
-    padding: 0.8rem;
-    background: hsla(0, 0%, 20%, 0.7);
-    border: 1px solid hsl(0, 0%, 50%);
-    border-radius: 0.5rem;
-    color: hsl(0, 0%, 90%);
-    font-family: "Poppins", sans-serif;
-    font-size: 1rem;
-    box-sizing: border-box;
-    transition: all 0.3s ease;
+  width: 100%; /* Занимает 100% ширины экрана */
+  margin: 1rem auto; /* Центрирование */
+  display: block; /* Блоковый элемент */
+  padding: 0.8rem;
+  background: hsla(0, 0%, 20%, 0.7);
+  border: 1px solid hsl(0, 0%, 50%);
+  border-radius: 0.5rem;
+  color: hsl(0, 0%, 90%);
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
 }
 
 .file-edit-form textarea:focus {
-    border-color: hsl(0, 0%, 70%);
-    box-shadow: 0 0 0 2px hsla(0, 0%, 70%, 0.3);
-    outline: none;
+  border-color: hsl(0, 0%, 70%);
+  box-shadow: 0 0 0 2px hsla(0, 0%, 70%, 0.3);
+  outline: none;
 }
 
 /* Обновленный стиль для кнопки file-toggle */
 .file-toggle {
-    width: 100%; /* Занимает 100% ширины экрана */
-    margin: 1rem auto; /* Центрирование */
-    display: block; /* Блоковый элемент */
-    padding: 0.8rem;
-    background: hsla(0, 0%, 20%, 0.7);
-    border: 1px solid hsl(0, 0%, 50%);
-    border-radius: 0.5rem;
-    color: hsl(0, 0%, 90%);
-    font-family: "Poppins", sans-serif;
-    font-size: 1rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
+  width: 100%; /* Занимает 100% ширины экрана */
+  margin: 1rem auto; /* Центрирование */
+  display: block; /* Блоковый элемент */
+  padding: 0.8rem;
+  background: hsla(0, 0%, 20%, 0.7);
+  border: 1px solid hsl(0, 0%, 50%);
+  border-radius: 0.5rem;
+  color: hsl(0, 0%, 90%);
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
 .file-toggle:hover {
-    background: hsla(0, 0%, 30%, 0.7);
-    border-color: hsl(0, 0%, 70%);
+  background: hsla(0, 0%, 30%, 0.7);
+  border-color: hsl(0, 0%, 70%);
 }
 
 /*=============== LOADING OVERLAY ===============*/
 #loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
 }
 
 .loading-message {
-    color: white;
-    font-size: 1.5rem;
-    font-family: "Poppins", sans-serif;
-    text-align: center;
-    background: rgba(0, 0, 0, 0.8);
-    padding: 1rem 2rem;
-    border-radius: 0.5rem;
-    border: 2px solid #4CAF50;
+  color: white;
+  font-size: 1.5rem;
+  font-family: "Poppins", sans-serif;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 1rem 2rem;
+  border-radius: 0.5rem;
+  border: 2px solid #4caf50;
 }
 
 /* Стили для модального уведомления */
 .loading-modal {
-    text-align: center;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 2rem;
-    border-radius: 1rem;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-    border: 2px solid #4CAF50;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  border: 2px solid #4caf50;
 }
 
 .loading-spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid rgba(0, 0, 0, 0.1);
-    border-top: 5px solid #4CAF50;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 1rem;
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(0, 0, 0, 0.1);
+  border-top: 5px solid #4caf50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
 }
 
 .loading-text {
-    font-family: "Poppins", sans-serif;
-    font-size: 1.2rem;
-    color: #333;
+  font-family: "Poppins", sans-serif;
+  font-size: 1.2rem;
+  color: #333;
 }
 
 @keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /*=============== QR-CODE STYLES ===============*/
 .qr-modal-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: none;
-    align-items: center;
-    justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
 }
 
 .modal-dialog {
-    max-width: 30%;
-    margin: 0;
-    overflow: auto;
+  max-width: 30%;
+  margin: 0;
+  overflow: auto;
 }
 
 .qr-code-container img {
-    max-width: 90%;
-    height: auto;
-    display: block;
-    margin: 0 auto;
+  max-width: 90%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
 .modal-content {
-    padding: 20px;
+  padding: 20px;
 }
 
 .qr-modal-container img {
-    display: block;
-    margin: 0 auto;
+  display: block;
+  margin: 0 auto;
 }
 
 .vpn-qr-button {
-    background-color: transparent;
-    background-image: url('../img/qr.png');
-    background-size: 28px 28px;
-    background-repeat: no-repeat;
-    background-position: center;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    transition: all 0.3s;
-    margin: 0.2rem;
-    width: 28px;
-    height: 28px;
+  background-color: transparent;
+  background-image: url("../img/qr.png");
+  background-size: 28px 28px;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin: 0.2rem;
+  width: 28px;
+  height: 28px;
 }
 
 .vpn-qr-button:hover {
-    transform: scale(1.1);
-    opacity: 0.8;
+  transform: scale(1.1);
+  opacity: 0.8;
 }
 
 .vpn-qr-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @media (max-width: 480px) {
-    .modal-dialog {
-        max-width: 80%;
-    }
+  .modal-dialog {
+    max-width: 80%;
+  }
 }
 
 /*=============== FLASH MESSAGES ===============*/
 .flash-messages {
-    margin-bottom: 1rem;
-    padding: 1rem;
-    background-color: rgba(255, 0, 0, 0.1);
-    border: 1px solid rgba(255, 0, 0, 0.5);
-    border-radius: 0.5rem;
-    color: red;
-    font-family: "Poppins", sans-serif;
-    font-size: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.5);
+  border-radius: 0.5rem;
+  color: red;
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
 }
 
 .flash-message {
-    margin-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 /* Стили для уведомлений */
 .notification {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 1rem 1.5rem;
-    border-radius: 0.5rem;
-    font-family: "Poppins", sans-serif;
-    font-size: 1rem;
-    color: #fff;
-    z-index: 2000;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    animation: fadeInOut 3s ease-in-out;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 1rem 1.5rem;
+  border-radius: 0.5rem;
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
+  color: #fff;
+  z-index: 2000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  animation: fadeInOut 3s ease-in-out;
 }
 
 .notification-success {
-    background-color: #4CAF50;
+  background-color: #4caf50;
 }
 
 .notification-error {
-    background-color: #f44336;
+  background-color: #f44336;
 }
 
 @keyframes fadeInOut {
-    0% {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    10%, 90% {
-        opacity: 1;
-        transform: translateY(0);
-    }
-    100% {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  10%,
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
 }
 
 /* Стили для ненавязчивого индикатора загрузки */
 #loading-indicator {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: #fff;
-    padding: 0.8rem 1.2rem;
-    border-radius: 0.5rem;
-    font-family: "Poppins", sans-serif;
-    font-size: 0.9rem;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    z-index: 2000;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 0.8rem 1.2rem;
+  border-radius: 0.5rem;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 #loading-indicator .loading-indicator-text {
-    margin: 0;
+  margin: 0;
 }
 
 #loading-indicator::before {
-    content: '';
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top: 2px solid #4CAF50;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid #4caf50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 /*=============== SERVER MONITOR ===============*/
 .server-info {
-    display: flex;
-    justify-content: space-around;
-    margin-top: 2rem;
-    width: 90%;
-    max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
-    gap: 1rem;
+  display: flex;
+  justify-content: space-around;
+  margin-top: 2rem;
+  width: 90%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  gap: 1rem;
 }
 
-.info-item {   
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;    
-    border: 2px solid var(--white-color);
-    padding: 1.5rem;
-    border-radius: 1rem;
-    text-align: center;
+.info-item {
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--white-color);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  text-align: center;
 }
 
 .info-item h3 {
-    font-size: 1.25rem;
-    margin-bottom: 1rem;
-    color: hsl(0, 0%, 90%);
-    text-align: center;
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: hsl(0, 0%, 90%);
+  text-align: center;
 }
 
 .info-item p {
-    font-size: 1.5rem;
-    font-weight: var(--font-medium);
-    color: hsl(0, 0%, 100%);
-    text-align: center;
+  font-size: 1.5rem;
+  font-weight: var(--font-medium);
+  color: hsl(0, 0%, 100%);
+  text-align: center;
 }
 
 @media (max-width: 768px) {
-    .server-info {
-        flex-direction: column;
-        align-items: center;
-        margin-top: 1rem;
-        gap: 0rem;
-    }
-     
-    .info-item {
-        margin-bottom: 0.5rem;
-        padding: 0.2rem;
-    }
+  .server-info {
+    flex-direction: column;
+    align-items: center;
+    margin-top: 1rem;
+    gap: 0rem;
+  }
 
-    .column .info-item {
-        padding: 0.2rem;
-    }
+  .info-item {
+    margin-bottom: 0.5rem;
+    padding: 0.2rem;
+  }
+
+  .column .info-item {
+    padding: 0.2rem;
+  }
 }
 
 /*=============== SETTINGS PAGE STYLES ===============*/
 .title {
-    text-align: center;
-    font-size: 2rem;
-    margin-bottom: 2rem;
-    color: hsl(0, 0%, 100%);
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 2rem;
+  color: hsl(0, 0%, 100%);
 }
 
 .form-container {
-    background-color: hsla(0, 0%, 10%, 0.7);
-    border: 2px solid #4CAF50;
-    padding: 2rem;
-    border-radius: 1rem;
-    margin: 1rem auto;
-    width: 100%;
-    max-width: 600px;
-    box-sizing: border-box;
+  background-color: hsla(0, 0%, 10%, 0.7);
+  border: 2px solid #4caf50;
+  padding: 2rem;
+  border-radius: 1rem;
+  margin: 1rem auto;
+  width: 100%;
+  max-width: 600px;
+  box-sizing: border-box;
 }
 
-.form-container h2, .form-container h3 {
-    color: hsl(0, 0%, 90%);
-    margin-bottom: 1rem;
+.form-container h2,
+.form-container h3 {
+  color: hsl(0, 0%, 90%);
+  margin-bottom: 1rem;
 }
 
-.form-container input, .form-container button {
-    width: 100%;
-    padding: 0.8rem;
-    margin-bottom: 1rem;
-    background: hsla(0, 0%, 20%, 0.7);
-    border: 1px solid hsl(0, 0%, 50%);
-    border-radius: 0.5rem;
-    color: hsl(0, 0%, 100%);
-    font-family: "Poppins", sans-serif;
+.form-container input,
+.form-container button {
+  width: 100%;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  background: hsla(0, 0%, 20%, 0.7);
+  border: 1px solid hsl(0, 0%, 50%);
+  border-radius: 0.5rem;
+  color: hsl(0, 0%, 100%);
+  font-family: "Poppins", sans-serif;
 }
 
 .form-container button {
-    background-color: #4CAF50;
-    color: hsl(0, 0%, 100%);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s;
+  background-color: #4caf50;
+  color: hsl(0, 0%, 100%);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
 }
 
 .form-container button:hover {
-    background-color: #45A049;
+  background-color: #45a049;
 }
 
 .notifications {
-    margin-top: 1rem;
+  margin-top: 1rem;
 }
 
 .notification {
-    padding: 1rem;
-    border-radius: 0.5rem;
-    margin-bottom: 0.5rem;
-    font-family: "Poppins", sans-serif;
-    font-size: 1rem;
-    color: #fff;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
+  color: #fff;
 }
 
 .notification-success {
-    background-color: #4CAF50;
+  background-color: #4caf50;
 }
 
 .notification-error {
-    background-color: #f44336;
+  background-color: #f44336;
 }

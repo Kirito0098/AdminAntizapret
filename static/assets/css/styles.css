@@ -11,7 +11,7 @@
   --body-font: "Poppins", sans-serif;
   --h1-font-size: 1.75rem;
   --normal-font-size: 1rem;
-  --small-font-size: .813rem;
+  --small-font-size: 0.813rem;
   /*========== Font weight ==========*/
   --font-medium: 500;
 }
@@ -91,7 +91,8 @@ img {
   font-weight: var(--font-medium);
   margin-bottom: 2rem;
 }
-.login__content, .login__box {
+.login__content,
+.login__box {
   display: grid;
 }
 .login__content {
@@ -104,7 +105,8 @@ img {
   column-gap: 0.75rem;
   border-bottom: 2px solid var(--white-color);
 }
-.login__icon, .login__eye {
+.login__icon,
+.login__eye {
   font-size: 1.25rem;
 }
 .login__input {
@@ -135,7 +137,8 @@ img {
 .login__box:nth-child(2) input {
   padding-right: 1.8rem;
 }
-.login__check, .login__check-group {
+.login__check,
+.login__check-group {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -192,7 +195,7 @@ img {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   #captcha-img,
   #refresh-captcha {
     margin-top: 20px;
@@ -266,44 +269,45 @@ img {
 
 /*=============== NOTIFICATIONS ===============*/
 .notification {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 1rem 1.5rem;
-    border-radius: 0.5rem;
-    font-family: "Poppins", sans-serif;
-    font-size: 1rem;
-    color: #fff;
-    z-index: 2000;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    animation: fadeInOut 3s ease-in-out;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 1rem 1.5rem;
+  border-radius: 0.5rem;
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
+  color: #fff;
+  z-index: 2000;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  animation: fadeInOut 3s ease-in-out;
 }
 
 .notification-info {
-    background-color: #2196F3; /* Синий цвет для информационных сообщений */
+  background-color: #2196f3; /* Синий цвет для информационных сообщений */
 }
 
 .notification-success {
-    background-color: #4CAF50;
+  background-color: #4caf50;
 }
 
 .notification-error {
-    background-color: #f44336;
+  background-color: #f44336;
 }
 
 @keyframes fadeInOut {
-    0% {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    10%, 90% {
-        opacity: 1;
-        transform: translateY(0);
-    }
-    100% {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  10%,
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
 }
 
 /*=============== BREAKPOINTS ===============*/
@@ -325,7 +329,7 @@ input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 1000px transparent inset !important; /* Прозрачный фон */
-    -webkit-text-fill-color: #f8f7f7 !important; /* Цвет текста */
-    transition: background-color 5000s ease-in-out 0s; /* Отключаем анимацию */
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important; /* Прозрачный фон */
+  -webkit-text-fill-color: #f8f7f7 !important; /* Цвет текста */
+  transition: background-color 5000s ease-in-out 0s; /* Отключаем анимацию */
 }

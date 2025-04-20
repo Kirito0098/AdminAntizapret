@@ -1,30 +1,28 @@
-{% extends "base.html" %}
-
-{% block title %}Мониторинг сервера{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Мониторинг сервера{% endblock %} {%
+block content %}
 <div class="server-info">
-    <div class="column">
-        <div class="info-item">
-            <h3>Использование CPU</h3>
-            <p id="cpu-usage">{{ cpu_usage }}%</p>
-        </div>
+  <div class="column">
+    <div class="info-item">
+      <h3>Использование CPU</h3>
+      <p id="cpu-usage">{{ cpu_usage }}%</p>
     </div>
-    <div class="column">
-        <div class="info-item">
-            <h3>Использование памяти</h3>
-            <p id="memory-usage">{{ memory_usage }}%</p>
-        </div>
+  </div>
+  <div class="column">
+    <div class="info-item">
+      <h3>Использование памяти</h3>
+      <p id="memory-usage">{{ memory_usage }}%</p>
     </div>
-    <div class="column">
-        <div class="info-item">
-            <h3>Аптайм</h3>
-            <p id="uptime">{{ uptime }}</p>
-        </div>
+  </div>
+  <div class="column">
+    <div class="info-item">
+      <h3>Аптайм</h3>
+      <p id="uptime">{{ uptime }}</p>
     </div>
+  </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='assets/js/main_index.js') }}" defer></script>
+{% endblock %} {% block scripts %}
+<script
+  src="{{ url_for('static', filename='assets/js/main_index.js') }}"
+  defer
+></script>
 {% endblock %}
