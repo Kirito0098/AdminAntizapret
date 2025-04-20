@@ -8,25 +8,80 @@ validate_port() {
     done
 }
 
-# Установка с самоподписанным сертификатом
-setup_selfsigned() {
-    log "Настройка самоподписанного сертификата"
-    echo "${YELLOW}Настройка самоподписанного сертификата...${NC}"
+choose_installation_type() {
+    while true; do
+        echo "${YELLOW}Выберите способ установки:${NC}"
+        echo "1) HTTPS (Защищенное соединение)"
+        echo "2) HTTP (Не защищенное соединение)"
+        read -p "Ваш выбор [1-2]: " ssl_main_choice
 
-    mkdir -p /etc/ssl/private
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-        -keyout /etc/ssl/private/admin-antizapret.key \
-        -out /etc/ssl/certs/admin-antizapret.crt \
-        -subj "/CN=$(hostname)" >/dev/null 2>&1
+        read -p "Введите порт для сервиса [$DEFAULT_PORT]: " APP_PORT
+        APP_PORT=${APP_PORT:-$DEFAULT_PORT}
+        validate_port
 
-    cat >>"$INSTALL_DIR/.env" <<EOL
-USE_HTTPS=true
-SSL_CERT=/etc/ssl/certs/admin-antizapret.crt
-SSL_KEY=/etc/ssl/private/admin-antizapret.key
+        case $ssl_main_choice in
+        1)
+            if ! check_openvpn_tcp_setting; then
+                continue
+            fi
+            echo "${YELLOW}Выберите тип HTTPS соединения:${NC}"
+            echo "  1) Использовать собственный домен и сертификаты Let's Encrypt"
+            echo "  2) Использовать собственный домен и собственные сертификаты"
+            echo "  3) Самоподписанный сертификат"
+            read -p "Ваш выбор [1-3]: " ssl_sub_choice
+
+            # Базовые настройки для HTTPS
+            cat >"$INSTALL_DIR/.env" <<EOL
+SECRET_KEY='$SECRET_KEY'
+APP_PORT=$APP_PORT
 EOL
 
-    log "Самоподписанный сертификат создан"
-    echo "${GREEN}Самоподписанный сертификат успешно создан!${NC}"
+            case $ssl_sub_choice in
+            1) setup_letsencrypt ;;
+            2) setup_custom_certs ;;
+            3) setup_selfsigned ;;
+            *)
+                echo "${RED}Неверный выбор!${NC}"
+                continue
+                ;;
+            esac
+            return 0
+            ;;
+        2)
+            configure_http
+            return 0
+            ;;
+        *)
+            echo "${RED}Неверный выбор!${NC}"
+            ;;
+        esac
+    done
+}
+
+check_openvpn_tcp_setting() {
+    if [ -f "/root/antizapret/setup" ]; then
+        OPENVPN_SETTING=$(grep '^OPENVPN_80_443_TCP=' /root/antizapret/setup | cut -d'=' -f2)
+        if [ "$OPENVPN_SETTING" = "y" ]; then
+            echo "${YELLOW}Обнаружено OPENVPN_80_443_TCP=y в /root/antizapret/setup${NC}"
+            echo "${YELLOW}Для работы HTTPS необходимо изменить это значение на n${NC}"
+            read -p "Изменить OPENVPN_80_443_TCP на n и перезапустить сервис? (y/n): " change_choice
+            if [[ "$change_choice" =~ ^[Yy]$ ]]; then
+                sed -i 's/^OPENVPN_80_443_TCP=y/OPENVPN_80_443_TCP=n/' /root/antizapret/setup
+                systemctl restart antizapret.service
+                echo "${GREEN}Значение изменено на n и сервис перезапущен!${NC}"
+                return 0
+            else
+                echo "${RED}HTTPS не будет работать корректно с OPENVPN_80_443_TCP=y!${NC}"
+                read -p "Продолжить без изменений? (y/n): " continue_choice
+                if [[ "$continue_choice" =~ ^[Yy]$ ]]; then
+                    return 0
+                else
+                    return 1
+                fi
+            fi
+        fi
+    fi
+    return 0
 }
 
 setup_letsencrypt() {
@@ -111,6 +166,27 @@ EOL
     echo "${GREEN}Собственные сертификаты успешно настроены для домена $DOMAIN!${NC}"
 }
 
+# Установка с самоподписанным сертификатом
+setup_selfsigned() {
+    log "Настройка самоподписанного сертификата"
+    echo "${YELLOW}Настройка самоподписанного сертификата...${NC}"
+
+    mkdir -p /etc/ssl/private
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /etc/ssl/private/admin-antizapret.key \
+        -out /etc/ssl/certs/admin-antizapret.crt \
+        -subj "/CN=$(hostname)" >/dev/null 2>&1
+
+    cat >>"$INSTALL_DIR/.env" <<EOL
+USE_HTTPS=true
+SSL_CERT=/etc/ssl/certs/admin-antizapret.crt
+SSL_KEY=/etc/ssl/private/admin-antizapret.key
+EOL
+
+    log "Самоподписанный сертификат создан"
+    echo "${GREEN}Самоподписанный сертификат успешно создан!${NC}"
+}
+
 configure_http() {
     log "Настройка HTTP соединения"
     echo "${YELLOW}Настройка HTTP соединения...${NC}"
@@ -122,51 +198,4 @@ USE_HTTPS=false
 EOL
 
     echo "${GREEN}HTTP соединение настроено на порту $APP_PORT!${NC}"
-}
-
-choose_installation_type() {
-    while true; do
-        echo "${YELLOW}Выберите способ установки:${NC}"
-        echo "1) HTTPS (Защищенное соединение)"
-        echo "2) HTTP (Не защищенное соединение)"
-        read -p "Ваш выбор [1-2]: " ssl_main_choice
-
-        read -p "Введите порт для сервиса [$DEFAULT_PORT]: " APP_PORT
-        APP_PORT=${APP_PORT:-$DEFAULT_PORT}
-        validate_port
-
-        case $ssl_main_choice in
-        1)
-            echo "${YELLOW}Выберите тип HTTPS соединения:${NC}"
-            echo "  1) Использовать собственный домен и сертификаты Let's Encrypt"
-            echo "  2) Использовать собственный домен и собственные сертификаты"
-            echo "  3) Самоподписанный сертификат"
-            read -p "Ваш выбор [1-3]: " ssl_sub_choice
-
-            # Базовые настройки для HTTPS
-            cat >"$INSTALL_DIR/.env" <<EOL
-SECRET_KEY='$SECRET_KEY'
-APP_PORT=$APP_PORT
-EOL
-
-            case $ssl_sub_choice in
-            1) setup_letsencrypt ;;
-            2) setup_custom_certs ;;
-            3) setup_selfsigned ;;
-            *)
-                echo "${RED}Неверный выбор!${NC}"
-                continue
-                ;;
-            esac
-            return 0
-            ;;
-        2)
-            configure_http
-            return 0
-            ;;
-        *)
-            echo "${RED}Неверный выбор!${NC}"
-            ;;
-        esac
-    done
 }
