@@ -15,6 +15,10 @@ choose_installation_type() {
         echo "2) HTTP (Не защищенное соединение)"
         read -p "Ваш выбор [1-2]: " ssl_main_choice
 
+        read -p "Введите порт для сервиса [$DEFAULT_PORT]: " APP_PORT
+        APP_PORT=${APP_PORT:-$DEFAULT_PORT}
+        validate_port
+
         case $ssl_main_choice in
         1)
             if ! check_openvpn_tcp_setting; then
@@ -91,10 +95,6 @@ check_openvpn_tcp_setting() {
 }
 
 setup_letsencrypt() {
-    read -p "Введите порт для серивса [$DEFAULT_PORT_SSL]: " APP_PORT
-    APP_PORT=${APP_PORT:-$DEFAULT_PORT_SSL}
-    validate_port
-
     log "Настройка Let's Encrypt"
     echo "${YELLOW}Настройка Let's Encrypt...${NC}"
 
@@ -146,10 +146,6 @@ EOL
 }
 
 setup_custom_certs() {
-    read -p "Введите порт для серивса [$DEFAULT_PORT_SSL]: " APP_PORT
-    APP_PORT=${APP_PORT:-$DEFAULT_PORT_SSL}
-    validate_port
-
     log "Настройка пользовательских сертификатов"
     echo "${YELLOW}Настройка пользовательских сертификатов...${NC}"
 
@@ -182,10 +178,6 @@ EOL
 
 # Установка с самоподписанным сертификатом
 setup_selfsigned() {
-    read -p "Введите порт для серивса [$DEFAULT_PORT]: " APP_PORT
-    APP_PORT=${APP_PORT:-$DEFAULT_PORT}
-    validate_port
-
     log "Настройка самоподписанного сертификата"
     echo "${YELLOW}Настройка самоподписанного сертификата...${NC}"
 
@@ -206,10 +198,6 @@ EOL
 }
 
 configure_http() {
-    read -p "Введите порт для серивса [$DEFAULT_PORT]: " APP_PORT
-    APP_PORT=${APP_PORT:-$DEFAULT_PORT_SSL}
-    validate_port
-
     log "Настройка HTTP соединения"
     echo "${YELLOW}Настройка HTTP соединения...${NC}"
 
