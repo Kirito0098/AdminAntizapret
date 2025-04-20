@@ -15,10 +15,6 @@ choose_installation_type() {
         echo "2) HTTP (Не защищенное соединение)"
         read -p "Ваш выбор [1-2]: " ssl_main_choice
 
-        read -p "Введите порт для сервиса [$DEFAULT_PORT]: " APP_PORT
-        APP_PORT=${APP_PORT:-$DEFAULT_PORT}
-        validate_port
-
         case $ssl_main_choice in
         1)
             if ! check_openvpn_tcp_setting; then
@@ -30,24 +26,36 @@ choose_installation_type() {
             echo "  3) Самоподписанный сертификат"
             read -p "Ваш выбор [1-3]: " ssl_sub_choice
 
-            # Базовые настройки для HTTPS
-            cat >"$INSTALL_DIR/.env" <<EOL
+            case $ssl_sub_choice in
+            1|2|3)
+                # Для HTTPS вариантов устанавливаем дефолтный порт 443
+                read -p "Введите порт для сервиса [443]: " APP_PORT
+                APP_PORT=${APP_PORT:-443}
+                validate_port
+
+                # Базовые настройки для HTTPS
+                cat >"$INSTALL_DIR/.env" <<EOL
 SECRET_KEY='$SECRET_KEY'
 APP_PORT=$APP_PORT
 EOL
 
-            case $ssl_sub_choice in
-            1) setup_letsencrypt ;;
-            2) setup_custom_certs ;;
-            3) setup_selfsigned ;;
+                case $ssl_sub_choice in
+                1) setup_letsencrypt ;;
+                2) setup_custom_certs ;;
+                3) setup_selfsigned ;;
+                esac
+                return 0
+                ;;
             *)
                 echo "${RED}Неверный выбор!${NC}"
                 continue
                 ;;
             esac
-            return 0
             ;;
         2)
+            read -p "Введите порт для сервиса [$DEFAULT_PORT]: " APP_PORT
+            APP_PORT=${APP_PORT:-$DEFAULT_PORT}
+            validate_port
             configure_http
             return 0
             ;;
