@@ -24,13 +24,22 @@ echo -e "${YELLOW}Проверка репозитория...${NC}"
 if [ -d "$INSTALL_DIR/.git" ]; then
   echo -e "${YELLOW}Репо уже существует, обновляем...${NC}"
   cd "$INSTALL_DIR" || exit 1
-  git pull || { echo -e "${RED}Ошибка при обновлении репозитория!${NC}" >&2; exit 1; }
+  git pull || {
+    echo -e "${RED}Ошибка при обновлении репозитория!${NC}" >&2
+    exit 1
+  }
 else
   if [ -d "$INSTALL_DIR" ]; then
     echo -e "${YELLOW}Директория существует, но не является репо. Удаляем и клонируем заново...${NC}"
-    rm -rf "$INSTALL_DIR" || { echo -e "${RED}Ошибка при удалении директории!${NC}" >&2; exit 1; }
+    rm -rf "$INSTALL_DIR" || {
+      echo -e "${RED}Ошибка при удалении директории!${NC}" >&2
+      exit 1
+    }
   fi
-  git clone "$REPO_URL" "$INSTALL_DIR" || { echo -e "${RED}Ошибка при клонировании репозитория!${NC}" >&2; exit 1; }
+  git clone "$REPO_URL" "$INSTALL_DIR" || {
+    echo -e "${RED}Ошибка при клонировании репозитория!${NC}" >&2
+    exit 1
+  }
 fi
 
 # Проверка успешности клонирования/обновления
@@ -41,7 +50,7 @@ fi
 
 # Установка прав на все .sh файлы в script_sh
 echo -e "${YELLOW}Установка прав на скрипты...${NC}"
-find "$SCRIPT_SH_DIR" -type f -name "*.sh" -exec chmod +x {} \; || { 
+find "$SCRIPT_SH_DIR" -type f -name "*.sh" -exec chmod +x {} \; || {
   echo -e "${RED}Ошибка при установке прав на скрипты!${NC}" >&2
   exit 1
 }

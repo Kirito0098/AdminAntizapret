@@ -9,7 +9,7 @@ init_logging() {
 
 # Логирование
 log() {
-  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >>"$LOG_FILE"
 }
 
 # Ожидание нажатия клавиши

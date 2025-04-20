@@ -12,19 +12,19 @@ validate_port() {
 setup_selfsigned() {
     log "Настройка самоподписанного сертификата"
     echo "${YELLOW}Настройка самоподписанного сертификата...${NC}"
-    
+
     mkdir -p /etc/ssl/private
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
         -keyout /etc/ssl/private/admin-antizapret.key \
         -out /etc/ssl/certs/admin-antizapret.crt \
         -subj "/CN=$(hostname)" >/dev/null 2>&1
-    
-    cat >> "$INSTALL_DIR/.env" <<EOL
+
+    cat >>"$INSTALL_DIR/.env" <<EOL
 USE_HTTPS=true
 SSL_CERT=/etc/ssl/certs/admin-antizapret.crt
 SSL_KEY=/etc/ssl/private/admin-antizapret.key
 EOL
-    
+
     log "Самоподписанный сертификат создан"
     echo "${GREEN}Самоподписанный сертификат успешно создан!${NC}"
 }
@@ -32,7 +32,7 @@ EOL
 setup_letsencrypt() {
     log "Настройка Let's Encrypt"
     echo "${YELLOW}Настройка Let's Encrypt...${NC}"
-    
+
     while true; do
         read -p "Введите доменное имя (например, example.com): " DOMAIN
         if [[ $DOMAIN =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
@@ -41,7 +41,7 @@ setup_letsencrypt() {
             echo "${RED}Неверный формат домена!${NC}"
         fi
     done
-    
+
     while true; do
         read -p "Введите email для Let's Encrypt: " EMAIL
         if [[ "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
@@ -65,9 +65,12 @@ setup_letsencrypt() {
     certbot certonly --standalone --non-interactive --agree-tos -m $EMAIL -d $DOMAIN
     check_error "Не удалось получить сертификат Let's Encrypt"
 
-    (crontab -l 2>/dev/null; echo "0 3 1 * * /usr/bin/certbot renew --quiet --pre-hook 'systemctl stop $SERVICE_NAME' --post-hook 'systemctl start $SERVICE_NAME'") | crontab -
+    (
+        crontab -l 2>/dev/null
+        echo "0 3 1 * * /usr/bin/certbot renew --quiet --pre-hook 'systemctl stop $SERVICE_NAME' --post-hook 'systemctl start $SERVICE_NAME'"
+    ) | crontab -
 
-    cat >> "$INSTALL_DIR/.env" <<EOL
+    cat >>"$INSTALL_DIR/.env" <<EOL
 USE_HTTPS=true
 SSL_CERT=/etc/letsencrypt/live/$DOMAIN/fullchain.pem
 SSL_KEY=/etc/letsencrypt/live/$DOMAIN/privkey.pem
@@ -80,7 +83,7 @@ EOL
 setup_custom_certs() {
     log "Настройка пользовательских сертификатов"
     echo "${YELLOW}Настройка пользовательских сертификатов...${NC}"
-    
+
     while true; do
         read -p "Введите доменное имя (например, example.com): " DOMAIN
         if [[ $DOMAIN =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
@@ -98,7 +101,7 @@ setup_custom_certs() {
         return 1
     fi
 
-    cat >> "$INSTALL_DIR/.env" <<EOL
+    cat >>"$INSTALL_DIR/.env" <<EOL
 USE_HTTPS=true
 SSL_CERT=$CERT_PATH
 SSL_KEY=$KEY_PATH
@@ -111,13 +114,13 @@ EOL
 configure_http() {
     log "Настройка HTTP соединения"
     echo "${YELLOW}Настройка HTTP соединения...${NC}"
-    
-    cat > "$INSTALL_DIR/.env" <<EOL
+
+    cat >"$INSTALL_DIR/.env" <<EOL
 SECRET_KEY='$SECRET_KEY'
 APP_PORT=$APP_PORT
 USE_HTTPS=false
 EOL
-    
+
     echo "${GREEN}HTTP соединение настроено на порту $APP_PORT!${NC}"
 }
 
@@ -133,34 +136,37 @@ choose_installation_type() {
         validate_port
 
         case $ssl_main_choice in
-            1)
-                echo "${YELLOW}Выберите тип HTTPS соединения:${NC}"
-                echo "  1) Использовать собственный домен и сертификаты Let's Encrypt"
-                echo "  2) Использовать собственный домен и собственные сертификаты"
-                echo "  3) Самоподписанный сертификат"
-                read -p "Ваш выбор [1-3]: " ssl_sub_choice
+        1)
+            echo "${YELLOW}Выберите тип HTTPS соединения:${NC}"
+            echo "  1) Использовать собственный домен и сертификаты Let's Encrypt"
+            echo "  2) Использовать собственный домен и собственные сертификаты"
+            echo "  3) Самоподписанный сертификат"
+            read -p "Ваш выбор [1-3]: " ssl_sub_choice
 
-                # Базовые настройки для HTTPS
-                cat > "$INSTALL_DIR/.env" <<EOL
+            # Базовые настройки для HTTPS
+            cat >"$INSTALL_DIR/.env" <<EOL
 SECRET_KEY='$SECRET_KEY'
 APP_PORT=$APP_PORT
 EOL
 
-                case $ssl_sub_choice in
-                    1) setup_letsencrypt ;;
-                    2) setup_custom_certs ;;
-                    3) setup_selfsigned ;;
-                    *) echo "${RED}Неверный выбор!${NC}"; continue ;;
-                esac
-                return 0
-                ;;
-            2)
-                configure_http
-                return 0
-                ;;
+            case $ssl_sub_choice in
+            1) setup_letsencrypt ;;
+            2) setup_custom_certs ;;
+            3) setup_selfsigned ;;
             *)
                 echo "${RED}Неверный выбор!${NC}"
+                continue
                 ;;
+            esac
+            return 0
+            ;;
+        2)
+            configure_http
+            return 0
+            ;;
+        *)
+            echo "${RED}Неверный выбор!${NC}"
+            ;;
         esac
     done
 }

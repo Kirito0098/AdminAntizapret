@@ -71,20 +71,20 @@ check_port() {
 
 # Проверка зависимостей
 check_dependencies() {
-    echo "${YELLOW}Установка зависимостей...${NC}" 
-    apt-get update --quiet --quiet && apt-get install -y --quiet --quiet apt-utils > /dev/null
-    apt-get install -y --quiet --quiet python3 python3-pip git wget openssl python3-venv cron > /dev/null
+    echo "${YELLOW}Установка зависимостей...${NC}"
+    apt-get update --quiet --quiet && apt-get install -y --quiet --quiet apt-utils >/dev/null
+    apt-get install -y --quiet --quiet python3 python3-pip git wget openssl python3-venv cron >/dev/null
     echo "${GREEN}[✓] Готово${NC}"
     check_error "Не удалось установить зависимости"
 }
 
 # Проверка прав root
 check_root() {
-  if [ "$(id -u)" -ne 0 ]; then
-    log "Попытка запуска без прав root"
-    printf "%s\n" "${RED}Этот скрипт должен быть запущен с правами root!${NC}" >&2
-    exit 1
-  fi
+    if [ "$(id -u)" -ne 0 ]; then
+        log "Попытка запуска без прав root"
+        printf "%s\n" "${RED}Этот скрипт должен быть запущен с правами root!${NC}" >&2
+        exit 1
+    fi
 }
 
 # Установка AntiZapret-VPN
@@ -131,9 +131,9 @@ auto_update() {
     log "Проверка обновлений"
     echo "${YELLOW}Проверка обновлений...${NC}"
     cd "$INSTALL_DIR" || return 1
-    
+
     git fetch origin main
-    
+
     if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
         echo "${GREEN}Найдены обновления. Установка...${NC}"
         git pull origin main
@@ -169,28 +169,34 @@ main_menu() {
         printf "│ 0. Выход                                   │\n"
         printf "└────────────────────────────────────────────┘\n"
         printf "%s\n" "${NC}"
-        
+
         read -p "Выберите действие [0-13]: " choice
         case $choice in
-            1) add_admin ;;
-            2) delete_admin ;;
-            3) restart_service ;;
-            4) check_status ;;
-            5) show_logs ;;
-            6) check_updates ;;
-            7) create_backup ;;
-            8) 
-                read -p "Введите путь к файлу резервной копии: " backup_file
-                restore_backup "$backup_file"
-                press_any_key
-                ;;
-            9) uninstall ;;
-            10) check_and_set_permissions ;;
-            11) change_port ;;
-            12) show_monitor ;;
-            13) validate_config; press_any_key ;;
-            0) exit 0 ;;
-            *) printf "%s\n" "${RED}Неверный выбор!${NC}"; sleep 1 ;;
+        1) add_admin ;;
+        2) delete_admin ;;
+        3) restart_service ;;
+        4) check_status ;;
+        5) show_logs ;;
+        6) check_updates ;;
+        7) create_backup ;;
+        8)
+            read -p "Введите путь к файлу резервной копии: " backup_file
+            restore_backup "$backup_file"
+            press_any_key
+            ;;
+        9) uninstall ;;
+        10) check_and_set_permissions ;;
+        11) change_port ;;
+        12) show_monitor ;;
+        13)
+            validate_config
+            press_any_key
+            ;;
+        0) exit 0 ;;
+        *)
+            printf "%s\n" "${RED}Неверный выбор!${NC}"
+            sleep 1
+            ;;
         esac
     done
 }
@@ -204,10 +210,10 @@ install() {
     printf "└────────────────────────────────────────────┘\n"
     printf "%s\n" "${NC}"
 
-# Проверка установки AntiZapret-VPN
-check_antizapret_installed() {
-  [ -d "$ANTIZAPRET_INSTALL_DIR" ]
-}
+    # Проверка установки AntiZapret-VPN
+    check_antizapret_installed() {
+        [ -d "$ANTIZAPRET_INSTALL_DIR" ]
+    }
 
     # Проверка установки AntiZapret-VPN
     echo "${YELLOW}Проверка установки AntiZapret-VPN...${NC}"
@@ -222,18 +228,18 @@ check_antizapret_installed() {
     else
         echo "${GREEN}[✓] Готово${NC}"
     fi
-    
+
     # Установка прав выполнения
-    echo "${YELLOW}Установка прав выполнения...${NC}" && \
-    chmod +x "$INSTALL_DIR/client.sh" "$ANTIZAPRET_INSTALL_DIR/doall.sh" 2>/dev/null || true
+    echo "${YELLOW}Установка прав выполнения...${NC}" &&
+        chmod +x "$INSTALL_DIR/client.sh" "$ANTIZAPRET_INSTALL_DIR/doall.sh" 2>/dev/null || true
     echo "${GREEN}[✓] Готово${NC}"
 
     # Обновление пакетов
     echo "${YELLOW}Обновление списка пакетов...${NC}"
-    apt-get update --quiet --quiet > /dev/null
+    apt-get update --quiet --quiet >/dev/null
     echo "${GREEN}[✓] Готово${NC}"
     check_error "Не удалось обновить пакеты"
-    
+
     # Проверка и установка зависимостей
     check_dependencies
 
@@ -257,7 +263,7 @@ check_antizapret_installed() {
 
     # Создание systemd сервиса
     echo "${YELLOW}Создание systemd сервиса...${NC}"
-    cat > "/etc/systemd/system/$SERVICE_NAME.service" <<EOL
+    cat >"/etc/systemd/system/$SERVICE_NAME.service" <<EOL
 [Unit]
 Description=AdminAntizapret VPN Management
 After=network.target
@@ -287,7 +293,7 @@ EOL
         echo "┌────────────────────────────────────────────┐"
         echo "│   Установка успешно завершена!             │"
         echo "├────────────────────────────────────────────┤"
-        
+
         if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
             if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
                 echo "│ Адрес: https://$DOMAIN:$APP_PORT"
@@ -300,7 +306,7 @@ EOL
         else
             echo "│ Адрес: http://$(hostname -I | awk '{print $1}'):$APP_PORT"
         fi
-        
+
         echo "│"
         echo "│ Для входа используйте учетные данные,"
         echo "│ созданные при инициализации базы данных"
@@ -320,32 +326,32 @@ EOL
 main() {
     check_root
     init_logging
-    
+
     case "$1" in
-        "--install")
-            install
-            ;;
-        "--update")
-            auto_update
-            ;;
-        "--backup")
-            create_backup
-            ;;
-        "--restore")
-            if [ -z "$2" ]; then
-                echo "${RED}Укажите файл для восстановления!${NC}"
-                exit 1
-            fi
-            restore_backup "$2"
-            ;;
-        *)
-            if [ ! -f "/etc/systemd/system/$SERVICE_NAME.service" ]; then
-        printf "%s\n" "${YELLOW}AdminAntizapret не установлен.${NC}"
-        while true; do
-            printf "Хотите установить? (y/n) "
-            read -r answer
-            answer=$(echo "$answer" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
-            case $answer in
+    "--install")
+        install
+        ;;
+    "--update")
+        auto_update
+        ;;
+    "--backup")
+        create_backup
+        ;;
+    "--restore")
+        if [ -z "$2" ]; then
+            echo "${RED}Укажите файл для восстановления!${NC}"
+            exit 1
+        fi
+        restore_backup "$2"
+        ;;
+    *)
+        if [ ! -f "/etc/systemd/system/$SERVICE_NAME.service" ]; then
+            printf "%s\n" "${YELLOW}AdminAntizapret не установлен.${NC}"
+            while true; do
+                printf "Хотите установить? (y/n) "
+                read -r answer
+                answer=$(echo "$answer" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+                case $answer in
                 [Yy]*)
                     install
                     main_menu
@@ -357,12 +363,12 @@ main() {
                 *)
                     printf "%s\n" "${RED}Пожалуйста, введите только 'y' или 'n'${NC}"
                     ;;
-            esac
-        done
-    else
-        main_menu
-            fi
-            ;;
+                esac
+            done
+        else
+            main_menu
+        fi
+        ;;
     esac
 }
 

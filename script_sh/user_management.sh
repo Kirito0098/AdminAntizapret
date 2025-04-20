@@ -6,8 +6,8 @@ add_admin() {
 
     while true; do
         read -p "Введите логин администратора: " username
-        username=$(echo "$username" | tr -d '[:space:]')  
-        
+        username=$(echo "$username" | tr -d '[:space:]')
+
         if [ -z "$username" ]; then
             echo "${RED}Логин не может быть пустым!${NC}"
         elif [[ "$username" =~ [^a-zA-Z0-9_-] ]]; then
@@ -16,17 +16,17 @@ add_admin() {
             break
         fi
     done
-    
+
     # Запрос пароля с проверкой
     while true; do
         read -s -p "Введите пароль: " password
         echo
         read -s -p "Повторите пароль: " password_confirm
         echo
-        
+
         password=$(echo "$password" | xargs)
         password_confirm=$(echo "$password_confirm" | xargs)
-        
+
         if [ -z "$password" ]; then
             echo "${RED}Пароль не может быть пустым!${NC}"
         elif [ "$password" != "$password_confirm" ]; then
@@ -46,7 +46,7 @@ add_admin() {
 # Удаление администратора
 delete_admin() {
     echo "${YELLOW}Удаление администратора...${NC}"
-    
+
     echo "${YELLOW}Список администраторов:${NC}"
     "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --list-users
     if [ $? -ne 0 ]; then
