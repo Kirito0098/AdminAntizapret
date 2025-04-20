@@ -15,6 +15,7 @@ INSTALL_DIR="/opt/AdminAntizapret"
 VENV_PATH="$INSTALL_DIR/venv"
 SERVICE_NAME="admin-antizapret"
 DEFAULT_PORT="5050"
+DEFAULT_PORT_SSL="443"
 APP_PORT="$DEFAULT_PORT"
 DB_FILE="$INSTALL_DIR/instance/users.db"
 ANTIZAPRET_INSTALL_DIR="/root/antizapret"
@@ -166,11 +167,12 @@ main_menu() {
         printf "│ 11. Изменить порт сервиса                  │\n"
         printf "│ 12. Мониторинг системы                     │\n"
         printf "│ 13. Проверить конфигурацию                 │\n"
+        printf "│ 14. Проверить конфликт портов 80/443       │\n"
         printf "│ 0. Выход                                   │\n"
         printf "└────────────────────────────────────────────┘\n"
         printf "%s\n" "${NC}"
 
-        read -p "Выберите действие [0-13]: " choice
+        read -p "Выберите действие [0-14]: " choice
         case $choice in
         1) add_admin ;;
         2) delete_admin ;;
@@ -190,6 +192,10 @@ main_menu() {
         12) show_monitor ;;
         13)
             validate_config
+            press_any_key
+            ;;
+        14)
+            check_openvpn_tcp_setting
             press_any_key
             ;;
         0) exit 0 ;;

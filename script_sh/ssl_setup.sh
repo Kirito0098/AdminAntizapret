@@ -15,10 +15,6 @@ choose_installation_type() {
         echo "2) HTTP (Не защищенное соединение)"
         read -p "Ваш выбор [1-2]: " ssl_main_choice
 
-        read -p "Введите порт для сервиса [$DEFAULT_PORT]: " APP_PORT
-        APP_PORT=${APP_PORT:-$DEFAULT_PORT}
-        validate_port
-
         case $ssl_main_choice in
         1)
             if ! check_openvpn_tcp_setting; then
@@ -62,29 +58,43 @@ check_openvpn_tcp_setting() {
     if [ -f "/root/antizapret/setup" ]; then
         OPENVPN_SETTING=$(grep '^OPENVPN_80_443_TCP=' /root/antizapret/setup | cut -d'=' -f2)
         if [ "$OPENVPN_SETTING" = "y" ]; then
-            echo "${YELLOW}Обнаружено OPENVPN_80_443_TCP=y в /root/antizapret/setup${NC}"
-            echo "${YELLOW}Для работы HTTPS необходимо изменить это значение на n${NC}"
-            read -p "Изменить OPENVPN_80_443_TCP на n и перезапустить сервис? (y/n): " change_choice
+            echo "${RED}Обнаружено что порты 80 и 443 используются в AntiZapret-VPN как резрвные для TCP OpenVPN${NC}"
+            echo "${YELLOW}Это приведёт к конфликту с веб-сервером:${NC}"
+            echo "${YELLOW} • Для работы HTTPS (SSL) по умолчанию используется порт 443 — он позволяет открывать сайт просто по домену${NC}"
+            echo "${YELLOW}   (например, https://example.com вместо https://example.com:443).${NC}"
+            echo "${YELLOW} • Порт 80 критически важен для Let's Encrypt:${NC}"
+            echo "${YELLOW}   - Используется для первичного получения сертификатов${NC}"
+            echo "${YELLOW}   - Требуется для автоматического обновления (каждые 60 дней)${NC}"
+            echo "${YELLOW}   - Без него невозможна автоматическая работа SSL${NC}"
+            read -p "Отключить резервирование портов в OpenVPN и перезапустить сервис? (y/n): " change_choice
             if [[ "$change_choice" =~ ^[Yy]$ ]]; then
                 sed -i 's/^OPENVPN_80_443_TCP=y/OPENVPN_80_443_TCP=n/' /root/antizapret/setup
                 systemctl restart antizapret.service
-                echo "${GREEN}Значение изменено на n и сервис перезапущен!${NC}"
+                echo "${GREEN}Резервирование портов в OpenVPN отключено и сервис перезапущен!${NC}"
                 return 0
             else
-                echo "${RED}HTTPS не будет работать корректно с OPENVPN_80_443_TCP=y!${NC}"
-                read -p "Продолжить без изменений? (y/n): " continue_choice
+                echo "${RED}ВНИМАНИЕ: HTTPS не будет работать корректно с резервированием портов в OpenVPN${NC}"
+                read -p "Вы уверены, что хотите продолжить без изменений? (y/n): " continue_choice
                 if [[ "$continue_choice" =~ ^[Yy]$ ]]; then
                     return 0
                 else
                     return 1
                 fi
             fi
+        else
+            echo "${GREEN}Проверка портов: резервирование 80/443 портов в OpenVPN отключено${NC}"
+            echo "${GREEN}Конфигурация не требует изменений, можно продолжать настройку веб-сервера${NC}"
+            return 0
         fi
     fi
     return 0
 }
 
 setup_letsencrypt() {
+    read -p "Введите порт для серивса [$DEFAULT_PORT_SSL]: " APP_PORT
+    APP_PORT=${APP_PORT:-$DEFAULT_PORT_SSL}
+    validate_port
+
     log "Настройка Let's Encrypt"
     echo "${YELLOW}Настройка Let's Encrypt...${NC}"
 
@@ -136,6 +146,10 @@ EOL
 }
 
 setup_custom_certs() {
+    read -p "Введите порт для серивса [$DEFAULT_PORT_SSL]: " APP_PORT
+    APP_PORT=${APP_PORT:-$DEFAULT_PORT_SSL}
+    validate_port
+
     log "Настройка пользовательских сертификатов"
     echo "${YELLOW}Настройка пользовательских сертификатов...${NC}"
 
@@ -168,6 +182,10 @@ EOL
 
 # Установка с самоподписанным сертификатом
 setup_selfsigned() {
+    read -p "Введите порт для серивса [$DEFAULT_PORT]: " APP_PORT
+    APP_PORT=${APP_PORT:-$DEFAULT_PORT}
+    validate_port
+
     log "Настройка самоподписанного сертификата"
     echo "${YELLOW}Настройка самоподписанного сертификата...${NC}"
 
@@ -188,6 +206,10 @@ EOL
 }
 
 configure_http() {
+    read -p "Введите порт для серивса [$DEFAULT_PORT]: " APP_PORT
+    APP_PORT=${APP_PORT:-$DEFAULT_PORT_SSL}
+    validate_port
+
     log "Настройка HTTP соединения"
     echo "${YELLOW}Настройка HTTP соединения...${NC}"
 
