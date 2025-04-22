@@ -1,22 +1,29 @@
 #!/bin/bash
 
-# Функция проверки занятости порта
-validate_port() {
+# Функция выбора порта
+get_port() {
+    local forbidden_port=$1
+    local default_port_check=$2
     while true; do
-        if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || ((APP_PORT < 1 || APP_PORT > 65535)); then
+        read -p "Введите порт для сервиса ($DEFAULT_PORT): " APP_PORT
+        APP_PORT=${APP_PORT:-$DEFAULT_PORT}
+        if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || ((APP_PORT < 1 || APP_PORT > 65535)) || [ "$APP_PORT" -eq "$forbidden_port" ]; then
             echo "${RED}Некорректный номер порта!${NC}"
-            read -p "Введите порт (1-65535): " APP_PORT
             continue
         fi
+        if [ "$APP_PORT" -eq "$default_port_check" ]; then
+            if ! check_openvpn_tcp_setting; then
+                continue
+            fi
+        fi
         SERVICE_BUSY=$(ss -tulpn | grep ":${APP_PORT}" | awk -F'(),"' '{print $4; exit}')
-        RULES_BUSY=$(iptables-save | grep "PREROUTING.*--dport ${APP_PORT}")      
+        RULES_BUSY=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport ${APP_PORT}")      
         if [ -n "$SERVICE_BUSY" ] || [ -n "$RULES_BUSY" ]; then
             [ -n "$SERVICE_BUSY" ] && echo "${RED}Порт $APP_PORT занят процессом $SERVICE_BUSY${NC}"
             [ -n "$RULES_BUSY" ] && {
-                echo "${RED}В таблице маршрутизации обнаружено перенаправление порта $APP_PORT${NC}"
+                echo "${RED}В таблице маршрутизации обнаружено перенаправление порта $APP_PORT, приложение не будет работать корректно${NC}"
                 echo "$RULES_BUSY"
             }
-            read -p "Введите другой порт: " APP_PORT
             continue
         fi
         return 0
@@ -40,23 +47,8 @@ choose_installation_type() {
 
             case $ssl_sub_choice in
             1|2|3)
-                # Для HTTPS вариантов устанавливаем дефолтный порт 5050
-                while true; do
-                    read -p "Введите порт для сервиса [5050]: " APP_PORT
-                    APP_PORT=${APP_PORT:-5050}
-                    if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || [ "$APP_PORT" -lt 1 ] || [ "$APP_PORT" -gt 65535 ]; then
-                        echo "Некорректный номер порта!"
-                        continue
-                    fi
-                    if [ "$APP_PORT" == "443" ]; then
-                        if ! check_openvpn_tcp_setting; then
-                            continue
-                        fi
-                    fi
-                    return 0
-                done
-                validate_port
-
+                # Для HTTPS запрещаем 80 порт и предлагаем отключить резервирование при выборе 443
+                get_port 80 443
                 # Базовые настройки для HTTPS
                 cat >"$INSTALL_DIR/.env" <<EOL
 SECRET_KEY='$SECRET_KEY'
@@ -77,9 +69,8 @@ EOL
             esac
             ;;
         2)
-            read -p "Введите порт для сервиса [$DEFAULT_PORT]: " APP_PORT
-            APP_PORT=${APP_PORT:-$DEFAULT_PORT}
-            validate_port
+            # Для HTTP все наоборот: нельзя 443 порт и предлагаем отключить резервирование при выборе 80
+            get_port 443 80
             configure_http
             return 0
             ;;
@@ -94,11 +85,12 @@ check_openvpn_tcp_setting() {
     if [ -f "/root/antizapret/setup" ]; then
         OPENVPN_SETTING=$(grep '^OPENVPN_80_443_TCP=' /root/antizapret/setup | cut -d'=' -f2)
         if [ "$OPENVPN_SETTING" = "y" ]; then
-            echo "${RED}Обнаружено, что порты 80 и 443 используется в AntiZapret-VPN как резервные для TCP OpenVPN.${NC}"
+            echo "${RED}Обнаружено, что порты 80 и 443 используются в AntiZapret-VPN как резервные для TCP OpenVPN.${NC}"
             echo "${YELLOW}Такое резервирование гарантирует работоспособность OPENVPN даже в ситуации, если провайдер использует блокирующий фаервол.${NC}"    
-            echo "${YELLOW}Использование порта 443 для сервиса AdminAntizapret удобно (можно подключаться к WEB оснастке по https://example.com вместо https://example.com:443),${NC}"
-            echo "${YELLOW}но небезопасно, поскольку подавляющая часть сетевых атак приходятся именно на веб сервисы, размещенные на 80 и 443 портах.${NC}"
-            echo "Вы можете отключить резервирование стандартных WEB портов для OpenVPN, чтобы использовать порт 443 для AdminAntizapret(y) или оставить как есть, выбрав другой порт(n)"           
+            echo "${YELLOW}Использование портов 80 и 443 для сервиса AdminAntizapret удобно (в случае HTTPS например можно подключаться к WEB оснастке по${NC}"
+            echo "${YELLOW}https://example.com вместо https://example.com:443), но это не является безопасным вариантом.${NC}"
+            echo "${YELLOW}Учтите, что подавляющая часть сетевых атак приходятся именно на веб сервисы, размещенные на 80 и 443 портах.${NC}"
+            echo "Вы можете отключить это резервирование для OpenVPN, чтобы использовать стандартные WEB порты для AdminAntizapret(y) или оставить как есть, выбрав другой порт(n)"           
             read -p "Отключить резервирование портов в OpenVPN? (y/n): " change_choice
             if [[ "$change_choice" =~ ^[Yy]$ ]]; then
                 sed -i 's/^OPENVPN_80_443_TCP=y/OPENVPN_80_443_TCP=n/' /root/antizapret/setup
@@ -178,7 +170,7 @@ setup_letsencrypt() {
 
     # Временно удаляю перенаправление для порта 80  
     SAVE_RULES=$(iptables-save)
-    rules=$(iptables-save | grep "PREROUTING.*--dport 80")
+    rules=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80")
     if [ -n "$rules" ]; then
         while read -r line; do
             iptables -t nat -D $(echo $line | sed 's/^-A //')
@@ -236,7 +228,7 @@ if systemctl is-enabled $SERVICE_NAME &> /dev/null && systemctl is-active $SERVI
 fi
 
 SAVE_RULES=\$(iptables-save)
-PORT80_RULES=\$(iptables-save | grep "PREROUTING.*--dport 80")
+PORT80_RULES=\$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80")
 if [ -n "\$PORT80_RULES" ]; then
     while read -r line; do
         iptables -t nat -D \$(echo \$line | sed 's/^-A //')
