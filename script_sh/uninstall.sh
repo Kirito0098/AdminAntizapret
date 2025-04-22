@@ -39,10 +39,22 @@ uninstall() {
         fi
 
         if [ "$use_letsencrypt" = true ]; then
-            printf "%s\n" "${YELLOW}Удаление Let's Encrypt сертификата...${NC}"
-            certbot delete --non-interactive --cert-name $DOMAIN 2>/dev/null ||
-                echo "${YELLOW}Не удалось удалить сертификат Let's Encrypt${NC}"
-            crontab -l | grep -v 'certbot renew' | crontab -
+            printf "%s\n" "${YELLOW}AdminAntizapret был настроен на получение Let's Encrypt сертификата для вашего домена. ${NC}"
+            printf "%s " "${YELLOW}Хотите удалить также все установленные и настроенные компоненты Let's Encrypt? (будет удален certbot, сертификаты и задания обновления)? (y/n)${NC}"
+            read -r response
+
+            if [[ $response =~ ^[yY]$ ]]; then
+                printf "%s\n" "${YELLOW}Удаление Let's Encrypt сертификата...${NC}"
+                DOMAIN=$(certbot certificates 2>/dev/null | grep -oP '(?<=Certificate Name: ).*' | head -n 1)
+                certbot delete --non-interactive --cert-name $DOMAIN >/dev/null 2>&1 || \
+                    echo "${YELLOW}Не удалось удалить сертификат Let's Encrypt${NC}"                  
+                crontab -l | grep -v 'renew_cert.sh' | crontab -
+                rm -rf /etc/letsencrypt
+                rm -rf /var/lib/letsencrypt
+                apt-get remove --purge -y -qq certbot &> /dev/null
+            else
+                printf "%s\n" "${YELLOW}Удаление Let's Encrypt отменено пользователем${NC}"
+            fi
         fi
 
         printf "%s\n" "${YELLOW}Удаление файлов...${NC}"
@@ -50,7 +62,7 @@ uninstall() {
         rm -f "$LOG_FILE"
 
         printf "%s\n" "${YELLOW}Очистка зависимостей...${NC}"
-        apt-get autoremove -y --purge python3-venv python3-pip certbot >/dev/null 2>&1
+        apt-get autoremove -y > /dev/null 2>&1
 
         printf "%s\n" "${GREEN}Удаление завершено успешно!${NC}"
         printf "Резервная копия сохранена в /var/backups/antizapret\n"
