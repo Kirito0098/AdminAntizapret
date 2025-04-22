@@ -19,6 +19,16 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+# Установка компонентов, необходимых для работы скрипта
+apt-get update > /dev/null
+for package in apt-utils whiptail dnsutils net-tools git; do
+  status=$(dpkg-query -W -f='${Status}' $package 2>/dev/null)
+  if [[ "$status" != *"ok installed"* ]]; then
+    echo "Установка $package"
+    sudo apt-get install -y $package &> /dev/null
+  fi
+done
+
 # Клонирование или обновление репозитория
 echo -e "${YELLOW}Проверка репозитория...${NC}"
 if [ -d "$INSTALL_DIR/.git" ]; then
