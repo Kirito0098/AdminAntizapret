@@ -224,6 +224,9 @@ setup_letsencrypt() {
         check_error "Не удалось получить сертификат Let's Encrypt"
     fi
 
+    restore_rules
+    restore_services
+    
     # Создание cron-задачи
     SCRIPT_PATH="/usr/local/bin/renew_cert.sh"
     if ! [ -d "$(dirname "$SCRIPT_PATH")" ]; then
