@@ -135,7 +135,7 @@ setup_letsencrypt() {
 
     # Функция восстановления правил
     restore_rules() {
-        if [ -z "$rules" ]; then
+        if [ -z "$PORT80_RULES" ]; then
             echo "${YELLOW}Восстановление правил с портом 80 не требуется${NC}"
         else
             echo "$SAVE_RULES" | iptables-restore
@@ -151,7 +151,7 @@ setup_letsencrypt() {
     restore_services() {
         if [ -n "$SERVICE_BUSY" ] && systemctl is-enabled "$SERVICE_BUSY" &> /dev/null; then
             if ! systemctl is-active "$SERVICE_BUSY" &> /dev/null; then
-                printf "%s" "${YELLOW}Попытка автоматического возобновления работы службы $SERVICE_BUSY...${NC}"
+                printf "%s" "${YELLOW}Попытка автоматического возобновления работы службы ${NC}$SERVICE_BUSY${YELLOW}...${NC}"
                 if systemctl start "$SERVICE_BUSY" &> /dev/null; then
                     echo "${GREEN}УСПЕХ${NC}"
                 else
@@ -167,7 +167,7 @@ setup_letsencrypt() {
     # Стоп службы (если они конечно есть). Для первой установки можно было и не делать остановку AdminAntizapret, добавил чтобы этим же скриптом переустанавливать можно было
     SERVICE_BUSY=$(ss -tlpn | grep ":$APP_PORT" | awk -F'[(),"]' '{print $4; exit}')
     if [ -n "$SERVICE_BUSY" ]; then
-        printf "%s" "${YELLOW}Порт 80 занят службой $SERVICE_BUSY, попытка автоматического освобождения...${NC}"
+        printf "%s" "${YELLOW}Порт 80 занят службой ${NC}$SERVICE_BUSY${YELLOW}, попытка автоматического освобождения...${NC}"
         if systemctl is-enabled "$SERVICE_BUSY" &> /dev/null && systemctl is-active "$SERVICE_BUSY" &> /dev/null && systemctl stop "$SERVICE_BUSY" &> /dev/null; then
             echo "${GREEN}УСПЕХ${NC}"
         else
@@ -182,11 +182,11 @@ setup_letsencrypt() {
 
     # Временно удаляю перенаправление для порта 80
     SAVE_RULES=$(iptables-save)
-    rules=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80")
-    if [ -n "$rules" ]; then
+    PORT80_RULES=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80")
+    if [ -n "$PORT80_RULES" ]; then
         while read -r line; do
             iptables -t nat -D $(echo $line | sed 's/^-A //')
-        done <<< "$rules"
+        done <<< "$PORT80_RULES"
         
         if ! iptables-save | grep -q "PREROUTING.*--dport 80"; then
             echo "${GREEN}Все правила с портом 80 временно удалены${NC}"
