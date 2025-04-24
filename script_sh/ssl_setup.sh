@@ -6,7 +6,7 @@ get_port() {
     local default_port_check=$2
     while true; do
         read -p "Введите порт для сервиса ($DEFAULT_PORT): " APP_PORT
-        APP_PORT=${APP_PORT:-$DEFAULT_PORT}
+        APP_PORT=${APP_PORT:-"$DEFAULT_PORT"}
         if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || ((APP_PORT < 1 || APP_PORT > 65535)) || [ "$APP_PORT" -eq "$forbidden_port" ]; then
             echo "${RED}Некорректный номер порта!${NC}"
             continue
@@ -88,7 +88,7 @@ check_openvpn_tcp_setting() {
             echo "${RED}Обнаружено, что порты 80 и 443 используются в AntiZapret-VPN как резервные для TCP OpenVPN.${NC}"
             echo "${YELLOW}Такое резервирование гарантирует работоспособность OPENVPN даже в ситуации, если провайдер использует блокирующий фаервол.${NC}"    
             echo "${YELLOW}Использование портов 80 и 443 для сервиса AdminAntizapret удобно (в случае HTTPS например можно подключаться к WEB оснастке по${NC}"
-            echo "${YELLOW}https://example.com вместо https://example.com:443), но это не является безопасным вариантом.${NC}"
+            echo "${YELLOW}адресу https://example.com вместо https://example.com:443), но это не является безопасным вариантом.${NC}"
             echo "${YELLOW}Учтите, что подавляющая часть сетевых атак приходятся именно на веб сервисы, размещенные на 80 и 443 портах.${NC}"
             echo "Вы можете отключить это резервирование для OpenVPN, чтобы использовать стандартные WEB порты для AdminAntizapret(y) или оставить как есть, выбрав другой порт(n)"           
             read -p "Отключить резервирование портов в OpenVPN? (y/n): " change_choice
@@ -149,26 +149,38 @@ setup_letsencrypt() {
 
     # Функция восстановления служб (если они конечно были)
     restore_services() {
-        if [ -n "$SERVICE_BUSY" ]; then
-            echo "${GREEN}Возобновление работы службы $SERVICE_BUSY${NC}"
-            systemctl start $SERVICE_BUSY
+        if [ -n "$SERVICE_BUSY" ] && systemctl is-enabled "$SERVICE_BUSY" &> /dev/null; then
+            if ! systemctl is-active "$SERVICE_BUSY" &> /dev/null; then
+                printf "%s" "${YELLOW}Попытка автоматического возобновления работы службы $SERVICE_BUSY...${NC}"
+                if systemctl start "$SERVICE_BUSY" &> /dev/null; then
+                    echo "${GREEN}УСПЕХ${NC}"
+                else
+                    echo "${RED}НЕУДАЧА${NC}"
+                fi
+            fi
         fi
-        if systemctl is-enabled $SERVICE_NAME &> /dev/null && ! systemctl is-active $SERVICE_NAME &> /dev/null; then
-            systemctl start $SERVICE_NAME
+        if systemctl is-enabled "$SERVICE_NAME" &> /dev/null && ! systemctl is-active "$SERVICE_NAME" &> /dev/null; then
+            systemctl start "$SERVICE_NAME"
         fi
     }    
 
     # Стоп службы (если они конечно есть). Для первой установки можно было и не делать остановку AdminAntizapret, добавил чтобы этим же скриптом переустанавливать можно было
     SERVICE_BUSY=$(ss -tulpn | grep ':80' | awk -F'[(),"]' '{print $4; exit}')
     if [ -n "$SERVICE_BUSY" ]; then
-        echo "${GREEN}Порт 80 занят службой $SERVICE_BUSY, временно отключаю${NC}"
-        systemctl stop $SERVICE_BUSY
-    fi
-    if systemctl is-enabled $SERVICE_NAME &> /dev/null && systemctl is-active $SERVICE_NAME &> /dev/null; then
-        systemctl stop $SERVICE_NAME
+        printf "%s" "${YELLOW}Порт 80 занят службой $SERVICE_BUSY, попытка автоматического освобождения...${NC}"
+        if systemctl is-enabled "$SERVICE_BUSY" &> /dev/null && systemctl is-active "$SERVICE_BUSY" &> /dev/null && systemctl stop "$SERVICE_BUSY" &> /dev/null; then
+            echo "${GREEN}УСПЕХ${NC}"
+        else
+            echo "${RED}НЕУДАЧА${NC}"
+            check_error "Попробуйте освободить порт вручную или выберите другой"
+        fi
     fi
 
-    # Временно удаляю перенаправление для порта 80  
+    if systemctl is-enabled "$SERVICE_NAME" &> /dev/null && systemctl is-active "$SERVICE_NAME" &> /dev/null; then
+        systemctl stop "$SERVICE_NAME"
+    fi
+
+    # Временно удаляю перенаправление для порта 80
     SAVE_RULES=$(iptables-save)
     rules=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80")
     if [ -n "$rules" ]; then
@@ -214,7 +226,13 @@ setup_letsencrypt() {
     fi
 
     # Создание cron-задачи
-    SCRIPT_PATH="/opt/AdminAntizapret/script_sh/renew_cert.sh"
+    SCRIPT_PATH="/usr/local/bin/renew_cert.sh"
+    if ! [ -d "$(dirname "$SCRIPT_PATH")" ]; then
+        sudo mkdir -p "$(dirname "$SCRIPT_PATH")"
+    fi
+    if [ -f "$SCRIPT_PATH" ]; then
+        rm -f "$SCRIPT_PATH"
+    fi
 
     cat > "$SCRIPT_PATH" <<EOF
 #!/bin/bash
@@ -223,8 +241,8 @@ SERVICE_BUSY=\$(ss -tulpn | grep ':80' | awk -F'[(),"]' '{print \$4; exit}')
 if [ -n "\$SERVICE_BUSY" ] && systemctl is-enabled "\$SERVICE_BUSY" && systemctl is-active "\$SERVICE_BUSY"; then
     systemctl stop "\$SERVICE_BUSY"
 fi
-if systemctl is-enabled $SERVICE_NAME &> /dev/null && systemctl is-active $SERVICE_NAME; then
-    systemctl stop $SERVICE_NAME
+if systemctl is-enabled "$SERVICE_NAME" &> /dev/null && systemctl is-active "$SERVICE_NAME"; then
+    systemctl stop "$SERVICE_NAME"
 fi
 
 SAVE_RULES=\$(iptables-save)
@@ -245,8 +263,8 @@ if [ -n "\$SERVICE_BUSY" ] && systemctl is-enabled "\$SERVICE_BUSY" && ! systemc
     systemctl start "\$SERVICE_BUSY"
 fi
 
-if systemctl is-enabled $SERVICE_NAME && ! systemctl is-active $SERVICE_NAME; then
-            systemctl start $SERVICE_NAME
+if systemctl is-enabled "$SERVICE_NAME" && ! systemctl is-active "$SERVICE_NAME"; then
+            systemctl start "$SERVICE_NAME"
 fi
 EOF
 
