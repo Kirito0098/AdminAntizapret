@@ -19,9 +19,9 @@ get_port() {
         SERVICE_BUSY=$(ss -tlpn | grep ":$APP_PORT" | awk -F'[(),"]' '{print $4; exit}')
         RULES_BUSY=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport ${APP_PORT}")      
         if [ -n "$SERVICE_BUSY" ] || [ -n "$RULES_BUSY" ]; then
-            [ -n "$SERVICE_BUSY" ] && echo "${RED}Порт ${YELLOW}$APP_PORT занят процессом ${YELLOW}$SERVICE_BUSY${NC}"
+            [ -n "$SERVICE_BUSY" ] && echo "${RED}Порт ${YELLOW}$APP_PORT${RED} занят процессом ${YELLOW}$SERVICE_BUSY${NC}"
             [ -n "$RULES_BUSY" ] && {
-                echo "${RED}В таблице маршрутизации обнаружено перенаправление порта ${YELLOW}$APP_PORT, приложение не будет работать корректно${NC}"
+                echo "${RED}В таблице маршрутизации обнаружено перенаправление порта ${YELLOW}$APP_PORT${RED}, приложение не будет работать корректно${NC}"
                 echo "$RULES_BUSY"
             }
             continue
