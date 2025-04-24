@@ -17,7 +17,7 @@ get_port() {
             fi
         fi
         SERVICE_BUSY=$(ss -tlpn | grep ":$APP_PORT" | awk -F'[(),"]' '{print $4; exit}')
-        RULES_BUSY=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport ${APP_PORT}")      
+        RULES_BUSY=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport $APP_PORT" | grep "$(ip route | grep default | awk '{print $5}')")     
         if [ -n "$SERVICE_BUSY" ] || [ -n "$RULES_BUSY" ]; then
             [ -n "$SERVICE_BUSY" ] && echo "${RED}Порт ${YELLOW}$APP_PORT${RED} занят процессом ${YELLOW}$SERVICE_BUSY${NC}"
             [ -n "$RULES_BUSY" ] && {
@@ -139,7 +139,7 @@ setup_letsencrypt() {
             echo "${YELLOW}Восстановление правил с портом 80 не требуется${NC}"
         else
             echo "$SAVE_RULES" | iptables-restore
-            if iptables-save | grep -q "PREROUTING.*--dport 80"; then
+            if iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')" > /dev/null; then
                 echo "${GREEN}Правила с портом 80 успешно восстановлены${NC}"
             else
                 check_error "Ошибка при восстановлении правил с портом 80"
@@ -182,13 +182,12 @@ setup_letsencrypt() {
 
     # Временно удаляю перенаправление для порта 80
     SAVE_RULES=$(iptables-save)
-    PORT80_RULES=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80")
+    PORT80_RULES=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')")
     if [ -n "$PORT80_RULES" ]; then
         while read -r line; do
             iptables -t nat -D $(echo $line | sed 's/^-A //')
         done <<< "$PORT80_RULES"
-        
-        if ! iptables-save | grep -q "PREROUTING.*--dport 80"; then
+        if ! iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')" > /dev/null; then
             echo "${GREEN}Все правила с портом 80 временно удалены${NC}"
         else
             restore_services
@@ -246,7 +245,7 @@ if systemctl is-enabled "$SERVICE_NAME" &> /dev/null && systemctl is-active "$SE
 fi
 
 SAVE_RULES=\$(iptables-save)
-PORT80_RULES=\$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80")
+PORT80_RULES=\$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "\$(ip route | grep default | awk '{print \$5}')")
 if [ -n "\$PORT80_RULES" ]; then
     while read -r line; do
         iptables -t nat -D \$(echo \$line | sed 's/^-A //')
