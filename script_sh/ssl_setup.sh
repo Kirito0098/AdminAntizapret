@@ -5,7 +5,7 @@ get_port() {
     local forbidden_port=$1
     local default_port_check=$2
     while true; do
-        read -p "Введите порт для сервиса ($DEFAULT_PORT): " APP_PORT
+        read -p "Введите порт для сервиса [$DEFAULT_PORT]: " APP_PORT
         APP_PORT=${APP_PORT:-"$DEFAULT_PORT"}
         if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || ((APP_PORT < 1 || APP_PORT > 65535)) || [ "$APP_PORT" -eq "$forbidden_port" ]; then
             echo "${RED}Некорректный номер порта!${NC}"
@@ -16,12 +16,12 @@ get_port() {
                 continue
             fi
         fi
-        SERVICE_BUSY=$(ss -tulpn | grep ":${APP_PORT}" | awk -F'(),"' '{print $4; exit}')
+        SERVICE_BUSY=$(ss -tlpn | grep ":$APP_PORT" | awk -F'[(),"]' '{print $4; exit}')
         RULES_BUSY=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport ${APP_PORT}")      
         if [ -n "$SERVICE_BUSY" ] || [ -n "$RULES_BUSY" ]; then
-            [ -n "$SERVICE_BUSY" ] && echo "${RED}Порт $APP_PORT занят процессом $SERVICE_BUSY${NC}"
+            [ -n "$SERVICE_BUSY" ] && echo "${RED}Порт ${YELLOW}$APP_PORT занят процессом ${YELLOW}$SERVICE_BUSY${NC}"
             [ -n "$RULES_BUSY" ] && {
-                echo "${RED}В таблице маршрутизации обнаружено перенаправление порта $APP_PORT, приложение не будет работать корректно${NC}"
+                echo "${RED}В таблице маршрутизации обнаружено перенаправление порта ${YELLOW}$APP_PORT, приложение не будет работать корректно${NC}"
                 echo "$RULES_BUSY"
             }
             continue
@@ -165,7 +165,7 @@ setup_letsencrypt() {
     }    
 
     # Стоп службы (если они конечно есть). Для первой установки можно было и не делать остановку AdminAntizapret, добавил чтобы этим же скриптом переустанавливать можно было
-    SERVICE_BUSY=$(ss -tulpn | grep ':80' | awk -F'[(),"]' '{print $4; exit}')
+    SERVICE_BUSY=$(ss -tlpn | grep ":$APP_PORT" | awk -F'[(),"]' '{print $4; exit}')
     if [ -n "$SERVICE_BUSY" ]; then
         printf "%s" "${YELLOW}Порт 80 занят службой $SERVICE_BUSY, попытка автоматического освобождения...${NC}"
         if systemctl is-enabled "$SERVICE_BUSY" &> /dev/null && systemctl is-active "$SERVICE_BUSY" &> /dev/null && systemctl stop "$SERVICE_BUSY" &> /dev/null; then
@@ -237,7 +237,7 @@ setup_letsencrypt() {
     cat > "$SCRIPT_PATH" <<EOF
 #!/bin/bash
 
-SERVICE_BUSY=\$(ss -tulpn | grep ':80' | awk -F'[(),"]' '{print \$4; exit}')
+SERVICE_BUSY=\$(ss -tlpn | grep ':80' | awk -F'[(),"]' '{print \$4; exit}')
 if [ -n "\$SERVICE_BUSY" ] && systemctl is-enabled "\$SERVICE_BUSY" && systemctl is-active "\$SERVICE_BUSY"; then
     systemctl stop "\$SERVICE_BUSY"
 fi
