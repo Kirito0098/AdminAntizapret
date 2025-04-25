@@ -10,7 +10,8 @@ get_port() {
             echo "${RED}Некорректный номер порта!${NC}"
             continue
         fi
-        if [[ $(grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env") == "$APP_PORT" ]]; then
+        if [[ $(grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env" 2>/dev/null) == "$APP_PORT" ]]; then
+
             break
         fi
         if [[ "$APP_PORT" -eq 80 || "$APP_PORT" -eq 443 ]]; then
