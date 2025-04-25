@@ -23,7 +23,7 @@ fi
 packages="apt-utils whiptail iproute2 dnsutils net-tools git"
 # Обновление репозитория только если чего-то не хватает
 if ! dpkg-query -W --showformat='${Status}\n' $packages 2>/dev/null | grep -qE '^ok installed$'; then
-    echo "${YELLOW}Установка компонентов, необходимых для работы скрипта${NC}"
+    echo -e "${YELLOW}Установка компонентов, необходимых для работы скрипта${NC}"
     sudo apt-get update > /dev/null
 fi
 #Установка недостающих компонентов
