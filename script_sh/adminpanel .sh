@@ -324,7 +324,7 @@ EOL
         else
             ADDR="http://$(hostname -I | awk '{print $1}'):$APP_PORT"
         fi
-        printf "│ Адрес: %-30s│\n" "$ADDR"
+        printf "│ Адрес: %-30s│\n" "$(echo $ADDR | cut -c1-30)"
 
         echo "│                                            |"
         echo "│ Для входа используйте учетные данные,      |"
