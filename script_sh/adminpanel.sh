@@ -332,7 +332,7 @@ EOL
         # Формируем строку с рамкой
         line="│ Адрес: $address"
         line_len=${#line}
-        max_len=44
+        max_len=45
 
         # Добавляем пробелы, если нужно
         if [ "$line_len" -lt "$max_len" ]; then
