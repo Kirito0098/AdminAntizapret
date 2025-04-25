@@ -20,12 +20,12 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Установка компонентов, необходимых для работы скрипта
-packages="apt-utils whiptail iproute2 dnsutils net-tools git"
+packages=(apt-utils whiptail iproute2 dnsutils net-tools git)
 # Обновление репозитория только если чего-то не хватает
 for package in "${packages[@]}"; do
     status=$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null)
     if [[ "$status" != *"ok installed"* ]]; then
-        echo "Установка необходимых для работы скрипта компонентов..."
+        echo -e "${YELLOW}Установка необходимых для работы скрипта компонентов...${NC}"
         apt-get update > /dev/null
         break
     fi
