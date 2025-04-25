@@ -2,16 +2,18 @@
 
 # Функция выбора порта
 get_port() {
-    local forbidden_port=$1
-    local default_port_check=$2
+    DEF_CUR_PORT=$([[ -f "$INSTALL_DIR/.env" ]] && grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env") || DEF_CUR_PORT="$DEFAULT_PORT"
     while true; do
-        read -p "Введите порт для сервиса [$DEFAULT_PORT]: " APP_PORT
-        APP_PORT=${APP_PORT:-"$DEFAULT_PORT"}
-        if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || ((APP_PORT < 1 || APP_PORT > 65535)) || [ "$APP_PORT" -eq "$forbidden_port" ]; then
+        read -p "Введите порт для сервиса 1-65535 [$DEF_CUR_PORT]: " APP_PORT
+        APP_PORT=${APP_PORT:-"$DEF_CUR_PORT"}
+        if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || ((APP_PORT < 1 || APP_PORT > 65535)); then
             echo "${RED}Некорректный номер порта!${NC}"
             continue
         fi
-        if [ "$APP_PORT" -eq "$default_port_check" ]; then
+        if [[ $(grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env") == "$APP_PORT" ]]; then
+            break
+        fi
+        if [[ "$APP_PORT" -eq 80 || "$APP_PORT" -eq 443 ]]; then
             if ! check_openvpn_tcp_setting; then
                 continue
             fi
@@ -26,7 +28,7 @@ get_port() {
             }
             continue
         fi
-        return 0
+        break
     done
 }
 
@@ -47,9 +49,8 @@ choose_installation_type() {
 
             case $ssl_sub_choice in
             1|2|3)
-                # Для HTTPS запрещаем 80 порт и предлагаем отключить резервирование при выборе 443
-                get_port 80 443
                 # Базовые настройки для HTTPS
+                get_port
                 cat >"$INSTALL_DIR/.env" <<EOL
 SECRET_KEY='$SECRET_KEY'
 APP_PORT=$APP_PORT
@@ -69,8 +70,8 @@ EOL
             esac
             ;;
         2)
-            # Для HTTP все наоборот: нельзя 443 порт и предлагаем отключить резервирование при выборе 80
-            get_port 443 80
+            # Настройки для HTTP
+            get_port
             configure_http
             return 0
             ;;
@@ -175,7 +176,6 @@ setup_letsencrypt() {
             check_error "Попробуйте освободить порт вручную или выберите другой"
         fi
     fi
-
     if systemctl is-enabled "$SERVICE_NAME" &> /dev/null && systemctl is-active "$SERVICE_NAME" &> /dev/null; then
         systemctl stop "$SERVICE_NAME"
     fi
@@ -226,17 +226,17 @@ setup_letsencrypt() {
 
     restore_rules
     restore_services
-    
+
     # Создание cron-задачи
-    SCRIPT_PATH="/usr/local/bin/renew_cert.sh"
-    if ! [ -d "$(dirname "$SCRIPT_PATH")" ]; then
-        sudo mkdir -p "$(dirname "$SCRIPT_PATH")"
+    SCRIPT_CRON_PATH="/usr/local/bin/renew_cert.sh"
+    if ! [ -d "$(dirname "$SCRIPT_CRON_PATH")" ]; then
+        sudo mkdir -p "$(dirname "$SCRIPT_CRON_PATH")"
     fi
-    if [ -f "$SCRIPT_PATH" ]; then
-        rm -f "$SCRIPT_PATH"
+    if [ -f "$SCRIPT_CRON_PATH" ]; then
+        rm -f "$SCRIPT_CRON_PATH"
     fi
 
-    cat > "$SCRIPT_PATH" <<EOF
+    cat > "$SCRIPT_CRON_PATH" <<EOF
 #!/bin/bash
 
 SERVICE_BUSY=\$(ss -tlpn | grep ':80' | awk -F'[(),"]' '{print \$4; exit}')
@@ -270,8 +270,8 @@ if systemctl is-enabled "$SERVICE_NAME" && ! systemctl is-active "$SERVICE_NAME"
 fi
 EOF
 
-    chmod +x "$SCRIPT_PATH"
-    (crontab -l 2>/dev/null; echo "0 3 1 * * $SCRIPT_PATH") | crontab -
+    chmod +x "$SCRIPT_CRON_PATH"
+    (crontab -l 2>/dev/null; echo "0 3 1 * * $SCRIPT_CRON_PATH") | crontab -
 
 # Запись в базу пути скриптов Let's Encript и названия домена
     cat >>"$INSTALL_DIR/.env" <<EOL
