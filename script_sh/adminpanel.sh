@@ -294,85 +294,27 @@ EOL
 
     # Проверка установки
     if systemctl is-active --quiet "$SERVICE_NAME"; then
-        # echo "${GREEN}"
-        # echo "┌────────────────────────────────────────────┐"
-        # echo "│        Установка успешно завершена!        │"
-        # echo "├────────────────────────────────────────────┤"
-        # if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
-        #     if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-        #         echo "│ Адрес: https://$DOMAIN:$APP_PORT"
-        #     elif [ -f "$INSTALL_DIR/.env" ] && grep -q "DOMAIN=" "$INSTALL_DIR/.env"; then
-        #         DOMAIN=$(grep "DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
-        #         echo "│ Адрес: https://$DOMAIN:$APP_PORT"
-        #     else
-        #         echo "│ Адрес: https://$(hostname -I | awk '{print $1}'):$APP_PORT"
-        #     fi
-        # else
-        #     echo "│ Адрес: http://$(hostname -I | awk '{print $1}'):$APP_PORT"
-        # fi
-        # echo "│                                            |"
-        # echo "│ Для входа используйте учетные данные,      |"
-        # echo "│ созданные при инициализации базы данных    |"
-        # echo "└────────────────────────────────────────────┘"
-        # echo "${NC}"
         echo "${GREEN}"
-
-        # Получаем адрес
+        echo "┌────────────────────────────────────────────┐"
+        echo "│        Установка успешно завершена!        │"
+        echo "├────────────────────────────────────────────┤"
         if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
-            if [[ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]]; then
-                ADDR="https://$DOMAIN:$APP_PORT"
-            elif [[ -f "$INSTALL_DIR/.env" && $(grep -q "DOMAIN=" "$INSTALL_DIR/.env") ]]; then
+            if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+                echo "│ Адрес: https://$DOMAIN:$APP_PORT"
+            elif [ -f "$INSTALL_DIR/.env" ] && grep -q "DOMAIN=" "$INSTALL_DIR/.env"; then
                 DOMAIN=$(grep "DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
-                ADDR="https://$DOMAIN:$APP_PORT"
+                echo "│ Адрес: https://$DOMAIN:$APP_PORT"
             else
-                ADDR="https://$(hostname -I | awk '{print $1}'):$APP_PORT"
+                echo "│ Адрес: https://$(hostname -I | awk '{print $1}'):$APP_PORT"
             fi
         else
-            ADDR="http://$(hostname -I | awk '{print $1}'):$APP_PORT"
+            echo "│ Адрес: http://$(hostname -I | awk '{print $1}'):$APP_PORT"
         fi
-
-        # Определяем максимальную ширину строки
-        WIDTH=$(echo -e "Установка успешно завершена!\nАдрес: $ADDR\nДля входа используйте учетные данные, созданные при инициализации базы данных" | awk '{if (length>$w) $w=length} END{print $w}')
-
-        # Рисуем таблицу с нужной шириной
-        draw_line() {
-            local len=$1
-            local char=$2
-            local line=''
-            while [[ $len -gt 0 ]]; do
-                line="$line$char"
-                len=$((len-1))
-            done
-            echo "$line"
-        }
-
-        # Вычисляем отступы
-        calc_padding() {
-            local text_len=${#1}
-            local total_width=$2
-            local padding=$(( (total_width - text_len) / 2 ))
-            echo $padding
-        }
-
-        # Рисуем таблицу
-        echo "┌$(draw_line $WIDTH '─')┐"
-        echo "│ $(printf '%*s' $(calc_padding "Установка успешно завершена!" $WIDTH) '')Установка успешно завершена!$(printf '%*s' $(calc_padding "Установка успешно завершена!" $WIDTH) '') │"
-        echo "├$(draw_line $WIDTH '─')┤"
-        echo "│ Адрес: $ADDR $(printf '%*s' $((WIDTH - ${#ADDR} - 7)) '')"'│'
-        echo "│ Для входа используйте учетные данные, $(printf '%*s' $((WIDTH - 38)) '')"'│'
-        echo "│ созданные при инициализации базы данных $(printf '%*s' $((WIDTH - 41)) '')"'│'
-        echo "└$(draw_line $WIDTH '─')┘"
+        echo "│                                            |"
+        echo "│ Для входа используйте учетные данные,      |"
+        echo "│ созданные при инициализации базы данных    |"
+        echo "└────────────────────────────────────────────┘"
         echo "${NC}"
-
-
-
-
-
-
-
-
-
-
 
         copy_to_adminpanel
     else
