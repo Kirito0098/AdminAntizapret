@@ -39,7 +39,7 @@
 ## 🚀 Быстрый старт
 1. Установите через `install.sh`:
    ```bash
-   bash <(wget -qO- https://raw.githubusercontent.com/CarolusFuchs/AdminAntizapret/refs/heads/main/install.sh)
+   bash <(wget -qO- https://raw.githubusercontent.com/Kirito0098/AdminAntizapret/refs/heads/main/install.sh)
    ```
 > **Примечание:** Если вы хотите хотите использовать HTTPS и Let's Encrypt, необходимо отключить резервные порты `80` и `443` для OpenVPN. Для этого выполните следующие шаги:
 > 1. Откройте файл конфигурации:
