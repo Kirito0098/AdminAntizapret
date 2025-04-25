@@ -336,11 +336,11 @@ EOL
 
         # Рисуем таблицу с нужной шириной
         echo "┌$(printf '─%.0s' $(seq 1 $WIDTH))┐"
-        echo "│ $(printf ' %.0s' $(seq 1 $(($WIDTH-28)/2)))Установка успешно завершена!$(printf ' %.0s' $(seq 1 $(($WIDTH-28)/2))) │"
+        echo "│ $(printf '%*s' $((($WIDTH-28)/2)) '')Установка успешно завершена!$(printf '%*s' $((($WIDTH-28)/2)) '') │"
         echo "├$(printf '─%.0s' $(seq 1 $WIDTH))┤"
-        echo "│ Адрес: $ADDR $(printf ' %.0s' $(seq 1 $(($WIDTH-${#ADDR}-7))))│"
-        echo "│ Для входа используйте учетные данные, $(printf ' %.0s' $(seq 1 $(($WIDTH-38))))│"
-        echo "│ созданные при инициализации базы данных $(printf ' %.0s' $(seq 1 $(($WIDTH-41))))│"
+        echo "│ Адрес: $ADDR $(printf '%*s' $((($WIDTH-${#ADDR}-7))) '')│"
+        echo "│ Для входа используйте учетные данные, $(printf '%*s' $((($WIDTH-38))) '')│"
+        echo "│ созданные при инициализации базы данных $(printf '%*s' $((($WIDTH-41))) '')│"
         echo "└$(printf '─%.0s' $(seq 1 $WIDTH))┘"
         echo "${NC}"
 
