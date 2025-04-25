@@ -294,29 +294,65 @@ EOL
 
     # Проверка установки
     if systemctl is-active --quiet "$SERVICE_NAME"; then
+        # echo "${GREEN}"
+        # echo "┌────────────────────────────────────────────┐"
+        # echo "│        Установка успешно завершена!        │"
+        # echo "├────────────────────────────────────────────┤"
+        # if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
+        #     if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+        #         echo "│ Адрес: https://$DOMAIN:$APP_PORT"
+        #     elif [ -f "$INSTALL_DIR/.env" ] && grep -q "DOMAIN=" "$INSTALL_DIR/.env"; then
+        #         DOMAIN=$(grep "DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
+        #         echo "│ Адрес: https://$DOMAIN:$APP_PORT"
+        #     else
+        #         echo "│ Адрес: https://$(hostname -I | awk '{print $1}'):$APP_PORT"
+        #     fi
+        # else
+        #     echo "│ Адрес: http://$(hostname -I | awk '{print $1}'):$APP_PORT"
+        # fi
+        # echo "│                                            |"
+        # echo "│ Для входа используйте учетные данные,      |"
+        # echo "│ созданные при инициализации базы данных    |"
+        # echo "└────────────────────────────────────────────┘"
+        # echo "${NC}"
         echo "${GREEN}"
-        echo "┌────────────────────────────────────────────┐"
-        echo "│   Установка успешно завершена!             │"
-        echo "├────────────────────────────────────────────┤"
 
+        # Получаем адрес
         if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
-            if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-                echo "│ Адрес: https://$DOMAIN:$APP_PORT"
-            elif [ -f "$INSTALL_DIR/.env" ] && grep -q "DOMAIN=" "$INSTALL_DIR/.env"; then
+            if [[ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]]; then
+                ADDR="https://$DOMAIN:$APP_PORT"
+            elif [[ -f "$INSTALL_DIR/.env" && $(grep -q "DOMAIN=" "$INSTALL_DIR/.env") ]]; then
                 DOMAIN=$(grep "DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
-                echo "│ Адрес: https://$DOMAIN:$APP_PORT"
+                ADDR="https://$DOMAIN:$APP_PORT"
             else
-                echo "│ Адрес: https://$(hostname -I | awk '{print $1}'):$APP_PORT"
+                ADDR="https://$(hostname -I | awk '{print $1}'):$APP_PORT"
             fi
         else
-            echo "│ Адрес: http://$(hostname -I | awk '{print $1}'):$APP_PORT"
+            ADDR="http://$(hostname -I | awk '{print $1}'):$APP_PORT"
         fi
 
-        echo "│"
-        echo "│ Для входа используйте учетные данные,"
-        echo "│ созданные при инициализации базы данных"
-        echo "└────────────────────────────────────────────┘"
+        # Определяем максимальную ширину строки
+        WIDTH=$(echo -e "Установка успешно завершена!\nАдрес: $ADDR\nДля входа используйте учетные данные, созданные при инициализации базы данных" | awk '{if (length>$w) $w=length} END{print $w}')
+
+        # Рисуем таблицу с нужной шириной
+        echo "┌$(printf '─%.0s' $(seq 1 $WIDTH))┐"
+        echo "│ $(printf ' %.0s' $(seq 1 $(($WIDTH-28)/2)))Установка успешно завершена!$(printf ' %.0s' $(seq 1 $(($WIDTH-28)/2))) │"
+        echo "├$(printf '─%.0s' $(seq 1 $WIDTH))┤"
+        echo "│ Адрес: $ADDR $(printf ' %.0s' $(seq 1 $(($WIDTH-${#ADDR}-7))))│"
+        echo "│ Для входа используйте учетные данные, $(printf ' %.0s' $(seq 1 $(($WIDTH-38))))│"
+        echo "│ созданные при инициализации базы данных $(printf ' %.0s' $(seq 1 $(($WIDTH-41))))│"
+        echo "└$(printf '─%.0s' $(seq 1 $WIDTH))┘"
         echo "${NC}"
+
+
+
+
+
+
+
+
+
+
         copy_to_adminpanel
     else
         echo "${RED}Ошибка при запуске сервиса!${NC}"
