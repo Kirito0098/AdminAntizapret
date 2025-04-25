@@ -335,13 +335,25 @@ EOL
         WIDTH=$(echo -e "Установка успешно завершена!\nАдрес: $ADDR\nДля входа используйте учетные данные, созданные при инициализации базы данных" | awk '{if (length>$w) $w=length} END{print $w}')
 
         # Рисуем таблицу с нужной шириной
-        echo "┌$(printf '─%.0s' $(seq 1 $WIDTH))┐"
+        draw_line() {
+            local len=$1
+            local char=$2
+            local line=''
+            while [ $len -gt 0 ]; do
+                line="$line$char"
+                len=$((len-1))
+            done
+            echo "$line"
+        }
+
+        # Рисуем таблицу
+        echo "┌$(draw_line $WIDTH '─')┐"
         echo "│ $(printf '%*s' $((($WIDTH-28)/2)) '')Установка успешно завершена!$(printf '%*s' $((($WIDTH-28)/2 + ($WIDTH%2))) '') │"
-        echo "├$(printf '─%.0s' $(seq 1 $WIDTH))┤"
+        echo "├$(draw_line $WIDTH '─')┤"
         echo "│ Адрес: $ADDR $(printf '%*s' $((($WIDTH-${#ADDR}-7))) '')│"
         echo "│ Для входа используйте учетные данные, $(printf '%*s' $((($WIDTH-38))) '')│"
         echo "│ созданные при инициализации базы данных $(printf '%*s' $((($WIDTH-41))) '')│"
-        echo "└$(printf '─%.0s' $(seq 1 $WIDTH))┘"
+        echo "└$(draw_line $WIDTH '─')┘"
         echo "${NC}"
 
 
