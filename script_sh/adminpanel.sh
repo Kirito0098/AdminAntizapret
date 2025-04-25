@@ -292,29 +292,70 @@ EOL
     systemctl start "$SERVICE_NAME"
     check_error "Не удалось запустить сервис"
 
-    # Проверка установки
+    Проверка установки
     if systemctl is-active --quiet "$SERVICE_NAME"; then
+    #     echo "${GREEN}"
+    #     echo "┌────────────────────────────────────────────┐"
+    #     echo "│        Установка успешно завершена!        │"
+    #     echo "├────────────────────────────────────────────┤"
+    #     if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
+    #         if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+    #             echo "│ Адрес: https://$DOMAIN:$APP_PORT"
+    #         elif [ -f "$INSTALL_DIR/.env" ] && grep -q "DOMAIN=" "$INSTALL_DIR/.env"; then
+    #             DOMAIN=$(grep "DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
+    #             echo "│ Адрес: https://$DOMAIN:$APP_PORT"
+    #         else
+    #             echo "│ Адрес: https://$(hostname -I | awk '{print $1}'):$APP_PORT"
+    #         fi
+    #     else
+    #         echo "│ Адрес: http://$(hostname -I | awk '{print $1}'):$APP_PORT"
+    #     fi
+    #     echo "│                                            │"
+    #     echo "│ Для входа используйте учетные данные,      │"
+    #     echo "│ созданные при инициализации базы данных    │"
+    #     echo "└────────────────────────────────────────────┘"
+    #     echo "${NC}"
+        # Получаем адрес
+        if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
+            if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+                address="https://$DOMAIN:$APP_PORT"
+            elif [ -f "$INSTALL_DIR/.env" ] && grep -q "DOMAIN=" "$INSTALL_DIR/.env"; then
+                DOMAIN=$(grep "DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
+                address="https://$DOMAIN:$APP_PORT"
+            else
+                address="https://$(hostname -I | awk '{print $1}'):$APP_PORT"
+            fi
+        else
+            address="http://$(hostname -I | awk '{print $1}'):$APP_PORT"
+        fi
+
+        # Формируем строку с рамкой
+        line="│ Адрес: $address"
+        line_len=${#line}
+        max_len=44
+
+        # Добавляем пробелы, если нужно
+        if [ "$line_len" -lt "$max_len" ]; then
+            padding=$((max_len - line_len))
+            line="$line$(printf '%*s' "$padding")│"
+        else
+            line="$line│"
+        fi
+
+        # Вывод
         echo "${GREEN}"
         echo "┌────────────────────────────────────────────┐"
         echo "│        Установка успешно завершена!        │"
         echo "├────────────────────────────────────────────┤"
-        if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
-            if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-                echo "│ Адрес: https://$DOMAIN:$APP_PORT"
-            elif [ -f "$INSTALL_DIR/.env" ] && grep -q "DOMAIN=" "$INSTALL_DIR/.env"; then
-                DOMAIN=$(grep "DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
-                echo "│ Адрес: https://$DOMAIN:$APP_PORT"
-            else
-                echo "│ Адрес: https://$(hostname -I | awk '{print $1}'):$APP_PORT"
-            fi
-        else
-            echo "│ Адрес: http://$(hostname -I | awk '{print $1}'):$APP_PORT"
-        fi
+        echo "$line"
         echo "│                                            │"
         echo "│ Для входа используйте учетные данные,      │"
         echo "│ созданные при инициализации базы данных    │"
         echo "└────────────────────────────────────────────┘"
         echo "${NC}"
+
+
+
 
         copy_to_adminpanel
     else
