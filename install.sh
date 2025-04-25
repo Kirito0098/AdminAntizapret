@@ -20,13 +20,18 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Установка компонентов, необходимых для работы скрипта
-apt-get update > /dev/null
-for package in apt-utils whiptail iproute2 dnsutils net-tools git; do
-  status=$(dpkg-query -W -f='${Status}' $package 2>/dev/null)
-  if [[ "$status" != *"ok installed"* ]]; then
-    echo "Установка $package"
-    sudo apt-get install -y $package &> /dev/null
-  fi
+packages="apt-utils whiptail iproute2 dnsutils net-tools git"
+# Обновление репозитория только если чего-то не хватает
+if ! dpkg-query -W --showformat='${Status}\n' $packages 2>/dev/null | grep -qE '^ok installed$'; then
+    echo "${YELLOW}Установка компонентов, необходимых для работы скрипта${NC}"
+    sudo apt-get update > /dev/null
+fi
+#Установка недостающих компонентов
+for package in $packages; do
+    if ! dpkg-query -W $package >/dev/null 2>&1; then
+        echo "Установка $package"
+        sudo apt-get install -y $package &> /dev/null
+    fi
 done
 
 # Клонирование или обновление репозитория
