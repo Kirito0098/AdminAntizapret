@@ -339,20 +339,28 @@ EOL
             local len=$1
             local char=$2
             local line=''
-            while [ $len -gt 0 ]; do
+            while [[ $len -gt 0 ]]; do
                 line="$line$char"
                 len=$((len-1))
             done
             echo "$line"
         }
 
+        # Вычисляем отступы
+        calc_padding() {
+            local text_len=${#1}
+            local total_width=$2
+            local padding=$(( (total_width - text_len) / 2 ))
+            echo $padding
+        }
+
         # Рисуем таблицу
         echo "┌$(draw_line $WIDTH '─')┐"
-        echo "│ $(printf '%*s' $((($WIDTH-28)/2)) '')Установка успешно завершена!$(printf '%*s' $((($WIDTH-28)/2 + ($WIDTH%2))) '') │"
+        echo "│ $(printf '%*s' $(calc_padding "Установка успешно завершена!" $WIDTH) '')Установка успешно завершена!$(printf '%*s' $(calc_padding "Установка успешно завершена!" $WIDTH) '') │"
         echo "├$(draw_line $WIDTH '─')┤"
-        echo "│ Адрес: $ADDR $(printf '%*s' $((($WIDTH-${#ADDR}-7))) '')│"
-        echo "│ Для входа используйте учетные данные, $(printf '%*s' $((($WIDTH-38))) '')│"
-        echo "│ созданные при инициализации базы данных $(printf '%*s' $((($WIDTH-41))) '')│"
+        echo "│ Адрес: $ADDR $(printf '%*s' $(($WIDTH - ${#ADDR} - 7)) '')│"
+        echo "│ Для входа используйте учетные данные, $(printf '%*s' $(($WIDTH - 38)) '')│"
+        echo "│ созданные при инициализации базы данных $(printf '%*s' $(($WIDTH - 41)) '')│"
         echo "└$(draw_line $WIDTH '─')┘"
         echo "${NC}"
 
