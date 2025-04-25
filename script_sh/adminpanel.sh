@@ -336,7 +336,7 @@ EOL
 
         # Рисуем таблицу с нужной шириной
         echo "┌$(printf '─%.0s' $(seq 1 $WIDTH))┐"
-        echo "│ $(printf '%*s' $((($WIDTH-28)/2)) '')Установка успешно завершена!$(printf '%*s' $((($WIDTH-28)/2)) '') │"
+        echo "│ $(printf '%*s' $((($WIDTH-28)/2)) '')Установка успешно завершена!$(printf '%*s' $((($WIDTH-28)/2 + ($WIDTH%2))) '') │"
         echo "├$(printf '─%.0s' $(seq 1 $WIDTH))┤"
         echo "│ Адрес: $ADDR $(printf '%*s' $((($WIDTH-${#ADDR}-7))) '')│"
         echo "│ Для входа используйте учетные данные, $(printf '%*s' $((($WIDTH-38))) '')│"
