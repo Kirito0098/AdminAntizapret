@@ -358,11 +358,12 @@ EOL
         echo "┌$(draw_line $WIDTH '─')┐"
         echo "│ $(printf '%*s' $(calc_padding "Установка успешно завершена!" $WIDTH) '')Установка успешно завершена!$(printf '%*s' $(calc_padding "Установка успешно завершена!" $WIDTH) '') │"
         echo "├$(draw_line $WIDTH '─')┤"
-        echo "│ Адрес: $ADDR $(printf '%*s' $(($WIDTH - ${#ADDR} - 7)) '')│"
-        echo "│ Для входа используйте учетные данные, $(printf '%*s' $(($WIDTH - 38)) '')│"
-        echo "│ созданные при инициализации базы данных $(printf '%*s' $(($WIDTH - 41)) '')│"
+        echo "│ Адрес: $ADDR $(printf '%*s' $((WIDTH - ${#ADDR} - 7)) '')"'│'
+        echo "│ Для входа используйте учетные данные, $(printf '%*s' $((WIDTH - 38)) '')"'│'
+        echo "│ созданные при инициализации базы данных $(printf '%*s' $((WIDTH - 41)) '')"'│'
         echo "└$(draw_line $WIDTH '─')┘"
         echo "${NC}"
+
 
 
 
