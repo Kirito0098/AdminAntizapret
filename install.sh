@@ -35,7 +35,7 @@ for package in "${packages[@]}"; do
     status=$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null)
     if [[ "$status" != *"ok installed"* ]]; then
         echo "Установка $package"
-        apt-get install -y "$package" &> /dev/null
+        sudo apt-get install -y "$package" &> /dev/null
     fi
 done
 
