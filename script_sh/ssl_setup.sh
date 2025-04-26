@@ -1,10 +1,35 @@
 #!/bin/bash
 
-# Функция проверки занятости порта
-validate_port() {
-    while check_port $APP_PORT; do
-        echo "${RED}Порт $APP_PORT уже занят!${NC}"
-        read -p "Введите другой порт: " APP_PORT
+# Функция выбора порта
+get_port() {
+    DEF_CUR_PORT=$([[ -f "$INSTALL_DIR/.env" ]] && grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env") || DEF_CUR_PORT="$DEFAULT_PORT"
+    while true; do
+        read -p "Введите порт для сервиса 1-65535 [$DEF_CUR_PORT]: " APP_PORT
+        APP_PORT=${APP_PORT:-"$DEF_CUR_PORT"}
+        if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || ((APP_PORT < 1 || APP_PORT > 65535)); then
+            echo "${RED}Некорректный номер порта!${NC}"
+            continue
+        fi
+        if [[ $(grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env" 2>/dev/null) == "$APP_PORT" ]]; then
+
+            break
+        fi
+        if [[ "$APP_PORT" -eq 80 || "$APP_PORT" -eq 443 ]]; then
+            if ! check_openvpn_tcp_setting; then
+                continue
+            fi
+        fi
+        SERVICE_BUSY=$(ss -tlpn | grep ":$APP_PORT" | awk -F'[(),"]' '{print $4; exit}')
+        RULES_BUSY=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport $APP_PORT" | grep "$(ip route | grep default | awk '{print $5}')")     
+        if [ -n "$SERVICE_BUSY" ] || [ -n "$RULES_BUSY" ]; then
+            [ -n "$SERVICE_BUSY" ] && echo "${RED}Порт ${YELLOW}$APP_PORT${RED} занят процессом ${YELLOW}$SERVICE_BUSY${NC}"
+            [ -n "$RULES_BUSY" ] && {
+                echo "${RED}В таблице маршрутизации обнаружено перенаправление порта ${YELLOW}$APP_PORT${RED}, приложение не будет работать корректно${NC}"
+                echo "$RULES_BUSY"
+            }
+            continue
+        fi
+        break
     done
 }
 
@@ -17,23 +42,16 @@ choose_installation_type() {
 
         case $ssl_main_choice in
         1)
-            if ! check_openvpn_tcp_setting; then
-                continue
-            fi
             echo "${YELLOW}Выберите тип HTTPS соединения:${NC}"
-            echo "  1) Использовать собственный домен и сертификаты Let's Encrypt"
+            echo "  1) Использовать собственный домен и получить сертификаты Let's Encrypt"
             echo "  2) Использовать собственный домен и собственные сертификаты"
             echo "  3) Самоподписанный сертификат"
             read -p "Ваш выбор [1-3]: " ssl_sub_choice
 
             case $ssl_sub_choice in
             1|2|3)
-                # Для HTTPS вариантов устанавливаем дефолтный порт 443
-                read -p "Введите порт для сервиса [443]: " APP_PORT
-                APP_PORT=${APP_PORT:-443}
-                validate_port
-
                 # Базовые настройки для HTTPS
+                get_port
                 cat >"$INSTALL_DIR/.env" <<EOL
 SECRET_KEY='$SECRET_KEY'
 APP_PORT=$APP_PORT
@@ -53,9 +71,8 @@ EOL
             esac
             ;;
         2)
-            read -p "Введите порт для сервиса [$DEFAULT_PORT]: " APP_PORT
-            APP_PORT=${APP_PORT:-$DEFAULT_PORT}
-            validate_port
+            # Настройки для HTTP
+            get_port
             configure_http
             return 0
             ;;
@@ -70,32 +87,22 @@ check_openvpn_tcp_setting() {
     if [ -f "/root/antizapret/setup" ]; then
         OPENVPN_SETTING=$(grep '^OPENVPN_80_443_TCP=' /root/antizapret/setup | cut -d'=' -f2)
         if [ "$OPENVPN_SETTING" = "y" ]; then
-            echo "${RED}Обнаружено что порты 80 и 443 используются в AntiZapret-VPN как резрвные для TCP OpenVPN${NC}"
-            echo "${YELLOW}Это приведёт к конфликту с веб-сервером:${NC}"
-            echo "${YELLOW} • Для работы HTTPS (SSL) по умолчанию используется порт 443 — он позволяет открывать сайт просто по домену${NC}"
-            echo "${YELLOW}   (например, https://example.com вместо https://example.com:443).${NC}"
-            echo "${YELLOW} • Порт 80 критически важен для Let's Encrypt:${NC}"
-            echo "${YELLOW}   - Используется для первичного получения сертификатов${NC}"
-            echo "${YELLOW}   - Требуется для автоматического обновления (каждые 60 дней)${NC}"
-            echo "${YELLOW}   - Без него невозможна автоматическая работа SSL${NC}"
-            read -p "Отключить резервирование портов в OpenVPN и перезапустить сервис? (y/n): " change_choice
+            echo "${RED}Обнаружено, что порты 80 и 443 используются в AntiZapret-VPN как резервные для TCP OpenVPN.${NC}"
+            echo "${YELLOW}Такое резервирование гарантирует работоспособность OPENVPN даже в ситуации, если провайдер использует блокирующий фаервол.${NC}"    
+            echo "${YELLOW}Использование портов 80 и 443 для сервиса AdminAntizapret удобно (в случае HTTPS например можно подключаться к WEB оснастке по${NC}"
+            echo "${YELLOW}адресу https://example.com вместо https://example.com:443), но это не является безопасным вариантом.${NC}"
+            echo "${YELLOW}Учтите, что подавляющая часть сетевых атак приходятся именно на WEB сервисы, размещенные на 80 и 443 портах.${NC}"
+            echo "Вы можете отключить это резервирование для OpenVPN, чтобы использовать стандартные WEB порты для AdminAntizapret(y) или оставить как есть, выбрав другой порт(n)"           
+            read -p "Отключить резервирование портов в OpenVPN? (y/n): " change_choice
             if [[ "$change_choice" =~ ^[Yy]$ ]]; then
                 sed -i 's/^OPENVPN_80_443_TCP=y/OPENVPN_80_443_TCP=n/' /root/antizapret/setup
                 systemctl restart antizapret.service
                 echo "${GREEN}Резервирование портов в OpenVPN отключено и сервис перезапущен!${NC}"
                 return 0
             else
-                echo "${RED}ВНИМАНИЕ: HTTPS не будет работать корректно с резервированием портов в OpenVPN${NC}"
-                read -p "Вы уверены, что хотите продолжить без изменений? (y/n): " continue_choice
-                if [[ "$continue_choice" =~ ^[Yy]$ ]]; then
-                    return 0
-                else
-                    return 1
-                fi
+                return 1
             fi
         else
-            echo "${GREEN}Проверка портов: резервирование 80/443 портов в OpenVPN отключено${NC}"
-            echo "${GREEN}Конфигурация не требует изменений, можно продолжать настройку веб-сервера${NC}"
             return 0
         fi
     fi
@@ -115,13 +122,11 @@ setup_letsencrypt() {
         fi
     done
 
-    while true; do
-        read -p "Введите email для Let's Encrypt: " EMAIL
-        if [[ "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-            break
-        else
-            echo "${RED}Неверный формат email!${NC}"
-        fi
+    # Тут изменил блок для email с возможностью пропуска
+    read -p "Введите email для уведомлений и рассылки от Let's Encrypt (нажмите ENTER, если эта функция не нужна): " EMAIL
+    while [[ -n "$EMAIL" && ! "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; do
+        echo "${RED}Неверный формат email!${NC}"
+        read -p "Попробуйте еще раз или нажмите ENTER для отмены: " EMAIL
     done
 
     if ! dig +short $DOMAIN | grep -q '[0-9]'; then
@@ -130,19 +135,146 @@ setup_letsencrypt() {
         [[ "$choice" =~ ^[Yy]$ ]] || return 1
     fi
 
-    echo "${YELLOW}Установка Certbot...${NC}"
-    apt-get install -y -qq certbot >/dev/null 2>&1
-    check_error "Не удалось установить Certbot"
+    # Функция восстановления правил
+    restore_rules() {
+        if [ -z "$PORT80_RULES" ]; then
+            echo "${YELLOW}Восстановление правил с портом 80 не требуется${NC}"
+        else
+            echo "$SAVE_RULES" | iptables-restore
+            if iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')" > /dev/null; then
+                echo "${GREEN}Правила с портом 80 успешно восстановлены${NC}"
+            else
+                check_error "Ошибка при восстановлении правил с портом 80"
+            fi
+        fi
+    }
 
-    echo "${YELLOW}Получение сертификата Let's Encrypt...${NC}"
-    certbot certonly --standalone --non-interactive --agree-tos -m $EMAIL -d $DOMAIN
-    check_error "Не удалось получить сертификат Let's Encrypt"
+    # Функция восстановления служб (если они конечно были)
+    restore_services() {
+        if [ -n "$SERVICE_BUSY" ] && systemctl is-enabled "$SERVICE_BUSY" &> /dev/null; then
+            if ! systemctl is-active "$SERVICE_BUSY" &> /dev/null; then
+                printf "%s" "${YELLOW}Попытка автоматического возобновления работы службы ${NC}$SERVICE_BUSY${YELLOW}...${NC}"
+                if systemctl start "$SERVICE_BUSY" &> /dev/null; then
+                    echo "${GREEN}УСПЕХ${NC}"
+                else
+                    echo "${RED}НЕУДАЧА${NC}"
+                fi
+            fi
+        fi
+        if systemctl is-enabled "$SERVICE_NAME" &> /dev/null && ! systemctl is-active "$SERVICE_NAME" &> /dev/null; then
+            systemctl start "$SERVICE_NAME"
+        fi
+    }    
 
-    (
-        crontab -l 2>/dev/null
-        echo "0 3 1 * * /usr/bin/certbot renew --quiet --pre-hook 'systemctl stop $SERVICE_NAME' --post-hook 'systemctl start $SERVICE_NAME'"
-    ) | crontab -
+    # Стоп службы (если они конечно есть). Для первой установки можно было и не делать остановку AdminAntizapret, добавил чтобы этим же скриптом переустанавливать можно было
+    SERVICE_BUSY=$(ss -tlpn | grep ":$APP_PORT" | awk -F'[(),"]' '{print $4; exit}')
+    if [ -n "$SERVICE_BUSY" ]; then
+        printf "%s" "${YELLOW}Порт 80 занят службой ${NC}$SERVICE_BUSY${YELLOW}, попытка автоматического освобождения...${NC}"
+        if systemctl is-enabled "$SERVICE_BUSY" &> /dev/null && systemctl is-active "$SERVICE_BUSY" &> /dev/null && systemctl stop "$SERVICE_BUSY" &> /dev/null; then
+            echo "${GREEN}УСПЕХ${NC}"
+        else
+            echo "${RED}НЕУДАЧА${NC}"
+            check_error "Попробуйте освободить порт вручную или выберите другой"
+        fi
+    fi
+    if systemctl is-enabled "$SERVICE_NAME" &> /dev/null && systemctl is-active "$SERVICE_NAME" &> /dev/null; then
+        systemctl stop "$SERVICE_NAME"
+    fi
 
+    # Временно удаляю перенаправление для порта 80
+    SAVE_RULES=$(iptables-save)
+    PORT80_RULES=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')")
+    if [ -n "$PORT80_RULES" ]; then
+        while read -r line; do
+            iptables -t nat -D $(echo $line | sed 's/^-A //')
+        done <<< "$PORT80_RULES"
+        if ! iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')" > /dev/null; then
+            echo "${GREEN}Все правила с портом 80 временно удалены${NC}"
+        else
+            restore_services
+            check_error "Ошибка при удалении правил с портом 80"
+        fi
+    else
+        echo "${YELLOW}Правил перенаправления с порта 80 не обнаружено. Отключение не требуется${NC}"
+    fi
+
+     # Установка certbot без дополнительных nginx и apache компонентов
+    echo "${YELLOW}Установка Certbot...${NC}"  
+    apt-get install -y -qq certbot --no-install-recommends >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        restore_rules
+        restore_services
+        check_error "Не удалось установить Certbot"
+    fi
+
+    # Удаляю файл дефолтной задачи certbot в systemd
+    if [ -f /etc/cron.d/certbot ]; then
+        rm -f /etc/cron.d/certbot
+    fi
+
+    # Измененный вызов certbot (с учетом нужна рассылка или нет)
+    if [[ -n "$EMAIL" ]]; then
+        certbot certonly --standalone --non-interactive --agree-tos -m $EMAIL -d $DOMAIN
+    else
+        certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email -d $DOMAIN
+    fi
+
+    if [ $? -ne 0 ]; then
+        restore_rules
+        restore_services
+        check_error "Не удалось получить сертификат Let's Encrypt"
+    fi
+
+    restore_rules
+    restore_services
+
+    # Создание cron-задачи
+    SCRIPT_CRON_PATH="/usr/local/bin/renew_cert.sh"
+    if ! [ -d "$(dirname "$SCRIPT_CRON_PATH")" ]; then
+        sudo mkdir -p "$(dirname "$SCRIPT_CRON_PATH")"
+    fi
+    if [ -f "$SCRIPT_CRON_PATH" ]; then
+        rm -f "$SCRIPT_CRON_PATH"
+    fi
+
+    cat > "$SCRIPT_CRON_PATH" <<EOF
+#!/bin/bash
+
+SERVICE_BUSY=\$(ss -tlpn | grep ':80' | awk -F'[(),"]' '{print \$4; exit}')
+if [ -n "\$SERVICE_BUSY" ] && systemctl is-enabled "\$SERVICE_BUSY" && systemctl is-active "\$SERVICE_BUSY"; then
+    systemctl stop "\$SERVICE_BUSY"
+fi
+if systemctl is-enabled "$SERVICE_NAME" &> /dev/null && systemctl is-active "$SERVICE_NAME"; then
+    systemctl stop "$SERVICE_NAME"
+fi
+
+SAVE_RULES=\$(iptables-save)
+PORT80_RULES=\$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "\$(ip route | grep default | awk '{print \$5}')")
+if [ -n "\$PORT80_RULES" ]; then
+    while read -r line; do
+        iptables -t nat -D \$(echo \$line | sed 's/^-A //')
+    done <<< "\$PORT80_RULES"
+fi
+
+certbot renew --quiet
+
+if [ -n "\$SAVE_RULES" ]; then
+    echo "\$SAVE_RULES" | iptables-restore
+fi
+
+if [ -n "\$SERVICE_BUSY" ] && systemctl is-enabled "\$SERVICE_BUSY" && ! systemctl is-active "\$SERVICE_BUSY"; then
+    systemctl start "\$SERVICE_BUSY"
+fi
+
+if systemctl is-enabled "$SERVICE_NAME" && ! systemctl is-active "$SERVICE_NAME"; then
+            systemctl start "$SERVICE_NAME"
+fi
+EOF
+
+    chmod +x "$SCRIPT_CRON_PATH"
+    (crontab -l 2>/dev/null; echo "0 3 1 * * $SCRIPT_CRON_PATH") | crontab -
+
+# Запись в базу пути скриптов Let's Encript и названия домена
     cat >>"$INSTALL_DIR/.env" <<EOL
 USE_HTTPS=true
 SSL_CERT=/etc/letsencrypt/live/$DOMAIN/fullchain.pem

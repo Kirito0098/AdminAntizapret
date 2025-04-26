@@ -89,30 +89,19 @@ check_and_set_permissions() {
 # Изменение порта сервиса
 change_port() {
   echo "${YELLOW}Изменение порта сервиса...${NC}"
-  read -p "Введите новый порт: " new_port
-
-  # Проверка валидности порта
-  if ! [[ "$new_port" =~ ^[0-9]+$ ]] || [ "$new_port" -lt 1 ] || [ "$new_port" -gt 65535 ]; then
-    echo "${RED}Неверный номер порта! Должен быть от 1 до 65535.${NC}"
-    press_any_key
-    return
-  fi
-
-  # Проверка занятости порта
-  if lsof -i :"$new_port" >/dev/null 2>&1; then
-    echo "${RED}Порт $new_port уже занят!${NC}"
-    press_any_key
-    return
-  fi
-
+  get_port
   # Обновляем .env
+  if [[ $(grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env") == "$APP_PORT" ]]; then
+    echo "${GREEN}Порт не изменился${NC}"
+    press_any_key   
+    return
+  fi
   if [ -f "$INSTALL_DIR/.env" ]; then
     sed -i "/^APP_PORT=/d" "$INSTALL_DIR/.env"
   fi
-  echo "APP_PORT=$new_port" >>"$INSTALL_DIR/.env"
-
-  echo "${GREEN}Порт изменен на $new_port. Перезапустите сервис для применения изменений.${NC}"
-  press_any_key
+  echo "APP_PORT=$APP_PORT" >>"$INSTALL_DIR/.env"
+  echo "${GREEN}Порт изменен на $APP_PORT. Перезапуск сервиса.${NC}"
+  restart_service
 }
 
 copy_to_adminpanel() {

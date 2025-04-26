@@ -294,28 +294,36 @@ EOL
 
     # Проверка установки
     if systemctl is-active --quiet "$SERVICE_NAME"; then
-        echo "${GREEN}"
-        echo "┌────────────────────────────────────────────┐"
-        echo "│   Установка успешно завершена!             │"
-        echo "├────────────────────────────────────────────┤"
-
         if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
             if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-                echo "│ Адрес: https://$DOMAIN:$APP_PORT"
+                address="https://$DOMAIN:$APP_PORT"
             elif [ -f "$INSTALL_DIR/.env" ] && grep -q "DOMAIN=" "$INSTALL_DIR/.env"; then
                 DOMAIN=$(grep "DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
-                echo "│ Адрес: https://$DOMAIN:$APP_PORT"
+                address="https://$DOMAIN:$APP_PORT"
             else
-                echo "│ Адрес: https://$(hostname -I | awk '{print $1}'):$APP_PORT"
+                address="https://$(hostname -I | awk '{print $1}'):$APP_PORT"
             fi
         else
-            echo "│ Адрес: http://$(hostname -I | awk '{print $1}'):$APP_PORT"
+            address="http://$(hostname -I | awk '{print $1}'):$APP_PORT"
         fi
-
-        echo "│"
-        echo "│ Для входа используйте учетные данные,"
-        echo "│ созданные при инициализации базы данных"
-        echo "└────────────────────────────────────────────┘"
+        line="│ Адрес: $address"
+        line_len=${#line}
+        max_len=55
+        if [ "$line_len" -lt "$max_len" ]; then
+            padding=$((max_len - line_len))
+            line="$line$(printf '%*s' "$padding")│"
+        else
+            line="$line│"
+        fi
+        echo "${GREEN}"
+        echo "┌──────────────────────────────────────────────────────┐"
+        echo "│             Установка успешно завершена!             │"
+        echo "├──────────────────────────────────────────────────────┤"
+        echo "$line"
+        echo "│                                                      │"
+        echo "│ Для входа используйте учетные данные,                │"
+        echo "│ созданные при инициализации базы данных              │"
+        echo "└──────────────────────────────────────────────────────┘"
         echo "${NC}"
         copy_to_adminpanel
     else
