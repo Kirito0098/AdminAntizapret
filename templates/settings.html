@@ -2,51 +2,104 @@
 
 {% block title %}Настройки{% endblock %}
 
-{% block content %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings.css') }}">
+{% endblock %}
 
-    <div class="form-container">
-        <h2>Изменить порт</h2>
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <label for="port">Текущий порт: {{ port }}</label>
-            <input type="text" id="port" name="port" placeholder="Введите новый порт">
-            <button type="submit" class="button">Сохранить</button>
-        </form>
-    </div>
-    
-    <div class="form-container">
-        <h2>Управление пользователями</h2>
-        <h3>Добавить пользователя</h3>
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="text" name="username" placeholder="Логин" required>
-            <input type="password" name="password" placeholder="Пароль" required>
-            <button type="submit" class="button">Добавить</button>
-        </form>
-        
-        <h3>Список пользователей</h3>
-        <ul>
-            {% for user in users %}
-                <li>{{ user.username }}</li>
-            {% endfor %}
+{% block content %}
+<div class="settings-layout">
+    <!-- Боковое меню -->
+    <div class="settings-page-wrapper">
+        <div class="settings-layout">
+            <h3>Настройки</h3>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item active" data-tab="port-settings">
+                <i class="icon">⚙️</i>
+                <span>Настройки порта</span>
+            </li>
+            <li class="menu-item" data-tab="user-management">
+                <i class="icon">👥</i>
+                <span>Управление пользователями</span>
+            </li>
         </ul>
-        
-        <h3>Удалить пользователя</h3>
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="text" name="delete_username" placeholder="Логин пользователя" required>
-            <button type="submit" class="button">Удалить</button>
-        </form>
     </div>
-    
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="notifications">
-                {% for category, message in messages %}
-                    <div class="notification notification-{{ category }}">{{ message }}</div>
-                {% endfor %}
+
+    <!-- Основное содержимое -->
+    <div class="settings-content">
+        <!-- Настройки порта -->
+        <div id="port-settings" class="content-tab active">
+            <h2>Настройки порта</h2>
+            <form method="POST" class="settings-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="port">Текущий порт: {{ port }}</label>
+                    <input type="text" id="port" name="port" placeholder="Введите новый порт">
+                </div>
+                <button type="submit" class="button save-button">Сохранить</button>
+            </form>
+        </div>
+
+        <!-- Управление пользователями -->
+        <div id="user-management" class="content-tab">
+            <div class="user-management-tabs">
+                <button class="tab-button active" data-subtab="add-user">Добавить</button>
+                <button class="tab-button" data-subtab="delete-user">Удалить</button>
             </div>
-        {% endif %}
-    {% endwith %}
+
+            <div id="add-user" class="subtab-content active">
+                <h3>Добавить пользователя</h3>
+                <form method="POST" class="settings-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <input type="text" name="username" placeholder="Логин" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="password" name="password" placeholder="Пароль" required>
+                    </div>
+                    <button type="submit" class="button add-button">Добавить пользователя</button>
+                    <h3>Список пользователей</h3>
+                    <div class="users-list">
+                        {% if users %}
+                            <ul>
+                                {% for user in users %}
+                                    <li>{{ user.username }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="no-users">Нет зарегистрированных пользователей</p>
+                        {% endif %}
+                    </div>
+                </div>
+                </form>
+            </div>
+
+            <div id="delete-user" class="subtab-content">
+                <h3>Удалить пользователя</h3>
+                <form method="POST" class="settings-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <input type="text" name="delete_username" placeholder="Логин пользователя" required>
+                    </div>
+                    <button type="submit" class="button delete-button">Удалить пользователя</button>
+                    <h3>Список пользователей</h3>
+                    <div class="users-list">
+                        {% if users %}
+                            <ul>
+                                {% for user in users %}
+                                    <li>{{ user.username }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="no-users">Нет зарегистрированных пользователей</p>
+                        {% endif %}
+                    </div>
+                </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script src="{{ url_for('static', filename='assets/js/settings.js') }}"></script>
 {% endblock %}
