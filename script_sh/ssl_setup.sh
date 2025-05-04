@@ -116,6 +116,23 @@ setup_letsencrypt() {
     while true; do
         read -p "Введите доменное имя (например, example.com): " DOMAIN
         if [[ $DOMAIN =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+            # Проверка существующих сертификатов для введенного домена
+            if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+                echo "${YELLOW}Для домена $DOMAIN уже существуют сертификаты Let's Encrypt.${NC}"
+                read -p "Использовать существующие сертификаты? (y/n): " use_existing
+                if [[ "$use_existing" =~ ^[Yy]$ ]]; then
+                    cat >>"$INSTALL_DIR/.env" <<EOL
+USE_HTTPS=true
+SSL_CERT=/etc/letsencrypt/live/$DOMAIN/fullchain.pem
+SSL_KEY=/etc/letsencrypt/live/$DOMAIN/privkey.pem
+DOMAIN=$DOMAIN
+EOL
+                    echo "${GREEN}Используются существующие сертификаты Let's Encrypt для домена $DOMAIN!${NC}"
+                    return 0
+                else
+                    echo "${YELLOW}Продолжаем процесс получения новых сертификатов...${NC}"
+                fi
+            fi
             break
         else
             echo "${RED}Неверный формат домена!${NC}"
@@ -348,4 +365,58 @@ USE_HTTPS=false
 EOL
 
     echo "${GREEN}HTTP соединение настроено на порту $APP_PORT!${NC}"
+}
+
+# Функция изменения протокола
+change_protocol() {
+    log "Изменение протокола"
+    echo "${YELLOW}Изменение протокола соединения...${NC}"
+
+    # Проверяем текущий протокол
+    if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
+        current_protocol="HTTPS"
+    else
+        current_protocol="HTTP"
+    fi
+
+    echo "Текущий протокол: ${GREEN}$current_protocol${NC}"
+    echo ""
+    echo "Выберите новый протокол:"
+    echo "1) HTTPS (Защищенное соединение)"
+    echo "2) HTTP (Не защищенное соединение)"
+    read -p "Ваш выбор [1-2]: " protocol_choice
+
+    case $protocol_choice in
+    1)
+        # Переход на HTTPS
+        echo "${YELLOW}Выберите тип HTTPS соединения:${NC}"
+        echo "  1) Использовать собственный домен и получить сертификаты Let's Encrypt"
+        echo "  2) Использовать собственный домен и собственные сертификаты"
+        echo "  3) Самоподписанный сертификат"
+        read -p "Ваш выбор [1-3]: " ssl_sub_choice
+
+        case $ssl_sub_choice in
+        1) setup_letsencrypt ;;
+        2) setup_custom_certs ;;
+        3) setup_selfsigned ;;
+        *)
+            echo "${RED}Неверный выбор!${NC}"
+            return 1
+            ;;
+        esac
+        ;;
+    2)
+        # Переход на HTTP
+        configure_http
+        ;;
+    *)
+        echo "${RED}Неверный выбор!${NC}"
+        return 1
+        ;;
+    esac
+
+    # Перезапуск сервиса
+    systemctl restart $SERVICE_NAME
+    echo "${GREEN}Протокол успешно изменен!${NC}"
+    press_any_key
 }

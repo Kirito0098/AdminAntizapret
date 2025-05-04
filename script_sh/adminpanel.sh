@@ -167,11 +167,12 @@ main_menu() {
         printf "│ 12. Мониторинг системы                     │\n"
         printf "│ 13. Проверить конфигурацию                 │\n"
         printf "│ 14. Проверить конфликт портов 80/443       │\n"
+        printf "│ 15. Изменить протокол (HTTP/HTTPS)         │\n"
         printf "│ 0. Выход                                   │\n"
         printf "└────────────────────────────────────────────┘\n"
         printf "%s\n" "${NC}"
 
-        read -p "Выберите действие [0-14]: " choice
+        read -p "Выберите действие [0-15]: " choice
         case $choice in
         1) add_admin ;;
         2) delete_admin ;;
@@ -197,6 +198,7 @@ main_menu() {
             check_openvpn_tcp_setting
             press_any_key
             ;;
+        15) change_protocol ;;
         0) exit 0 ;;
         *)
             printf "%s\n" "${RED}Неверный выбор!${NC}"
