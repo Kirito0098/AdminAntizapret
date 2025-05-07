@@ -9,7 +9,7 @@ NC='\033[0m' # No Color
 
 # Параметры установки
 INSTALL_DIR="/opt/AdminAntizapret"
-REPO_URL="https://github.com/Kirito0098/AdminAntizapret.git"
+REPO_URL="https://github.com/CarolusFuchs/AdminAntizapret.git"
 SCRIPT_SH_DIR="$INSTALL_DIR/script_sh"
 MAIN_SCRIPT="$SCRIPT_SH_DIR/adminpanel.sh"
 
