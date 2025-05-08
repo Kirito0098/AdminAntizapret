@@ -37,16 +37,16 @@
 
       <div class="form-group" id="work-term-container">
         <label for="work-term" id="cert_expire_label"
-          >Срок работы (1-365):</label
+          >Срок работы (1-3650):</label
         >
         <input
           type="number"
           id="work-term"
           name="work-term"
           min="1"
-          max="365"
+          max="3650"
           placeholder=" "
-          oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+          oninput="this.value = this.value.replace(/[^0-9]/g, ''); if (this.value.length > 4) this.value = this.value.slice(0, 4);"
         />
       </div>
     </div>
