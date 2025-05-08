@@ -215,7 +215,7 @@ EOL
         echo "${YELLOW}Правил перенаправления с порта 80 не обнаружено. Отключение не требуется${NC}"
     fi
 
-     # Установка certbot без дополнительных nginx и apache компонентов
+    # Установка certbot без дополнительных nginx и apache компонентов
     echo "${YELLOW}Установка Certbot...${NC}"  
     apt-get install -y -qq certbot --no-install-recommends >/dev/null 2>&1
     if [ $? -ne 0 ]; then
@@ -236,7 +236,8 @@ EOL
         certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email -d $DOMAIN
     fi
 
-    if [ $? -ne 0 ]; then
+    # Улучшена проверка получения сертификата
+    if [[ $? -ne 0 || ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]]; then
         restore_rules
         restore_services
         check_error "Не удалось получить сертификат Let's Encrypt"
