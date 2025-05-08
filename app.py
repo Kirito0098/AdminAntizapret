@@ -57,7 +57,7 @@ CONFIG_PATHS = {
 }
 
 MIN_CERT_EXPIRE = 1
-MAX_CERT_EXPIRE = 365
+MAX_CERT_EXPIRE = 3650
 
 # Настройка БД
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
