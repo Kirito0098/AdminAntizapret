@@ -201,6 +201,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         // Обновляем выпадающий список клиентов
         const selectedOption = optionSelect.value;
+        populateClientSelect(selectedOption);
       })
       .catch((error) => {
         console.error("Ошибка обновления данных:", error);

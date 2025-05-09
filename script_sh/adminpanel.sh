@@ -280,8 +280,11 @@ User=root
 Group=root
 WorkingDirectory=$INSTALL_DIR
 EnvironmentFile=$INSTALL_DIR/.env
-ExecStart=$VENV_PATH/bin/python $INSTALL_DIR/app.py
+ExecStart=$VENV_PATH/bin/gunicorn \
+    -c $INSTALL_DIR/gunicorn.conf.py \
+    app:app
 Restart=always
+RestartSec=5
 Environment="PYTHONUNBUFFERED=1"
 
 [Install]
