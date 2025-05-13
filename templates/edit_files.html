@@ -56,16 +56,25 @@ endblock %} {% block content %}
   }
 
   document.getElementById("run-doall").addEventListener("click", function () {
-    loadingOverlay.style.display = "flex"; // Показываем уведомление
-    fetch("/run-doall", { method: "POST" })
+    loadingOverlay.style.display = "flex";
+  
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    fetch("/run-doall", {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': csrfToken  
+      },
+      body: `csrf_token=${encodeURIComponent(csrfToken)}`
+    })
       .then((response) => response.json())
       .then((data) => {
-        loadingOverlay.style.display = "none"; // Скрываем уведомление
+        loadingOverlay.style.display = "none";
         showNotification(data.message, data.success ? "success" : "error");
         if (data.output) console.log(data.output);
       })
       .catch((error) => {
-        loadingOverlay.style.display = "none"; // Скрываем уведомление
+        loadingOverlay.style.display = "none";
         showNotification("Ошибка выполнения запроса.", "error");
         console.error("Ошибка:", error);
       });
