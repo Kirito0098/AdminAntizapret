@@ -668,58 +668,130 @@ th {
 }
 
 /*=============== SERVER MONITOR ===============*/
-.server-info {
-  display: flex;
-  justify-content: space-around;
-  margin-top: 2rem;
-  width: 90%;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  gap: 1rem;
-}
-
-.info-item {
-  margin: 0 auto;
+.server-monitor-wrapper {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-top: 2rem;
+}
+
+.server-info {
+  display: flex;
+  flex-direction: row;
   justify-content: center;
-  border: 2px solid var(--white-color);
-  padding: 1.5rem;
-  border-radius: 1rem;
+  align-items: stretch;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  /* min-height не нужен, карточки сами выровняются по высоте */
+}
+
+.info-item {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  border: 2px solid #4caf50;
+  background: rgba(30, 40, 30, 0.7);
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  border-radius: 1.2rem;
   text-align: center;
+  min-width: 260px;
+  max-width: 350px;
+  min-height: 320px;
+  /* одинаковая высота карточек */
+  box-shadow: 0 4px 24px rgba(76,175,80,0.08);
+  transition: box-shadow 0.2s;
+  margin: 0;
+}
+
+.info-item:hover {
+  box-shadow: 0 8px 32px rgba(76,175,80,0.18);
 }
 
 .info-item h3 {
   font-size: 1.25rem;
-  margin-bottom: 1rem;
-  color: hsl(0, 0%, 90%);
+  margin-bottom: 0.7rem;
+  color: #b2ffb2;
   text-align: center;
+  letter-spacing: 0.02em;
 }
 
 .info-item p {
-  font-size: 1.5rem;
-  font-weight: var(--font-medium);
-  color: hsl(0, 0%, 100%);
+  font-size: 2rem;
+  font-weight: 600;
+  color: #fff;
   text-align: center;
+  margin-bottom: 1rem;
+  margin-top: 0.2rem;
 }
 
-@media (max-width: 768px) {
+.info-item canvas {
+  margin-top: 0.5rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 0.7rem;
+  box-shadow: 0 2px 8px rgba(76,175,80,0.08);
+  width: 100% !important;
+  max-width: 320px;
+  height: 120px !important;
+}
+
+.uptime-icon {
+  margin-top: 0.7rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.uptime-icon svg {
+  display: block;
+  margin: 0 auto;
+}
+
+@media (max-width: 1100px) {
   .server-info {
     flex-direction: column;
     align-items: center;
-    margin-top: 1rem;
-    gap: 0rem;
+    gap: 1.2rem;
+    width: 100%;
   }
-
   .info-item {
-    margin-bottom: 0.5rem;
-    padding: 0.2rem;
+    min-width: 220px;
+    max-width: 98vw;
+    width: 100%;
+    min-height: 220px;
+    padding: 1.2rem 0.5rem;
   }
+  .info-item canvas {
+    width: 98vw !important;
+    max-width: 320px;
+    height: 100px !important;
+  }
+}
 
-  .column .info-item {
-    padding: 0.2rem;
+@media (max-width: 600px) {
+  .server-info {
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .info-item {
+    padding: 0.7rem 0.2rem;
+    min-width: 0;
+    max-width: 100vw;
+    min-height: 160px;
+  }
+  .info-item h3 {
+    font-size: 1.05rem;
+  }
+  .info-item p {
+    font-size: 1.2rem;
+  }
+  .info-item canvas {
+    max-width: 98vw;
+    height: 80px !important;
   }
 }
 

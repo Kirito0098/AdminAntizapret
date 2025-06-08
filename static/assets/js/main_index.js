@@ -235,6 +235,11 @@ document.addEventListener("DOMContentLoaded", function () {
         if (cpuElement) cpuElement.textContent = data.cpu_usage + "%";
         if (memoryElement) memoryElement.textContent = data.memory_usage + "%";
         if (uptimeElement) uptimeElement.textContent = data.uptime;
+
+        // --- Добавлено: обновление графиков ---
+        if (typeof window.updateServerCharts === "function") {
+          window.updateServerCharts(data.cpu_usage, data.memory_usage);
+        }
       })
       .catch((error) => console.error("Ошибка при обновлении данных:", error));
   }

@@ -1,28 +1,112 @@
-{% extends "base.html" %} {% block title %}Мониторинг сервера{% endblock %} {%
-block content %}
-<div class="server-info">
-  <div class="column">
-    <div class="info-item">
-      <h3>Использование CPU</h3>
-      <p id="cpu-usage">{{ cpu_usage }}%</p>
+{% extends "base.html" %} 
+{% block title %}Мониторинг сервера{% endblock %} 
+{% block content %}
+<div class="server-monitor-wrapper">
+  <div class="server-info">
+    <div class="column">
+      <div class="info-item">
+        <h3>Использование CPU</h3>
+        <p id="cpu-usage">{{ cpu_usage }}%</p>
+        <canvas id="cpuChart" width="320" height="120"></canvas>
+      </div>
     </div>
-  </div>
-  <div class="column">
-    <div class="info-item">
-      <h3>Использование памяти</h3>
-      <p id="memory-usage">{{ memory_usage }}%</p>
+    <div class="column">
+      <div class="info-item">
+        <h3>Использование памяти</h3>
+        <p id="memory-usage">{{ memory_usage }}%</p>
+        <canvas id="memoryChart" width="320" height="120"></canvas>
+      </div>
     </div>
-  </div>
-  <div class="column">
-    <div class="info-item">
-      <h3>Аптайм</h3>
-      <p id="uptime">{{ uptime }}</p>
+    <div class="column">
+      <div class="info-item">
+        <h3>Аптайм</h3>
+        <p id="uptime">{{ uptime }}</p>
+        <div class="uptime-icon">
+          <svg width="40" height="40" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="18" stroke="#4caf50" stroke-width="3" fill="none"/>
+            <path d="M20 10 v10 l7 7" stroke="#4caf50" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
     </div>
   </div>
 </div>
-{% endblock %} {% block scripts %}
+{% endblock %} 
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script
   src="{{ url_for('static', filename='assets/js/main_index.js') }}"
   defer
 ></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // Графики CPU и памяти
+  const cpuChartCtx = document.getElementById('cpuChart').getContext('2d');
+  const memoryChartCtx = document.getElementById('memoryChart').getContext('2d');
+  let cpuData = Array(30).fill({{ cpu_usage|default(0) }});
+  let memoryData = Array(30).fill({{ memory_usage|default(0) }});
+
+  const cpuChart = new Chart(cpuChartCtx, {
+    type: 'line',
+    data: {
+      labels: Array(30).fill(''),
+      datasets: [{
+        label: 'CPU (%)',
+        data: cpuData,
+        borderColor: '#4caf50',
+        backgroundColor: 'rgba(76,175,80,0.1)',
+        tension: 0.3,
+        pointRadius: 0,
+        borderWidth: 2,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 0, max: 100, ticks: { color: '#fff' }, grid: { color: '#444' } },
+        x: { display: false }
+      }
+    }
+  });
+
+  const memoryChart = new Chart(memoryChartCtx, {
+    type: 'line',
+    data: {
+      labels: Array(30).fill(''),
+      datasets: [{
+        label: 'Память (%)',
+        data: memoryData,
+        borderColor: '#2196f3',
+        backgroundColor: 'rgba(33,150,243,0.1)',
+        tension: 0.3,
+        pointRadius: 0,
+        borderWidth: 2,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min: 0, max: 100, ticks: { color: '#fff' }, grid: { color: '#444' } },
+        x: { display: false }
+      }
+    }
+  });
+
+  function updateCharts(cpu, memory) {
+    cpuData.push(cpu); cpuData.shift();
+    memoryData.push(memory); memoryData.shift();
+    cpuChart.data.datasets[0].data = cpuData;
+    memoryChart.data.datasets[0].data = memoryData;
+    cpuChart.update();
+    memoryChart.update();
+  }
+
+  // Подключаемся к обновлению данных
+  window.updateServerCharts = updateCharts;
+});
+</script>
 {% endblock %}
