@@ -18,6 +18,7 @@ content %}
       <li class="menu-item" data-tab="user-management">
         <i class="icon">👥</i>
         <span>Управление пользователями</span>
+      </li>
     </ul>
   </div>
 
@@ -140,8 +141,8 @@ content %}
               </div>
             </label>
             <div class="config-item-tooltip">
-              Перенаправляет весь трафик через antizapret, кроме российских доменов
-              (.ru, .рф) и исключений из exclude-hosts.txt
+              Перенаправляет весь трафик через antizapret, кроме российских
+              доменов (.ru, .рф) и исключений из exclude-hosts.txt
             </div>
           </div>
 
@@ -162,8 +163,8 @@ content %}
               </div>
             </label>
             <div class="config-item-tooltip">
-              Перенаправляет трафик Discord через antizapret, включая голосовые каналы
-              и обмен сообщениями
+              Перенаправляет трафик Discord через antizapret, включая голосовые
+              каналы и обмен сообщениями
             </div>
           </div>
 
@@ -206,8 +207,8 @@ content %}
               </div>
             </label>
             <div class="config-item-tooltip">
-              Перенаправляет трафик Amazon через antizapret, включая сервисы AWS, Prime
-              Video и другие ресурсы Amazon
+              Перенаправляет трафик Amazon через antizapret, включая сервисы
+              AWS, Prime Video и другие ресурсы Amazon
             </div>
           </div>
         </div>
@@ -253,8 +254,8 @@ content %}
               </div>
             </label>
             <div class="config-item-tooltip">
-              Перенаправляет трафик DigitalOcean через antizapret, включая облачные
-              серверы и сервисы, предоставляемые DigitalOcean
+              Перенаправляет трафик DigitalOcean через antizapret, включая
+              облачные серверы и сервисы, предоставляемые DigitalOcean
             </div>
           </div>
 
@@ -270,9 +271,9 @@ content %}
                 <span class="toggle-slider"></span>
               </div>
             </label>
-             <div class="config-item-tooltip">
-              Перенаправляет трафик OVH через antizapret, включая серверы и сервисы,
-              размещенные в дата-центрах OVH
+            <div class="config-item-tooltip">
+              Перенаправляет трафик OVH через antizapret, включая серверы и
+              сервисы, размещенные в дата-центрах OVH
             </div>
           </div>
 
@@ -292,14 +293,33 @@ content %}
                 <span class="toggle-slider"></span>
               </div>
             </label>
-             <div class="config-item-tooltip">
+            <div class="config-item-tooltip">
               Перенаправляет трафик Telegram через antizapret, включая обмен
               сообщениями, каналы и группы
             </div>
           </div>
         </div>
       </div>
-
+      <!----------------------- AdBlock ----------------------->
+      <p class="config-description">Включить AdBlock для Antizapret:</p>
+      <div class="config-grid">
+        <div class="config-item">
+          <label class="toggle-wrapper">
+            <span class="toggle-label">
+              <span class="config-item-title">AdBlock</span>
+              <span class="config-item-param">(BLOCK_ADS)</span>
+            </span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="AdBlock-toggle" class="toggle-input" />
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+          <div class="config-item-tooltip">
+            Включает блокировку рекламы для всех доменов, перенаправляемых через
+            Antizapret.
+          </div>
+        </div>
+      </div>
       <button id="save-config" class="button save-button">
         Сохранить настройки
       </button>

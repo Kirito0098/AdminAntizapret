@@ -103,6 +103,14 @@ document.addEventListener("DOMContentLoaded", function () {
           data.amazon_include === "y";
         document.getElementById("hetzner-toggle").checked =
           data.hetzner_include === "y";
+        document.getElementById("digitalocean-toggle").checked =
+          data.digitalocean_include === "y";
+        document.getElementById("ovh-toggle").checked =
+          data.ovh_include === "y";
+        document.getElementById("telegram-toggle").checked =
+          data.telegram_include === "y";
+        document.getElementById("AdBlock-toggle").checked =
+          data.block_ads === "y";
       })
       .catch((error) => {
         console.error("Error loading Antizapret settings:", error);
@@ -128,15 +136,15 @@ document.addEventListener("DOMContentLoaded", function () {
       hetzner_include: document.getElementById("hetzner-toggle").checked
         ? "y"
         : "n",
-      digitalocean_include: document.getElementById("digitalocean-toggle").checked
+      digitalocean_include: document.getElementById("digitalocean-toggle")
+        .checked
         ? "y"
         : "n",
-      ovh_include: document.getElementById("ovh-toggle").checked 
-        ? "y" 
-        : "n",
+      ovh_include: document.getElementById("ovh-toggle").checked ? "y" : "n",
       telegram_include: document.getElementById("telegram-toggle").checked
         ? "y"
         : "n",
+      block_ads: document.getElementById("AdBlock-toggle").checked ? "y" : "n",
     };
 
     const statusElement = document.getElementById("config-status");
