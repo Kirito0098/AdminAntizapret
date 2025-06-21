@@ -603,6 +603,10 @@ th {
   background-color: #4caf50;
 }
 
+.notification-info {
+  background-color: #2196f3;
+}
+
 .notification-error {
   background-color: #f44336;
 }
@@ -703,13 +707,13 @@ th {
   max-width: 350px;
   min-height: 320px;
   /* одинаковая высота карточек */
-  box-shadow: 0 4px 24px rgba(76,175,80,0.08);
+  box-shadow: 0 4px 24px rgba(76, 175, 80, 0.08);
   transition: box-shadow 0.2s;
   margin: 0;
 }
 
 .info-item:hover {
-  box-shadow: 0 8px 32px rgba(76,175,80,0.18);
+  box-shadow: 0 8px 32px rgba(76, 175, 80, 0.18);
 }
 
 .info-item h3 {
@@ -731,9 +735,9 @@ th {
 
 .info-item canvas {
   margin-top: 0.5rem;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   border-radius: 0.7rem;
-  box-shadow: 0 2px 8px rgba(76,175,80,0.08);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.08);
   width: 100% !important;
   max-width: 320px;
   height: 120px !important;
@@ -868,20 +872,20 @@ th {
 /*=============== FOOTER STYLES ===============*/
 /* Цвета */
 :root {
---primary-color: #4caf50;
---secondary-color: #2196F3;
---danger-color: #f44336;
---text-color: #ffffff;
---bg-dark: hsla(0, 0%, 10%, 0.7);
---bg-darker: hsla(0, 0%, 15%, 0.9);
---sidebar-bg: hsla(0, 0%, 10%, 0.9);
---content-bg: hsla(0, 0%, 15%, 0.7);
+  --primary-color: #4caf50;
+  --secondary-color: #2196f3;
+  --danger-color: #f44336;
+  --text-color: #ffffff;
+  --bg-dark: hsla(0, 0%, 10%, 0.7);
+  --bg-darker: hsla(0, 0%, 15%, 0.9);
+  --sidebar-bg: hsla(0, 0%, 10%, 0.9);
+  --content-bg: hsla(0, 0%, 15%, 0.7);
 
-/* Размеры */
---sidebar-width: 250px;
---max-content-width: 1400px;
---side-padding: 1rem;
---mobile-breakpoint: 992px;
+  /* Размеры */
+  --sidebar-width: 250px;
+  --max-content-width: 1400px;
+  --side-padding: 1rem;
+  --mobile-breakpoint: 992px;
 }
 
 /* Базовые стили */
@@ -1181,4 +1185,204 @@ th {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
+}
+
+.toggle-wrapper {
+  display: inline-block;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  margin: 10px 0;
+}
+
+.toggle-label {
+  display: inline-block;
+  vertical-align: top;
+  font-size: 20px;
+  color: hsl(0, 0%, 90%);
+  margin-right: 15px;
+  line-height: 34px; /* Выравниваем по высоте слайдера */
+}
+
+.toggle-switch {
+  display: inline-block;
+  position: relative;
+  width: 60px;
+  height: 34px;
+  vertical-align: top;
+}
+
+.toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 34px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Стили для активного состояния */
+.toggle-input:checked + .toggle-slider {
+  background-color: #4caf50;
+}
+
+.toggle-input:checked + .toggle-slider:before {
+  transform: translateX(26px);
+}
+
+/* Эффект при фокусе */
+.toggle-input:focus + .toggle-slider {
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+}
+
+/* Анимация при нажатии */
+.toggle-input:active + .toggle-slider:before {
+  width: 30px;
+  margin-left: -2px;
+}
+
+/* Отключенное состояние */
+.toggle-input:disabled + .toggle-slider {
+  background-color: #e0e0e0;
+  cursor: not-allowed;
+}
+
+.toggle-input:disabled + .toggle-slider:before {
+  background-color: #f5f5f5;
+}
+
+#config-status {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
+}
+/* Анимация появления */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 768px) {
+    .toggle-label.has-tooltip:hover::after {
+        width: 240px;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    
+    .toggle-label.has-tooltip:hover::before {
+        left: 50%;
+        transform: translateX(-50%);
+    }
+}
+.config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.config-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+.config-description {
+    color: #b0b0b0;
+    margin: 0 0 1.5rem 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.config-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-bottom: 2rem;
+}
+
+.config-item {
+    background: rgba(30, 30, 30, 0.6);
+    border-radius: 8px;
+    padding: 0.9rem 1.2rem;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.config-item:hover {
+    background: rgba(40, 40, 40, 0.8);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.config-item-title {
+    font-weight: 500;
+    color: #f0f0f0;
+    font-size: 0.95rem;
+}
+
+.config-item-param {
+    color: #7a7a7a;
+    font-size: 0.82rem;
+    margin-left: 0.5rem;
+    font-family: monospace;
+}
+
+.config-item-tooltip {
+    color: #b0b0b0;
+    font-size: 0.85rem;
+    margin-top: 0.7rem;
+    padding-top: 0.7rem;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    line-height: 1.5;
+    display: none;
+}
+
+.config-item:hover .config-item-tooltip {
+    display: block;
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 992px) {
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .config-item {
+        padding: 0.8rem;
+    }
+    
+    .config-item-param {
+        display: block;
+        margin-left: 0;
+        margin-top: 0.3rem;
+    }
+    
+    .config-description {
+        font-size: 0.9rem;
+    }
 }

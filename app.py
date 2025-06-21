@@ -14,6 +14,7 @@ from flask import (
 )
 import subprocess
 import os
+import re
 import io
 import qrcode
 import random
@@ -611,6 +612,93 @@ def server_monitor():
             app.logger.error(f"Ошибка при обновлении данных мониторинга: {e}")
             return jsonify({"error": "Ошибка при обновлении данных мониторинга"}), 500
 
+@app.route('/get_antizapret_settings')
+@auth_manager.login_required
+def get_antizapret_settings():
+    try:
+        with open('/root/antizapret/setup', 'r') as f:
+            content = f.read()
+        
+        settings = {
+            'route_all': 'n',
+            'discord_include': 'n',
+            'cloudflare_include': 'n',
+            'amazon_include': 'n',
+            'hetzner_include': 'n',
+            'digitalocean_include': 'n',
+            'ovh_include': 'n',
+            'telegram_include': 'n'
+        }
+
+        for param in settings.keys():
+            match = re.search(f'^{param.upper()}=([yn])', content, re.MULTILINE)
+            if match:
+                settings[param] = match.group(1)
+        
+        return jsonify(settings)
+    except Exception as e:
+        app.logger.error(f"Ошибка чтения настроек: {str(e)}")
+        return jsonify({'error': 'Ошибка чтения файла настроек'}), 500
+
+@app.route('/update_antizapret_settings', methods=['POST'])
+@auth_manager.login_required
+def update_antizapret_settings():
+    try:
+        new_settings = request.json
+        
+        with open('/root/antizapret/setup', 'r') as f:
+            lines = f.readlines()
+        
+        params_to_update = {
+            'ROUTE_ALL': f"ROUTE_ALL={new_settings.get('route_all', 'n')}",
+            'DISCORD_INCLUDE': f"DISCORD_INCLUDE={new_settings.get('discord_include', 'n')}",
+            'CLOUDFLARE_INCLUDE': f"CLOUDFLARE_INCLUDE={new_settings.get('cloudflare_include', 'n')}",
+            'AMAZON_INCLUDE': f"AMAZON_INCLUDE={new_settings.get('amazon_include', 'n')}",
+            'HETZNER_INCLUDE': f"HETZNER_INCLUDE={new_settings.get('hetzner_include', 'n')}",
+            'DIGITALOCEAN_INCLUDE': f"DIGITALOCEAN_INCLUDE={new_settings.get('digitalocean_include', 'n')}",
+            'OVH_INCLUDE': f"OVH_INCLUDE={new_settings.get('ovh_include', 'n')}",
+            'TELEGRAM_INCLUDE': f"TELEGRAM_INCLUDE={new_settings.get('telegram_include', 'n')}"
+        }
+        
+        updated_lines = []
+        found_params = set()
+        
+        for line in lines:
+            line_stripped = line.strip()
+            param_updated = False
+            for param, new_value in params_to_update.items():
+                if line_stripped.startswith(param + '='):
+                    updated_lines.append(new_value + '\n')
+                    found_params.add(param)
+                    param_updated = True
+                    break
+            if not param_updated and line_stripped:
+                updated_lines.append(line)
+        
+        for param, new_value in params_to_update.items():
+            if param not in found_params:
+                updated_lines.append(new_value + '\n')
+        
+        with open('/root/antizapret/setup', 'w') as f:
+            f.writelines(updated_lines)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Настройки успешно сохранены',
+            'needs_apply': True
+        })
+        
+    except PermissionError:
+        return jsonify({
+            'success': False,
+            'message': 'Ошибка: Нет прав для записи в файл'
+        }), 403
+    except Exception as e:
+        app.logger.error(f"Ошибка обновления настроек: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Ошибка сервера при обновлении настроек'
+        }), 500
 
 @app.route("/settings", methods=["GET", "POST"])
 @auth_manager.login_required

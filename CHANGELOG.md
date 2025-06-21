@@ -1,4 +1,28 @@
 # CHANGELOG
+## [1.1.5] - 10-06-2025
+### Добавлено
+- **Веб-интерфейс для конфигурирования Antizapret** (by [CarolusFuchs](https://github.com/CarolusFuchs)):
+  - Новый раздел в настройках для управления параметрами маршрутизации
+  - 8 переключаемых параметров с подсказками:
+    - `ROUTE_ALL` - весь трафик кроме .ru/.рф
+    - `DISCORD_INCLUDE` - трафик Discord
+    - `CLOUDFLARE_INCLUDE` - трафик Cloudflare
+    - `AMAZON_INCLUDE` - трафик Amazon
+    - `HETZNER_INCLUDE` - трафик Hetzner
+    - `DIGITALOCEAN_INCLUDE` - трафик DigitalOcean
+    - `OVH_INCLUDE` - трафик OVH
+    - `TELEGRAM_INCLUDE` - трафик Telegram
+  - Кнопка сохранения настроек с отображением статуса
+  - Интеграция с JavaScript для обработки изменений
+
+### Изменено
+- **Структура страницы настроек**:
+  - Добавлена новая вкладка "Конфигурирование Antizapret" в боковое меню
+  - Оптимизировано расположение элементов управления
+
+### Исправлено
+- Исправлено отображение подсказок на мобильных устройствах
+
 ## [1.1.4] - 08-05-2025
 ### Добавлено
 - **Интеграция Gunicorn** (by [CarolusFuchs](https://github.com/CarolusFuchs)):
