@@ -111,6 +111,8 @@ document.addEventListener("DOMContentLoaded", function () {
           data.telegram_include === "y";
         document.getElementById("AdBlock-toggle").checked =
           data.block_ads === "y";
+        document.getElementById("google-toggle").checked =
+          data.google_include === "y";
       })
       .catch((error) => {
         console.error("Error loading Antizapret settings:", error);
@@ -145,6 +147,9 @@ document.addEventListener("DOMContentLoaded", function () {
         ? "y"
         : "n",
       block_ads: document.getElementById("AdBlock-toggle").checked ? "y" : "n",
+      google_include: document.getElementById("google-toggle").checked
+        ? "y"
+        : "n",
     };
 
     const statusElement = document.getElementById("config-status");

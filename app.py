@@ -628,7 +628,8 @@ def get_antizapret_settings():
             'digitalocean_include': 'n',
             'ovh_include': 'n',
             'telegram_include': 'n',
-            'block_ads': 'n'
+            'block_ads': 'n',
+            'google_include': 'n'
         }
 
         for param in settings.keys():
@@ -659,7 +660,8 @@ def update_antizapret_settings():
             'DIGITALOCEAN_INCLUDE': f"DIGITALOCEAN_INCLUDE={new_settings.get('digitalocean_include', 'n')}",
             'OVH_INCLUDE': f"OVH_INCLUDE={new_settings.get('ovh_include', 'n')}",
             'TELEGRAM_INCLUDE': f"TELEGRAM_INCLUDE={new_settings.get('telegram_include', 'n')}",
-            'BLOCK_ADS': f"BLOCK_ADS={new_settings.get('block_ads', 'n')}"
+            'BLOCK_ADS': f"BLOCK_ADS={new_settings.get('block_ads', 'n')}",
+            'GOOGLE_INCLUDE': f"GOOGLE_INCLUDE={new_settings.get('google_include', 'n')}"
         }
         
         updated_lines = []
