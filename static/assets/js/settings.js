@@ -107,6 +107,8 @@ document.addEventListener("DOMContentLoaded", function () {
           data.digitalocean_include === "y";
         document.getElementById("ovh-toggle").checked =
           data.ovh_include === "y";
+        document.getElementById("akamai-toggle").checked =
+          data.akamai_include === "y";
         document.getElementById("telegram-toggle").checked =
           data.telegram_include === "y";
         document.getElementById("AdBlock-toggle").checked =
@@ -143,6 +145,7 @@ document.addEventListener("DOMContentLoaded", function () {
         ? "y"
         : "n",
       ovh_include: document.getElementById("ovh-toggle").checked ? "y" : "n",
+      akamai_include: document.getElementById("akamai-toggle").checked ? "y" : "n",
       telegram_include: document.getElementById("telegram-toggle").checked
         ? "y"
         : "n",
