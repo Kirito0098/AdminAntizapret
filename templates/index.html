@@ -90,12 +90,10 @@
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['vpn'] %}
-              <a
-                href="{{ url_for('download', file_type='openvpn', filename=files['vpn'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">VPN</button>
-              </a>
+              <button 
+				class="download-button" 
+				onclick="window.location.href='{{ url_for('download', file_type='openvpn', filename=files['vpn'].split('/')[-1]) | replace("'", "\\'") }}'"
+			  >VPN</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
@@ -104,12 +102,10 @@
           <tr>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['antizapret'] %}
-              <a
-                href="{{ url_for('download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">Antizapret</button>
-              </a>
+              <button 
+					class="download-button" 
+					onclick="window.location.href='{{ url_for('download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) | replace("'", "\\'") }}'"
+				>Antizapret</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
@@ -151,12 +147,10 @@
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['vpn'] %}
-              <a
-                href="{{ url_for('download', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">VPN</button>
-              </a>
+			  <button 
+					class="download-button" 
+					onclick="window.location.href='{{ url_for('download', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) | replace("'", "\\'") }}'"
+				>VPN</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
@@ -175,12 +169,10 @@
           <tr>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['antizapret'] %}
-              <a
-                href="{{ url_for('download', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">Antizapret</button>
-              </a>
+			  <button 
+					class="download-button" 
+					onclick="window.location.href='{{ url_for('download', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) | replace("'", "\\'") }}'"
+				>Antizapret</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
@@ -230,12 +222,10 @@
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['vpn'] %}
-              <a
-                href="{{ url_for('download', file_type='wg', filename=files['vpn'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">VPN</button>
-              </a>
+			  <button 
+					class="download-button" 
+					onclick="window.location.href='{{ url_for('download', file_type='wg', filename=files['vpn'].split('/')[-1]) | replace("'", "\\'") }}'"
+				>VPN</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
@@ -254,12 +244,10 @@
           <tr>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['antizapret'] %}
-              <a
-                href="{{ url_for('download', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">Antizapret</button>
-              </a>
+			  <button 
+					class="download-button" 
+					onclick="window.location.href='{{ url_for('download', file_type='wg', filename=files['antizapret'].split('/')[-1]) | replace("'", "\\'") }}'"
+				>Antizapret</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
