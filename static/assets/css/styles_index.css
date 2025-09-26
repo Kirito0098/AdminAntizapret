@@ -143,7 +143,7 @@ th,
 td {
   border: 1px solid hsl(0, 0%, 80%);
   /* Цвет обводки */
-  padding: 0.75rem;
+  padding: 0.5rem;
   text-align: center;
   /* Выравнивание текста по центру */
   vertical-align: middle;

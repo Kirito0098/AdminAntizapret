@@ -1,7 +1,4 @@
-{% extends "base.html" %} 
-
-{% block title %}Управление VPN клиентами{% endblock%} 
-
+{% extends "base.html" %} {% block title %}Управление VPN клиентами{% endblock%}
 {% block content %}
 
 <div id="notification" class="notification" style="display: none"></div>
@@ -25,29 +22,14 @@
     <div class="form-row">
       <div class="form-group" id="client-name-container">
         <label for="client-name">Имя клиента:</label>
-        <input
-          type="text"
-          id="client-name"
-          name="client-name"
-          placeholder=" "
-          oninput="this.value = this.value.replace(/[^a-zA-Z0-9\-]/g, '').slice(0, 15);"
-          ;
-        />
+        <input type="text" id="client-name" name="client-name" placeholder=" "
+          oninput="this.value = this.value.replace(/[^a-zA-Z0-9\-]/g, '').slice(0, 15);" ; />
       </div>
 
       <div class="form-group" id="work-term-container">
-        <label for="work-term" id="cert_expire_label"
-          >Срок работы (1-3650):</label
-        >
-        <input
-          type="number"
-          id="work-term"
-          name="work-term"
-          min="1"
-          max="3650"
-          placeholder=" "
-          oninput="this.value = this.value.replace(/[^0-9]/g, ''); if (this.value.length > 4) this.value = this.value.slice(0, 4);"
-        />
+        <label for="work-term" id="cert_expire_label">Срок работы (1-3650):</label>
+        <input type="number" id="work-term" name="work-term" min="1" max="3650" placeholder=" "
+          oninput="this.value = this.value.replace(/[^0-9]/g, ''); if (this.value.length > 4) this.value = this.value.slice(0, 4);" />
       </div>
     </div>
 
@@ -73,29 +55,29 @@
         </thead>
         <tbody>
           {% set openvpn_files_dict = {} %} {% for file in openvpn_files %} {%
-          set filename = file.split('/')[-1] %} {% set client_name =
-          '-'.join(filename.split('-')[1:-1]) %} {% if client_name not in
+          set filename = file.split('/')[-1] %} {% set stem =
+          filename.rsplit('.', 1)[0] %} {% set stem_lc = stem | lower %} {% if
+          stem_lc[:11] == 'antizapret-' %} {% set kind = 'antizapret' %} {% set
+          after_prefix = stem[11:] %} {% elif stem_lc[:4] == 'vpn-' %} {% set
+          kind = 'vpn' %} {% set after_prefix = stem[4:] %} {% else %} {% set
+          kind = 'vpn' %} {% set after_prefix = stem %} {% endif %} {% set
+          client_name = after_prefix.split('-(')[0] %} {% if client_name not in
           openvpn_files_dict %} {% set openvpn_files_dict =
-          openvpn_files_dict.update({client_name: {'antizapret': None, 'vpn':
-          None}}) or openvpn_files_dict %} {% endif %} {% if 'antizapret' in
-          filename %} {% set _ =
+          openvpn_files_dict.update({ client_name: {'antizapret': None, 'vpn':
+          None} }) or openvpn_files_dict %} {% endif %} {% if kind ==
+          'antizapret' %} {% set _ =
           openvpn_files_dict[client_name].update({'antizapret': file}) %} {%
-          elif 'vpn' in filename %} {% set _ =
-          openvpn_files_dict[client_name].update({'vpn': file}) %} {% endif %}
-          {% endfor %} {% for client_name, files in openvpn_files_dict |
-          dictsort %}
+          else %} {% set _ = openvpn_files_dict[client_name].update({'vpn':
+          file}) %} {% endif %} {% endfor %} {% for client_name, files in
+          openvpn_files_dict | dictsort %}
           <tr>
             <td rowspan="2" style="border: 1px solid rgb(255, 255, 255)">
               {{ client_name }}
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['vpn'] %}
-              <a
-                href="{{ url_for('download', file_type='openvpn', filename=files['vpn'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">VPN</button>
-              </a>
+              <button class="download-button"
+                onclick="window.location.href='{{ url_for('download', file_type='openvpn', filename=files['vpn'].split('/')[-1]) }}'">VPN</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
@@ -104,12 +86,8 @@
           <tr>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['antizapret'] %}
-              <a
-                href="{{ url_for('download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">Antizapret</button>
-              </a>
+              <button class="download-button"
+                onclick="window.location.href='{{ url_for('download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) }}'">Antizapret</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
@@ -134,39 +112,38 @@
         </thead>
         <tbody>
           {% set amneziawg_files_dict = {} %} {% for file in amneziawg_files %}
-          {% set filename = file.split('/')[-1] %} {% set client_name =
-          '-'.join(filename.split('-')[1:-2]) %} {% if client_name not in
+          {% set filename = file.split('/')[-1] %} {% set stem =
+          filename.rsplit('.', 1)[0] %} {% set stem_lc = stem | lower %} {% if
+          stem_lc[:11] == 'antizapret-' %} {% set kind = 'antizapret' %} {% set
+          after_prefix = stem[11:] %} {% elif stem_lc[:4] == 'vpn-' %} {% set
+          kind = 'vpn' %} {% set after_prefix = stem[4:] %} {% else %} {% set
+          kind = 'vpn' %} {% set after_prefix = stem %} {% endif %} {% set
+          client_name = after_prefix.split('-(')[0] %} {% if client_name not in
           amneziawg_files_dict %} {% set amneziawg_files_dict =
-          amneziawg_files_dict.update({client_name: {'antizapret': None, 'vpn':
-          None}}) or amneziawg_files_dict %} {% endif %} {% if 'antizapret' in
-          filename %} {% set _ =
+          amneziawg_files_dict.update({ client_name: {'antizapret': None, 'vpn':
+          None} }) or amneziawg_files_dict %} {% endif %} {% if kind ==
+          'antizapret' %} {% set _ =
           amneziawg_files_dict[client_name].update({'antizapret': file}) %} {%
-          elif 'vpn' in filename %} {% set _ =
-          amneziawg_files_dict[client_name].update({'vpn': file}) %} {% endif %}
-          {% endfor %} {% for client_name, files in amneziawg_files_dict |
-          dictsort %}
+          else %} {% set _ = amneziawg_files_dict[client_name].update({'vpn':
+          file}) %} {% endif %} {% endfor %} {% for client_name, files in
+          amneziawg_files_dict | dictsort %}
+
           <tr>
             <td rowspan="2" style="border: 1px solid rgb(255, 255, 255)">
               {{ client_name }}
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['vpn'] %}
-              <a
-                href="{{ url_for('download', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">VPN</button>
-              </a>
+              <button class="download-button"
+                onclick="window.location.href='{{ url_for('download', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}'">VPN</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['vpn'] %}
-              <button
-                class="vpn-qr-button"
-                data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}"
-              ></button>
+              <button class="vpn-qr-button"
+                data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}"></button>
               {% else %}
               <button class="vpn-qr-button" disabled></button>
               {% endif %}
@@ -175,22 +152,16 @@
           <tr>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['antizapret'] %}
-              <a
-                href="{{ url_for('download', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">Antizapret</button>
-              </a>
+              <button class="download-button"
+                onclick="window.location.href='{{ url_for('download', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}'">Antizapret</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['antizapret'] %}
-              <button
-                class="vpn-qr-button"
-                data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}"
-              ></button>
+              <button class="vpn-qr-button"
+                data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}"></button>
               {% else %}
               <button class="vpn-qr-button" disabled></button>
               {% endif %}
@@ -215,37 +186,36 @@
         </thead>
         <tbody>
           {% set wg_files_dict = {} %} {% for file in wg_files %} {% set
-          filename = file.split('/')[-1] %} {% set client_name =
-          '-'.join(filename.split('-')[1:-2]) %} {% if client_name not in
-          wg_files_dict %} {% set wg_files_dict =
-          wg_files_dict.update({client_name: {'antizapret': None, 'vpn': None}})
-          or wg_files_dict %} {% endif %} {% if 'antizapret' in filename %} {%
-          set _ = wg_files_dict[client_name].update({'antizapret': file}) %} {%
-          elif 'vpn' in filename %} {% set _ =
-          wg_files_dict[client_name].update({'vpn': file}) %} {% endif %} {%
-          endfor %} {% for client_name, files in wg_files_dict | dictsort %}
+          filename = file.split('/')[-1] %} {% set stem = filename.rsplit('.',
+          1)[0] %} {% set stem_lc = stem | lower %} {% if stem_lc[:11] ==
+          'antizapret-' %} {% set kind = 'antizapret' %} {% set after_prefix =
+          stem[11:] %} {% elif stem_lc[:4] == 'vpn-' %} {% set kind = 'vpn' %}
+          {% set after_prefix = stem[4:] %} {% else %} {% set kind = 'vpn' %} {%
+          set after_prefix = stem %} {% endif %} {% set client_name =
+          after_prefix.split('-(')[0] %} {% if client_name not in wg_files_dict
+          %} {% set wg_files_dict = wg_files_dict.update({ client_name:
+          {'antizapret': None, 'vpn': None} }) or wg_files_dict %} {% endif %}
+          {% if kind == 'antizapret' %} {% set _ =
+          wg_files_dict[client_name].update({'antizapret': file}) %} {% else %}
+          {% set _ = wg_files_dict[client_name].update({'vpn': file}) %} {%
+          endif %} {% endfor %} {% for client_name, files in wg_files_dict |
+          dictsort %}
           <tr>
             <td rowspan="2" style="border: 1px solid rgb(255, 255, 255)">
               {{ client_name }}
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['vpn'] %}
-              <a
-                href="{{ url_for('download', file_type='wg', filename=files['vpn'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">VPN</button>
-              </a>
+              <button class="download-button"
+                onclick="window.location.href='{{ url_for('download', file_type='wg', filename=files['vpn'].split('/')[-1]) }}'">VPN</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['vpn'] %}
-              <button
-                class="vpn-qr-button"
-                data-config="{{ url_for('generate_qr', file_type='wg', filename=files['vpn'].split('/')[-1]) }}"
-              ></button>
+              <button class="vpn-qr-button"
+                data-config="{{ url_for('generate_qr', file_type='wg', filename=files['vpn'].split('/')[-1]) }}"></button>
               {% else %}
               <button class="vpn-qr-button" disabled></button>
               {% endif %}
@@ -254,22 +224,16 @@
           <tr>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['antizapret'] %}
-              <a
-                href="{{ url_for('download', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}"
-                download
-              >
-                <button class="download-button">Antizapret</button>
-              </a>
+              <button class="download-button"
+                onclick="window.location.href='{{ url_for('download', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}'">Antizapret</button>
               {% else %}
               <button class="download-button" disabled>Нет файла</button>
               {% endif %}
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
               {% if files['antizapret'] %}
-              <button
-                class="vpn-qr-button"
-                data-config="{{ url_for('generate_qr', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}"
-              ></button>
+              <button class="vpn-qr-button"
+                data-config="{{ url_for('generate_qr', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}"></button>
               {% else %}
               <button class="vpn-qr-button" disabled></button>
               {% endif %}
