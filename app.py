@@ -465,29 +465,37 @@ def captcha():
 @file_validator.validate_file
 def download(file_path, clean_name):
     try:
-        basename = os.path.basename(file_path)
+        base = os.path.basename(file_path)
 
-        name_parts = basename.split("-")
-        extension = basename.split(".")[-1]
-        vpn_type = "-AZ" if name_parts[0] == "antizapret" else ""
+        pattern = re.compile(
+            r"^([^-]+)-(.+?)-\(.+\)(?:-(wg|am))?\.(ovpn|conf)$", re.IGNORECASE
+        )
+        m = pattern.match(base)
 
-        if extension == "ovpn":
-            client_name = "-".join(name_parts[1:-1])
-            download_name = f"{client_name}{vpn_type}.{extension}"
-        elif extension == "conf":
-            client_name = "-".join(name_parts[1:-2])[: 12 if vpn_type == "-AZ" else 15]
-            download_name = f"{client_name}{vpn_type}.{extension}"
+        if m:
+            prefix, client, suffix, ext = (
+                m.group(1).lower(),
+                m.group(2),
+                m.group(3).lower() if m.group(3) else None,
+                m.group(4).lower(),
+            )
+            is_az = prefix == "antizapret"
+            proto_prefix = ""
+            if suffix == "wg":
+                proto_prefix = "WG-"
+            elif suffix == "am":
+                proto_prefix = "AWG-"
+            download_name = f"{proto_prefix}{client}{'-AZ' if is_az else ''}.{ext}"
         else:
-            download_name = basename
-
+            download_name = base
         return send_from_directory(
             os.path.dirname(file_path),
-            os.path.basename(file_path),
+            base,
             as_attachment=True,
             download_name=download_name,
         )
     except Exception as e:
-        print(f"Аларм! ошибка: {str(e)}")
+        print(f"Аларм! ошибка: {e}")
         abort(500)
 
 
@@ -612,99 +620,108 @@ def server_monitor():
             app.logger.error(f"Ошибка при обновлении данных мониторинга: {e}")
             return jsonify({"error": "Ошибка при обновлении данных мониторинга"}), 500
 
-@app.route('/get_antizapret_settings')
+
+@app.route("/get_antizapret_settings")
 @auth_manager.login_required
 def get_antizapret_settings():
     try:
-        with open('/root/antizapret/setup', 'r') as f:
+        with open("/root/antizapret/setup", "r") as f:
             content = f.read()
-        
+
         settings = {
-            'route_all': 'n',
-            'discord_include': 'n',
-            'cloudflare_include': 'n',
-            'amazon_include': 'n',
-            'hetzner_include': 'n',
-            'digitalocean_include': 'n',
-            'ovh_include': 'n',
-            'telegram_include': 'n',
-            'block_ads': 'n',
-            'akamai_include': 'n',
-            'google_include': 'n'
+            "route_all": "n",
+            "discord_include": "n",
+            "cloudflare_include": "n",
+            "amazon_include": "n",
+            "hetzner_include": "n",
+            "digitalocean_include": "n",
+            "ovh_include": "n",
+            "telegram_include": "n",
+            "block_ads": "n",
+            "akamai_include": "n",
+            "google_include": "n",
         }
 
         for param in settings.keys():
-            match = re.search(f'^{param.upper()}=([yn])', content, re.MULTILINE)
+            match = re.search(f"^{param.upper()}=([yn])", content, re.MULTILINE)
             if match:
                 settings[param] = match.group(1)
-        
+
         return jsonify(settings)
     except Exception as e:
         app.logger.error(f"Ошибка чтения настроек: {str(e)}")
-        return jsonify({'error': 'Ошибка чтения файла настроек'}), 500
+        return jsonify({"error": "Ошибка чтения файла настроек"}), 500
 
-@app.route('/update_antizapret_settings', methods=['POST'])
+
+@app.route("/update_antizapret_settings", methods=["POST"])
 @auth_manager.login_required
 def update_antizapret_settings():
     try:
         new_settings = request.json
-        
-        with open('/root/antizapret/setup', 'r') as f:
+
+        with open("/root/antizapret/setup", "r") as f:
             lines = f.readlines()
-        
+
         params_to_update = {
-            'ROUTE_ALL': f"ROUTE_ALL={new_settings.get('route_all', 'n')}",
-            'DISCORD_INCLUDE': f"DISCORD_INCLUDE={new_settings.get('discord_include', 'n')}",
-            'CLOUDFLARE_INCLUDE': f"CLOUDFLARE_INCLUDE={new_settings.get('cloudflare_include', 'n')}",
-            'AMAZON_INCLUDE': f"AMAZON_INCLUDE={new_settings.get('amazon_include', 'n')}",
-            'HETZNER_INCLUDE': f"HETZNER_INCLUDE={new_settings.get('hetzner_include', 'n')}",
-            'DIGITALOCEAN_INCLUDE': f"DIGITALOCEAN_INCLUDE={new_settings.get('digitalocean_include', 'n')}",
-            'OVH_INCLUDE': f"OVH_INCLUDE={new_settings.get('ovh_include', 'n')}",
-            'AKAMAI_INCLUDE': f"AKAMAI_INCLUDE={new_settings.get('akamai_include', 'n')}",
-            'TELEGRAM_INCLUDE': f"TELEGRAM_INCLUDE={new_settings.get('telegram_include', 'n')}",
-            'BLOCK_ADS': f"BLOCK_ADS={new_settings.get('block_ads', 'n')}",
-            'GOOGLE_INCLUDE': f"GOOGLE_INCLUDE={new_settings.get('google_include', 'n')}"
+            "ROUTE_ALL": f"ROUTE_ALL={new_settings.get('route_all', 'n')}",
+            "DISCORD_INCLUDE": f"DISCORD_INCLUDE={new_settings.get('discord_include', 'n')}",
+            "CLOUDFLARE_INCLUDE": f"CLOUDFLARE_INCLUDE={new_settings.get('cloudflare_include', 'n')}",
+            "AMAZON_INCLUDE": f"AMAZON_INCLUDE={new_settings.get('amazon_include', 'n')}",
+            "HETZNER_INCLUDE": f"HETZNER_INCLUDE={new_settings.get('hetzner_include', 'n')}",
+            "DIGITALOCEAN_INCLUDE": f"DIGITALOCEAN_INCLUDE={new_settings.get('digitalocean_include', 'n')}",
+            "OVH_INCLUDE": f"OVH_INCLUDE={new_settings.get('ovh_include', 'n')}",
+            "AKAMAI_INCLUDE": f"AKAMAI_INCLUDE={new_settings.get('akamai_include', 'n')}",
+            "TELEGRAM_INCLUDE": f"TELEGRAM_INCLUDE={new_settings.get('telegram_include', 'n')}",
+            "BLOCK_ADS": f"BLOCK_ADS={new_settings.get('block_ads', 'n')}",
+            "GOOGLE_INCLUDE": f"GOOGLE_INCLUDE={new_settings.get('google_include', 'n')}",
         }
-        
+
         updated_lines = []
         found_params = set()
-        
+
         for line in lines:
             line_stripped = line.strip()
             param_updated = False
             for param, new_value in params_to_update.items():
-                if line_stripped.startswith(param + '='):
-                    updated_lines.append(new_value + '\n')
+                if line_stripped.startswith(param + "="):
+                    updated_lines.append(new_value + "\n")
                     found_params.add(param)
                     param_updated = True
                     break
             if not param_updated and line_stripped:
                 updated_lines.append(line)
-        
+
         for param, new_value in params_to_update.items():
             if param not in found_params:
-                updated_lines.append(new_value + '\n')
-        
-        with open('/root/antizapret/setup', 'w') as f:
+                updated_lines.append(new_value + "\n")
+
+        with open("/root/antizapret/setup", "w") as f:
             f.writelines(updated_lines)
-        
-        return jsonify({
-            'success': True,
-            'message': 'Настройки успешно сохранены',
-            'needs_apply': True
-        })
-        
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Настройки успешно сохранены",
+                "needs_apply": True,
+            }
+        )
+
     except PermissionError:
-        return jsonify({
-            'success': False,
-            'message': 'Ошибка: Нет прав для записи в файл'
-        }), 403
+        return (
+            jsonify(
+                {"success": False, "message": "Ошибка: Нет прав для записи в файл"}
+            ),
+            403,
+        )
     except Exception as e:
         app.logger.error(f"Ошибка обновления настроек: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': 'Ошибка сервера при обновлении настроек'
-        }), 500
+        return (
+            jsonify(
+                {"success": False, "message": "Ошибка сервера при обновлении настроек"}
+            ),
+            500,
+        )
+
 
 @app.route("/settings", methods=["GET", "POST"])
 @auth_manager.login_required
@@ -764,4 +781,3 @@ def settings():
     current_port = os.getenv("APP_PORT", "5050")
     users = User.query.all()
     return render_template("settings.html", port=current_port, users=users)
-
