@@ -115,6 +115,18 @@ document.addEventListener("DOMContentLoaded", function () {
           data.block_ads === "y";
         document.getElementById("google-toggle").checked =
           data.google_include === "y";
+        document.getElementById("tcp_80_443-toggle").checked =
+          data.openvpn_80_443_tcp === "y";
+        document.getElementById("udp_80_443-toggle").checked =
+          data.openvpn_80_443_udp === "y";
+        document.getElementById("ssh_protection-toggle").checked =
+          data.ssh_protection === "y";
+        document.getElementById("attack_protection-toggle").checked =
+          data.attack_protection === "y";
+        document.getElementById("torrent_guard-toggle").checked =
+          data.torrent_guard === "y";
+        document.getElementById("restrict_forward-toggle").checked =
+          data.restrict_forward === "y";
       })
       .catch((error) => {
         console.error("Error loading Antizapret settings:", error);
@@ -145,12 +157,34 @@ document.addEventListener("DOMContentLoaded", function () {
         ? "y"
         : "n",
       ovh_include: document.getElementById("ovh-toggle").checked ? "y" : "n",
-      akamai_include: document.getElementById("akamai-toggle").checked ? "y" : "n",
+      akamai_include: document.getElementById("akamai-toggle").checked
+        ? "y"
+        : "n",
       telegram_include: document.getElementById("telegram-toggle").checked
         ? "y"
         : "n",
       block_ads: document.getElementById("AdBlock-toggle").checked ? "y" : "n",
       google_include: document.getElementById("google-toggle").checked
+        ? "y"
+        : "n",
+      openvpn_80_443_tcp: document.getElementById("tcp_80_443-toggle").checked
+        ? "y"
+        : "n",
+      openvpn_80_443_udp: document.getElementById("udp_80_443-toggle").checked
+        ? "y"
+        : "n",
+      ssh_protection: document.getElementById("ssh_protection-toggle").checked
+        ? "y"
+        : "n",
+      attack_protection: document.getElementById("attack_protection-toggle")
+        .checked
+        ? "y"
+        : "n",
+      torrent_guard: document.getElementById("torrent_guard-toggle").checked
+        ? "y"
+        : "n",
+      restrict_forward: document.getElementById("restrict_forward-toggle")
+        .checked
         ? "y"
         : "n",
     };

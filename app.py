@@ -640,6 +640,12 @@ def get_antizapret_settings():
             "block_ads": "n",
             "akamai_include": "n",
             "google_include": "n",
+            "openvpn_80_443_tcp": "n",
+            "openvpn_80_443_udp": "n",
+            "ssh_protection": "n",
+            "attack_protection": "n",
+            "torrent_guard": "n",
+            "restrict_forward": "n",
         }
 
         for param in settings.keys():
@@ -674,6 +680,12 @@ def update_antizapret_settings():
             "TELEGRAM_INCLUDE": f"TELEGRAM_INCLUDE={new_settings.get('telegram_include', 'n')}",
             "BLOCK_ADS": f"BLOCK_ADS={new_settings.get('block_ads', 'n')}",
             "GOOGLE_INCLUDE": f"GOOGLE_INCLUDE={new_settings.get('google_include', 'n')}",
+            "OPENVPN_80_443_TCP": f"OPENVPN_80_443_TCP={new_settings.get('openvpn_80_443_tcp', 'n')}",
+            "OPENVPN_80_443_UDP": f"OPENVPN_80_443_UDP={new_settings.get('openvpn_80_443_udp', 'n')}",
+            "SSH_PROTECTION": f"SSH_PROTECTION={new_settings.get('ssh_protection', 'n')}",
+            "ATTACK_PROTECTION": f"ATTACK_PROTECTION={new_settings.get('attack_protection', 'n')}",
+            "TORRENT_GUARD": f"TORRENT_GUARD={new_settings.get('torrent_guard', 'n')}",
+            "RESTRICT_FORWARD": f"RESTRICT_FORWARD={new_settings.get('restrict_forward', 'n')}",
         }
 
         updated_lines = []
