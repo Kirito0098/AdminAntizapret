@@ -646,12 +646,20 @@ def get_antizapret_settings():
             "attack_protection": "n",
             "torrent_guard": "n",
             "restrict_forward": "n",
+            "openvpn_host": "",
+            "wireguard_host": "",
+            "clear_hosts": "n",
         }
 
         for param in settings.keys():
-            match = re.search(f"^{param.upper()}=([yn])", content, re.MULTILINE)
-            if match:
-                settings[param] = match.group(1)
+            if param in ["openvpn_host", "wireguard_host"]:
+                match = re.search(f"^{param.upper()}=(.+)$", content, re.MULTILINE)
+                if match:
+                    settings[param] = match.group(1).strip()
+            else:
+                match = re.search(f"^{param.upper()}=([yn])", content, re.MULTILINE)
+                if match:
+                    settings[param] = match.group(1)
 
         return jsonify(settings)
     except Exception as e:
@@ -686,6 +694,9 @@ def update_antizapret_settings():
             "ATTACK_PROTECTION": f"ATTACK_PROTECTION={new_settings.get('attack_protection', 'n')}",
             "TORRENT_GUARD": f"TORRENT_GUARD={new_settings.get('torrent_guard', 'n')}",
             "RESTRICT_FORWARD": f"RESTRICT_FORWARD={new_settings.get('restrict_forward', 'n')}",
+            "CLEAR_HOSTS": f"CLEAR_HOSTS={new_settings.get('clear_hosts', 'n')}",
+            "OPENVPN_HOST": f"OPENVPN_HOST={new_settings.get('openvpn_host', '')}",
+            "WIREGUARD_HOST": f"WIREGUARD_HOST={new_settings.get('wireguard_host', '')}",
         }
 
         updated_lines = []

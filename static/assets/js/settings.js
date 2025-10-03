@@ -127,6 +127,11 @@ document.addEventListener("DOMContentLoaded", function () {
           data.torrent_guard === "y";
         document.getElementById("restrict_forward-toggle").checked =
           data.restrict_forward === "y";
+        document.getElementById("clear-hosts-toggle").checked =
+          data.clear_hosts === "y";
+        document.getElementById("openvpn-host-input").value = data.openvpn_host;
+        document.getElementById("wireguard-host-input").value =
+          data.wireguard_host;
       })
       .catch((error) => {
         console.error("Error loading Antizapret settings:", error);
@@ -187,6 +192,13 @@ document.addEventListener("DOMContentLoaded", function () {
         .checked
         ? "y"
         : "n",
+      clear_hosts: document.getElementById("clear-hosts-toggle").checked
+        ? "y"
+        : "n",
+      openvpn_host: document.getElementById("openvpn-host-input").value.trim(),
+      wireguard_host: document
+        .getElementById("wireguard-host-input")
+        .value.trim(),
     };
 
     const statusElement = document.getElementById("config-status");

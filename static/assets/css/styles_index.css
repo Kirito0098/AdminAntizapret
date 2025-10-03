@@ -1284,105 +1284,207 @@ th {
 }
 /* Анимация появления */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Адаптация для мобильных */
 @media (max-width: 768px) {
-    .toggle-label.has-tooltip:hover::after {
-        width: 240px;
-        left: 50%;
-        transform: translateX(-50%);
-    }
-    
-    .toggle-label.has-tooltip:hover::before {
-        left: 50%;
-        transform: translateX(-50%);
-    }
+  .toggle-label.has-tooltip:hover::after {
+    width: 240px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .toggle-label.has-tooltip:hover::before {
+    left: 50%;
+    transform: translateX(-50%);
+  }
 }
-.config-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
+
 .config-column {
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-}
-.config-description {
-    color: #b0b0b0;
-    margin: 0 0 1.5rem 0;
-    font-size: 0.95rem;
-    line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
 }
 
 .config-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-    margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-bottom: 2rem;
 }
-
-.config-item {
-    background: rgba(30, 30, 30, 0.6);
-    border-radius: 8px;
-    padding: 0.9rem 1.2rem;
-    transition: all 0.2s ease;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
 .config-item:hover {
-    background: rgba(40, 40, 40, 0.8);
-    border-color: rgba(255, 255, 255, 0.1);
+  background: #22242b;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
 .config-item-title {
-    font-weight: 500;
-    color: #f0f0f0;
-    font-size: 0.95rem;
+  font-weight: 500;
+  color: #f0f0f0;
+  font-size: 0.95rem;
 }
 
 .config-item-param {
-    color: #7a7a7a;
-    font-size: 0.82rem;
-    margin-left: 0.5rem;
-    font-family: monospace;
+  color: #7a7a7a;
+  font-size: 0.82rem;
+  margin-left: 0.5rem;
+  font-family: monospace;
 }
 
 .config-item-tooltip {
-    color: #b0b0b0;
-    font-size: 0.85rem;
-    margin-top: 0.7rem;
-    padding-top: 0.7rem;
-    border-top: 1px dashed rgba(255, 255, 255, 0.08);
-    line-height: 1.5;
-    display: none;
+  color: #22242b;
+  font-size: 0.85rem;
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  line-height: 1.5;
+  display: none;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  color: #666;
 }
 
 .config-item:hover .config-item-tooltip {
-    display: block;
+  display: block;
 }
 
 /* Адаптация для мобильных */
 @media (max-width: 992px) {
-    .config-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .config-item {
-        padding: 0.8rem;
-    }
-    
-    .config-item-param {
-        display: block;
-        margin-left: 0;
-        margin-top: 0.3rem;
-    }
-    
-    .config-description {
-        font-size: 0.9rem;
-    }
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .config-item {
+    padding: 0.8rem;
+  }
+
+  .config-item-param {
+    display: block;
+    margin-left: 0;
+    margin-top: 0.3rem;
+  }
+
+  .config-description {
+    font-size: 0.9rem;
+  }
+}
+/* Общий стиль */
+.config-description {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  background: #22242b;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.input-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.input-field {
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 0.95rem;
+  transition: border 0.2s;
+}
+
+.input-field:focus {
+  border-color: #0077ff;
+  outline: none;
+  box-shadow: 0 0 4px rgba(0, 119, 255, 0.3);
+}
+
+.tag-ov,
+.tag-wg,
+.tag-server,
+.tag-fullvpn,
+.tag-az {
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-left: 6px;
+  color: #fff;
+}
+
+.tag-ov {
+  background: #f58527;
+}
+.tag-wg {
+  background: #861618;
+}
+.tag-az {
+  background: #149c0f;
+}
+.tag-server {
+  background: #1d0f9c;
+}
+
+/* Разделение по классам */
+.ov-item {
+  border-left: 4px solid #f58527;
+}
+.ov-item:hover {
+  border-left: 4px solid #f58527;
+}
+.wg-item {
+  border-left: 4px solid #861618;
+}
+.wg-item:hover {
+  border-left: 4px solid #861618;
+}
+.az-item {
+  border-left: 4px solid #149c0f;
+}
+.az-item:hover {
+  border-left: 4px solid #149c0f;
+}
+.server-item {
+  border-left: 4px solid #1d0f9c;
+}
+.server-item:hover {
+  border-left: 4px solid #1d0f9c;
+}
+.config-param {
+  font-weight: bold;
+  color: #1976d2;
+}
+.config-host-param {
+  font-weight: bold;
+  color: #ff0000;
 }
