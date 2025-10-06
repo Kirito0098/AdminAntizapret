@@ -43,73 +43,73 @@ endblock %} {% block content %}
 </div>
 {% endblock %} {% block scripts %}
 <script>
-  const loadingOverlay = document.getElementById("loading-overlay");
-  const notification = document.getElementById("notification");
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const notification = document.getElementById('notification');
 
-  function showNotification(message, type = "success") {
+  function showNotification(message, type = 'success') {
     notification.textContent = message;
     notification.className = `notification notification-${type}`;
-    notification.style.display = "block";
+    notification.style.display = 'block';
     setTimeout(() => {
-      notification.style.display = "none";
+      notification.style.display = 'none';
     }, 3000);
   }
 
-  document.getElementById("run-doall").addEventListener("click", function () {
-    loadingOverlay.style.display = "flex";
-  
+  document.getElementById('run-doall').addEventListener('click', function () {
+    loadingOverlay.style.display = 'flex';
+
     const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-    fetch("/run-doall", {
-      method: "POST",
+    fetch('/run-doall', {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'X-CSRFToken': csrfToken  
+        'X-CSRFToken': csrfToken,
       },
-      body: `csrf_token=${encodeURIComponent(csrfToken)}`
+      body: `csrf_token=${encodeURIComponent(csrfToken)}`,
     })
       .then((response) => response.json())
       .then((data) => {
-        loadingOverlay.style.display = "none";
-        showNotification(data.message, data.success ? "success" : "error");
+        loadingOverlay.style.display = 'none';
+        showNotification(data.message, data.success ? 'success' : 'error');
         if (data.output) console.log(data.output);
       })
       .catch((error) => {
-        loadingOverlay.style.display = "none";
-        showNotification("Ошибка выполнения запроса.", "error");
-        console.error("Ошибка:", error);
+        loadingOverlay.style.display = 'none';
+        showNotification('Ошибка выполнения запроса.', 'error');
+        console.error('Ошибка:', error);
       });
   });
 
-  document.querySelectorAll(".file-toggle").forEach((button) => {
-    button.addEventListener("click", function () {
-      const targetId = this.getAttribute("data-target");
+  document.querySelectorAll('.file-toggle').forEach((button) => {
+    button.addEventListener('click', function () {
+      const targetId = this.getAttribute('data-target');
       const form = document.getElementById(targetId);
-      if (form.style.display === "none") {
-        form.style.display = "block";
+      if (form.style.display === 'none') {
+        form.style.display = 'block';
       } else {
-        form.style.display = "none";
+        form.style.display = 'none';
       }
     });
   });
 
-  document.querySelectorAll(".file-edit-form").forEach((form) => {
-    form.addEventListener("submit", function (event) {
+  document.querySelectorAll('.file-edit-form').forEach((form) => {
+    form.addEventListener('submit', function (event) {
       event.preventDefault();
-      loadingOverlay.style.display = "flex"; // Показываем уведомление
+      loadingOverlay.style.display = 'flex'; // Показываем уведомление
       const formData = new FormData(form);
-      fetch("/edit-files", {
-        method: "POST",
+      fetch('/edit-files', {
+        method: 'POST',
         body: formData,
       })
         .then((response) => response.json())
         .then((data) => {
-          loadingOverlay.style.display = "none"; // Скрываем уведомление
-          showNotification(data.message, data.success ? "success" : "error");
+          loadingOverlay.style.display = 'none'; // Скрываем уведомление
+          showNotification(data.message, data.success ? 'success' : 'error');
         })
         .catch((error) => {
-          loadingOverlay.style.display = "none"; // Скрываем уведомление
-          showNotification("Ошибка выполнения запроса.", "error");
-          console.error("Ошибка:", error);
+          loadingOverlay.style.display = 'none'; // Скрываем уведомление
+          showNotification('Ошибка выполнения запроса.', 'error');
+          console.error('Ошибка:', error);
         });
     });
   });

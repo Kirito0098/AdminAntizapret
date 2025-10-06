@@ -1,5 +1,5 @@
-{% extends "base.html" %} 
-{% block title %}Мониторинг сервера{% endblock %} 
+{% extends "base.html" %}
+{% block title %}Мониторинг сервера{% endblock %}
 {% block content %}
 <div class="server-monitor-wrapper">
   <div class="server-info">
@@ -23,90 +23,90 @@
         <p id="uptime">{{ uptime }}</p>
         <div class="uptime-icon">
           <svg width="40" height="40" viewBox="0 0 40 40">
-            <circle cx="20" cy="20" r="18" stroke="#4caf50" stroke-width="3" fill="none"/>
-            <path d="M20 10 v10 l7 7" stroke="#4caf50" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <circle cx="20" cy="20" r="18" stroke="#4caf50" stroke-width="3" fill="none" />
+            <path d="M20 10 v10 l7 7" stroke="#4caf50" stroke-width="3" fill="none" stroke-linecap="round" />
           </svg>
         </div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %} 
+
+<!-- ===== Новый блок: Пропускная способность сети (vnStat) ===== -->
+<div class="server-info bw-section">
+  <div class="bw-card card">
+    <div class="card-body">
+      <div class="bw-header">
+        <h3 class="card-title">Загрузка канала</h3>
+
+        <!-- Переключатели -->
+        <div class="iface-buttons" style="margin: 6px 0 10px;">
+          <button class="iface-btn" data-iface="ens3">ens3</button>
+          <button class="iface-btn" data-iface="vpn">vpn</button>
+          <button class="iface-btn" data-iface="antizapret">antizapret</button>
+        </div>
+
+        <div class="bw-range" role="tablist" aria-label="Диапазон">
+          <button class="bw-range-btn" data-range="1d">1 день</button>
+          <button class="bw-range-btn" data-range="7d">7 дней</button>
+          <button class="bw-range-btn" data-range="30d">30 дней</button>
+        </div>
+      </div>
+
+      <canvas id="bwChart" class="bw-chart"></canvas>
+
+      <div class="bw-source">
+        Источник: vnStat на интерфейсе <code id="bwIface">—</code>
+      </div>
+      <div id="network_load" class="bw-load">Загрузка...</div>
+
+      <div class="bw-stats">
+        <div class="bw-stat">
+          <h5>Интерфейс</h5>
+          <p id="network_interface">—</p>
+        </div>
+        <div class="bw-stat">
+          <h5>Текущий Rx</h5>
+          <p id="rx_bytes">—</p>
+        </div>
+        <div class="bw-stat">
+          <h5>Текущий Tx</h5>
+          <p id="tx_bytes">—</p>
+        </div>
+      </div>
+
+      <!-- Агрегаты (если сервер вернёт totals) -->
+      <div class="bw-aggregate">
+        <div class="bw-agg">
+          <h6>Входящий трафик (Rx)</h6>
+          <p id="bw-rx-1d">— за 1 день</p>
+          <p id="bw-rx-7d">— за 7 дней</p>
+          <p id="bw-rx-30d">— за 30 дней</p>
+        </div>
+
+        <div class="bw-agg">
+          <h6>Исходящий трафик (Tx)</h6>
+          <p id="bw-tx-1d">— за 1 день</p>
+          <p id="bw-tx-7d">— за 7 дней</p>
+          <p id="bw-tx-30d">— за 30 дней</p>
+        </div>
+
+        <div class="bw-agg">
+          <h6>Общий трафик (сумма Rx + Tx)</h6>
+          <p id="bw-total-1d">— за 1 день</p>
+          <p id="bw-total-7d">— за 7 дней</p>
+          <p id="bw-total-30d">— за 30 дней</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ===== Конец нового блока ===== -->
+</div>
+{% endblock %}
+
 {% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/server_monitor.css') }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script
-  src="{{ url_for('static', filename='assets/js/main_index.js') }}"
-  defer
-></script>
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  // Графики CPU и памяти
-  const cpuChartCtx = document.getElementById('cpuChart').getContext('2d');
-  const memoryChartCtx = document.getElementById('memoryChart').getContext('2d');
-  let cpuData = Array(30).fill({{ cpu_usage|default(0) }});
-  let memoryData = Array(30).fill({{ memory_usage|default(0) }});
-
-  const cpuChart = new Chart(cpuChartCtx, {
-    type: 'line',
-    data: {
-      labels: Array(30).fill(''),
-      datasets: [{
-        label: 'CPU (%)',
-        data: cpuData,
-        borderColor: '#4caf50',
-        backgroundColor: 'rgba(76,175,80,0.1)',
-        tension: 0.3,
-        pointRadius: 0,
-        borderWidth: 2,
-        fill: true,
-      }]
-    },
-    options: {
-      responsive: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { min: 0, max: 100, ticks: { color: '#fff' }, grid: { color: '#444' } },
-        x: { display: false }
-      }
-    }
-  });
-
-  const memoryChart = new Chart(memoryChartCtx, {
-    type: 'line',
-    data: {
-      labels: Array(30).fill(''),
-      datasets: [{
-        label: 'Память (%)',
-        data: memoryData,
-        borderColor: '#2196f3',
-        backgroundColor: 'rgba(33,150,243,0.1)',
-        tension: 0.3,
-        pointRadius: 0,
-        borderWidth: 2,
-        fill: true,
-      }]
-    },
-    options: {
-      responsive: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { min: 0, max: 100, ticks: { color: '#fff' }, grid: { color: '#444' } },
-        x: { display: false }
-      }
-    }
-  });
-
-  function updateCharts(cpu, memory) {
-    cpuData.push(cpu); cpuData.shift();
-    memoryData.push(memory); memoryData.shift();
-    cpuChart.data.datasets[0].data = cpuData;
-    memoryChart.data.datasets[0].data = memoryData;
-    cpuChart.update();
-    memoryChart.update();
-  }
-
-  // Подключаемся к обновлению данных
-  window.updateServerCharts = updateCharts;
-});
-</script>
+<script src="{{ url_for('static', filename='assets/js/server_monitor.js') }}"></script>
 {% endblock %}

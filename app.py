@@ -800,7 +800,134 @@ def settings():
                     flash(f"Пользователь '{delete_username}' не найден!", "error")
 
         return redirect(url_for("settings"))
-
     current_port = os.getenv("APP_PORT", "5050")
     users = User.query.all()
     return render_template("settings.html", port=current_port, users=users)
+    
+# Трафик по 5-минуткам для графика (последние 24 часа)
+@app.route("/api/bw")
+@auth_manager.login_required
+def api_bw():
+    import json, subprocess, os
+    from flask import request, jsonify
+
+    # iface из ?iface=..., env или конфига
+    iface = os.environ.get("VNSTAT_IFACE") or app.config.get("VNSTAT_IFACE") or "ens3"
+    q_iface = request.args.get("iface")
+    if q_iface:
+        iface = q_iface
+
+    # диапазон: 1d | 7d | 30d
+    rng = request.args.get("range", "1d")
+    if rng not in ("1d", "7d", "30d"):
+        rng = "1d"
+
+    vnstat_bin = os.environ.get("VNSTAT_BIN", "/usr/bin/vnstat")
+
+    def _run(args):
+        return subprocess.run(args, check=True, capture_output=True, text=True)
+
+    try:
+        # f — пяти минутки (для графика 1d)
+        data_f = json.loads(_run([vnstat_bin, "--json", "f", "-i", iface]).stdout)
+    except Exception:
+        data_f = {}
+
+    try:
+        # d — по дням (для графиков 7/30d и сумм)
+        data_d = json.loads(_run([vnstat_bin, "--json", "d", "-i", iface]).stdout)
+    except Exception as e:
+        # если даже дни не получилось — отдадим пустые данные
+        return jsonify({"error": str(e), "iface": iface}), 500
+
+    # --- Достаём нужные секции ---
+    def get_iface_block(data):
+        for it in (data.get("interfaces") or []):
+            if it.get("name") == iface:
+                return it
+        return {}
+
+    it_f = get_iface_block(data_f)
+    it_d = get_iface_block(data_d)
+
+    traffic_f = (it_f.get("traffic") or {})
+    traffic_d = (it_d.get("traffic") or {})
+
+    fivemin = (traffic_f.get("fiveminute")
+               or traffic_f.get("fiveMinute")
+               or traffic_f.get("five_minutes")
+               or [])
+
+    days = (traffic_d.get("day")
+            or traffic_d.get("days")
+            or [])
+
+    # --- helpers ---
+    def sort_key_dt(h):
+        d = h.get("date") or {}
+        t = h.get("time") or {}
+        return (d.get("year", 0), d.get("month", 0), d.get("day", 0),
+                (t.get("hour", 0) if t else 0), (t.get("minute", 0) if t else 0))
+
+    def to_mbps_from_5min_bytes(b):  # байты за 5 минут -> Мбит/с
+        return round((int(b) * 8) / (300 * 1_000_000), 3)
+
+    def to_mbps_avg_per_day(bytes_val):  # байты за день -> средняя Мбит/с за сутки
+        return round((int(bytes_val) * 8) / (86_400 * 1_000_000), 3)
+
+    # --- формируем график под выбранный диапазон ---
+    labels, rx_mbps, tx_mbps = [], [], []
+
+    if rng == "1d":
+        # последние 24 часа — 288 точек по 5 минут
+        if fivemin:
+            last288 = sorted(fivemin, key=sort_key_dt)[-288:]
+            for m in last288:
+                t = m.get("time") or {}
+                labels.append(f"{int(t.get('hour',0)):02d}:{int(t.get('minute',0)):02d}")
+                rx_mbps.append(to_mbps_from_5min_bytes(m.get("rx", 0)))
+                tx_mbps.append(to_mbps_from_5min_bytes(m.get("tx", 0)))
+        else:
+            labels = [""] * 288
+            rx_mbps = [0.0] * 288
+            tx_mbps = [0.0] * 288
+    else:
+        # 7d / 30d: строим по дням (средняя скорость за день)
+        need_days = 7 if rng == "7d" else 30
+        use_days = sorted(days, key=sort_key_dt)[-need_days:]
+        for d in use_days:
+            date = d.get("date") or {}
+            labels.append(f"{int(date.get('day',0)):02d}.{int(date.get('month',0)):02d}")
+            rx_mbps.append(to_mbps_avg_per_day(d.get("rx", 0)))
+            tx_mbps.append(to_mbps_avg_per_day(d.get("tx", 0)))
+
+        # если данных меньше N дней — добиваем пустыми слева
+        if len(labels) < need_days:
+            pad = need_days - len(labels)
+            labels = [""] * pad + labels
+            rx_mbps = [0.0] * pad + rx_mbps
+            tx_mbps = [0.0] * pad + tx_mbps
+
+    # --- считаем суммы за 1/7/30 дней (в байтах) ---
+    days_sorted = sorted(days, key=sort_key_dt)
+    def sum_days(n):
+        chunk = days_sorted[-n:] if days_sorted else []
+        rx_sum = sum(int(x.get("rx", 0)) for x in chunk)
+        tx_sum = sum(int(x.get("tx", 0)) for x in chunk)
+        return {"rx_bytes": rx_sum, "tx_bytes": tx_sum, "total_bytes": rx_sum + tx_sum}
+
+    totals = {
+        "1d": sum_days(1),
+        "7d": sum_days(7),
+        "30d": sum_days(30),
+    }
+
+    return jsonify({
+        "iface": iface,
+        "range": rng,
+        "labels": labels,
+        "rx_mbps": rx_mbps,
+        "tx_mbps": tx_mbps,
+        "totals": totals
+    })
+

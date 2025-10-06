@@ -31,7 +31,12 @@ content %}
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <div class="form-group">
           <label for="port">Текущий порт: {{ port }}</label>
-          <input type="text" id="port" name="port" placeholder="Введите новый порт" />
+          <input
+            type="text"
+            id="port"
+            name="port"
+            placeholder="Введите новый порт"
+          />
         </div>
         <button type="submit" class="button save-button">Сохранить</button>
       </form>
@@ -54,7 +59,12 @@ content %}
             <input type="text" name="username" placeholder="Логин" required />
           </div>
           <div class="form-group">
-            <input type="password" name="password" placeholder="Пароль" required />
+            <input
+              type="password"
+              name="password"
+              placeholder="Пароль"
+              required
+            />
           </div>
           <button type="submit" class="button add-button">
             Добавить пользователя
@@ -79,7 +89,12 @@ content %}
         <form method="POST" class="settings-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <div class="form-group">
-            <input type="text" name="delete_username" placeholder="Логин пользователя" required />
+            <input
+              type="text"
+              name="delete_username"
+              placeholder="Логин пользователя"
+              required
+            />
           </div>
           <button type="submit" class="button delete-button">
             Удалить пользователя
@@ -113,17 +128,23 @@ content %}
           <div class="config-item az-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Всех доменов, кроме .ru <span class="tag-az">AZ</span></span>
+                <span class="config-item-title"
+                  >Всех доменов, кроме .ru <span class="tag-az">AZ</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="route-all-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="route-all-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(ROUTE_ALL)</span> Перенаправляет весь трафик через antizapret, кроме
-              российских
-              доменов (.ru, .рф) и исключений из exclude-hosts.txt
+              <span class="config-param">(ROUTE_ALL)</span> Перенаправляет весь
+              трафик через antizapret, кроме российских доменов (.ru, .рф) и
+              исключений из exclude-hosts.txt
             </div>
           </div>
 
@@ -131,17 +152,23 @@ content %}
           <div class="config-item az-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Discord <span class="tag-az">AZ</span></span>
+                <span class="config-item-title"
+                  >Discord <span class="tag-az">AZ</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="discord-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="discord-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(DISCORD_INCLUDE)</span> Перенаправляет трафик Discord через antizapret,
-              включая голосовые
-              каналы и обмен сообщениями
+              <span class="config-param">(DISCORD_INCLUDE)</span> Перенаправляет
+              трафик Discord через antizapret, включая голосовые каналы и обмен
+              сообщениями
             </div>
           </div>
 
@@ -149,16 +176,22 @@ content %}
           <div class="config-item az-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Cloudflare <span class="tag-az">AZ</span> </span>
+                <span class="config-item-title"
+                  >Cloudflare <span class="tag-az">AZ</span>
+                </span>
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="cloudflare-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="cloudflare-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(CLOUDFLARE_INCLUDE)</span> Перенаправляет трафик Cloudflare через antizapret,
-              включая сайты и
+              <span class="config-param">(CLOUDFLARE_INCLUDE)</span>
+              Перенаправляет трафик Cloudflare через antizapret, включая сайты и
               сервисы, использующие Cloudflare для защиты от DDoS-атак
             </div>
           </div>
@@ -167,17 +200,23 @@ content %}
           <div class="config-item az-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Amazon <span class="tag-az">AZ</span></span>
+                <span class="config-item-title"
+                  >Amazon <span class="tag-az">AZ</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="amazon-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="amazon-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(AMAZON_INCLUDE)</span> Перенаправляет трафик Amazon через Antizapret, включая
-              сервисы
-              AWS, Prime Video и другие ресурсы Amazon
+              <span class="config-param">(AMAZON_INCLUDE)</span> Перенаправляет
+              трафик Amazon через Antizapret, включая сервисы AWS, Prime Video и
+              другие ресурсы Amazon
             </div>
           </div>
 
@@ -185,17 +224,23 @@ content %}
           <div class="config-item az-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Google <span class="tag-az">AZ</span></span>
+                <span class="config-item-title"
+                  >Google <span class="tag-az">AZ</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="google-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="google-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(GOOGLE_INCLUDE)</span> Перенаправляет трафик Google через Antizapret, включая
-              поисковую
-              систему и другие сервисы Google
+              <span class="config-param">(GOOGLE_INCLUDE)</span> Перенаправляет
+              трафик Google через Antizapret, включая поисковую систему и другие
+              сервисы Google
             </div>
           </div>
         </div>
@@ -206,17 +251,23 @@ content %}
           <div class="config-item az-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Hetzner <span class="tag-az">AZ</span></span>
+                <span class="config-item-title"
+                  >Hetzner <span class="tag-az">AZ</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="hetzner-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="hetzner-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(HETZNER_INCLUDE)</span> Перенаправляет трафик Hetzner через Antizapret,
-              включая серверы и
-              сервисы, размещенные в дата-центрах Hetzner
+              <span class="config-param">(HETZNER_INCLUDE)</span> Перенаправляет
+              трафик Hetzner через Antizapret, включая серверы и сервисы,
+              размещенные в дата-центрах Hetzner
             </div>
           </div>
 
@@ -224,16 +275,22 @@ content %}
           <div class="config-item az-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">DigitalOcean <span class="tag-az">AZ</span></span>
+                <span class="config-item-title"
+                  >DigitalOcean <span class="tag-az">AZ</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="digitalocean-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="digitalocean-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(DIGITALOCEAN_INCLUDE)</span> Перенаправляет трафик DigitalOcean через
-              Antizapret, включая
+              <span class="config-param">(DIGITALOCEAN_INCLUDE)</span>
+              Перенаправляет трафик DigitalOcean через Antizapret, включая
               облачные серверы и сервисы, предоставляемые DigitalOcean
             </div>
           </div>
@@ -242,7 +299,9 @@ content %}
           <div class="config-item az-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">OVH <span class="tag-az">AZ</span></span>
+                <span class="config-item-title"
+                  >OVH <span class="tag-az">AZ</span></span
+                >
               </span>
               <div class="toggle-switch">
                 <input type="checkbox" id="ovh-toggle" class="toggle-input" />
@@ -250,9 +309,9 @@ content %}
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(OVH_INCLUDE)</span> Перенаправляет трафик OVH через Antizapret, включая
-              серверы и
-              сервисы, размещенные в дата-центрах OVH
+              <span class="config-param">(OVH_INCLUDE)</span> Перенаправляет
+              трафик OVH через Antizapret, включая серверы и сервисы,
+              размещенные в дата-центрах OVH
             </div>
           </div>
 
@@ -260,17 +319,23 @@ content %}
           <div class="config-item az-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Akamai <span class="tag-az">AZ</span></span>
+                <span class="config-item-title"
+                  >Akamai <span class="tag-az">AZ</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="akamai-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="akamai-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(AKAMAI_INCLUDE)</span> Перенаправляет трафик Akamai через Antizapret, включая
-              сайты и
-              сервисы, использующие Akamai для доставки контента.
+              <span class="config-param">(AKAMAI_INCLUDE)</span> Перенаправляет
+              трафик Akamai через Antizapret, включая сайты и сервисы,
+              использующие Akamai для доставки контента.
             </div>
           </div>
 
@@ -278,16 +343,22 @@ content %}
           <div class="config-item az-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Telegram <span class="tag-az">AZ</span></span>
+                <span class="config-item-title"
+                  >Telegram <span class="tag-az">AZ</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="telegram-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="telegram-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(TELEGRAM_INCLUDE)</span> Перенаправляет трафик Telegram через Antizapret,
-              включая обмен
+              <span class="config-param">(TELEGRAM_INCLUDE)</span>
+              Перенаправляет трафик Telegram через Antizapret, включая обмен
               сообщениями, каналы и группы
             </div>
           </div>
@@ -299,7 +370,9 @@ content %}
         <div class="config-item az-item">
           <label class="toggle-wrapper">
             <span class="toggle-label">
-              <span class="config-item-title">AdBlock <span class="tag-az">AZ</span></span>
+              <span class="config-item-title"
+                >AdBlock <span class="tag-az">AZ</span></span
+              >
             </span>
             <div class="toggle-switch">
               <input type="checkbox" id="AdBlock-toggle" class="toggle-input" />
@@ -307,47 +380,62 @@ content %}
             </div>
           </label>
           <div class="config-item-tooltip">
-            <span class="config-param">(BLOCK_ADS)</span> Блокировка рекламы, трекеров, вредоносных программ и
-            фишинговых веб-сайтов в AntiZapret VPN (Antizapret-*) на основе
-            правил AdGuard и OISD
+            <span class="config-param">(BLOCK_ADS)</span> Блокировка рекламы,
+            трекеров, вредоносных программ и фишинговых веб-сайтов в AntiZapret
+            VPN (Antizapret-*) на основе правил AdGuard и OISD
           </div>
         </div>
         <div class="config-item az-item">
           <label class="toggle-wrapper">
             <span class="toggle-label">
-              <span class="config-item-title">Очистка хостов: казино-домены <span class="tag-az">AZ</span></span>
+              <span class="config-item-title"
+                >Очистка хостов: казино-домены
+                <span class="tag-az">AZ</span></span
+              >
             </span>
             <div class="toggle-switch">
-              <input type="checkbox" id="clear-hosts-toggle" class="toggle-input" />
+              <input
+                type="checkbox"
+                id="clear-hosts-toggle"
+                class="toggle-input"
+              />
               <span class="toggle-slider"></span>
             </div>
           </label>
           <div class="config-item-tooltip">
             <span class="config-param">(CLEAR_HOSTS)</span>
-            Удаляет домены с азартными играми при авто-обновлении списков (≈ 170 000 записей), уменьшая объём мусора и
-            нагрузку.
+            Удаляет домены с азартными играми при авто-обновлении списков (≈ 170
+            000 записей), уменьшая объём мусора и нагрузку.
           </div>
         </div>
       </div>
 
       <!--------------------------OPENVPN_80_443_FALLBACK----------------------------->
-      <p class="config-description">Включить Резервные OpenVPN-порты (80/443):</p>
+      <p class="config-description">
+        Включить Резервные OpenVPN-порты (80/443):
+      </p>
       <!-- OPENVPN_80_443_TCP  -->
       <div class="config-grid">
         <div class="config-column">
           <div class="config-item ov-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">TCP <span class="tag-ov">OVPN</span></span>
+                <span class="config-item-title"
+                  >TCP <span class="tag-ov">OVPN</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="tcp_80_443-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="tcp_80_443-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(OPENVPN_80_443_TCP)</span> Включает резервные порты OpenVPN TCP (80 и 443) для
-              обхода блокировок
+              <span class="config-param">(OPENVPN_80_443_TCP)</span> Включает
+              резервные порты OpenVPN TCP (80 и 443) для обхода блокировок
               провайдеров, если стандартный порт заблокирован.
             </div>
           </div>
@@ -357,16 +445,22 @@ content %}
           <div class="config-item ov-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">UDP <span class="tag-ov">OVPN</span></span>
+                <span class="config-item-title"
+                  >UDP <span class="tag-ov">OVPN</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="udp_80_443-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="udp_80_443-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(OPENVPN_80_443_UDP)</span> Включает резервные порты OpenVPN UDP (80 и 443) для
-              обхода блокировок
+              <span class="config-param">(OPENVPN_80_443_UDP)</span> Включает
+              резервные порты OpenVPN UDP (80 и 443) для обхода блокировок
               провайдеров, если стандартный порт заблокирован.
             </div>
           </div>
@@ -382,34 +476,48 @@ content %}
           <div class="config-item server-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Защита от брутфорса SSH <span class="tag-server">Server</span> </span>
+                <span class="config-item-title"
+                  >Защита от брутфорса SSH
+                  <span class="tag-server">Server</span>
+                </span>
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="ssh_protection-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="ssh_protection-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(SSH_PROTECTION)</span> Включить защиту от перебора паролей SSH (не более 3
-              новых подключений в час с одного IP)
+              <span class="config-param">(SSH_PROTECTION)</span> Включить защиту
+              от перебора паролей SSH (не более 3 новых подключений в час с
+              одного IP)
             </div>
           </div>
           <!-- TORRENT_GUARD  -->
           <div class="config-item server-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Torrent Guard <span class="tag-server">Server</span></span>
+                <span class="config-item-title"
+                  >Torrent Guard <span class="tag-server">Server</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="torrent_guard-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="torrent_guard-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(TORRENT_GUARD)</span> Torrent Guard — если хостер запрещает торренты или
-              присылает жалобы, эта опция поможет:
-              при обнаружении
-              торрент-трафика VPN будет блокироваться на 1 минуту
+              <span class="config-param">(TORRENT_GUARD)</span> Torrent Guard —
+              если хостер запрещает торренты или присылает жалобы, эта опция
+              поможет: при обнаружении торрент-трафика VPN будет блокироваться
+              на 1 минуту
             </div>
           </div>
         </div>
@@ -419,57 +527,82 @@ content %}
           <div class="config-item server-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Антискан и защита от атак <span class="tag-server">Server</span> </span>
+                <span class="config-item-title"
+                  >Антискан и защита от атак
+                  <span class="tag-server">Server</span>
+                </span>
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="attack_protection-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="attack_protection-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(ATTACK_PROTECTION)</span> Внимание!!! Защита от сетевых атак и сканирования
-              может блокировать VPN или сторонние
-              приложения!
+              <span class="config-param">(ATTACK_PROTECTION)</span> Внимание!!!
+              Защита от сетевых атак и сканирования может блокировать VPN или
+              сторонние приложения!
             </div>
           </div>
           <!-- RESTRICT_FORWARD  -->
-          <div class="config-item  server-item">
+          <div class="config-item server-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Ограничение форвардинга <span class="tag-server">Server</span></span>
+                <span class="config-item-title"
+                  >Ограничение форвардинга
+                  <span class="tag-server">Server</span></span
+                >
               </span>
               <div class="toggle-switch">
-                <input type="checkbox" id="restrict_forward-toggle" class="toggle-input" />
+                <input
+                  type="checkbox"
+                  id="restrict_forward-toggle"
+                  class="toggle-input"
+                />
                 <span class="toggle-slider"></span>
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(restrict_forward)</span> Включить ограничение форвардинга — через AntiZapret
-              VPN будет маршрутизироваться только
-              трафик к
-              IP-адресам, которые явно указаны в файлах config/forward-ips.txt и result/route-ips.txt
+              <span class="config-param">(restrict_forward)</span> Включить
+              ограничение форвардинга — через AntiZapret VPN будет
+              маршрутизироваться только трафик к IP-адресам, которые явно
+              указаны в файлах config/forward-ips.txt и result/route-ips.txt
             </div>
           </div>
         </div>
       </div>
 
       <!--------------------------OpenVPN & WireGuard Host----------------------------->
-      <p class="config-description">Настройки хостов для OpenVPN и WireGuard:</p>
+      <p class="config-description">
+        Настройки хостов для OpenVPN и WireGuard:
+      </p>
       <div class="config-grid">
         <div class="config-column">
           <div class="config-item ov-item">
             <label class="input-wrapper">
               <span class="input-label">
-                <span class="config-item-title">OpenVPN Host <span class="tag-ov">OVPN</span></span>
+                <span class="config-item-title"
+                  >OpenVPN Host <span class="tag-ov">OVPN</span></span
+                >
               </span>
-              <input type="text" id="openvpn-host-input" class="input-field ov-input" placeholder="vpn.example.ru" />
+              <input
+                type="text"
+                id="openvpn-host-input"
+                class="input-field ov-input"
+                placeholder="vpn.example.ru"
+              />
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(OPENVPN_HOST)</span> Укажите хост для OpenVPN сервера. Этот параметр задает
-              адрес сервера, используемого для
-              OpenVPN подключений.
-              <span class="config-host-param">После включения необходимо пересоздать все конфигурации на
-                сервере!!!</span>
+              <span class="config-param">(OPENVPN_HOST)</span> Укажите хост для
+              OpenVPN сервера. Этот параметр задает адрес сервера, используемого
+              для OpenVPN подключений.
+              <span class="config-host-param"
+                >После включения необходимо пересоздать все конфигурации на
+                сервере!!!</span
+              >
             </div>
           </div>
         </div>
@@ -477,18 +610,25 @@ content %}
           <div class="config-item wg-item">
             <label class="input-wrapper">
               <span class="input-label">
-                <span class="config-item-title">WireGuard Host <span class="tag-wg">WG</span></span>
+                <span class="config-item-title"
+                  >WireGuard Host <span class="tag-wg">WG</span></span
+                >
               </span>
-              <input type="text" id="wireguard-host-input" class="input-field wg-input" placeholder="vpn.example.ru" />
+              <input
+                type="text"
+                id="wireguard-host-input"
+                class="input-field wg-input"
+                placeholder="vpn.example.ru"
+              />
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(WIREGUARD_HOST)</span> Укажите хост для WireGuard сервера. Этот параметр
-              задает
-              адрес сервера, используемого для
-              WireGuard
-              подключений.
-              <span class="config-host-param">После включения необходимо пересоздать все конфигурации на
-                сервере!!!</span>
+              <span class="config-param">(WIREGUARD_HOST)</span> Укажите хост
+              для WireGuard сервера. Этот параметр задает адрес сервера,
+              используемого для WireGuard подключений.
+              <span class="config-host-param"
+                >После включения необходимо пересоздать все конфигурации на
+                сервере!!!</span
+              >
             </div>
           </div>
         </div>

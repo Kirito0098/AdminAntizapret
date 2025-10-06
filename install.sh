@@ -20,7 +20,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Установка компонентов, необходимых для работы скрипта
-packages=(apt-utils whiptail iproute2 dnsutils net-tools git)
+packages=(apt-utils whiptail iproute2 dnsutils net-tools git vnstat)
 # Обновление репозитория только если чего-то не хватает
 for package in "${packages[@]}"; do
     status=$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null)
@@ -38,7 +38,18 @@ for package in "${packages[@]}"; do
         sudo apt-get install -y "$package" &> /dev/null
     fi
 done
-
+# Включение и запуск vnstat
+echo -e "${YELLOW}Настройка vnStat...${NC}"
+if systemctl list-unit-files | grep -q "^vnstat.service"; then
+    systemctl enable --now vnstat &> /dev/null
+    if systemctl is-active --quiet vnstat; then
+        echo -e "${GREEN}Служба vnStat успешно запущена и добавлена в автозагрузку.${NC}"
+    else
+        echo -e "${RED}Ошибка при запуске службы vnStat!${NC}" >&2
+    fi
+else
+    echo -e "${RED}Служба vnStat не найдена в системе.${NC}" >&2
+fi
 # Клонирование или обновление репозитория
 echo -e "${YELLOW}Проверка репозитория...${NC}"
 if [ -d "$INSTALL_DIR/.git" ]; then

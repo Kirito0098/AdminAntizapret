@@ -1,13 +1,13 @@
 /*=============== GOOGLE FONTS ===============*/
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap');
 
 /*=============== BASE STYLES ===============*/
 body {
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   color: hsl(0, 0%, 100%);
   margin: 0;
   padding: 0;
-  background-image: url("../img/login-bg.png");
+  background-image: url('../img/login-bg.png');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -68,7 +68,7 @@ h1 {
   border: 1px solid hsl(0, 0%, 50%);
   border-radius: 0.5rem;
   color: hsl(0, 0%, 90%);
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   box-sizing: border-box;
   transition: all 0.3s ease;
 }
@@ -222,7 +222,7 @@ th {
   border: 1px solid hsl(0, 0%, 100%);
   border-radius: 0.5rem;
   color: hsl(0, 0%, 100%);
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   box-sizing: border-box;
   /* Важно для одинаковых размеров */
 }
@@ -327,7 +327,7 @@ th {
   border-radius: 0.5rem;
   text-decoration: none;
   transition: all 0.3s;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 0.9rem;
 }
 
@@ -404,7 +404,7 @@ th {
   border: 1px solid hsl(0, 0%, 50%);
   border-radius: 0.5rem;
   color: hsl(0, 0%, 90%);
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 1rem;
   box-sizing: border-box;
   transition: all 0.3s ease;
@@ -429,7 +429,7 @@ th {
   border: 1px solid hsl(0, 0%, 50%);
   border-radius: 0.5rem;
   color: hsl(0, 0%, 90%);
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 1rem;
   text-align: center;
   cursor: pointer;
@@ -458,7 +458,7 @@ th {
 .loading-message {
   color: white;
   font-size: 1.5rem;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   text-align: center;
   background: rgba(0, 0, 0, 0.8);
   padding: 1rem 2rem;
@@ -487,7 +487,7 @@ th {
 }
 
 .loading-text {
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 1.2rem;
   color: #333;
 }
@@ -539,7 +539,7 @@ th {
 
 .vpn-qr-button {
   background-color: transparent;
-  background-image: url("../img/qr.png");
+  background-image: url('../img/qr.png');
   background-size: 28px 28px;
   background-repeat: no-repeat;
   background-position: center;
@@ -576,7 +576,7 @@ th {
   border: 1px solid rgba(255, 0, 0, 0.5);
   border-radius: 0.5rem;
   color: red;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 1rem;
 }
 
@@ -591,7 +591,7 @@ th {
   right: 20px;
   padding: 1rem 1.5rem;
   border-radius: 0.5rem;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 1rem;
   color: #fff;
   z-index: 2000;
@@ -638,7 +638,7 @@ th {
   color: #fff;
   padding: 0.8rem 1.2rem;
   border-radius: 0.5rem;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 0.9rem;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   z-index: 2000;
@@ -652,7 +652,7 @@ th {
 }
 
 #loading-indicator::before {
-  content: "";
+  content: '';
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
@@ -668,134 +668,6 @@ th {
 
   100% {
     transform: rotate(360deg);
-  }
-}
-
-/*=============== SERVER MONITOR ===============*/
-.server-monitor-wrapper {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 2rem;
-}
-
-.server-info {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: stretch;
-  gap: 1.5rem;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  /* min-height не нужен, карточки сами выровняются по высоте */
-}
-
-.info-item {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  border: 2px solid #4caf50;
-  background: rgba(30, 40, 30, 0.7);
-  padding: 2rem 1.5rem 1.5rem 1.5rem;
-  border-radius: 1.2rem;
-  text-align: center;
-  min-width: 260px;
-  max-width: 350px;
-  min-height: 320px;
-  /* одинаковая высота карточек */
-  box-shadow: 0 4px 24px rgba(76, 175, 80, 0.08);
-  transition: box-shadow 0.2s;
-  margin: 0;
-}
-
-.info-item:hover {
-  box-shadow: 0 8px 32px rgba(76, 175, 80, 0.18);
-}
-
-.info-item h3 {
-  font-size: 1.25rem;
-  margin-bottom: 0.7rem;
-  color: #b2ffb2;
-  text-align: center;
-  letter-spacing: 0.02em;
-}
-
-.info-item p {
-  font-size: 2rem;
-  font-weight: 600;
-  color: #fff;
-  text-align: center;
-  margin-bottom: 1rem;
-  margin-top: 0.2rem;
-}
-
-.info-item canvas {
-  margin-top: 0.5rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 0.7rem;
-  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.08);
-  width: 100% !important;
-  max-width: 320px;
-  height: 120px !important;
-}
-
-.uptime-icon {
-  margin-top: 0.7rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.uptime-icon svg {
-  display: block;
-  margin: 0 auto;
-}
-
-@media (max-width: 1100px) {
-  .server-info {
-    flex-direction: column;
-    align-items: center;
-    gap: 1.2rem;
-    width: 100%;
-  }
-  .info-item {
-    min-width: 220px;
-    max-width: 98vw;
-    width: 100%;
-    min-height: 220px;
-    padding: 1.2rem 0.5rem;
-  }
-  .info-item canvas {
-    width: 98vw !important;
-    max-width: 320px;
-    height: 100px !important;
-  }
-}
-
-@media (max-width: 600px) {
-  .server-info {
-    width: 100%;
-    gap: 0.5rem;
-  }
-  .info-item {
-    padding: 0.7rem 0.2rem;
-    min-width: 0;
-    max-width: 100vw;
-    min-height: 160px;
-  }
-  .info-item h3 {
-    font-size: 1.05rem;
-  }
-  .info-item p {
-    font-size: 1.2rem;
-  }
-  .info-item canvas {
-    max-width: 98vw;
-    height: 80px !important;
   }
 }
 
@@ -833,7 +705,7 @@ th {
   border: 1px solid hsl(0, 0%, 50%);
   border-radius: 0.5rem;
   color: hsl(0, 0%, 100%);
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .form-container button {
@@ -856,7 +728,7 @@ th {
   padding: 1rem;
   border-radius: 0.5rem;
   margin-bottom: 0.5rem;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 1rem;
   color: #fff;
 }
@@ -1054,7 +926,7 @@ th {
   border: 1px solid hsl(0, 0%, 50%);
   border-radius: 0.5rem;
   color: var(--text-color);
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 1rem;
   box-sizing: border-box;
 }
@@ -1064,7 +936,7 @@ th {
   padding: 0.9rem;
   border: none;
   border-radius: 0.5rem;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
@@ -1234,7 +1106,7 @@ th {
 
 .toggle-slider:before {
   position: absolute;
-  content: "";
+  content: '';
   height: 26px;
   width: 26px;
   left: 4px;
@@ -1279,7 +1151,7 @@ th {
   margin-top: 1rem;
   padding: 1rem;
   border-radius: 0.5rem;
-  font-family: "Poppins", sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 1rem;
 }
 /* Анимация появления */
@@ -1487,4 +1359,125 @@ th {
 .config-host-param {
   font-weight: bold;
   color: #ff0000;
+}
+/* === vnStat / Bandwidth Monitor Section === */
+.card-body {
+  padding: 1rem;
+  border-radius: 12px;
+  border: 2px solid #4caf50;
+  background: rgba(30, 40, 30, 0.7);
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+}
+/* Диапазон (переключатели) */
+.bw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.bw-range {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+.bw-range-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.bw-range-btn:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.bw-range-btn.active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Блок сумм за периоды */
+.bw-aggregate {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.bw-agg {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: center;
+}
+.bw-agg h6 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  color: var(--text-secondary, #aaa);
+}
+.bw-agg p {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-bright, #fff);
+}
+
+/* уже были ранее */
+.bw-section {
+  grid-column: 1 / -1;
+  margin-top: 24px;
+  width: 100%;
+}
+.bw-card {
+  width: 100%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+}
+.bw-chart {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
+.bw-source {
+  font-size: 0.9rem;
+  color: var(--text-muted, #999);
+  text-align: center;
+  margin-top: 0.5rem;
+}
+.bw-load {
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--text-primary, #ccc);
+  margin-top: 0.5rem;
+}
+.bw-stats {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  text-align: center;
+  margin-top: 1.5rem;
+  gap: 1rem;
+}
+.bw-stat {
+  flex: 1 1 180px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px 15px;
+  border-radius: 8px;
+}
+.bw-stat h5 {
+  font-size: 1rem;
+  color: var(--text-secondary, #aaa);
+  margin-bottom: 4px;
+}
+.bw-stat p {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-bright, #fff);
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .bw-aggregate {
+    grid-template-columns: 1fr;
+  }
 }
