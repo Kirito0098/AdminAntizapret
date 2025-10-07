@@ -349,9 +349,6 @@ server_monitor_proc = ServerMonitor()
 @app.route("/", methods=["GET", "POST"])
 @auth_manager.login_required
 def index():
-    iface = os.getenv("VNSTAT_IFACE", "ens3")
-    return render_template("server_monitor.html", iface=iface)
-def index():
     if request.method == "GET":
         openvpn_files, wg_files, amneziawg_files = (
             config_file_handler.get_config_files()
@@ -601,6 +598,8 @@ def run_doall():
 @app.route("/server_monitor", methods=["GET", "POST"])
 @auth_manager.login_required
 def server_monitor():
+    iface = os.getenv("VNSTAT_IFACE", "ens3")
+
     if request.method == "GET":
         cpu_usage = server_monitor_proc.get_cpu_usage()
         memory_usage = server_monitor_proc.get_memory_usage()
@@ -610,6 +609,7 @@ def server_monitor():
             cpu_usage=cpu_usage,
             memory_usage=memory_usage,
             uptime=uptime,
+            iface=iface,
         )
     elif request.method == "POST":
         try:
@@ -806,7 +806,8 @@ def settings():
     current_port = os.getenv("APP_PORT", "5050")
     users = User.query.all()
     return render_template("settings.html", port=current_port, users=users)
-    
+
+
 # Трафик по 5-минуткам для графика (последние 24 часа)
 @app.route("/api/bw")
 @auth_manager.login_required
@@ -845,7 +846,7 @@ def api_bw():
 
     # --- Достаём нужные секции ---
     def get_iface_block(data):
-        for it in (data.get("interfaces") or []):
+        for it in data.get("interfaces") or []:
             if it.get("name") == iface:
                 return it
         return {}
@@ -853,24 +854,29 @@ def api_bw():
     it_f = get_iface_block(data_f)
     it_d = get_iface_block(data_d)
 
-    traffic_f = (it_f.get("traffic") or {})
-    traffic_d = (it_d.get("traffic") or {})
+    traffic_f = it_f.get("traffic") or {}
+    traffic_d = it_d.get("traffic") or {}
 
-    fivemin = (traffic_f.get("fiveminute")
-               or traffic_f.get("fiveMinute")
-               or traffic_f.get("five_minutes")
-               or [])
+    fivemin = (
+        traffic_f.get("fiveminute")
+        or traffic_f.get("fiveMinute")
+        or traffic_f.get("five_minutes")
+        or []
+    )
 
-    days = (traffic_d.get("day")
-            or traffic_d.get("days")
-            or [])
+    days = traffic_d.get("day") or traffic_d.get("days") or []
 
     # --- helpers ---
     def sort_key_dt(h):
         d = h.get("date") or {}
         t = h.get("time") or {}
-        return (d.get("year", 0), d.get("month", 0), d.get("day", 0),
-                (t.get("hour", 0) if t else 0), (t.get("minute", 0) if t else 0))
+        return (
+            d.get("year", 0),
+            d.get("month", 0),
+            d.get("day", 0),
+            (t.get("hour", 0) if t else 0),
+            (t.get("minute", 0) if t else 0),
+        )
 
     def to_mbps_from_5min_bytes(b):  # байты за 5 минут -> Мбит/с
         return round((int(b) * 8) / (300 * 1_000_000), 3)
@@ -887,7 +893,9 @@ def api_bw():
             last288 = sorted(fivemin, key=sort_key_dt)[-288:]
             for m in last288:
                 t = m.get("time") or {}
-                labels.append(f"{int(t.get('hour',0)):02d}:{int(t.get('minute',0)):02d}")
+                labels.append(
+                    f"{int(t.get('hour',0)):02d}:{int(t.get('minute',0)):02d}"
+                )
                 rx_mbps.append(to_mbps_from_5min_bytes(m.get("rx", 0)))
                 tx_mbps.append(to_mbps_from_5min_bytes(m.get("tx", 0)))
         else:
@@ -900,7 +908,9 @@ def api_bw():
         use_days = sorted(days, key=sort_key_dt)[-need_days:]
         for d in use_days:
             date = d.get("date") or {}
-            labels.append(f"{int(date.get('day',0)):02d}.{int(date.get('month',0)):02d}")
+            labels.append(
+                f"{int(date.get('day',0)):02d}.{int(date.get('month',0)):02d}"
+            )
             rx_mbps.append(to_mbps_avg_per_day(d.get("rx", 0)))
             tx_mbps.append(to_mbps_avg_per_day(d.get("tx", 0)))
 
@@ -913,6 +923,7 @@ def api_bw():
 
     # --- считаем суммы за 1/7/30 дней (в байтах) ---
     days_sorted = sorted(days, key=sort_key_dt)
+
     def sum_days(n):
         chunk = days_sorted[-n:] if days_sorted else []
         rx_sum = sum(int(x.get("rx", 0)) for x in chunk)
@@ -925,12 +936,13 @@ def api_bw():
         "30d": sum_days(30),
     }
 
-    return jsonify({
-        "iface": iface,
-        "range": rng,
-        "labels": labels,
-        "rx_mbps": rx_mbps,
-        "tx_mbps": tx_mbps,
-        "totals": totals
-    })
-
+    return jsonify(
+        {
+            "iface": iface,
+            "range": rng,
+            "labels": labels,
+            "rx_mbps": rx_mbps,
+            "tx_mbps": tx_mbps,
+            "totals": totals,
+        }
+    )
