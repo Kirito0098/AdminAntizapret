@@ -1,14 +1,14 @@
 // Инициализация логики после загрузки DOM
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener("DOMContentLoaded", function () {
   // Получение контекстов холстов и стартовых значений CPU/памяти
-  const cpuChartCtx = document.getElementById('cpuChart').getContext('2d');
+  const cpuChartCtx = document.getElementById("cpuChart").getContext("2d");
   const memoryChartCtx = document
-    .getElementById('memoryChart')
-    .getContext('2d');
+    .getElementById("memoryChart")
+    .getContext("2d");
   const initialCpu =
-    parseFloat(document.getElementById('cpu-usage')?.textContent) || 0;
+    parseFloat(document.getElementById("cpu-usage")?.textContent) || 0;
   const initialMem =
-    parseFloat(document.getElementById('memory-usage')?.textContent) || 0;
+    parseFloat(document.getElementById("memory-usage")?.textContent) || 0;
 
   // Буферы с последними точками для графиков CPU и памяти
   let cpuData = Array(30).fill(initialCpu);
@@ -16,15 +16,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Создание линейного графика загрузки CPU (Chart.js)
   const cpuChart = new Chart(cpuChartCtx, {
-    type: 'line',
+    type: "line",
     data: {
-      labels: Array(30).fill(''),
+      labels: Array(30).fill(""),
       datasets: [
         {
-          label: 'CPU (%)',
+          label: "CPU (%)",
           data: cpuData,
-          borderColor: '#4caf50',
-          backgroundColor: 'rgba(76,175,80,0.1)',
+          borderColor: "#4caf50",
+          backgroundColor: "rgba(76,175,80,0.1)",
           tension: 0.3,
           pointRadius: 0,
           borderWidth: 2,
@@ -39,8 +39,8 @@ document.addEventListener('DOMContentLoaded', function () {
         y: {
           min: 0,
           max: 100,
-          ticks: { color: '#fff' },
-          grid: { color: '#444' },
+          ticks: { color: "#fff" },
+          grid: { color: "#444" },
         },
         x: { display: false },
       },
@@ -49,15 +49,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Создание линейного графика загрузки памяти (Chart.js)
   const memoryChart = new Chart(memoryChartCtx, {
-    type: 'line',
+    type: "line",
     data: {
-      labels: Array(30).fill(''),
+      labels: Array(30).fill(""),
       datasets: [
         {
-          label: 'Память (%)',
+          label: "Память (%)",
           data: memoryData,
-          borderColor: '#2196f3',
-          backgroundColor: 'rgba(33,150,243,0.1)',
+          borderColor: "#2196f3",
+          backgroundColor: "rgba(33,150,243,0.1)",
           tension: 0.3,
           pointRadius: 0,
           borderWidth: 2,
@@ -72,8 +72,8 @@ document.addEventListener('DOMContentLoaded', function () {
         y: {
           min: 0,
           max: 100,
-          ticks: { color: '#fff' },
-          grid: { color: '#444' },
+          ticks: { color: "#fff" },
+          grid: { color: "#444" },
         },
         x: { display: false },
       },
@@ -96,33 +96,33 @@ document.addEventListener('DOMContentLoaded', function () {
   window.updateServerCharts = updateCharts;
 
   // Ссылки на элементы DOM для раздела сетевого трафика
-  const elChart = document.getElementById('bwChart');
-  const elIface = document.getElementById('bwIface');
-  const elNetIf = document.getElementById('network_interface');
-  const elLoad = document.getElementById('network_load');
-  const elRx = document.getElementById('rx_bytes');
-  const elTx = document.getElementById('tx_bytes');
+  const elChart = document.getElementById("bwChart");
+  const elIface = document.getElementById("bwIface");
+  const elNetIf = document.getElementById("network_interface");
+  const elLoad = document.getElementById("network_load");
+  const elRx = document.getElementById("rx_bytes");
+  const elTx = document.getElementById("tx_bytes");
 
   // Элементы суммарной статистики за периоды
-  const sum1d = document.getElementById('bw-sum-1d');
-  const sum7d = document.getElementById('bw-sum-7d');
-  const sum30d = document.getElementById('bw-sum-30d');
+  const sum1d = document.getElementById("bw-sum-1d");
+  const sum7d = document.getElementById("bw-sum-7d");
+  const sum30d = document.getElementById("bw-sum-30d");
 
   // Кнопки выбора диапазона и интерфейса
-  const rangeBtns = Array.from(document.querySelectorAll('.bw-range-btn'));
-  const ifaceBtns = Array.from(document.querySelectorAll('.iface-btn'));
+  const rangeBtns = Array.from(document.querySelectorAll(".bw-range-btn"));
+  const ifaceBtns = Array.from(document.querySelectorAll(".iface-btn"));
 
   // Состояние текущего интерфейса и выбранного диапазона (сохранение в localStorage)
-  let currentIface = localStorage.getItem('bw_iface') || 'ens3';
-  let currentRange = localStorage.getItem('bw_range') || '1d';
+  let currentIface = localStorage.getItem("bw_iface") || "";
+  let currentRange = localStorage.getItem("bw_range") || "1d";
 
   // Переключение активных/неактивных кнопок согласно выбранным параметрам
   function setActiveBtns() {
     rangeBtns.forEach((b) =>
-      b.classList.toggle('active', b.dataset.range === currentRange),
+      b.classList.toggle("active", b.dataset.range === currentRange)
     );
     ifaceBtns.forEach((b) =>
-      b.classList.toggle('active', b.dataset.iface === currentIface),
+      b.classList.toggle("active", b.dataset.iface === currentIface)
     );
     rangeBtns.forEach((b) => (b.disabled = b.dataset.range === currentRange));
     ifaceBtns.forEach((b) => (b.disabled = b.dataset.iface === currentIface));
@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // Преобразование объёма из МБ в строку с МБ/ГБ/ТБ (автовыбор единицы)
   function fmtMBGBTBFromMB(mb) {
     const v = Number(mb) || 0;
-    const units = ['МБ', 'ГБ', 'ТБ', 'ПБ'];
+    const units = ["МБ", "ГБ", "ТБ", "ПБ"];
     let i = 0,
       x = v;
     while (x >= 1024 && i < units.length - 1) {
@@ -154,11 +154,11 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Константы длительности интервалов в секундах
-  const SEC = { '5min': 300, hour: 3600, day: 86400 };
+  const SEC = { "5min": 300, hour: 3600, day: 86400 };
 
   // Получение ключа «день» из подписи метки (для агрегации)
   function extractDayKey(label) {
-    if (!label) return '';
+    if (!label) return "";
     return String(label).trim().split(/\s+/)[0];
   }
 
@@ -170,15 +170,15 @@ document.addEventListener('DOMContentLoaded', function () {
       let t = Date.parse(s);
       if (!isNaN(t)) return t;
       const m = String(s).match(
-        /^(\d{1,2})\.(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/,
+        /^(\d{1,2})\.(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/
       );
       if (m) {
-        const [_, dd, MM, hh = '00', mm = '00'] = m;
+        const [_, dd, MM, hh = "00", mm = "00"] = m;
         const year = new Date().getFullYear();
-        const iso = `${year}-${MM.padStart(2, '0')}-${dd.padStart(
+        const iso = `${year}-${MM.padStart(2, "0")}-${dd.padStart(
           2,
-          '0',
-        )}T${hh.padStart(2, '0')}:${mm.padStart(2, '0')}:00`;
+          "0"
+        )}T${hh.padStart(2, "0")}:${mm.padStart(2, "0")}:00`;
         t = Date.parse(iso);
         if (!isNaN(t)) return t;
       }
@@ -206,9 +206,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Подбор интервала по выбранному диапазону, если парсинг не удался
-    if (rangeHint === '7d') return SEC.hour;
-    if (rangeHint === '30d') return SEC.day;
-    return SEC['5min'];
+    if (rangeHint === "7d") return SEC.hour;
+    if (rangeHint === "30d") return SEC.day;
+    return SEC["5min"];
   }
 
   // Агрегация скоростей (Мбит/с) в суточные объёмы (МБ) по дням
@@ -247,38 +247,38 @@ document.addEventListener('DOMContentLoaded', function () {
   // Создание/обновление графика сетевого трафика (скорость или суточные объёмы)
   let bwChart = null;
   function buildOrUpdateChart({ labels, rxSeries, txSeries, mode }) {
-    const isRate = mode === 'rate';
-    const yTitle = isRate ? 'МБ/с' : 'Трафик за день (МБ/ГБ/ТБ)';
-    const dsLabelRx = isRate ? 'Rx (МБ/с)' : 'Rx (в день)';
-    const dsLabelTx = isRate ? 'Tx (МБ/с)' : 'Tx (в день)';
+    const isRate = mode === "rate";
+    const yTitle = isRate ? "МБ/с" : "Трафик за день (МБ/ГБ/ТБ)";
+    const dsLabelRx = isRate ? "Rx (МБ/с)" : "Rx (в день)";
+    const dsLabelTx = isRate ? "Tx (МБ/с)" : "Tx (в день)";
 
     const options = {
       responsive: true,
-      interaction: { mode: 'index', intersect: false },
+      interaction: { mode: "index", intersect: false },
       scales: {
         y: {
           title: { display: true, text: yTitle },
-          grid: { color: 'rgba(255,255,255,0.10)' },
+          grid: { color: "rgba(255,255,255,0.10)" },
           ticks: {
-            color: '#ddd',
+            color: "#ddd",
             callback: isRate ? (v) => v : (v) => fmtMBGBTBFromMB(v),
           },
         },
         x: {
           title: {
             display: true,
-            text: currentRange === '1d' ? 'Время' : 'Дата',
+            text: currentRange === "1d" ? "Время" : "Дата",
           },
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          grid: { color: "rgba(255,255,255,0.05)" },
           ticks: {
-            color: '#bbb',
+            color: "#bbb",
             autoSkip: true,
-            maxTicksLimit: currentRange === '1d' ? 24 : 10,
+            maxTicksLimit: currentRange === "1d" ? 24 : 10,
           },
         },
       },
       plugins: {
-        legend: { position: 'bottom', labels: { color: '#fff' } },
+        legend: { position: "bottom", labels: { color: "#fff" } },
         tooltip: {
           callbacks: {
             label: (ctx) => {
@@ -294,8 +294,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Инициализация нового графика либо обновление существующего
     if (!bwChart) {
-      bwChart = new Chart(elChart.getContext('2d'), {
-        type: 'line',
+      bwChart = new Chart(elChart.getContext("2d"), {
+        type: "line",
         data: {
           labels,
           datasets: [
@@ -304,14 +304,14 @@ document.addEventListener('DOMContentLoaded', function () {
               data: rxSeries,
               fill: false,
               tension: 0.2,
-              borderColor: '#4caf50',
+              borderColor: "#4caf50",
             },
             {
               label: dsLabelTx,
               data: txSeries,
               fill: false,
               tension: 0.2,
-              borderColor: '#f44336',
+              borderColor: "#f44336",
             },
           ],
         },
@@ -331,19 +331,19 @@ document.addEventListener('DOMContentLoaded', function () {
   // Загрузка данных с бэкенда, подготовка рядов и отрисовка графика
   async function loadData() {
     setActiveBtns();
-    elLoad.textContent = 'Загрузка...';
+    elLoad.textContent = "Загрузка...";
 
     try {
       const url = `/api/bw?iface=${encodeURIComponent(
-        currentIface,
+        currentIface
       )}&range=${encodeURIComponent(currentRange)}`;
-      const res = await fetch(url, { cache: 'no-store' });
+      const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
-      if (!data || !data.labels) throw new Error('Bad payload');
+      if (!data || !data.labels) throw new Error("Bad payload");
 
       // Обновление отображаемого интерфейса в шапке
-      elIface.textContent = data.iface || '—';
-      elNetIf.textContent = data.iface || '—';
+      elIface.textContent = data.iface || "—";
+      elNetIf.textContent = data.iface || "—";
 
       // Извлечение массивов меток и рядов скоростей
       const labels = data.labels || [];
@@ -352,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const apiInterval = data.interval;
 
       // Ветвление по режиму: «за 1 день» показываем скорость, иначе — суточные объёмы
-      if (currentRange === '1d') {
+      if (currentRange === "1d") {
         // Подготовка рядов скорости в МБ/с и обновление карточек текущей нагрузки
         const rxMBps = rx_mbps.map((v) => (Number(v) || 0) / 8);
         const txMBps = tx_mbps.map((v) => (Number(v) || 0) / 8);
@@ -362,9 +362,9 @@ document.addEventListener('DOMContentLoaded', function () {
         elRx.textContent = `${fmtRateMBps(lastRx)} МБ/с`;
         elTx.textContent = `${fmtRateMBps(lastTx)} МБ/с`;
         elLoad.textContent = `Текущая нагрузка: Rx ${fmtRateMBps(
-          lastRx,
+          lastRx
         )} МБ/с, Tx ${fmtRateMBps(
-          lastTx,
+          lastTx
         )} МБ/с (${currentRange}, ${currentIface})`;
 
         // Построение графика скорости
@@ -372,14 +372,14 @@ document.addEventListener('DOMContentLoaded', function () {
           labels,
           rxSeries: rxMBps,
           txSeries: txMBps,
-          mode: 'rate',
+          mode: "rate",
         });
       } else {
         // Определение длительности точки и агрегация скоростей в суточные объёмы
         const secPerPoint = detectSecPerPoint(
           labels,
           apiInterval,
-          currentRange,
+          currentRange
         );
         const daily = aggregateDaily(labels, rx_mbps, tx_mbps, secPerPoint);
 
@@ -389,9 +389,9 @@ document.addEventListener('DOMContentLoaded', function () {
         elRx.textContent = `${fmtRateMBps(lastRxMBps)} МБ/с`;
         elTx.textContent = `${fmtRateMBps(lastTxMBps)} МБ/с`;
         elLoad.textContent = `Режим: суточные объёмы. Последняя скорость: Rx ${fmtRateMBps(
-          lastRxMBps,
+          lastRxMBps
         )} МБ/с, Tx ${fmtRateMBps(
-          lastTxMBps,
+          lastTxMBps
         )} МБ/с (${currentRange}, ${currentIface})`;
 
         // Построение графика суточных объёмов
@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function () {
           labels: daily.labels,
           rxSeries: daily.rxMBarr,
           txSeries: daily.txMBarr,
-          mode: 'daily',
+          mode: "daily",
         });
 
         // Диагностический вывод соответствия сумм графика и бэкенда
@@ -411,24 +411,24 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log(
           `[check] ${currentRange}: chartSum=`,
           fmtMBGBTBFromMB(rxSumMB),
-          '+',
+          "+",
           fmtMBGBTBFromMB(txSumMB),
-          'backend=',
+          "backend=",
           totals
             ? fmtMBGBTBFromMB(rxTotalBackend) +
-                ' + ' +
+                " + " +
                 fmtMBGBTBFromMB(txTotalBackend)
-            : 'n/a',
-          'secPerPoint=',
-          secPerPoint,
+            : "n/a",
+          "secPerPoint=",
+          secPerPoint
         );
       }
 
       // Карта строк для подписей периодов
       const PERIOD_LABEL = {
-        '1d': 'за 1 день',
-        '7d': 'за 7 дней',
-        '30d': 'за 30 дней',
+        "1d": "за 1 день",
+        "7d": "за 7 дней",
+        "30d": "за 30 дней",
       };
 
       // Вспомогательная функция вывода суммарной статистики в карточки
@@ -446,53 +446,53 @@ document.addEventListener('DOMContentLoaded', function () {
 
       // Обновление карточек итогов по данным от бэкенда или показ «—», если totals нет
       if (data.totals) {
-        const t1 = data.totals['1d'];
-        const t7 = data.totals['7d'];
-        const t30 = data.totals['30d'];
+        const t1 = data.totals["1d"];
+        const t7 = data.totals["7d"];
+        const t30 = data.totals["30d"];
 
         // Обновление карточек Rx
-        setStatText('bw-rx-1d', '1d', t1?.rx_bytes);
-        setStatText('bw-rx-7d', '7d', t7?.rx_bytes);
-        setStatText('bw-rx-30d', '30d', t30?.rx_bytes);
+        setStatText("bw-rx-1d", "1d", t1?.rx_bytes);
+        setStatText("bw-rx-7d", "7d", t7?.rx_bytes);
+        setStatText("bw-rx-30d", "30d", t30?.rx_bytes);
 
         // Обновление карточек Tx
-        setStatText('bw-tx-1d', '1d', t1?.tx_bytes);
-        setStatText('bw-tx-7d', '7d', t7?.tx_bytes);
-        setStatText('bw-tx-30d', '30d', t30?.tx_bytes);
+        setStatText("bw-tx-1d", "1d", t1?.tx_bytes);
+        setStatText("bw-tx-7d", "7d", t7?.tx_bytes);
+        setStatText("bw-tx-30d", "30d", t30?.tx_bytes);
 
         // Обновление карточек Total
-        setStatText('bw-total-1d', '1d', t1?.total_bytes);
-        setStatText('bw-total-7d', '7d', t7?.total_bytes);
-        setStatText('bw-total-30d', '30d', t30?.total_bytes);
+        setStatText("bw-total-1d", "1d", t1?.total_bytes);
+        setStatText("bw-total-7d", "7d", t7?.total_bytes);
+        setStatText("bw-total-30d", "30d", t30?.total_bytes);
       } else {
         // Заполнение карточек прочерками, если totals отсутствуют
-        ['rx', 'tx', 'total'].forEach((kind) => {
-          ['1d', '7d', '30d'].forEach((p) =>
-            setStatText(`bw-${kind}-${p}`, p, null),
+        ["rx", "tx", "total"].forEach((kind) => {
+          ["1d", "7d", "30d"].forEach((p) =>
+            setStatText(`bw-${kind}-${p}`, p, null)
           );
         });
       }
     } catch (e) {
       // Обработка ошибок загрузки/парсинга ответа API
-      console.error('Ошибка /api/bw:', e);
-      elLoad.textContent = 'Ошибка загрузки данных vnStat.';
+      console.error("Ошибка /api/bw:", e);
+      elLoad.textContent = "Ошибка загрузки данных vnStat.";
     }
   }
 
   // Обработчик кликов по кнопкам диапазона (смена периода и перезагрузка данных)
   rangeBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener("click", () => {
       currentRange = btn.dataset.range;
-      localStorage.setItem('bw_range', currentRange);
+      localStorage.setItem("bw_range", currentRange);
       loadData();
     });
   });
 
   // Обработчик кликов по кнопкам интерфейса (смена NIC и перезагрузка данных)
   ifaceBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener("click", () => {
       currentIface = btn.dataset.iface;
-      localStorage.setItem('bw_iface', currentIface);
+      localStorage.setItem("bw_iface", currentIface);
       loadData();
     });
   });
