@@ -349,6 +349,9 @@ server_monitor_proc = ServerMonitor()
 @app.route("/", methods=["GET", "POST"])
 @auth_manager.login_required
 def index():
+    iface = os.getenv("VNSTAT_IFACE", "ens3")
+    return render_template("server_monitor.html", iface=iface)
+def index():
     if request.method == "GET":
         openvpn_files, wg_files, amneziawg_files = (
             config_file_handler.get_config_files()
@@ -812,7 +815,7 @@ def api_bw():
     from flask import request, jsonify
 
     # iface из ?iface=..., env или конфига
-    iface = os.environ.get("VNSTAT_IFACE") or app.config.get("VNSTAT_IFACE") or "ens3"
+    iface = os.environ.get("VNSTAT_IFACE") or app.config.get("VNSTAT_IFACE")
     q_iface = request.args.get("iface")
     if q_iface:
         iface = q_iface
