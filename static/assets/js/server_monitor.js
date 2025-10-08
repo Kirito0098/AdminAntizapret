@@ -222,8 +222,9 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    if (rangeHint === "7d") return SEC.hour;
-    if (rangeHint === "30d") return SEC.day;
+    // Используем currentRange вместо rangeHint
+    if (currentRange === "7d") return SEC.hour;
+    if (currentRange === "30d") return SEC.day;
     return SEC["5min"];
   }
 
