@@ -946,3 +946,26 @@ def api_bw():
             "totals": totals,
         }
     )
+
+
+@app.route("/update_system", methods=["POST"])
+@auth_manager.login_required
+def update_system():
+    try:
+        # Обновление панели
+        panel_update = subprocess.run(
+            ["/opt/AdminAntizapret/script_sh/adminpanel.sh", "--update"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        # Проверяем вывод на ключевые слова
+        if "Система актуальна" in panel_update.stdout:
+            msg = "Система актуальна"
+        elif panel_update.returncode == 0:
+            msg = "Обновление успешно выполнено"
+        else:
+            msg = "Ошибка при обновлении"
+        return {"success": panel_update.returncode == 0, "message": msg}
+    except Exception as e:
+        return {"success": False, "message": f"Ошибка обновления: {str(e)}"}, 500
