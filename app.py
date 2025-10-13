@@ -13,6 +13,7 @@ from flask import (
     make_response,
 )
 import subprocess
+import logging
 import os
 import re
 import io
@@ -948,6 +949,10 @@ def api_bw():
     )
 
 
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+
 @app.route("/update_system", methods=["POST"])
 @auth_manager.login_required
 def update_system():
@@ -958,7 +963,13 @@ def update_system():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",  # Явно указываем кодировку UTF-8
         )
+        # Логируем вывод для диагностики
+        logger.debug(f"stdout: {panel_update.stdout}")
+        logger.debug(f"stderr: {panel_update.stderr}")
+        logger.debug(f"returncode: {panel_update.returncode}")
+
         # Проверяем вывод на ключевые слова
         if "Система актуальна" in panel_update.stdout:
             msg = "Система актуальна"
@@ -971,6 +982,14 @@ def update_system():
             msg = (
                 f"Ошибка при обновлении: {panel_update.stderr or 'Неизвестная ошибка'}"
             )
+
         return {"success": panel_update.returncode == 0, "message": msg}
+    except UnicodeDecodeError as e:
+        logger.error(f"Ошибка декодирования вывода: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Ошибка декодирования вывода: {str(e)}",
+        }, 500
     except Exception as e:
+        logger.error(f"Общая ошибка: {str(e)}")
         return {"success": False, "message": f"Ошибка обновления: {str(e)}"}, 500

@@ -329,6 +329,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
 
       const data = await response.json();
+      console.log("Response from server:", JSON.stringify(data, null, 2));
 
       if (data.success) {
         statusElement.textContent =
@@ -345,7 +346,7 @@ document.addEventListener("DOMContentLoaded", function () {
     } finally {
       setTimeout(() => {
         statusElement.style.display = "none";
-      }, 3000); // Уменьшено время показа до 3 секунд
+      }, 5000); // Уменьшено время показа до 3 секунд
     }
   };
 
