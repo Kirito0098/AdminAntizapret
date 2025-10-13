@@ -962,10 +962,15 @@ def update_system():
         # Проверяем вывод на ключевые слова
         if "Система актуальна" in panel_update.stdout:
             msg = "Система актуальна"
-        elif panel_update.returncode == 0:
+        elif (
+            "Обновление завершено!" in panel_update.stdout
+            and panel_update.returncode == 0
+        ):
             msg = "Обновление успешно выполнено"
         else:
-            msg = "Ошибка при обновлении"
+            msg = (
+                f"Ошибка при обновлении: {panel_update.stderr or 'Неизвестная ошибка'}"
+            )
         return {"success": panel_update.returncode == 0, "message": msg}
     except Exception as e:
         return {"success": False, "message": f"Ошибка обновления: {str(e)}"}, 500
