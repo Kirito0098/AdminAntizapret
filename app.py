@@ -532,6 +532,7 @@ def edit_files():
                     stderr=subprocess.PIPE,
                     text=True,
                     check=True,
+                    timeout=290
                 )
                 return jsonify(
                     {
