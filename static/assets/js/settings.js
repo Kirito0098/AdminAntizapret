@@ -44,7 +44,6 @@ document.addEventListener("DOMContentLoaded", function () {
           }
         }
 
-        // Загружаем настройки при открытии вкладки Antizapret
         if (tabId === "antizapret-config") {
           loadAntizapretSettings();
         }
@@ -217,7 +216,6 @@ document.addEventListener("DOMContentLoaded", function () {
     statusElement.style.display = "block";
 
     try {
-      // 1. Сначала сохраняем настройки
       const saveResponse = await fetch("/update_antizapret_settings", {
         method: "POST",
         headers: {
@@ -234,7 +232,6 @@ document.addEventListener("DOMContentLoaded", function () {
         throw new Error(saveData.message || "Ошибка сохранения настроек");
       }
 
-      // 2. Если сохранение успешно, применяем изменения
       statusElement.textContent = "Применение изменений...";
 
       const applyResponse = await fetch("/run-doall", {
@@ -298,72 +295,87 @@ document.addEventListener("DOMContentLoaded", function () {
     }, 300);
   };
 
-  // Инициализация
-  initMenu();
-  initUserTabs();
-
-  // Назначение обработчика сохранения настроек
-  document
-    .getElementById("save-config")
-    ?.addEventListener("click", saveAntizapretSettings);
-
-  // События
-  window.addEventListener("resize", handleResize);
-  window.addEventListener("orientationchange", handleOrientationChange);
-
-  // Сохраняем ссылки на вкладки
-  if (history.pushState) {
-    const menuLinks = document.querySelectorAll(".menu-item[data-tab]");
-    menuLinks.forEach((link) => {
-      link.addEventListener("click", function () {
-        const tabId = this.getAttribute("data-tab");
-        history.pushState(null, null, `#${tabId}`);
-      });
-    });
-  }
-  // Обновление системы
+  // === ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ СИСТЕМЫ ===
   const updateSystem = async () => {
-  const statusElement = document.getElementById("update-status");
+    const statusElement = document.getElementById("update-status");
+    const button = document.getElementById("update-system");
+
     statusElement.textContent = "Обновление системы...";
-  statusElement.className = "notification notification-info";
-  statusElement.style.display = "block";
+    statusElement.className = "notification notification-info";
+    statusElement.style.display = "block";
 
-  try {
-    const response = await fetch("/update_system", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-          "X-CSRFToken": document.querySelector('input[name="csrf_token"]')
-            .value,
-      },
-    });
+    try {
+      const response = await fetch("/update_system", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": document.querySelector('input[name="csrf_token"]')?.value || "",
+        },
+      });
 
-    const data = await response.json();
-      console.log("Response from server:", JSON.stringify(data, null, 2));
+      const data = await response.json();
 
-    if (data.success) {
-        statusElement.textContent =
-          data.message || "Система успешно обновлена!";
-      statusElement.className = "notification notification-success";
-    } else {
+      if (data.success) {
+        statusElement.textContent = data.message || "Обновление завершено!";
+        statusElement.className = "notification notification-success";
+        setTimeout(() => location.reload(), 3000);
+      } else {
         statusElement.textContent = data.message || "Ошибка обновления";
+        statusElement.className = "notification notification-error";
+      }
+    } catch (error) {
+      statusElement.textContent = "Ошибка соединения";
       statusElement.className = "notification notification-error";
+    } finally {
+      setTimeout(() => statusElement.style.display = "none", 10000);
     }
-  } catch (error) {
-      statusElement.textContent = `Ошибка: ${error.message}`;
-    statusElement.className = "notification notification-error";
-      console.error("Error updating system:", error);
-  } finally {
-    setTimeout(() => {
-      statusElement.style.display = "none";
-      }, 5000); // Уменьшено время показа до 3 секунд
-  }
-};
+  };
 
-  // Назначение обработчика обновления системы
-  document.getElementById("update-system")?.addEventListener("click", () => {
-    if (confirm("Вы уверены, что хотите обновить систему?")) {
+  // === УМНАЯ КНОПКА: ПРОВЕРКА ОБНОВЛЕНИЙ ===
+  const updateButton = document.getElementById("update-system");
+  const checkForUpdates = async () => {
+    try {
+      const response = await fetch("/check_updates");
+      const data = await response.json();
+
+      if (data.update_available) {
+        updateButton.textContent = "Доступно обновление!";
+        updateButton.style.background = "#e74c3c";
+        updateButton.disabled = false;
+      } else {
+        updateButton.textContent = "У вас последняя версия";
+        updateButton.style.background = "#27ae60";
+        updateButton.disabled = true;
+      }
+    } catch {
+      updateButton.textContent = "Проверка недоступна";
+      updateButton.style.background = "#95a5a6";
+      updateButton.disabled = true;
+    }
+  };
+
+  updateButton.addEventListener("click", () => {
+    if (updateButton.disabled) return;
+    if (confirm("ВНИМАНИЕ!\nВсе ваши изменения будут удалены навсегда.\nПродолжить обновление?")) {
       updateSystem();
     }
   });
+
+  // Запуск
+  initMenu();
+  initUserTabs();
+  document.getElementById("save-config")?.addEventListener("click", saveAntizapretSettings);
+  window.addEventListener("resize", handleResize);
+  window.addEventListener("orientationchange", handleOrientationChange);
+
+  if (history.pushState) {
+    document.querySelectorAll(".menu-item[data-tab]").forEach((link) => {
+      link.addEventListener("click", () => {
+        history.pushState(null, null, "#" + link.getAttribute("data-tab"));
+      });
+    });
+  }
+
+  // Проверяем обновления при загрузке
+  checkForUpdates();
 });

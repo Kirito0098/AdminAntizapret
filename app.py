@@ -953,24 +953,34 @@ def api_bw():
     )
 
 
-@app.route("/update_system", methods=["POST"])
+@app.route("/check_updates", methods=["GET"])
 @auth_manager.login_required
-def update_system():
+def check_updates():
     try:
-        # Обновление панели
-        panel_update = subprocess.run(
-            ["/opt/AdminAntizapret/script_sh/adminpanel.sh", "--update"],
+        result = subprocess.run(
+            """
+            cd /opt/AdminAntizapret &&
+            git fetch origin main --quiet &&
+            LOCAL=$(git rev-parse HEAD) &&
+            REMOTE=$(git rev-parse origin/main) &&
+            if [ "$LOCAL" = "$REMOTE" ]; then
+                echo "up_to_date"
+            else
+                echo "update_available"
+            fi
+            """,
+            shell=True,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             text=True,
+            timeout=30
         )
-        # Проверяем вывод на ключевые слова
-        if "Система актуальна" in panel_update.stdout:
-            msg = "Система актуальна"
-        elif panel_update.returncode == 0:
-            msg = "Обновление успешно выполнено"
+
+        status = result.stdout.strip()
+        if status == "update_available":
+            return {"update_available": True, "message": "Доступно обновление!"}, 200
         else:
-            msg = "Обновление успешно выполнено"
-        return {"success": panel_update.returncode == 0, "message": msg}
-    except Exception as e:
-        return {"success": False, "message": f"Ошибка обновления: {str(e)}"}, 500
+            return {"update_available": False, "message": "У вас последняя версия"}, 200
+
+    except:
+        return {"update_available": False, "message": "Не удалось проверить обновления"}, 200
