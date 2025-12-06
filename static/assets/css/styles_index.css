@@ -1503,3 +1503,401 @@ th {
   font-size: 0.85rem;
   padding: 0.6rem 1rem;
 }
+
+/* ============== IP RESTRICTION STYLES ============== */
+
+/* Статус карточка */
+.status-card {
+  background: var(--bg-darker, hsla(0, 0%, 15%, 0.9));
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid #4caf50;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-indicator {
+  padding: 0.8rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 500;
+  margin: 0.8rem 0;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-enabled {
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.status-disabled {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+/* Таблица IP */
+.ip-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ip-table th {
+  background: var(--bg-dark, hsla(0, 0%, 10%, 0.7));
+  padding: 1rem;
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-color, #ffffff);
+  border-bottom: 2px solid #4caf50;
+}
+
+.ip-table td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-color, #ffffff);
+}
+
+.ip-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ip-table tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Бейджи для типов IP */
+.badge {
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.badge.subnet {
+  background: rgba(33, 150, 243, 0.2);
+  color: #2196f3;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.badge.single {
+  background: rgba(156, 39, 176, 0.2);
+  color: #9c27b0;
+  border: 1px solid rgba(156, 39, 176, 0.3);
+}
+
+/* Формы и поля ввода */
+.full-width {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.help-text {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+.help-text code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+/* Сообщение "нет данных" */
+.no-data {
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+  text-align: center;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+/* Примеры использования */
+.examples {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.example {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1.2rem;
+  border-radius: 8px;
+  border-left: 3px solid #4caf50;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.example h4 {
+  margin: 0 0 0.8rem 0;
+  color: var(--text-color, #ffffff);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.example pre {
+  background: rgba(0, 0, 0, 0.3);
+  color: #f0f0f0;
+  padding: 0.8rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+  font-size: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.example pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* Маленькие кнопки */
+.small {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+/* Карточки в разделе IP */
+.card {
+  background: var(--bg-darker, hsla(0, 0%, 15%, 0.9));
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card h3 {
+  color: var(--text-color, #ffffff);
+  margin-top: 0;
+  margin-bottom: 1.2rem;
+  font-size: 1.2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.8rem;
+}
+
+/* Текстовое поле для множества IP */
+textarea.full-width {
+  min-height: 100px;
+  resize: vertical;
+  font-family: "Poppins", monospace;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* Контейнер для текущего IP */
+.current-ip {
+  background: rgba(76, 175, 80, 0.1);
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  margin: 0.8rem 0;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  font-family: monospace;
+  font-size: 1rem;
+}
+
+.current-ip strong {
+  color: #4caf50;
+  font-weight: 600;
+}
+
+/* Кнопка выключения всех ограничений */
+.full-width {
+  display: block;
+}
+
+/* Адаптация для мобильных */
+@media (max-width: 768px) {
+  .ip-table {
+    font-size: 0.9rem;
+  }
+
+  .ip-table th,
+  .ip-table td {
+    padding: 0.7rem 0.5rem;
+  }
+
+  .examples {
+    grid-template-columns: 1fr;
+  }
+
+  .status-card,
+  .card {
+    padding: 1rem;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+  }
+}
+
+/* Стили для успешных сообщений */
+.flash-success {
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.flash-error {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+/* Стили для кнопок действий в таблице */
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Подсказки при наведении */
+[title] {
+  position: relative;
+}
+
+[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  z-index: 1000;
+}
+
+/* Анимация появления */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.content-tab {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* ============== LOADING OVERLAY STYLES ============== */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  flex-direction: column;
+  backdrop-filter: blur(5px);
+}
+
+.loading-content {
+  background: rgba(30, 30, 46, 0.95);
+  border-radius: 20px;
+  padding: 40px;
+  text-align: center;
+  border: 2px solid #4caf50;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  max-width: 500px;
+  width: 90%;
+}
+
+.loading-spinner-large {
+  width: 80px;
+  height: 80px;
+  border: 6px solid rgba(255, 255, 255, 0.1);
+  border-top: 6px solid #4caf50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 30px;
+}
+
+.loading-title {
+  color: #fff;
+  font-size: 1.8rem;
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+.loading-message {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+  margin-bottom: 25px;
+  line-height: 1.5;
+}
+
+.countdown-timer {
+  font-size: 3rem;
+  color: #4caf50;
+  font-weight: bold;
+  margin: 20px 0;
+  font-family: monospace;
+}
+
+.loading-details {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 15px;
+  margin-top: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.loading-details p {
+  margin: 5px 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Управление IP ограничениями</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; }
+        .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .enabled { background: #d4edda; color: #155724; }
+        .disabled { background: #f8d7da; color: #721c24; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        .form-group { margin: 15px 0; }
+        input[type="text"] { padding: 8px; width: 300px; }
+        button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .danger { background: #dc3545; }
+        .danger:hover { background: #c82333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Управление IP ограничениями</h1>
+        
+        <div class="card">
+            <h2>Текущий статус</h2>
+            <div class="status {% if is_enabled %}enabled{% else %}disabled{% endif %}">
+                {% if is_enabled %}
+                    🔒 IP ограничения ВКЛЮЧЕНЫ
+                {% else %}
+                    🔓 IP ограничения ВЫКЛЮЧЕНЫ (доступ всем)
+                {% endif %}
+            </div>
+            <p>Ваш текущий IP: <strong>{{ current_ip }}</strong></p>
+        </div>
+        
+        <div class="card">
+            <h2>Разрешенные IP-адреса</h2>
+            {% if allowed_ips %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>IP-адрес</th>
+                            <th>Действие</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ip in allowed_ips %}
+                        <tr>
+                            <td>{{ ip }}</td>
+                            <td>
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="ip_to_remove" value="{{ ip }}">
+                                    <button type="submit" name="action" value="remove_ip" class="danger">Удалить</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>Нет разрешенных IP-адресов</p>
+            {% endif %}
+        </div>
+        
+        <div class="card">
+            <h2>Добавить IP-адрес</h2>
+            <form method="POST">
+                <div class="form-group">
+                    <label>IP-адрес или подсеть (например: 192.168.1.100 или 192.168.1.0/24):</label><br>
+                    <input type="text" name="new_ip" placeholder="192.168.1.100" required>
+                </div>
+                <button type="submit" name="action" value="add_ip">Добавить IP</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h2>Быстрая настройка</h2>
+            <form method="POST">
+                <div class="form-group">
+                    <label>Включить ограничения с этими IP (через запятую):</label><br>
+                    <input type="text" name="allowed_ips" 
+                           placeholder="127.0.0.1,192.168.1.0/24,10.0.0.1"
+                           style="width: 100%; max-width: 500px;">
+                </div>
+                <button type="submit" name="action" value="enable">Включить ограничения</button>
+            </form>
+            
+            <form method="POST" style="margin-top: 20px;">
+                <button type="submit" name="action" value="disable" class="danger">Выключить все ограничения (разрешить всем)</button>
+            </form>
+        </div>
+        
+        <div class="card">
+            <h2>Примеры форматов:</h2>
+            <ul>
+                <li><code>192.168.1.100</code> - один IP</li>
+                <li><code>192.168.1.0/24</code> - вся подсеть 192.168.1.0-255</li>
+                <li><code>10.0.0.0/16</code> - подсеть 10.0.0.0-10.0.255.255</li>
+                <li><code>127.0.0.1,::1,192.168.1.0/24</code> - несколько через запятую</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

@@ -389,6 +389,19 @@ EOL
 	check_error "Не удалось запустить сервис vnstat"
 	echo "${GREEN}[✓] Сервис vnstat настроен и запущен${NC}"
 
+	# Добавление дополнительных настроек в .env
+	echo "${YELLOW}Добавление дополнительных настроек в .env...${NC}"
+{
+    echo ""
+    echo "# Настройки безопасности - разрешенные IP адреса"
+    echo "# Формат: ALLOWED_IPS=192.168.1.1,192.168.1.2"
+    echo "ALLOWED_IPS="
+    echo ""
+    echo "# Режим ограничения IP: strict (строгий) или none (без ограничений)"
+    echo "IP_RESTRICTION_MODE=strict"
+} >> "$INSTALL_DIR/.env"
+echo "${GREEN}[✓] Дополнительные настройки добавлены в .env${NC}"
+
 	# Проверка установки
 	if systemctl is-active --quiet "$SERVICE_NAME"; then
 		if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
@@ -440,6 +453,9 @@ main() {
 	case "$1" in
 	"--install")
 		install
+		;;
+	"--restart")
+		restart_service
 		;;
 	"--update")
 		auto_update

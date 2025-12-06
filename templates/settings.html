@@ -19,14 +19,17 @@ content %}
         <i class="icon">👥</i>
         <span>Управление пользователями</span>
       </li>
+      <li class="menu-item" data-tab="ip-restrictions">
+        <i class="icon">🛡️</i>
+        <span>Ограничения по IP</span>
+      </li>
       <div id="update-button-container">
         <button id="update-system" class="button update-button">
-        Проверка обновлений...
+          Проверка обновлений...
         </button>
       </div>
-      <div id="update-status" class="notification" style="display: none"></div>
       <!-- Уведомление о статусе обновления -->
-      <div id="update-status" class="notification" style="display:none;"></div>
+      <div id="update-status" class="notification" style="display: none"></div>
     </ul>
   </div>
 
@@ -123,6 +126,265 @@ content %}
       </div>
     </div>
 
+    <!-- Ограничения по IP -->
+    <div id="ip-restrictions" class="content-tab">
+      <h2>Управление IP ограничениями</h2>
+
+      <div class="status-card">
+        <h3>Текущий статус</h3>
+        <div
+          class="status-indicator {% if ip_enabled %}status-enabled{% else %}status-disabled{% endif %}"
+        >
+          {% if ip_enabled %} 🔒 IP ограничения ВКЛЮЧЕНЫ {% else %} 🔓 IP
+          ограничения ВЫКЛЮЧЕНЫ (доступ всем) {% endif %}
+        </div>
+        <p>Ваш текущий IP: <strong>{{ current_ip }}</strong></p>
+        <p class="help-text">
+          {% if ip_enabled %} Доступ к панели разрешен только с указанных
+          IP-адресов. {% else %} Доступ к панели разрешен со всех IP-адресов. {%
+          endif %}
+        </p>
+      </div>
+
+      <!-- Список разрешенных IP -->
+      <div class="card">
+        <h3>Разрешенные IP-адреса</h3>
+        {% if allowed_ips %}
+        <div class="ip-list">
+          <table class="ip-table">
+            <thead>
+              <tr>
+                <th>IP-адрес/подсеть</th>
+                <th>Тип</th>
+                <th>Действие</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ip in allowed_ips %}
+              <tr>
+                <td><code>{{ ip }}</code></td>
+                <td>
+                  {% if '/' in ip %}
+                  <span class="badge subnet">Подсеть</span>
+                  {% else %}
+                  <span class="badge single">Один IP</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form
+                    method="POST"
+                    onsubmit="return confirm('Удалить IP {{ ip }}?')"
+                    style="display: inline"
+                  >
+                    <input
+                      type="hidden"
+                      name="csrf_token"
+                      value="{{ csrf_token() }}"
+                    />
+                    <input type="hidden" name="ip_to_remove" value="{{ ip }}" />
+                    <button
+                      type="submit"
+                      name="ip_action"
+                      value="remove_ip"
+                      class="button small delete-button"
+                    >
+                      Удалить
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="no-data">Нет разрешенных IP-адресов</p>
+        {% endif %}
+      </div>
+
+      <!-- Добавить IP -->
+      <div class="card">
+        <h3>Добавить IP-адрес</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <label for="new_ip">IP-адрес или подсеть</label>
+            <input
+              type="text"
+              id="new_ip"
+              name="new_ip"
+              placeholder="192.168.1.100 или 192.168.1.0/24"
+              class="full-width"
+            />
+            <small class="help-text">
+              Примеры: <code>192.168.1.100</code> (один IP),
+              <code>192.168.1.0/24</code> (вся подсеть)
+            </small>
+          </div>
+          <button
+            type="submit"
+            name="ip_action"
+            value="add_ip"
+            class="button add-button"
+          >
+            Добавить IP
+          </button>
+        </form>
+      </div>
+
+      <!-- Быстрая настройка -->
+      <div class="card">
+        <h3>Быстрая настройка</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <label for="ips_text"
+              >Включить ограничения с IP (через запятую)</label
+            >
+            <textarea
+              id="ips_text"
+              name="ips_text"
+              rows="3"
+              placeholder="127.0.0.1,::1,192.168.1.0/24,10.0.0.1"
+              class="full-width"
+            ></textarea>
+            <small class="help-text">
+              Укажите IP-адреса через запятую. Существующий список будет
+              заменен.
+            </small>
+          </div>
+          <button
+            type="submit"
+            name="ip_action"
+            value="enable_ips"
+            class="button save-button"
+          >
+            Включить ограничения
+          </button>
+        </form>
+
+        <form method="POST" class="settings-form" style="margin-top: 20px">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button
+            type="submit"
+            name="ip_action"
+            value="clear_all_ips"
+            class="button delete-button full-width"
+            onclick="return confirm('Вы уверены? Это удалит все IP-адреса и разрешит доступ всем.')"
+          >
+            🗑️ Выключить все ограничения (разрешить всем)
+          </button>
+        </form>
+      </div>
+
+      <!-- Примеры -->
+      <div class="card">
+        <h3>Примеры использования</h3>
+        <div class="examples">
+          <div class="example">
+            <h4>✅ Разрешить доступ только с офиса:</h4>
+            <pre><code>192.168.1.0/24,10.0.0.100</code></pre>
+          </div>
+          <div class="example">
+            <h4>✅ Разрешить доступ только с вашего IP:</h4>
+            <pre><code>{{ current_ip }}</code></pre>
+          </div>
+          <div class="example">
+            <h4>✅ Разрешить несколько доверенных IP:</h4>
+            <pre><code>192.168.1.100,192.168.1.101,10.0.0.0/24</code></pre>
+          </div>
+          <div class="example">
+            <h4>❌ Ошибка (неправильный формат):</h4>
+            <pre><code>192.168.1  # неполный адрес</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Перезапуск службы -->
+      <div class="card">
+        <h3>Применение изменений</h3>
+
+        <div
+          class="info-box"
+          style="
+            background: rgba(33, 150, 243, 0.1);
+            border-color: rgba(33, 150, 243, 0.3);
+            margin-bottom: 1.5rem;
+          "
+        >
+          <p style="margin: 0; color: #2196f3; font-weight: 500">
+            ⚠️ Важно: после изменения списка IP-адресов необходимо перезапустить
+            службу!
+          </p>
+          <p
+            style="
+              margin: 0.5rem 0 0 0;
+              color: rgba(255, 255, 255, 0.7);
+              font-size: 0.9rem;
+            "
+          >
+            Изменения вступят в силу только после перезапуска службы
+            admin-antizapret.
+          </p>
+        </div>
+
+        <!-- Кнопка перезапуска -->
+        <button
+          id="restartServiceBtn"
+          class="button save-button"
+          style="width: 100%; font-size: 1.1rem; padding: 1rem"
+        >
+          🔄 Перезапустить службу
+        </button>
+
+        <!-- Скрытая форма для отправки -->
+        <form id="restartForm" method="POST" style="display: none">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <input type="hidden" name="restart_action" value="restart_service" />
+        </form>
+
+        <p
+          style="
+            margin-top: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            text-align: center;
+          "
+        >
+          ⏱️ Перезапуск занимает 5-10 секунд. Страница будет заблокирована на
+          время перезапуска.
+        </p>
+      </div>
+
+      <!-- Оверлей блокировки -->
+      <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+          <div class="loading-spinner-large"></div>
+          <h2 class="loading-title">🔄 Перезапуск службы</h2>
+          <p class="loading-message">
+            Служба admin-antizapret перезапускается. Пожалуйста, подождите...
+          </p>
+
+          <div class="countdown-timer" id="countdownTimer">5</div>
+
+          <div class="loading-details">
+            <p>🛡️ Применяются новые настройки IP-ограничений</p>
+            <p>⚡ Остановка и запуск службы</p>
+            <p>✅ Проверка состояния системы</p>
+          </div>
+
+          <p
+            style="
+              margin-top: 20px;
+              color: rgba(255, 255, 255, 0.5);
+              font-size: 0.9rem;
+            "
+          >
+            Страница автоматически обновится после завершения
+          </p>
+        </div>
+      </div>
+    </div>
     <div id="antizapret-config" class="content-tab active">
       <h2>Конфигурирование Antizapret</h2>
       <p class="config-description">
@@ -269,9 +531,9 @@ content %}
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(WHATSAPP_INCLUDE)</span> Перенаправляет
-              трафик WhatsApp через Antizapret, включая обмен сообщениями, звонки и
-              медиафайлы.
+              <span class="config-param">(WHATSAPP_INCLUDE)</span>
+              Перенаправляет трафик WhatsApp через Antizapret, включая обмен
+              сообщениями, звонки и медиафайлы.
             </div>
           </div>
         </div>

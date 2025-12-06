@@ -30,6 +30,7 @@ from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
 import platform
+from ip_restriction import ip_restriction
 
 load_dotenv()
 
@@ -41,6 +42,7 @@ if not app.secret_key:
     raise ValueError("SECRET_KEY is not set in .env!")
 
 csrf = CSRFProtect(app)
+ip_restriction.init_app(app)
 
 CONFIG_PATHS = {
     "openvpn": [
@@ -140,6 +142,16 @@ class AuthenticationManager:
     def login_required(self, f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            if "username" in session:
+                if ip_restriction.is_enabled():
+                    client_ip = ip_restriction.get_client_ip()
+                    if not ip_restriction.is_ip_allowed(client_ip):
+                        session.clear()
+                        flash(
+                            f"Доступ запрещен с вашего IP-адреса ({client_ip}). Обратитесь к администратору.",
+                            "error",
+                        )
+                        return redirect(url_for("ip_blocked"))
             if "username" not in session:
                 flash(
                     "Пожалуйста, войдите в систему для доступа к этой странице.", "info"
@@ -405,6 +417,12 @@ def index():
 # Страница логина
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    # Если IP ограничения включены и IP не разрешен - показываем страницу блокировки
+    if ip_restriction.is_enabled():
+        client_ip = ip_restriction.get_client_ip()
+        if not ip_restriction.is_ip_allowed(client_ip):
+            return redirect(url_for("ip_blocked"))
+
     if "captcha" not in session:
         session["captcha"] = captcha_generator.generate_captcha()
 
@@ -532,7 +550,7 @@ def edit_files():
                     stderr=subprocess.PIPE,
                     text=True,
                     check=True,
-                    timeout=290
+                    timeout=290,
                 )
                 return jsonify(
                     {
@@ -807,10 +825,86 @@ def settings():
                 else:
                     flash(f"Пользователь '{delete_username}' не найден!", "error")
 
+        ip_action = request.form.get("ip_action")
+
+        if ip_action == "add_ip":
+            new_ip = request.form.get("new_ip", "").strip()
+            if new_ip:
+                if ip_restriction.add_ip(new_ip):
+                    flash(f"IP {new_ip} добавлен", "success")
+                else:
+                    flash("Неверный формат IP", "error")
+
+        elif ip_action == "remove_ip":
+            ip_to_remove = request.form.get("ip_to_remove", "").strip()
+            if ip_to_remove:
+                if ip_restriction.remove_ip(ip_to_remove):
+                    flash(f"IP {ip_to_remove} удален", "success")
+                else:
+                    flash("IP не найден", "error")
+
+        elif ip_action == "clear_all_ips":
+            ip_restriction.clear_all()
+            flash("Все IP ограничения сброшены (доступ разрешен всем)", "success")
+
+        elif ip_action == "enable_ips":
+            ips_text = request.form.get("ips_text", "").strip()
+            if ips_text:
+                ip_restriction.clear_all()
+                for ip in ips_text.split(","):
+                    ip_restriction.add_ip(ip.strip())
+                flash("IP ограничения включены", "success")
+            else:
+                flash("Укажите хотя бы один IP-адрес", "error")
+
+        # ДОБАВЬТЕ ЭТО ВНУТРЬ POST БЛОКА:
+        restart_action = request.form.get("restart_action")
+
+        if restart_action == "restart_service":
+            try:
+                # Искусственная задержка 5 секунд для визуального эффекта
+                time.sleep(5)
+
+                # Выполняем команду перезапуска
+                result = subprocess.run(
+                    ["/opt/AdminAntizapret/script_sh/adminpanel.sh", "--restart"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+
+                if result.returncode == 0:
+                    flash(
+                        "✅ Служба успешно перезапущена! Изменения IP ограничений применены.",
+                        "success",
+                    )
+                else:
+                    flash(f"❌ Ошибка при перезапуске: {result.stderr[:100]}", "error")
+
+            except subprocess.TimeoutExpired:
+                flash("⏱️ Таймаут при перезапуске службы", "error")
+            except Exception as e:
+                flash(f"❌ Ошибка: {str(e)}", "error")
+
         return redirect(url_for("settings"))
+
+    # GET запрос - отображение страницы
     current_port = os.getenv("APP_PORT", "5050")
     users = User.query.all()
-    return render_template("settings.html", port=current_port, users=users)
+
+    # Добавляем данные об IP ограничениях
+    allowed_ips = ip_restriction.get_allowed_ips()
+    ip_enabled = ip_restriction.is_enabled()
+    current_ip = ip_restriction.get_client_ip()
+
+    return render_template(
+        "settings.html",
+        port=current_port,
+        users=users,
+        allowed_ips=allowed_ips,
+        ip_enabled=ip_enabled,
+        current_ip=current_ip,
+    )
 
 
 # Трафик по 5-минуткам для графика (последние 24 часа)
@@ -973,7 +1067,7 @@ def check_updates():
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
-            timeout=30
+            timeout=30,
         )
 
         status = result.stdout.strip()
@@ -983,7 +1077,11 @@ def check_updates():
             return {"update_available": False, "message": "У вас последняя версия"}, 200
 
     except:
-        return {"update_available": False, "message": "Не удалось проверить обновления"}, 200
+        return {
+            "update_available": False,
+            "message": "Не удалось проверить обновления",
+        }, 200
+
 
 @app.route("/update_system", methods=["POST"])
 @auth_manager.login_required
@@ -1000,8 +1098,107 @@ def update_system():
             """,
             shell=True,
             timeout=600,
-            check=False
+            check=False,
         )
         return {"success": True, "message": "Панель успешно обновлена!"}, 200
     except Exception as e:
-        return {"success": True, "message": "Панель обновлена (перезагрузите страницу)"}, 200
+        return {
+            "success": True,
+            "message": "Панель обновлена (перезагрузите страницу)",
+        }, 200
+
+
+@app.before_request
+def check_ip_access():
+    """Проверяет доступ по IP"""
+    # Разрешаем доступ к статическим файлам всегда
+    if request.endpoint == "static":
+        return
+
+    # Если ограничения выключены - разрешаем все
+    if not ip_restriction.is_enabled():
+        return
+
+    client_ip = ip_restriction.get_client_ip()
+
+    # Проверяем IP для всех остальных страниц
+    if not ip_restriction.is_ip_allowed(client_ip):
+        # Разрешаем доступ к самой странице блокировки
+        if request.endpoint == "ip_blocked":
+            return
+
+        # Для API запросов возвращаем JSON ошибку
+        if request.is_json:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "message": f"Доступ запрещен с вашего IP-адреса: {client_ip}",
+                    }
+                ),
+                403,
+            )
+
+        # Для всех остальных запросов перенаправляем на страницу блокировки
+        return redirect(url_for("ip_blocked"))
+
+
+@app.route("/ip-blocked")
+def ip_blocked():
+    """Страница блокировки по IP"""
+    client_ip = ip_restriction.get_client_ip()
+    current_time = time.strftime("%Y-%m-%d %H:%M:%S")
+    request_path = request.headers.get("Referer", request.path)
+
+    return render_template(
+        "ip_blocked.html",
+        client_ip=client_ip,
+        current_time=current_time,
+        request_path=request_path,
+        app_name="AdminAntizapret",
+    )
+
+
+@app.route("/api/restart-service", methods=["POST"])
+@auth_manager.login_required
+def api_restart_service():
+    """API для перезапуска службы"""
+    try:
+        # Выполняем команду перезапуска
+        result = subprocess.run(
+            ["/opt/AdminAntizapret/script_sh/adminpanel.sh", "--restart"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode == 0:
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "✅ Служба успешно перезапущена",
+                    "output": result.stdout,
+                }
+            )
+        else:
+            app.logger.error(f"Ошибка перезапуска: {result.stderr}")
+            return (
+                jsonify(
+                    {
+                        "success": True,
+                        "message": "✅ Служба успешно перезапущена",
+                        "output": result.stderr,
+                    }
+                ),
+                500,
+            )
+
+    except subprocess.TimeoutExpired:
+        app.logger.error("Таймаут при перезапуске службы")
+        return (
+            jsonify({"success": False, "message": "⏱️ Таймаут при перезапуске службы"}),
+            500,
+        )
+    except Exception as e:
+        app.logger.error(f"Ошибка: {str(e)}")
+        return jsonify({"success": False, "message": f"❌ Ошибка: {str(e)}"}), 500

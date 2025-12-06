@@ -309,7 +309,8 @@ document.addEventListener("DOMContentLoaded", function () {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRFToken": document.querySelector('input[name="csrf_token"]')?.value || "",
+          "X-CSRFToken":
+            document.querySelector('input[name="csrf_token"]')?.value || "",
         },
       });
 
@@ -327,7 +328,7 @@ document.addEventListener("DOMContentLoaded", function () {
       statusElement.textContent = "Ошибка соединения";
       statusElement.className = "notification notification-error";
     } finally {
-      setTimeout(() => statusElement.style.display = "none", 10000);
+      setTimeout(() => (statusElement.style.display = "none"), 10000);
     }
   };
 
@@ -356,7 +357,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   updateButton.addEventListener("click", () => {
     if (updateButton.disabled) return;
-    if (confirm("ВНИМАНИЕ!\nВсе ваши изменения будут удалены навсегда.\nПродолжить обновление?")) {
+    if (
+      confirm(
+        "ВНИМАНИЕ!\nВсе ваши изменения будут удалены навсегда.\nПродолжить обновление?"
+      )
+    ) {
       updateSystem();
     }
   });
@@ -364,7 +369,9 @@ document.addEventListener("DOMContentLoaded", function () {
   // Запуск
   initMenu();
   initUserTabs();
-  document.getElementById("save-config")?.addEventListener("click", saveAntizapretSettings);
+  document
+    .getElementById("save-config")
+    ?.addEventListener("click", saveAntizapretSettings);
   window.addEventListener("resize", handleResize);
   window.addEventListener("orientationchange", handleOrientationChange);
 
@@ -379,3 +386,81 @@ document.addEventListener("DOMContentLoaded", function () {
   // Проверяем обновления при загрузке
   checkForUpdates();
 });
+// Обработка перезапуска службы
+document
+  .getElementById("restartServiceBtn")
+  ?.addEventListener("click", function () {
+    if (
+      confirm(
+        "Вы уверены? Служба будет перезапущена на 5-10 секунд.\n\nВо время перезапуска страница будет заблокирована."
+      )
+    ) {
+      startRestartProcess();
+    }
+  });
+
+function startRestartProcess() {
+  const overlay = document.getElementById("loadingOverlay");
+  const countdownElement = document.getElementById("countdownTimer");
+  const restartForm = document.getElementById("restartForm");
+
+  // Показываем оверлей
+  overlay.style.display = "flex";
+
+  let countdown = 5;
+
+  // Запускаем обратный отсчет
+  const countdownInterval = setInterval(() => {
+    countdown--;
+    countdownElement.textContent = countdown;
+
+    if (countdown <= 0) {
+      clearInterval(countdownInterval);
+
+      // Меняем сообщение
+      document.querySelector(".loading-title").textContent =
+        "⚡ Выполняется перезапуск...";
+      document.querySelector(".loading-message").textContent =
+        "Выполняется команда перезапуска службы.";
+      countdownElement.style.display = "none";
+
+      // Отправляем форму через 1 секунду
+      setTimeout(() => {
+        restartForm.submit();
+      }, 1000);
+    }
+  }, 1000);
+
+  // Блокируем все действия пользователя
+  document.body.style.overflow = "hidden";
+
+  // Показываем анимацию пульсации
+  countdownElement.classList.add("pulse");
+}
+
+// Заблокировать клавиши во время загрузки
+document.addEventListener(
+  "keydown",
+  function (e) {
+    const overlay = document.getElementById("loadingOverlay");
+    if (overlay && overlay.style.display === "flex") {
+      e.preventDefault();
+      return false;
+    }
+  },
+  false
+);
+
+// Заблокировать клики по странице во время загрузки
+document.addEventListener(
+  "click",
+  function (e) {
+    const overlay = document.getElementById("loadingOverlay");
+    if (overlay && overlay.style.display === "flex") {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }
+  },
+  true
+);
