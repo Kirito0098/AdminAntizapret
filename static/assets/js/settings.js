@@ -305,7 +305,7 @@ document.addEventListener("DOMContentLoaded", function () {
     statusElement.style.display = "block";
 
     try {
-      const response = await fetch("/check_updates", {
+      const response = await fetch("/update_system", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
