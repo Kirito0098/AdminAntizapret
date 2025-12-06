@@ -115,6 +115,10 @@ document.addEventListener("DOMContentLoaded", function () {
           data.block_ads === "y";
         document.getElementById("google-toggle").checked =
           data.google_include === "y";
+        document.getElementById("whatsapp-toggle").checked =
+          data.whatsapp_include === "y";
+        document.getElementById("roblox-toggle").checked =
+          data.roblox_include === "y";
         document.getElementById("tcp_80_443-toggle").checked =
           data.openvpn_80_443_tcp === "y";
         document.getElementById("udp_80_443-toggle").checked =
@@ -170,6 +174,12 @@ document.addEventListener("DOMContentLoaded", function () {
         : "n",
       block_ads: document.getElementById("AdBlock-toggle").checked ? "y" : "n",
       google_include: document.getElementById("google-toggle").checked
+        ? "y"
+        : "n",
+      whatsapp_include: document.getElementById("whatsapp-toggle").checked
+        ? "y"
+        : "n",
+      roblox_include: document.getElementById("roblox-toggle").checked
         ? "y"
         : "n",
       openvpn_80_443_tcp: document.getElementById("tcp_80_443-toggle").checked
@@ -313,42 +323,42 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   // Обновление системы
   const updateSystem = async () => {
-    const statusElement = document.getElementById("update-status");
+  const statusElement = document.getElementById("update-status");
     statusElement.textContent = "Обновление системы...";
-    statusElement.className = "notification notification-info";
-    statusElement.style.display = "block";
+  statusElement.className = "notification notification-info";
+  statusElement.style.display = "block";
 
-    try {
-      const response = await fetch("/update_system", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+  try {
+    const response = await fetch("/update_system", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
           "X-CSRFToken": document.querySelector('input[name="csrf_token"]')
             .value,
-        },
-      });
+      },
+    });
 
-      const data = await response.json();
+    const data = await response.json();
       console.log("Response from server:", JSON.stringify(data, null, 2));
 
-      if (data.success) {
+    if (data.success) {
         statusElement.textContent =
           data.message || "Система успешно обновлена!";
-        statusElement.className = "notification notification-success";
-      } else {
+      statusElement.className = "notification notification-success";
+    } else {
         statusElement.textContent = data.message || "Ошибка обновления";
-        statusElement.className = "notification notification-error";
-      }
-    } catch (error) {
-      statusElement.textContent = `Ошибка: ${error.message}`;
       statusElement.className = "notification notification-error";
-      console.error("Error updating system:", error);
-    } finally {
-      setTimeout(() => {
-        statusElement.style.display = "none";
-      }, 5000); // Уменьшено время показа до 3 секунд
     }
-  };
+  } catch (error) {
+      statusElement.textContent = `Ошибка: ${error.message}`;
+    statusElement.className = "notification notification-error";
+      console.error("Error updating system:", error);
+  } finally {
+    setTimeout(() => {
+      statusElement.style.display = "none";
+      }, 5000); // Уменьшено время показа до 3 секунд
+  }
+};
 
   // Назначение обработчика обновления системы
   document.getElementById("update-system")?.addEventListener("click", () => {
