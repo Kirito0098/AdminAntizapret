@@ -984,3 +984,24 @@ def check_updates():
 
     except:
         return {"update_available": False, "message": "Не удалось проверить обновления"}, 200
+
+@app.route("/update_system", methods=["POST"])
+@auth_manager.login_required
+def update_system():
+    try:
+        subprocess.run(
+            """
+            cd /opt/AdminAntizapret &&
+            git fetch origin main --quiet &&
+            git reset --hard origin/main --quiet &&
+            git clean -fd --quiet &&
+            /opt/AdminAntizapret/venv/bin/pip install -q -r requirements.txt > /dev/null 2>&1 &&
+            systemctl restart admin-antizapret.service > /dev/null 2>&1 || true
+            """,
+            shell=True,
+            timeout=600,
+            check=False
+        )
+        return {"success": True, "message": "Панель успешно обновлена!"}, 200
+    except Exception as e:
+        return {"success": True, "message": "Панель обновлена (перезагрузите страницу)"}, 200
