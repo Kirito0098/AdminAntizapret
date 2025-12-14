@@ -686,10 +686,22 @@ th {
   border-radius: 1rem;
   margin: 1rem auto;
   width: 100%;
+  max-width: 600px;
+  box-sizing: border-box;
+}
+
+.form-container-e {
+  background-color: hsla(0, 0%, 10%, 0.7);
+  border: 2px solid #4caf50;
+  padding: 2rem;
+  border-radius: 1rem;
+  margin: 1rem auto;
+  width: 100%;
   max-width: 900px;
   box-sizing: border-box;
 }
 
+/* Стили только для обычного .form-container */
 .form-container h2,
 .form-container h3 {
   color: hsl(0, 0%, 90%);
@@ -717,6 +729,37 @@ th {
 }
 
 .form-container button:hover {
+  background-color: #45a049;
+}
+
+/* Отдельные стили для .form-container-e */
+.form-container-e h2,
+.form-container-e h3 {
+  color: hsl(0, 0%, 90%);
+  margin-bottom: 1rem;
+}
+
+.form-container-e input,
+.form-container-e button {
+  width: 100%;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  background: hsla(0, 0%, 20%, 0.7);
+  border: 1px solid hsl(0, 0%, 50%);
+  border-radius: 0.5rem;
+  color: hsl(0, 0%, 100%);
+  font-family: "Poppins", sans-serif;
+}
+
+.form-container-e button {
+  background-color: #4caf50;
+  color: hsl(0, 0%, 100%);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.form-container-e button:hover {
   background-color: #45a049;
 }
 

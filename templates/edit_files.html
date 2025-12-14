@@ -12,7 +12,7 @@ endblock %} {% block content %}
 
 <div id="notification" class="notification" style="display: none"></div>
 
-<div class="form-container">
+<div class="form-container-e">
   {% for file_type, content in file_contents.items() %}
   <div class="file-section">
     <button class="file-toggle" data-target="{{ file_type }}">
@@ -38,7 +38,7 @@ endblock %} {% block content %}
   {% endfor %}
 </div>
 
-<div class="form-container">
+<div class="form-container-e">
   <button id="run-doall">Обновить список АнтиЗапрета</button>
 </div>
 {% endblock %} {% block scripts %}
