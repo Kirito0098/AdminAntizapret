@@ -403,7 +403,7 @@ setup_nginx_letsencrypt() {
 		EMAIL_ARG="--register-unsafely-without-email"
 	fi
 
-	# Установка Nginx и Certbot (snap для актуальной версии)
+	# Установка Nginx и Certbot (snap)
 	echo "${YELLOW}Установка Nginx и Certbot...${NC}"
 	apt-get update -qq
 	apt-get install -y -qq nginx >/dev/null 2>&1
@@ -411,10 +411,11 @@ setup_nginx_letsencrypt() {
 	snap install --classic certbot 2>/dev/null || snap refresh certbot >/dev/null 2>&1
 	ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || true
 
-	# Удаляем дефолтный сайт
+	# Удаляем дефолтный сайт и старый конфиг (если был от предыдущих попыток)
 	rm -f /etc/nginx/sites-enabled/default
+	rm -f "$NGINX_CONF_FILE" "$NGINX_ENABLED_LINK"
 
-	# Сохраняем и временно удаляем iptables-правила на порт 80 (ваш код)
+	# Сохраняем и временно удаляем iptables-правила на порт 80
 	SAVE_RULES=$(iptables-save)
 	PORT80_RULES=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')")
 	if [ -n "$PORT80_RULES" ]; then
@@ -426,35 +427,44 @@ setup_nginx_letsencrypt() {
 		echo "${YELLOW}Правил перенаправления с портом 80 не обнаружено${NC}"
 	fi
 
-	# Останавливаем Nginx, чтобы освободить порт 80
+	# Останавливаем Nginx
 	systemctl stop nginx
 
-	# Шаг 1: Получаем сертификат в standalone режиме
-	echo "${YELLOW}Получение сертификата Let's Encrypt (standalone режим)...${NC}"
-	certbot certonly --standalone --non-interactive --agree-tos $EMAIL_ARG -d $DOMAIN
+	CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 
-	if [ $? -ne 0 ]; then
-		echo "${RED}Ошибка получения сертификата!${NC}"
-		# Восстановление
-		echo "$SAVE_RULES" | iptables-restore 2>/dev/null
-		systemctl start nginx 2>/dev/null
-		rm -f "$NGINX_ENABLED_LINK" "$NGINX_CONF_FILE"
-		return 1
+	if [ -f "$CERT_PATH" ]; then
+		echo "${YELLOW}Сертификат для $DOMAIN уже существует и действителен. Используем существующий.${NC}"
+	else
+		echo "${YELLOW}Получение нового сертификата Let's Encrypt (standalone режим)...${NC}"
+		certbot certonly --standalone --non-interactive --agree-tos $EMAIL_ARG -d $DOMAIN
+
+		if [ $? -ne 0 ]; then
+			echo "${RED}Ошибка получения сертификата!${NC}"
+			echo "$SAVE_RULES" | iptables-restore 2>/dev/null
+			systemctl start nginx 2>/dev/null
+			return 1
+		fi
 	fi
 
-	# Восстанавливаем iptables-правила
+	# Восстанавливаем iptables
 	if [ -n "$SAVE_RULES" ]; then
 		echo "$SAVE_RULES" | iptables-restore
 		echo "${GREEN}Правила iptables восстановлены${NC}"
 	fi
 
-	# Создаём конфиг Nginx (теперь файл options-ssl-nginx.conf уже существует)
+	# Создаём полный конфиг Nginx
 	cat >"$NGINX_CONF_FILE" <<EOF
 server {
     listen 80;
     server_name $DOMAIN;
-    location /.well-known/acme-challenge/ { root /var/www/html; }
-    location / { return 301 https://\$server_name\$request_uri; }
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://\$server_name\$request_uri;
+    }
 }
 
 server {
@@ -477,14 +487,15 @@ server {
 EOF
 
 	ln -sf "$NGINX_CONF_FILE" "$NGINX_ENABLED_LINK"
+
 	nginx -t && systemctl start nginx
 
 	if [ $? -ne 0 ]; then
-		echo "${RED}Ошибка запуска Nginx после настройки!${NC}"
+		echo "${RED}Ошибка запуска Nginx! Проверьте конфиг.${NC}"
 		return 1
 	fi
 
-	# Включаем автоматическое обновление
+	# Автообновление
 	systemctl enable --now snap.certbot.renew.timer 2>/dev/null || true
 
 	cat >>"$INSTALL_DIR/.env" <<EOL
