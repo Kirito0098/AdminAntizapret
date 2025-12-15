@@ -20,7 +20,7 @@ get_port() {
             fi
         fi
         SERVICE_BUSY=$(ss -tlpn | grep ":$APP_PORT" | awk -F'[(),"]' '{print $4; exit}')
-        RULES_BUSY=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport $APP_PORT" | grep "$(ip route | grep default | awk '{print $5}')")     
+        RULES_BUSY=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport $APP_PORT" | grep "$(ip route | grep default | awk '{print $5}')")
         if [ -n "$SERVICE_BUSY" ] || [ -n "$RULES_BUSY" ]; then
             [ -n "$SERVICE_BUSY" ] && echo "${RED}Порт ${YELLOW}$APP_PORT${RED} занят процессом ${YELLOW}$SERVICE_BUSY${NC}"
             [ -n "$RULES_BUSY" ] && {
@@ -46,10 +46,11 @@ choose_installation_type() {
             echo "  1) Использовать собственный домен и получить сертификаты Let's Encrypt"
             echo "  2) Использовать собственный домен и собственные сертификаты"
             echo "  3) Самоподписанный сертификат"
-            read -p "Ваш выбор [1-3]: " ssl_sub_choice
+            echo "  4) Использовать Nginx как reverse proxy с сертификатами Let's Encrypt"
+            read -p "Ваш выбор [1-4]: " ssl_sub_choice
 
             case $ssl_sub_choice in
-            1|2|3)
+            1|2|3|4)
                 # Базовые настройки для HTTPS
                 get_port
                 cat >"$INSTALL_DIR/.env" <<EOL
@@ -61,6 +62,7 @@ EOL
                 1) setup_letsencrypt ;;
                 2) setup_custom_certs ;;
                 3) setup_selfsigned ;;
+                4) setup_nginx_letsencrypt ;;
                 esac
                 return 0
                 ;;
@@ -88,11 +90,11 @@ check_openvpn_tcp_setting() {
         OPENVPN_SETTING=$(grep '^OPENVPN_80_443_TCP=' /root/antizapret/setup | cut -d'=' -f2)
         if [ "$OPENVPN_SETTING" = "y" ]; then
             echo "${RED}Обнаружено, что порты 80 и 443 используются в AntiZapret-VPN как резервные для TCP OpenVPN.${NC}"
-            echo "${YELLOW}Такое резервирование гарантирует работоспособность OPENVPN даже в ситуации, если провайдер использует блокирующий фаервол.${NC}"    
+            echo "${YELLOW}Такое резервирование гарантирует работоспособность OPENVPN даже в ситуации, если провайдер использует блокирующий фаервол.${NC}"
             echo "${YELLOW}Использование портов 80 и 443 для сервиса AdminAntizapret удобно (в случае HTTPS например можно подключаться к WEB оснастке по${NC}"
             echo "${YELLOW}адресу https://example.com вместо https://example.com:443), но это не является безопасным вариантом.${NC}"
             echo "${YELLOW}Учтите, что подавляющая часть сетевых атак приходятся именно на WEB сервисы, размещенные на 80 и 443 портах.${NC}"
-            echo "Вы можете отключить это резервирование для OpenVPN, чтобы использовать стандартные WEB порты для AdminAntizapret(y) или оставить как есть, выбрав другой порт(n)"           
+            echo "Вы можете отключить это резервирование для OpenVPN, чтобы использовать стандартные WEB порты для AdminAntizapret(y) или оставить как есть, выбрав другой порт(n)"
             read -p "Отключить резервирование портов в OpenVPN? (y/n): " change_choice
             if [[ "$change_choice" =~ ^[Yy]$ ]]; then
                 sed -i 's/^OPENVPN_80_443_TCP=y/OPENVPN_80_443_TCP=n/' /root/antizapret/setup
@@ -181,7 +183,7 @@ EOL
         if systemctl is-enabled "$SERVICE_NAME" &> /dev/null && ! systemctl is-active "$SERVICE_NAME" &> /dev/null; then
             systemctl start "$SERVICE_NAME"
         fi
-    }    
+    }
 
     # Стоп службы (если они конечно есть). Для первой установки можно было и не делать остановку AdminAntizapret, добавил чтобы этим же скриптом переустанавливать можно было
     SERVICE_BUSY=$(ss -tlpn | grep ":$APP_PORT" | awk -F'[(),"]' '{print $4; exit}')
@@ -216,7 +218,7 @@ EOL
     fi
 
     # Установка certbot без дополнительных nginx и apache компонентов
-    echo "${YELLOW}Установка Certbot...${NC}"  
+    echo "${YELLOW}Установка Certbot...${NC}"
     apt-get install -y -qq certbot --no-install-recommends >/dev/null 2>&1
     if [ $? -ne 0 ]; then
         restore_rules
@@ -366,6 +368,86 @@ USE_HTTPS=false
 EOL
 
     echo "${GREEN}HTTP соединение настроено на порту $APP_PORT!${NC}"
+}
+
+setup_nginx_letsencrypt() {
+    log "Настройка Nginx reverse proxy с Let's Encrypt"
+    echo "${YELLOW}Настройка Nginx как reverse proxy с Let's Encrypt...${NC}"
+
+    while true; do
+        read -p "Введите доменное имя (например, example.com): " DOMAIN
+        if [[ $DOMAIN =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+            break
+        else
+            echo "${RED}Неверный формат домена!${NC}"
+        fi
+    done
+
+    read -p "Введите email для уведомлений от Let's Encrypt (нажмите ENTER, если не нужно): " EMAIL
+    EMAIL_ARG=""
+    if [[ -n "$EMAIL" ]]; then
+        if [[ "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+            EMAIL_ARG="-m $EMAIL"
+        else
+            echo "${RED}Неверный формат email, пропускаем.${NC}"
+        fi
+    else
+        EMAIL_ARG="--register-unsafely-without-email"
+    fi
+
+    echo "${YELLOW}Установка Nginx и Certbot...${NC}"
+    apt-get update -qq
+    apt-get install -y -qq nginx certbot python3-certbot-nginx >/dev/null 2>&1
+
+    rm -f /etc/nginx/sites-enabled/default
+
+    cat > /etc/nginx/sites-available/admin-antizapret <<EOF
+server {
+    listen 80;
+    server_name $DOMAIN;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://\$server_name\$request_uri;
+    }
+}
+EOF
+    ln -sf /etc/nginx/sites-available/admin-antizapret /etc/nginx/sites-enabled/
+    systemctl reload nginx
+
+    certbot --nginx --non-interactive --agree-tos $EMAIL_ARG -d $DOMAIN
+
+    if [ $? -ne 0 ]; then
+        echo "${RED}Не удалось получить сертификат Let's Encrypt для Nginx!${NC}"
+        rm -f /etc/nginx/sites-enabled/admin-antizapret
+        rm -f /etc/nginx/sites-available/admin-antizapret
+        systemctl reload nginx
+        return 1
+    fi
+
+    sed -i "/server_name $DOMAIN;/a \\
+    location / {\\
+        proxy_pass http://127.0.0.1:$APP_PORT;\\
+        proxy_set_header Host \$host;\\
+        proxy_set_header X-Real-IP \$remote_addr;\\
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\\
+        proxy_set_header X-Forwarded-Proto \$scheme;\\
+    }" /etc/nginx/sites-available/admin-antizapret
+
+    nginx -t && systemctl reload nginx
+
+    systemctl enable --now certbot.timer
+
+    cat >>"$INSTALL_DIR/.env" <<EOL
+USE_HTTPS=false
+DOMAIN=$DOMAIN
+EOL
+
+    echo "${GREEN}Nginx reverse proxy с Let's Encrypt успешно настроен для домена $DOMAIN!${NC}"
+    echo "${YELLOW}Доступ к приложению: https://$DOMAIN${NC}"
 }
 
 # Функция изменения протокола
