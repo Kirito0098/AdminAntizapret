@@ -411,11 +411,11 @@ setup_nginx_letsencrypt() {
 	snap install --classic certbot 2>/dev/null || snap refresh certbot >/dev/null 2>&1
 	ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || true
 
-	# Удаляем дефолтный сайт и старый конфиг (если был от предыдущих попыток)
+	# Удаляем дефолтный сайт и старые конфиги
 	rm -f /etc/nginx/sites-enabled/default
 	rm -f "$NGINX_CONF_FILE" "$NGINX_ENABLED_LINK"
 
-	# Сохраняем и временно удаляем iptables-правила на порт 80
+	# Временно удаляем iptables-правила на 80 порт
 	SAVE_RULES=$(iptables-save)
 	PORT80_RULES=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')")
 	if [ -n "$PORT80_RULES" ]; then
@@ -427,23 +427,20 @@ setup_nginx_letsencrypt() {
 		echo "${YELLOW}Правил перенаправления с портом 80 не обнаружено${NC}"
 	fi
 
-	# Останавливаем Nginx
 	systemctl stop nginx
 
 	CERT_PATH="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 
 	if [ -f "$CERT_PATH" ]; then
-		echo "${YELLOW}Сертификат для $DOMAIN уже существует и действителен. Используем существующий.${NC}"
+		echo "${YELLOW}Сертификат для $DOMAIN уже существует. Используем существующий.${NC}"
 	else
-		echo "${YELLOW}Получение нового сертификата Let's Encrypt (standalone режим)...${NC}"
-		certbot certonly --standalone --non-interactive --agree-tos $EMAIL_ARG -d $DOMAIN
-
-		if [ $? -ne 0 ]; then
+		echo "${YELLOW}Получение нового сертификата (standalone)...${NC}"
+		certbot certonly --standalone --non-interactive --agree-tos $EMAIL_ARG -d $DOMAIN || {
 			echo "${RED}Ошибка получения сертификата!${NC}"
 			echo "$SAVE_RULES" | iptables-restore 2>/dev/null
 			systemctl start nginx 2>/dev/null
 			return 1
-		fi
+		}
 	fi
 
 	# Восстанавливаем iptables
@@ -452,7 +449,7 @@ setup_nginx_letsencrypt() {
 		echo "${GREEN}Правила iptables восстановлены${NC}"
 	fi
 
-	# Создаём полный конфиг Nginx
+	# Создаём конфиг БЕЗ include options-ssl-nginx.conf (для snap)
 	cat >"$NGINX_CONF_FILE" <<EOF
 server {
     listen 80;
@@ -468,13 +465,22 @@ server {
 }
 
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
     server_name $DOMAIN;
 
     ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Рекомендуемые SSL-настройки (вместо отсутствующего options-ssl-nginx.conf)
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_tickets off;
+
+    # HSTS (опционально, но рекомендуется)
+    add_header Strict-Transport-Security "max-age=63072000" always;
 
     location / {
         proxy_pass http://127.0.0.1:$APP_PORT;
@@ -491,11 +497,11 @@ EOF
 	nginx -t && systemctl start nginx
 
 	if [ $? -ne 0 ]; then
-		echo "${RED}Ошибка запуска Nginx! Проверьте конфиг.${NC}"
+		echo "${RED}Ошибка запуска Nginx! Вывод nginx -t:${NC}"
+		nginx -t
 		return 1
 	fi
 
-	# Автообновление
 	systemctl enable --now snap.certbot.renew.timer 2>/dev/null || true
 
 	cat >>"$INSTALL_DIR/.env" <<EOL
@@ -504,8 +510,8 @@ DOMAIN=$DOMAIN
 EOL
 
 	echo "${GREEN}Nginx с Let's Encrypt успешно настроен для $DOMAIN!${NC}"
-	echo "${YELLOW}Конфиг: $NGINX_CONF_FILE${NC}"
-	echo "${YELLOW}Доступ: https://$DOMAIN${NC}"
+	echo "${YELLOW}Конфиг сохранён как: $NGINX_CONF_FILE${NC}"
+	echo "${YELLOW}Доступ к панели: https://$DOMAIN${NC}"
 }
 
 # Функция изменения протокола
