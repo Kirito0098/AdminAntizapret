@@ -446,10 +446,9 @@ setup_nginx_letsencrypt() {
 	# Восстанавливаем iptables
 	if [ -n "$SAVE_RULES" ]; then
 		echo "$SAVE_RULES" | iptables-restore
-		echo "${GREEN}Правила iptables восстановлены${NC}"
+		echo "${YELLOW}Правила iptables восстановлены${NC}"
 	fi
 
-	# Создаём конфиг БЕЗ include options-ssl-nginx.conf (для snap)
 	cat >"$NGINX_CONF_FILE" <<EOF
 server {
     listen 80;
@@ -471,7 +470,6 @@ server {
     ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
 
-    # Рекомендуемые SSL-настройки (вместо отсутствующего options-ssl-nginx.conf)
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
@@ -479,7 +477,6 @@ server {
     ssl_session_cache shared:SSL:10m;
     ssl_session_tickets off;
 
-    # HSTS (опционально, но рекомендуется)
     add_header Strict-Transport-Security "max-age=63072000" always;
 
     location / {
@@ -507,11 +504,11 @@ EOF
 	cat >>"$INSTALL_DIR/.env" <<EOL
 USE_HTTPS=false
 DOMAIN=$DOMAIN
+BIND=127.0.0.1
 EOL
 
-	echo "${GREEN}Nginx с Let's Encrypt успешно настроен для $DOMAIN!${NC}"
+	echo "${YELLOW}Nginx с Let's Encrypt успешно настроен для $DOMAIN!${NC}"
 	echo "${YELLOW}Конфиг сохранён как: $NGINX_CONF_FILE${NC}"
-	echo "${YELLOW}Доступ к панели: https://$DOMAIN${NC}"
 }
 
 # Функция изменения протокола
