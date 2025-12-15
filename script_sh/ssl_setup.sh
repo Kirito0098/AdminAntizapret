@@ -386,7 +386,7 @@ setup_nginx_letsencrypt() {
 		fi
 	done
 
-	# Безопасное имя файла на основе домена
+	# Безопасное имя файла
 	NGINX_CONF_NAME=$(echo "$DOMAIN" | sed 's/\./_/g')
 	NGINX_CONF_FILE="/etc/nginx/sites-available/$NGINX_CONF_NAME"
 	NGINX_ENABLED_LINK="/etc/nginx/sites-enabled/$NGINX_CONF_NAME"
@@ -403,64 +403,88 @@ setup_nginx_letsencrypt() {
 		EMAIL_ARG="--register-unsafely-without-email"
 	fi
 
+	# Установка Nginx и Certbot (snap для актуальной версии)
 	echo "${YELLOW}Установка Nginx и Certbot...${NC}"
 	apt-get update -qq
 	apt-get install -y -qq nginx >/dev/null 2>&1
-	snap install core 2>/dev/null || true
-	snap refresh core 2>/dev/null || true
-	snap install --classic certbot 2>/dev/null || true
+	snap install core 2>/dev/null || snap refresh core >/dev/null 2>&1
+	snap install --classic certbot 2>/dev/null || snap refresh certbot >/dev/null 2>&1
 	ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || true
 
+	# Удаляем дефолтный сайт
 	rm -f /etc/nginx/sites-enabled/default
 
+	# Сохраняем и временно удаляем iptables-правила на порт 80 (ваш код)
+	SAVE_RULES=$(iptables-save)
+	PORT80_RULES=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')")
+	if [ -n "$PORT80_RULES" ]; then
+		while read -r line; do
+			iptables -t nat -D $(echo $line | sed 's/^-A //')
+		done <<<"$PORT80_RULES"
+		echo "${GREEN}Все правила с портом 80 временно удалены${NC}"
+	else
+		echo "${YELLOW}Правил перенаправления с портом 80 не обнаружено${NC}"
+	fi
+
+	# Останавливаем Nginx, чтобы освободить порт 80
+	systemctl stop nginx
+
+	# Шаг 1: Получаем сертификат в standalone режиме
+	echo "${YELLOW}Получение сертификата Let's Encrypt (standalone режим)...${NC}"
+	certbot certonly --standalone --non-interactive --agree-tos $EMAIL_ARG -d $DOMAIN
+
+	if [ $? -ne 0 ]; then
+		echo "${RED}Ошибка получения сертификата!${NC}"
+		# Восстановление
+		echo "$SAVE_RULES" | iptables-restore 2>/dev/null
+		systemctl start nginx 2>/dev/null
+		rm -f "$NGINX_ENABLED_LINK" "$NGINX_CONF_FILE"
+		return 1
+	fi
+
+	# Восстанавливаем iptables-правила
+	if [ -n "$SAVE_RULES" ]; then
+		echo "$SAVE_RULES" | iptables-restore
+		echo "${GREEN}Правила iptables восстановлены${NC}"
+	fi
+
+	# Создаём конфиг Nginx (теперь файл options-ssl-nginx.conf уже существует)
 	cat >"$NGINX_CONF_FILE" <<EOF
 server {
     listen 80;
     server_name $DOMAIN;
+    location /.well-known/acme-challenge/ { root /var/www/html; }
+    location / { return 301 https://\$server_name\$request_uri; }
+}
 
-    location /.well-known/acme-challenge/ {
-        root /var/www/html;
-        allow all;
-    }
+server {
+    listen 443 ssl;
+    server_name $DOMAIN;
+
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     location / {
-        return 503;
+        proxy_pass http://127.0.0.1:$APP_PORT;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 EOF
 
 	ln -sf "$NGINX_CONF_FILE" "$NGINX_ENABLED_LINK"
-	nginx -t && systemctl reload nginx
-
-	echo "${YELLOW}Получение сертификата Let's Encrypt (standalone режим)...${NC}"
-	certbot certonly --standalone --non-interactive --agree-tos --redirect $EMAIL_ARG -d $DOMAIN
+	nginx -t && systemctl start nginx
 
 	if [ $? -ne 0 ]; then
-		echo "${RED}Ошибка получения сертификата в standalone режиме!${NC}"
-		rm -f "$NGINX_ENABLED_LINK"
-		rm -f "$NGINX_CONF_FILE"
-		systemctl reload nginx
+		echo "${RED}Ошибка запуска Nginx после настройки!${NC}"
 		return 1
 	fi
 
-	echo "${YELLOW}Настройка Nginx конфигурации...${NC}"
-	certbot --nginx --non-interactive --redirect -d $DOMAIN
-
-	if [ $? -ne 0 ]; then
-		echo "${RED}Ошибка при настройке Nginx!${NC}"
-	fi
-
-	sed -i "/server_name $DOMAIN;/a \\
-    location / {\\
-        proxy_pass http://127.0.0.1:$APP_PORT;\\
-        proxy_set_header Host \$host;\\
-        proxy_set_header X-Real-IP \$remote_addr;\\
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\\
-        proxy_set_header X-Forwarded-Proto \$scheme;\\
-    }" "$NGINX_CONF_FILE"
-
-	nginx -t && systemctl reload nginx
-
+	# Включаем автоматическое обновление
 	systemctl enable --now snap.certbot.renew.timer 2>/dev/null || true
 
 	cat >>"$INSTALL_DIR/.env" <<EOL
@@ -469,7 +493,7 @@ DOMAIN=$DOMAIN
 EOL
 
 	echo "${GREEN}Nginx с Let's Encrypt успешно настроен для $DOMAIN!${NC}"
-	echo "${YELLOW}Конфиг Nginx: $NGINX_CONF_FILE${NC}"
+	echo "${YELLOW}Конфиг: $NGINX_CONF_FILE${NC}"
 	echo "${YELLOW}Доступ: https://$DOMAIN${NC}"
 }
 
