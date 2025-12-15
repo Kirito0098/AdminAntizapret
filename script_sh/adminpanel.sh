@@ -391,31 +391,41 @@ EOL
 
 	# Добавление дополнительных настроек в .env
 	echo "${YELLOW}Добавление дополнительных настроек в .env...${NC}"
-{
-    echo ""
-    echo "# Настройки безопасности - разрешенные IP адреса"
-    echo "# Формат: ALLOWED_IPS=192.168.1.1,192.168.1.2"
-    echo "ALLOWED_IPS="
-    echo ""
-    echo "# Режим ограничения IP: strict (строгий) или none (без ограничений)"
-    echo "IP_RESTRICTION_MODE=strict"
-} >> "$INSTALL_DIR/.env"
-echo "${GREEN}[✓] Дополнительные настройки добавлены в .env${NC}"
+	{
+		echo ""
+		echo "# Настройки безопасности - разрешенные IP адреса"
+		echo "# Формат: ALLOWED_IPS=192.168.1.1,192.168.1.2"
+		echo "ALLOWED_IPS="
+		echo ""
+		echo "# Режим ограничения IP: strict (строгий) или none (без ограничений)"
+		echo "IP_RESTRICTION_MODE=strict"
+	} >>"$INSTALL_DIR/.env"
+	echo "${GREEN}[✓] Дополнительные настройки добавлены в .env${NC}"
 
 	# Проверка установки
 	if systemctl is-active --quiet "$SERVICE_NAME"; then
+		if grep -q "^DOMAIN=" "$INSTALL_DIR/.env" 2>/dev/null; then
+			DOMAIN=$(grep "^DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"')
+		else
+			DOMAIN=""
+		fi
+
 		if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
-			if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-				address="https://$DOMAIN:$APP_PORT"
-			elif [ -f "$INSTALL_DIR/.env" ] && grep -q "DOMAIN=" "$INSTALL_DIR/.env"; then
-				DOMAIN=$(grep "DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
+			if [ -n "$DOMAIN" ]; then
 				address="https://$DOMAIN:$APP_PORT"
 			else
+
 				address="https://$(hostname -I | awk '{print $1}'):$APP_PORT"
 			fi
 		else
-			address="http://$(hostname -I | awk '{print $1}'):$APP_PORT"
+			if [ -n "$DOMAIN" ]; then
+				address="https://$DOMAIN"
+
+			else
+				address="http://$(hostname -I | awk '{print $1}'):$APP_PORT"
+			fi
 		fi
+
 		line="│ Адрес: $address"
 		line_len=${#line}
 		max_len=55
@@ -425,6 +435,7 @@ echo "${GREEN}[✓] Дополнительные настройки добавл
 		else
 			line="$line│"
 		fi
+
 		echo "${GREEN}"
 		echo "┌──────────────────────────────────────────────────────┐"
 		echo "│             Установка успешно завершена!             │"
@@ -435,6 +446,7 @@ echo "${GREEN}[✓] Дополнительные настройки добавл
 		echo "│ созданные при инициализации базы данных              │"
 		echo "└──────────────────────────────────────────────────────┘"
 		echo "${NC}"
+
 		copy_to_adminpanel
 	else
 		echo "${RED}Ошибка при запуске сервиса!${NC}"
