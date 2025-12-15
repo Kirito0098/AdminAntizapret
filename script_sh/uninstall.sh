@@ -23,7 +23,6 @@ uninstall() {
 					use_letsencrypt=true
 				fi
 			elif grep -q "USE_HTTPS=false" "$INSTALL_DIR/.env" && grep -q "DOMAIN=" "$INSTALL_DIR/.env" 2>/dev/null; then
-				# Вариант с Nginx reverse proxy
 				use_nginx=true
 				use_letsencrypt=true
 			fi
@@ -42,7 +41,6 @@ uninstall() {
 			rm -f /etc/ssl/private/admin-antizapret.key
 		fi
 
-		# Обработка Let's Encrypt (включая Nginx)
 		if [ "$use_letsencrypt" = true ]; then
 			DOMAIN=$(grep "^DOMAIN=" "$INSTALL_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '" ' || echo "")
 
@@ -51,7 +49,6 @@ uninstall() {
 			read -r response
 
 			if [[ $response =~ ^[yY]$ ]]; then
-				# Удаление конфига Nginx (если был reverse proxy)
 				if [ "$use_nginx" = true ] && [ -n "$DOMAIN" ]; then
 					NGINX_CONF_NAME=$(echo "$DOMAIN" | sed 's/\./_/g')
 					printf "%s\n" "${YELLOW}Удаление конфигурации Nginx для домена $DOMAIN...${NC}"
@@ -60,17 +57,14 @@ uninstall() {
 					nginx -t && systemctl reload nginx 2>/dev/null || echo "${YELLOW}Nginx не перезапущен${NC}"
 				fi
 
-				# Удаление только конкретного сертификата
 				if [ -n "$DOMAIN" ] && command -v certbot >/dev/null 2>&1; then
 					printf "%s\n" "${YELLOW}Удаление сертификата Let's Encrypt для $DOMAIN...${NC}"
 					certbot delete --non-interactive --cert-name "$DOMAIN" >/dev/null 2>&1 ||
 						echo "${YELLOW}Сертификат $DOMAIN не найден или уже удалён${NC}"
 				fi
 
-				# Удаление старых cron-задач (для совместимости)
 				crontab -l 2>/dev/null | grep -v 'renew_cert.sh' | crontab - 2>/dev/null || true
 
-				# Отключение таймера (если был включён только для нас)
 				systemctl disable --now certbot.timer 2>/dev/null || true
 
 				printf "%s\n" "${GREEN}Сертификат и связанные файлы для $DOMAIN удалены. Пакет certbot оставлен для других проектов.${NC}"

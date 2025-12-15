@@ -386,7 +386,7 @@ setup_nginx_letsencrypt() {
 		fi
 	done
 
-	# Безопасное имя файла на основе домена (заменяем точки на подчёркивания)
+	# Безопасное имя файла на основе домена
 	NGINX_CONF_NAME=$(echo "$DOMAIN" | sed 's/\./_/g')
 	NGINX_CONF_FILE="/etc/nginx/sites-available/$NGINX_CONF_NAME"
 	NGINX_ENABLED_LINK="/etc/nginx/sites-enabled/$NGINX_CONF_NAME"
@@ -403,15 +403,16 @@ setup_nginx_letsencrypt() {
 		EMAIL_ARG="--register-unsafely-without-email"
 	fi
 
-	# Установка Nginx и Certbot
 	echo "${YELLOW}Установка Nginx и Certbot...${NC}"
 	apt-get update -qq
-	apt-get install -y -qq nginx certbot python3-certbot-nginx >/dev/null 2>&1
+	apt-get install -y -qq nginx >/dev/null 2>&1
+	snap install core 2>/dev/null || true
+	snap refresh core 2>/dev/null || true
+	snap install --classic certbot 2>/dev/null || true
+	ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || true
 
-	# Удаляем дефолтный сайт, если есть
 	rm -f /etc/nginx/sites-enabled/default
 
-	# Минимальный конфиг для получения сертификата
 	cat >"$NGINX_CONF_FILE" <<EOF
 server {
     listen 80;
@@ -423,28 +424,33 @@ server {
     }
 
     location / {
-        return 403;  # Блокируем всё до получения сертификата
+        return 503;
     }
 }
 EOF
 
-	# Активируем сайт
 	ln -sf "$NGINX_CONF_FILE" "$NGINX_ENABLED_LINK"
 	nginx -t && systemctl reload nginx
 
-	# Certbot настроит SSL, редирект и proxy_pass
-	certbot --nginx --non-interactive --agree-tos --redirect $EMAIL_ARG -d $DOMAIN
+	echo "${YELLOW}Получение сертификата Let's Encrypt (standalone режим)...${NC}"
+	certbot certonly --standalone --non-interactive --agree-tos --redirect $EMAIL_ARG -d $DOMAIN
 
 	if [ $? -ne 0 ]; then
-		echo "${RED}Ошибка получения сертификата!${NC}"
+		echo "${RED}Ошибка получения сертификата в standalone режиме!${NC}"
 		rm -f "$NGINX_ENABLED_LINK"
 		rm -f "$NGINX_CONF_FILE"
 		systemctl reload nginx
 		return 1
 	fi
 
-	# Убеждаемся, что proxy_pass есть в блоке 443
-	sed -i "/listen 443 ssl;/a \\
+	echo "${YELLOW}Настройка Nginx конфигурации...${NC}"
+	certbot --nginx --non-interactive --redirect -d $DOMAIN
+
+	if [ $? -ne 0 ]; then
+		echo "${RED}Ошибка при настройке Nginx!${NC}"
+	fi
+
+	sed -i "/server_name $DOMAIN;/a \\
     location / {\\
         proxy_pass http://127.0.0.1:$APP_PORT;\\
         proxy_set_header Host \$host;\\
@@ -455,8 +461,7 @@ EOF
 
 	nginx -t && systemctl reload nginx
 
-	# Включаем таймер обновления сертификатов
-	systemctl enable --now certbot.timer
+	systemctl enable --now snap.certbot.renew.timer 2>/dev/null || true
 
 	cat >>"$INSTALL_DIR/.env" <<EOL
 USE_HTTPS=false
@@ -464,8 +469,8 @@ DOMAIN=$DOMAIN
 EOL
 
 	echo "${GREEN}Nginx с Let's Encrypt успешно настроен для $DOMAIN!${NC}"
-	echo "${YELLOW}Конфиг Nginx сохранён как: $NGINX_CONF_FILE${NC}"
-	echo "${YELLOW}Доступ к панели: https://$DOMAIN${NC}"
+	echo "${YELLOW}Конфиг Nginx: $NGINX_CONF_FILE${NC}"
+	echo "${YELLOW}Доступ: https://$DOMAIN${NC}"
 }
 
 # Функция изменения протокола
