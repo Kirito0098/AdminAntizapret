@@ -38,7 +38,7 @@ add_admin() {
         fi
     done
 
-    "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --add-user "$username" "$password"
+    "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py" --add-user "$username" "$password"
     check_error "Не удалось добавить администратора"
     press_any_key
 }
@@ -48,7 +48,7 @@ delete_admin() {
     echo "${YELLOW}Удаление администратора...${NC}"
 
     echo "${YELLOW}Список администраторов:${NC}"
-    "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --list-users
+    "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py" --list-users
     if [ $? -ne 0 ]; then
         echo "${RED}Ошибка при получении списка администраторов!${NC}"
         press_any_key
@@ -62,7 +62,7 @@ delete_admin() {
         return
     fi
 
-    "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py" --delete-user "$username"
+    "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py" --delete-user "$username"
     if [ $? -eq 0 ]; then
         echo "${GREEN}Администратор '$username' успешно удалён!${NC}"
     else
@@ -75,6 +75,6 @@ delete_admin() {
 init_db() {
     log "Инициализация базы данных"
     echo "${YELLOW}Инициализация базы данных...${NC}"
-    PYTHONIOENCODING=utf-8 "$VENV_PATH/bin/python" "$INSTALL_DIR/init_db.py"
+    PYTHONIOENCODING=utf-8 "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py"
     check_error "Не удалось инициализировать базу данных"
 }

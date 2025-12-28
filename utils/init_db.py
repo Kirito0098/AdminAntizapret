@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 import sys
+import os
 import io
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Принудительно устанавливаем UTF-8 для вывода
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -14,17 +17,17 @@ import argparse
 def create_admin():
     print("\nСоздание администратора")
     print("---------------------")
-    
+
     while True:
         username = input("Введите логин администратора: ").strip()
         if not username:
             print("Логин не может быть пустым!")
             continue
-            
+
         if User.query.filter_by(username=username).first():
             print(f"Пользователь '{username}' уже существует!")
             continue
-            
+
         break
 
     while True:
@@ -32,12 +35,12 @@ def create_admin():
         if len(password) < 8:
             print("Пароль должен содержать минимум 8 символов!")
             continue
-            
+
         password_confirm = getpass("Повторите пароль: ").strip()
         if password != password_confirm:
             print("Пароли не совпадают!")
             continue
-            
+
         break
 
     return username, password
@@ -47,7 +50,7 @@ def add_user(username, password):
         if User.query.filter_by(username=username).first():
             print(f"Пользователь '{username}' уже существует!")
             return False
-            
+
         user = User(username=username)
         user.password_hash = generate_password_hash(password)
         db.session.add(user)
@@ -61,7 +64,7 @@ def delete_user(username):
         if not user:
             print(f"Пользователь '{username}' не найден!")
             return False
-        
+
         db.session.delete(user)
         db.session.commit()
         print(f"Пользователь '{username}' успешно удалён!")
@@ -77,7 +80,7 @@ def list_users():
         if not users:
             print("Нет зарегистрированных пользователей.")
             return False
-        
+
         print("Список пользователей:")
         for user in users:
             print(f"- {user.username}")
@@ -89,12 +92,12 @@ if __name__ == "__main__":
     parser.add_argument('--delete-user', metavar='USERNAME', help='Удалить пользователя')
     parser.add_argument('--check-user', metavar='USERNAME', help='Проверить существование пользователя')
     parser.add_argument('--list-users', action='store_true', help='Вывести список пользователей')
-    
+
     args = parser.parse_args()
-    
+
     with app.app_context():
         db.create_all()
-        
+
         if args.add_user:
             username, password = args.add_user
             if not add_user(username, password):
@@ -113,27 +116,27 @@ if __name__ == "__main__":
             if User.query.count() == 0:
                 print("В системе нет пользователей")
                 username, password = create_admin()
-                
+
                 admin = User(username=username)
                 admin.password_hash = generate_password_hash(password)
                 db.session.add(admin)
                 db.session.commit()
-                
+
                 print(f"\nСоздан администратор: {username}")
             else:
                 print("\nВ базе уже есть пользователи:")
                 for user in User.query.all():
                     print(f"- {user.username}")
-                
+
                 choice = input("\nСоздать нового администратора? (y/n): ").lower()
                 if choice == 'y':
                     username, password = create_admin()
-                    
+
                     admin = User(username=username)
                     admin.password_hash = generate_password_hash(password)
                     db.session.add(admin)
                     db.session.commit()
-                    
+
                     print(f"\nСоздан новый администратор: {username}")
-    
+
     print("\nГотово! База данных инициализирована.")

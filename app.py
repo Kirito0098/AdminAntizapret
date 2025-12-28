@@ -30,8 +30,9 @@ from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
 import platform
-from ip_restriction import ip_restriction
+
 #Импорт файла с параметрами
+from utils.ip_restriction import ip_restriction
 from config.antizapret_params import ANTIZAPRET_PARAMS
 from routes.settings_antizapret import init_antizapret
 
@@ -47,8 +48,6 @@ if not app.secret_key:
 
 csrf = CSRFProtect(app)
 ip_restriction.init_app(app)
-
-# Инициализируем antizapret-роуты
 init_antizapret(app)
 
 CONFIG_PATHS = {
