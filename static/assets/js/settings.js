@@ -83,132 +83,47 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   // Загрузка текущих настроек Antizapret
-  const loadAntizapretSettings = () => {
-    fetch("/get_antizapret_settings")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        document.getElementById("route-all-toggle").checked =
-          data.route_all === "y";
-        document.getElementById("discord-toggle").checked =
-          data.discord_include === "y";
-        document.getElementById("cloudflare-toggle").checked =
-          data.cloudflare_include === "y";
-        document.getElementById("amazon-toggle").checked =
-          data.amazon_include === "y";
-        document.getElementById("hetzner-toggle").checked =
-          data.hetzner_include === "y";
-        document.getElementById("digitalocean-toggle").checked =
-          data.digitalocean_include === "y";
-        document.getElementById("ovh-toggle").checked =
-          data.ovh_include === "y";
-        document.getElementById("akamai-toggle").checked =
-          data.akamai_include === "y";
-        document.getElementById("telegram-toggle").checked =
-          data.telegram_include === "y";
-        document.getElementById("AdBlock-toggle").checked =
-          data.block_ads === "y";
-        document.getElementById("google-toggle").checked =
-          data.google_include === "y";
-        document.getElementById("whatsapp-toggle").checked =
-          data.whatsapp_include === "y";
-        document.getElementById("roblox-toggle").checked =
-          data.roblox_include === "y";
-        document.getElementById("tcp_80_443-toggle").checked =
-          data.openvpn_80_443_tcp === "y";
-        document.getElementById("udp_80_443-toggle").checked =
-          data.openvpn_80_443_udp === "y";
-        document.getElementById("ssh_protection-toggle").checked =
-          data.ssh_protection === "y";
-        document.getElementById("attack_protection-toggle").checked =
-          data.attack_protection === "y";
-        document.getElementById("torrent_guard-toggle").checked =
-          data.torrent_guard === "y";
-        document.getElementById("restrict_forward-toggle").checked =
-          data.restrict_forward === "y";
-        document.getElementById("clear-hosts-toggle").checked =
-          data.clear_hosts === "y";
-        document.getElementById("openvpn-host-input").value = data.openvpn_host;
-        document.getElementById("wireguard-host-input").value =
-          data.wireguard_host;
-      })
-      .catch((error) => {
-        console.error("Error loading Antizapret settings:", error);
-        showNotification("Ошибка загрузки настроек", "error");
-      });
-  };
+  let antizapretSchema = null;
 
-  // Сохранение всех настроек Antizapret
-  const saveAntizapretSettings = async () => {
-    const settings = {
-      route_all: document.getElementById("route-all-toggle").checked
-        ? "y"
-        : "n",
-      discord_include: document.getElementById("discord-toggle").checked
-        ? "y"
-        : "n",
-      cloudflare_include: document.getElementById("cloudflare-toggle").checked
-        ? "y"
-        : "n",
-      amazon_include: document.getElementById("amazon-toggle").checked
-        ? "y"
-        : "n",
-      hetzner_include: document.getElementById("hetzner-toggle").checked
-        ? "y"
-        : "n",
-      digitalocean_include: document.getElementById("digitalocean-toggle")
-        .checked
-        ? "y"
-        : "n",
-      ovh_include: document.getElementById("ovh-toggle").checked ? "y" : "n",
-      akamai_include: document.getElementById("akamai-toggle").checked
-        ? "y"
-        : "n",
-      telegram_include: document.getElementById("telegram-toggle").checked
-        ? "y"
-        : "n",
-      block_ads: document.getElementById("AdBlock-toggle").checked ? "y" : "n",
-      google_include: document.getElementById("google-toggle").checked
-        ? "y"
-        : "n",
-      whatsapp_include: document.getElementById("whatsapp-toggle").checked
-        ? "y"
-        : "n",
-      roblox_include: document.getElementById("roblox-toggle").checked
-        ? "y"
-        : "n",
-      openvpn_80_443_tcp: document.getElementById("tcp_80_443-toggle").checked
-        ? "y"
-        : "n",
-      openvpn_80_443_udp: document.getElementById("udp_80_443-toggle").checked
-        ? "y"
-        : "n",
-      ssh_protection: document.getElementById("ssh_protection-toggle").checked
-        ? "y"
-        : "n",
-      attack_protection: document.getElementById("attack_protection-toggle")
-        .checked
-        ? "y"
-        : "n",
-      torrent_guard: document.getElementById("torrent_guard-toggle").checked
-        ? "y"
-        : "n",
-      restrict_forward: document.getElementById("restrict_forward-toggle")
-        .checked
-        ? "y"
-        : "n",
-      clear_hosts: document.getElementById("clear-hosts-toggle").checked
-        ? "y"
-        : "n",
-      openvpn_host: document.getElementById("openvpn-host-input").value.trim(),
-      wireguard_host: document
-        .getElementById("wireguard-host-input")
-        .value.trim(),
-    };
+  async function loadSchema() {
+    try {
+      const r = await fetch("/antizapret_settings_schema");
+      antizapretSchema = await r.json();
+    } catch (e) {
+      console.error("Не удалось загрузить схему", e);
+    }
+  }
+
+  async function loadAntizapretSettings() {
+    if (!antizapretSchema) await loadSchema();
+    if (!antizapretSchema) return;
+
+    const data = await (await fetch("/get_antizapret_settings")).json();
+
+    antizapretSchema.forEach(f => {
+      const el = document.getElementById(f.html_id);
+      if (!el) return;
+      const v = data[f.key];
+      if (f.type === "flag") {
+        el.checked = v === "y";
+      } else {
+        el.value = v || "";
+      }
+    });
+  }
+
+  async function saveAntizapretSettings() {
+    if (!antizapretSchema) await loadSchema();
+    if (!antizapretSchema) return;
+
+    const settings = {};
+    antizapretSchema.forEach(f => {
+      const el = document.getElementById(f.html_id);
+      if (!el) return;
+      settings[f.key] = f.type === "flag"
+        ? (el.checked ? "y" : "n")
+        : el.value.trim();
+    });
 
     const statusElement = document.getElementById("config-status");
     statusElement.textContent = "Сохранение настроек...";

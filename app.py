@@ -31,7 +31,11 @@ from dotenv import load_dotenv
 import time
 import platform
 from ip_restriction import ip_restriction
+#Импорт файла с параметрами
+from config.antizapret_params import ANTIZAPRET_PARAMS
+from routes.settings_antizapret import init_antizapret
 
+# Загрузка переменных окружения из .env файла
 load_dotenv()
 
 port = int(os.getenv("APP_PORT", "5050"))
@@ -43,6 +47,9 @@ if not app.secret_key:
 
 csrf = CSRFProtect(app)
 ip_restriction.init_app(app)
+
+# Инициализируем antizapret-роуты
+init_antizapret(app)
 
 CONFIG_PATHS = {
     "openvpn": [
@@ -356,6 +363,17 @@ qr_generator = QRGenerator()
 file_editor = FileEditor()
 server_monitor_proc = ServerMonitor()
 
+# Защита antizapret-роутов после полной инициализации
+app.view_functions['get_antizapret_settings'] = auth_manager.login_required(
+    app.view_functions['get_antizapret_settings']
+)
+app.view_functions['update_antizapret_settings'] = auth_manager.login_required(
+    app.view_functions['update_antizapret_settings']
+)
+app.view_functions['antizapret_settings_schema'] = auth_manager.login_required(
+    app.view_functions['antizapret_settings_schema']
+)
+
 
 # Главная страница
 @app.route("/", methods=["GET", "POST"])
@@ -641,135 +659,6 @@ def server_monitor():
         except Exception as e:
             app.logger.error(f"Ошибка при обновлении данных мониторинга: {e}")
             return jsonify({"error": "Ошибка при обновлении данных мониторинга"}), 500
-
-
-@app.route("/get_antizapret_settings")
-@auth_manager.login_required
-def get_antizapret_settings():
-    try:
-        with open("/root/antizapret/setup", "r") as f:
-            content = f.read()
-
-        settings = {
-            "route_all": "n",
-            "discord_include": "n",
-            "cloudflare_include": "n",
-            "amazon_include": "n",
-            "hetzner_include": "n",
-            "digitalocean_include": "n",
-            "ovh_include": "n",
-            "telegram_include": "n",
-            "block_ads": "n",
-            "akamai_include": "n",
-            "google_include": "n",
-            "whatsapp_include": "n",
-            "roblox_include": "n",
-            "openvpn_80_443_tcp": "n",
-            "openvpn_80_443_udp": "n",
-            "ssh_protection": "n",
-            "attack_protection": "n",
-            "torrent_guard": "n",
-            "restrict_forward": "n",
-            "openvpn_host": "",
-            "wireguard_host": "",
-            "clear_hosts": "n",
-        }
-
-        for param in settings.keys():
-            if param in ["openvpn_host", "wireguard_host"]:
-                match = re.search(f"^{param.upper()}=(.+)$", content, re.MULTILINE)
-                if match:
-                    settings[param] = match.group(1).strip()
-            else:
-                match = re.search(f"^{param.upper()}=([yn])", content, re.MULTILINE)
-                if match:
-                    settings[param] = match.group(1)
-
-        return jsonify(settings)
-    except Exception as e:
-        app.logger.error(f"Ошибка чтения настроек: {str(e)}")
-        return jsonify({"error": "Ошибка чтения файла настроек"}), 500
-
-
-@app.route("/update_antizapret_settings", methods=["POST"])
-@auth_manager.login_required
-def update_antizapret_settings():
-    try:
-        new_settings = request.json
-
-        with open("/root/antizapret/setup", "r") as f:
-            lines = f.readlines()
-
-        params_to_update = {
-            "ROUTE_ALL": f"ROUTE_ALL={new_settings.get('route_all', 'n')}",
-            "DISCORD_INCLUDE": f"DISCORD_INCLUDE={new_settings.get('discord_include', 'n')}",
-            "CLOUDFLARE_INCLUDE": f"CLOUDFLARE_INCLUDE={new_settings.get('cloudflare_include', 'n')}",
-            "AMAZON_INCLUDE": f"AMAZON_INCLUDE={new_settings.get('amazon_include', 'n')}",
-            "HETZNER_INCLUDE": f"HETZNER_INCLUDE={new_settings.get('hetzner_include', 'n')}",
-            "DIGITALOCEAN_INCLUDE": f"DIGITALOCEAN_INCLUDE={new_settings.get('digitalocean_include', 'n')}",
-            "OVH_INCLUDE": f"OVH_INCLUDE={new_settings.get('ovh_include', 'n')}",
-            "AKAMAI_INCLUDE": f"AKAMAI_INCLUDE={new_settings.get('akamai_include', 'n')}",
-            "TELEGRAM_INCLUDE": f"TELEGRAM_INCLUDE={new_settings.get('telegram_include', 'n')}",
-            "BLOCK_ADS": f"BLOCK_ADS={new_settings.get('block_ads', 'n')}",
-            "GOOGLE_INCLUDE": f"GOOGLE_INCLUDE={new_settings.get('google_include', 'n')}",
-            "WHATSAPP_INCLUDE": f"WHATSAPP_INCLUDE={new_settings.get('whatsapp_include', 'n')}",
-            "ROBLOX_INCLUDE": f"ROBLOX_INCLUDE={new_settings.get('roblox_include', 'n')}",
-            "OPENVPN_80_443_TCP": f"OPENVPN_80_443_TCP={new_settings.get('openvpn_80_443_tcp', 'n')}",
-            "OPENVPN_80_443_UDP": f"OPENVPN_80_443_UDP={new_settings.get('openvpn_80_443_udp', 'n')}",
-            "SSH_PROTECTION": f"SSH_PROTECTION={new_settings.get('ssh_protection', 'n')}",
-            "ATTACK_PROTECTION": f"ATTACK_PROTECTION={new_settings.get('attack_protection', 'n')}",
-            "TORRENT_GUARD": f"TORRENT_GUARD={new_settings.get('torrent_guard', 'n')}",
-            "RESTRICT_FORWARD": f"RESTRICT_FORWARD={new_settings.get('restrict_forward', 'n')}",
-            "CLEAR_HOSTS": f"CLEAR_HOSTS={new_settings.get('clear_hosts', 'n')}",
-            "OPENVPN_HOST": f"OPENVPN_HOST={new_settings.get('openvpn_host', '')}",
-            "WIREGUARD_HOST": f"WIREGUARD_HOST={new_settings.get('wireguard_host', '')}",
-        }
-
-        updated_lines = []
-        found_params = set()
-
-        for line in lines:
-            line_stripped = line.strip()
-            param_updated = False
-            for param, new_value in params_to_update.items():
-                if line_stripped.startswith(param + "="):
-                    updated_lines.append(new_value + "\n")
-                    found_params.add(param)
-                    param_updated = True
-                    break
-            if not param_updated and line_stripped:
-                updated_lines.append(line)
-
-        for param, new_value in params_to_update.items():
-            if param not in found_params:
-                updated_lines.append(new_value + "\n")
-
-        with open("/root/antizapret/setup", "w") as f:
-            f.writelines(updated_lines)
-
-        return jsonify(
-            {
-                "success": True,
-                "message": "Настройки успешно сохранены",
-                "needs_apply": True,
-            }
-        )
-
-    except PermissionError:
-        return (
-            jsonify(
-                {"success": False, "message": "Ошибка: Нет прав для записи в файл"}
-            ),
-            403,
-        )
-    except Exception as e:
-        app.logger.error(f"Ошибка обновления настроек: {str(e)}")
-        return (
-            jsonify(
-                {"success": False, "message": "Ошибка сервера при обновлении настроек"}
-            ),
-            500,
-        )
 
 
 @app.route("/settings", methods=["GET", "POST"])

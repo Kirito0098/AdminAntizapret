@@ -1,0 +1,26 @@
+# app/config/antizapret_params.py
+
+ANTIZAPRET_PARAMS = [
+    {"key": "route_all",              "env": "ROUTE_ALL",              "type": "flag",   "default": "n", "html_id": "route-all-toggle"},
+    {"key": "discord_include",        "env": "DISCORD_INCLUDE",        "type": "flag",   "default": "n", "html_id": "discord-toggle"},
+    {"key": "cloudflare_include",     "env": "CLOUDFLARE_INCLUDE",     "type": "flag",   "default": "n", "html_id": "cloudflare-toggle"},
+    {"key": "amazon_include",         "env": "AMAZON_INCLUDE",         "type": "flag",   "default": "n", "html_id": "amazon-toggle"},
+    {"key": "hetzner_include",        "env": "HETZNER_INCLUDE",        "type": "flag",   "default": "n", "html_id": "hetzner-toggle"},
+    {"key": "digitalocean_include",   "env": "DIGITALOCEAN_INCLUDE",   "type": "flag",   "default": "n", "html_id": "digitalocean-toggle"},
+    {"key": "ovh_include",            "env": "OVH_INCLUDE",            "type": "flag",   "default": "n", "html_id": "ovh-toggle"},
+    {"key": "akamai_include",         "env": "AKAMAI_INCLUDE",         "type": "flag",   "default": "n", "html_id": "akamai-toggle"},
+    {"key": "telegram_include",       "env": "TELEGRAM_INCLUDE",       "type": "flag",   "default": "n", "html_id": "telegram-toggle"},
+    {"key": "block_ads",              "env": "BLOCK_ADS",              "type": "flag",   "default": "n", "html_id": "AdBlock-toggle"},
+    {"key": "google_include",         "env": "GOOGLE_INCLUDE",         "type": "flag",   "default": "n", "html_id": "google-toggle"},
+    {"key": "whatsapp_include",       "env": "WHATSAPP_INCLUDE",       "type": "flag",   "default": "n", "html_id": "whatsapp-toggle"},
+    {"key": "roblox_include",         "env": "ROBLOX_INCLUDE",         "type": "flag",   "default": "n", "html_id": "roblox-toggle"},
+    {"key": "openvpn_80_443_tcp",     "env": "OPENVPN_80_443_TCP",     "type": "flag",   "default": "n", "html_id": "tcp_80_443-toggle"},
+    {"key": "openvpn_80_443_udp",     "env": "OPENVPN_80_443_UDP",     "type": "flag",   "default": "n", "html_id": "udp_80_443-toggle"},
+    {"key": "ssh_protection",         "env": "SSH_PROTECTION",         "type": "flag",   "default": "n", "html_id": "ssh_protection-toggle"},
+    {"key": "attack_protection",      "env": "ATTACK_PROTECTION",      "type": "flag",   "default": "n", "html_id": "attack_protection-toggle"},
+    {"key": "torrent_guard",          "env": "TORRENT_GUARD",          "type": "flag",   "default": "n", "html_id": "torrent_guard-toggle"},
+    {"key": "restrict_forward",       "env": "RESTRICT_FORWARD",       "type": "flag",   "default": "n", "html_id": "restrict_forward-toggle"},
+    {"key": "clear_hosts",            "env": "CLEAR_HOSTS",            "type": "flag",   "default": "n", "html_id": "clear-hosts-toggle"},
+    {"key": "openvpn_host",           "env": "OPENVPN_HOST",           "type": "string", "default": "", "html_id": "openvpn-host-input"},
+    {"key": "wireguard_host",         "env": "WIREGUARD_HOST",         "type": "string", "default": "", "html_id": "wireguard-host-input"},
+]
