@@ -71,14 +71,14 @@ document.addEventListener('DOMContentLoaded', function () {
     let tableIndex = option === '2' ? 0 : option === '5' ? 1 : 2;
     const table = document
       .querySelectorAll('.file-list .column')
-      [tableIndex]?.querySelector('table');
+    [tableIndex]?.querySelector('table');
 
     if (table) {
       const rows = table.querySelectorAll('tbody tr:nth-child(odd)'); // Берем только строки с именами клиентов
       rows.forEach((row) => {
         const clientNameCell = row.querySelector('td:first-child');
         if (clientNameCell) {
-          const clientName = clientNameCell.textContent.trim();
+          const clientName = clientNameCell.getAttribute('data-client-name');
           if (clientName) {
             uniqueClientNames.add(clientName);
           }
@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let tableIndex = option === '2' ? 0 : option === '5' ? 1 : 2;
     const table = document
       .querySelectorAll('.file-list .column')
-      [tableIndex]?.querySelector('table');
+    [tableIndex]?.querySelector('table');
 
     if (table) {
       const rows = table.querySelectorAll('tbody tr');

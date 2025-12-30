@@ -70,7 +70,7 @@
           else %} {% set _ = openvpn_files_dict[client_name].update({'vpn':
           file}) %} {% endif %} {% endfor %} {% for client_name, files in openvpn_files_dict | dictsort %}
           <tr>
-            <td rowspan="2" style="border: 1px solid rgb(255, 255, 255);">
+            <td rowspan="2" style="border: 1px solid rgb(255, 255, 255);" data-client-name="{{ client_name }}">
               {{ client_name }}
               {% if cert_expiry and cert_expiry.get(client_name) is not none %}
               {% set days = cert_expiry[client_name] %}
@@ -148,7 +148,7 @@
           amneziawg_files_dict | dictsort %}
 
           <tr>
-            <td rowspan="2" style="border: 1px solid rgb(255, 255, 255)">
+            <td rowspan="2" style="border: 1px solid rgb(255, 255, 255);" data-client-name="{{ client_name }}">
               {{ client_name }}
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
@@ -224,7 +224,7 @@
           endif %} {% endfor %} {% for client_name, files in wg_files_dict |
           dictsort %}
           <tr>
-            <td rowspan="2" style="border: 1px solid rgb(255, 255, 255)">
+            <td rowspan="2" style="border: 1px solid rgb(255, 255, 255);" data-client-name="{{ client_name }}">
               {{ client_name }}
             </td>
             <td style="border: 1px solid rgb(255, 255, 255)">
