@@ -19,6 +19,7 @@ import io
 import qrcode
 import random
 import string
+from datetime import datetime, timezone
 from qrcode.image.pil import PilImage
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from flask_sqlalchemy import SQLAlchemy
@@ -140,6 +141,82 @@ class ConfigFileHandler:
         amneziawg_files = self._collect_files(self.config_paths["amneziawg"], ".conf")
         return openvpn_files, wg_files, amneziawg_files
 
+    def get_openvpn_cert_expiry(self):
+        expiry = {}
+        CERT_KEYS_DIR = "/etc/openvpn/client/keys"
+
+        for base_dir in self.config_paths["openvpn"]:
+            if not os.path.exists(base_dir):
+                continue
+
+            for root, _, files in os.walk(base_dir):
+                for filename in files:
+                    if not filename.endswith('.ovpn'):
+                        continue
+
+                    client_name = self._extract_client_name_from_ovpn(filename)
+                    if not client_name:
+                        continue
+
+                    possible_crt_names = [
+                        f"{client_name}.crt",
+                        f"{client_name.replace('-', '_')}.crt",
+                        f"client-{client_name}.crt",
+                    ]
+
+                    crt_path = None
+                    for crt_name in possible_crt_names:
+                        candidate = os.path.join(CERT_KEYS_DIR, crt_name)
+                        if os.path.exists(candidate):
+                            crt_path = candidate
+                            break
+
+                    if not crt_path:
+                        expiry[client_name] = -1
+                        continue
+
+                    try:
+                        result = subprocess.run(
+                            ["openssl", "x509", "-in", crt_path, "-noout", "-enddate"],
+                            capture_output=True,
+                            text=True,
+                            check=True
+                        )
+
+                        line = result.stdout.strip()
+                        if not line.startswith("notAfter="):
+                            expiry[client_name] = -1
+                            continue
+
+                        date_str = line.split("=", 1)[1].strip()
+                        expiry_date = datetime.strptime(date_str, "%b %d %H:%M:%S %Y %Z")
+                        expiry_date = expiry_date.replace(tzinfo=timezone.utc)
+
+                        now = datetime.now(timezone.utc)
+                        days_left = (expiry_date - now).days
+
+                        expiry[client_name] = days_left
+
+                    except Exception as e:
+                        expiry[client_name] = -1
+
+        return expiry
+
+    def _extract_client_name_from_ovpn(self, filename):
+        name = os.path.splitext(filename)[0]
+
+        prefixes = ['antizapret-', 'vpn-', '']
+        for prefix in prefixes:
+            if name.lower().startswith(prefix):
+                name = name[len(prefix):]
+                break
+
+        if '-(' in name:
+            name = name.split('-(')[0]
+
+        name = name.strip('- ')
+
+        return name if len(name) >= 2 else None
 
 class AuthenticationManager:
     def __init__(self):
@@ -379,14 +456,15 @@ app.view_functions['antizapret_settings_schema'] = auth_manager.login_required(
 @auth_manager.login_required
 def index():
     if request.method == "GET":
-        openvpn_files, wg_files, amneziawg_files = (
-            config_file_handler.get_config_files()
-        )
+        openvpn_files, wg_files, amneziawg_files = config_file_handler.get_config_files()
+        cert_expiry = config_file_handler.get_openvpn_cert_expiry()
+
         return render_template(
             "index.html",
             openvpn_files=openvpn_files,
             wg_files=wg_files,
             amneziawg_files=amneziawg_files,
+            cert_expiry=cert_expiry
         )
 
     if request.method == "POST":
