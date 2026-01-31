@@ -1,6 +1,7 @@
 # ip_restriction.py
 import os
 from flask import request, jsonify
+import ipaddress
 
 class IPRestriction:
     def __init__(self):
@@ -8,7 +9,7 @@ class IPRestriction:
         self.enabled = False
         self.app = None
         self._load_from_env()
-    
+
     def init_app(self, app):
         """Инициализация с приложением Flask"""
         self.app = app
@@ -20,7 +21,7 @@ class IPRestriction:
                     'success': False,
                     'message': 'Доступ запрещен с вашего IP-адреса'
                 }), 403
-            
+
             client_ip = self.get_client_ip()
             return f'''
             <!DOCTYPE html>
@@ -32,10 +33,10 @@ class IPRestriction:
                     body {{ font-family: Arial, sans-serif; text-align: center; padding: 50px; }}
                     .container {{ max-width: 600px; margin: 0 auto; }}
                     h1 {{ color: #dc3545; }}
-                    .ip-box {{ 
-                        background: #f8f9fa; 
-                        padding: 15px; 
-                        border-radius: 5px; 
+                    .ip-box {{
+                        background: #f8f9fa;
+                        padding: 15px;
+                        border-radius: 5px;
                         margin: 20px 0;
                         font-family: monospace;
                     }}
@@ -55,24 +56,24 @@ class IPRestriction:
             </body>
             </html>
             ''', 403
-    
+
     def _load_from_env(self):
         """Загружает настройки из переменных окружения"""
         allowed_ips_str = os.getenv('ALLOWED_IPS', '')
         self.allowed_ips = set(ip.strip() for ip in allowed_ips_str.split(',') if ip.strip())
         self.enabled = bool(self.allowed_ips)
-    
+
     def save_to_env(self):
         """Сохраняет настройки в .env файл"""
         env_file = '/opt/AdminAntizapret/.env'
-        
+
         # Читаем текущий файл
         if os.path.exists(env_file):
             with open(env_file, 'r') as f:
                 lines = f.readlines()
         else:
             lines = []
-        
+
         # Обновляем или добавляем ALLOWED_IPS
         new_lines = []
         found = False
@@ -85,20 +86,20 @@ class IPRestriction:
                 found = True
             else:
                 new_lines.append(line)
-        
+
         if not found:
             if self.allowed_ips:
                 new_lines.append(f"ALLOWED_IPS={','.join(sorted(self.allowed_ips))}\n")
             else:
                 new_lines.append("ALLOWED_IPS=\n")
-        
+
         # Записываем обратно
         with open(env_file, 'w') as f:
             f.writelines(new_lines)
-        
+
         # Обновляем переменные окружения
         os.environ['ALLOWED_IPS'] = ','.join(sorted(self.allowed_ips)) if self.allowed_ips else ''
-    
+
     def get_client_ip(self):
         """Получаем IP клиента"""
         if request.headers.get('X-Forwarded-For'):
@@ -107,42 +108,42 @@ class IPRestriction:
             ip = request.headers.get('X-Real-IP')
         else:
             ip = request.remote_addr
-        
+
         if ip.startswith('::ffff:'):
             ip = ip[7:]
-        
+
         return ip
-    
-    def is_ip_allowed(self, ip):
-        """Проверяет, разрешен ли IP"""
+
+
+    def is_ip_allowed(self, ip_str):
+        """Проверяет, разрешен ли IP (одиночный или из подсети)"""
         if not self.enabled:
             return True
-        
-        if ip in self.allowed_ips:
+
+    # если ip уже в точном списке — сразу ок
+        if ip_str in self.allowed_ips:
             return True
-        
-        # Простая проверка CIDR
-        for allowed in self.allowed_ips:
-            if '/' in allowed:
-                try:
-                    network = allowed.split('/')[0]
-                    mask = int(allowed.split('/')[1])
-                    
-                    if mask == 24:
-                        client_prefix = '.'.join(ip.split('.')[:3])
-                        allowed_prefix = '.'.join(network.split('.')[:3])
-                        if client_prefix == allowed_prefix:
-                            return True
-                    elif mask == 16:
-                        client_prefix = '.'.join(ip.split('.')[:2])
-                        allowed_prefix = '.'.join(network.split('.')[:2])
-                        if client_prefix == allowed_prefix:
-                            return True
-                except:
-                    continue
-        
+
+        try:
+            client_ip = ipaddress.ip_address(ip_str)
+        except ValueError:
+            return False  # битый IP → запрещаем по умолчанию
+
+        for entry in self.allowed_ips:
+            entry = entry.strip()
+            if '/' not in entry:
+                continue  # одиночные уже проверили выше
+
+            try:
+                network = ipaddress.ip_network(entry, strict=False)
+                if client_ip in network:
+                    return True
+            except ValueError:
+                # битая запись в allowed_ips — пропускаем, не падаем
+                continue
+
         return False
-    
+
     def add_ip(self, ip):
         """Добавляет IP"""
         ip = ip.strip()
@@ -152,7 +153,7 @@ class IPRestriction:
             self.save_to_env()
             return True
         return False
-    
+
     def remove_ip(self, ip):
         """Удаляет IP"""
         if ip in self.allowed_ips:
@@ -162,17 +163,17 @@ class IPRestriction:
             self.save_to_env()
             return True
         return False
-    
+
     def clear_all(self):
         """Очищает все IP (выключает ограничения)"""
         self.allowed_ips.clear()
         self.enabled = False
         self.save_to_env()
-    
+
     def get_allowed_ips(self):
         """Возвращает список разрешенных IP"""
         return sorted(list(self.allowed_ips))
-    
+
     def is_enabled(self):
         """Проверяет, включены ли ограничения"""
         return self.enabled
