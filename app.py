@@ -46,6 +46,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 if not app.secret_key:
     raise ValueError("SECRET_KEY is not set in .env!")
+app.config['SESSION_COOKIE_NAME'] = 'AdminAntizapretSession'
 
 csrf = CSRFProtect(app)
 ip_restriction.init_app(app)
