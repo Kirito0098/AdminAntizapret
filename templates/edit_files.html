@@ -1,117 +1,191 @@
-{% extends "base.html" %} {% block title %}Редактирование файлов АнтиЗапрета{%
-endblock %} {% block content %}
+{% extends "base.html" %}
+{% block title %}Редактирование списков АнтиЗапрета{% endblock %}
 
-<div id="loading-overlay" style="display: none">
-  <div class="loading-modal">
-    <div class="loading-spinner"></div>
-    <p class="loading-text">
-      Пожалуйста, подождите... Выполняется сохранение изменений.
-    </p>
-  </div>
+{% block content %}
+
+<div id="notification" class="notification" hidden aria-live="polite"></div>
+
+<div class="main-layout">
+  <!-- Тёмная боковая панель -->
+  <aside class="left-sidebar">
+    <div class="sidebar-header">
+      <h2>Списки</h2>
+    </div>
+
+    <nav class="file-nav">
+      {% for file_type, content in file_contents.items() %}
+      <button class="nav-item {% if loop.first %}active{% endif %}" data-file="{{ file_type }}" title="{{ file_type }}">
+        <span class="indicator"></span>
+        <span class="label">
+          {% if file_type == "include_hosts" %}
+          Добавить домены в маршрутизацию VPN
+          {% elif file_type == "exclude_hosts" %}
+          Исключить домены из VPN
+          {% elif file_type == "include_ips" %}
+          Добавить IPv4 в маршрутизацию
+          {% elif file_type == "allow-ips" %}
+          Разрешить прямой доступ (без проверки)
+          {% elif file_type == "exclude-ips" %}
+          Исключить IP из VPN
+          {% elif file_type == "forward-ips" %}
+          Только эти IP через VPN
+          {% elif file_type == "include-adblock-hosts" %}
+          Добавить в блокировку рекламы
+          {% elif file_type == "exclude-adblock-hosts" %}
+          Исключить из блокировки рекламы
+          {% elif file_type == "remove-hosts" %}
+          Удалить домены из обработки
+          {% else %}
+          {{ file_type | replace('_', ' ') | replace('-', ' ') | title }}
+          {% endif %}
+        </span>
+      </button>
+      {% endfor %}
+    </nav>
+
+    <div class="sidebar-bottom">
+      <button id="run-doall" class="btn btn-update">
+        Обновить список
+      </button>
+    </div>
+  </aside>
+
+  <!-- Основная область -->
+  <main class="right-content">
+    <div class="editor-card">
+      {% for file_type, content in file_contents.items() %}
+      <form class="edit-form" id="form-{{ file_type | e }}" method="post" action="/edit-files" {% if not loop.first
+        %}hidden{% endif %}>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() | e }}">
+        <input type="hidden" name="file_type" value="{{ file_type | e }}">
+        <div class="editor-header">
+          <h1>
+            {% if file_type == "include_hosts" %}
+            Добавление доменов для маршрутизации через AntiZapret VPN
+            {% elif file_type == "exclude_hosts" %}
+            Исключение доменов из маршрутизации через AntiZapret VPN
+            {% elif file_type == "include_ips" %}
+            Добавление IPv4-адресов для маршрутизации через AntiZapret VPN
+            {% elif file_type == "allow-ips" %}
+            Исключение IPv4-адресов из проверки защиты от сканирования и сетевых атак
+            {% elif file_type == "exclude-ips" %}
+            Исключение IPv4-адресов из маршрутизации через AntiZapret VPN
+            {% elif file_type == "forward-ips" %}
+            Добавление IPv4-адресов неявно разрешённых для маршрутизации через AntiZapret VPN
+            {% elif file_type == "include-adblock-hosts" %}
+            Добавление рекламных доменов для блокировки через AntiZapret VPN
+            {% elif file_type == "exclude-adblock-hosts" %}
+            Исключение рекламных доменов из блокировки через AntiZapret VPN
+            {% elif file_type == "remove-hosts" %}
+            Исключение доменов из обработки в AntiZapret VPN
+            {% else %}
+            Редактирование файла: {{ file_type | replace('_', ' ') | replace('-', ' ') | title }}
+            {% endif %}
+          </h1>
+        </div>
+        <textarea name="content" class="code-area" spellcheck="false" rows="22"
+          placeholder="# Один адрес / IP на строку&#10;# Примеры:&#10;example.com&#10;*.blocked.ru&#10;192.168.1.1&#10;# комментарии начинаются с #">{{ content | e if content else '' }}</textarea>
+
+        <div class="actions-bar">
+          <button type="submit" class="btn btn-save">Сохранить</button>
+        </div>
+      </form>
+      {% endfor %}
+    </div>
+  </main>
 </div>
 
-<div id="notification" class="notification" style="display: none"></div>
+{% endblock %}
 
-<div class="form-container-e">
-  {% for file_type, content in file_contents.items() %}
-  <div class="file-section">
-    <button class="file-toggle" data-target="{{ file_type }}">
-      {% if file_type == "include_hosts" %} Добавить свои сайты в список
-      АнтиЗапрета {% elif file_type == "exclude_hosts" %} Исключить свои сайты
-      из списка АнтиЗапрета {% elif file_type == "include_ips" %} Добавить свои
-      IP-адреса в список АнтиЗапрета {% else %} {{ file_type.replace('_', '
-      ').capitalize() }} {% endif %}
-    </button>
-    <form
-      method="post"
-      action="/edit-files"
-      class="file-edit-form"
-      id="{{ file_type }}"
-      style="display: none"
-    >
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-      <input type="hidden" name="file_type" value="{{ file_type }}" />
-      <textarea name="content" rows="10">{{ content }}</textarea>
-      <button type="submit">Сохранить</button>
-    </form>
-  </div>
-  {% endfor %}
-</div>
+{% block scripts %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/edit_file.css') }}">
 
-<div class="form-container-e">
-  <button id="run-doall">Обновить список АнтиЗапрета</button>
-</div>
-{% endblock %} {% block scripts %}
 <script>
-  const loadingOverlay = document.getElementById('loading-overlay');
-  const notification = document.getElementById('notification');
+  const notifyEl = document.getElementById('notification');
 
-  function showNotification(message, type = 'success') {
-    notification.textContent = message;
-    notification.className = `notification notification-${type}`;
-    notification.style.display = 'block';
-    setTimeout(() => {
-      notification.style.display = 'none';
-    }, 3000);
+  function showNotify(msg, type = 'success') {
+    notifyEl.textContent = msg;
+    notifyEl.className = `notification notification-${type}`;
+    notifyEl.hidden = false;
+    setTimeout(() => { notifyEl.hidden = true; }, 5000);
   }
 
-  document.getElementById('run-doall').addEventListener('click', function () {
-    loadingOverlay.style.display = 'flex';
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
 
-    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-    fetch('/run-doall', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'X-CSRFToken': csrfToken,
-      },
-      body: `csrf_token=${encodeURIComponent(csrfToken)}`,
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        loadingOverlay.style.display = 'none';
-        showNotification(data.message, data.success ? 'success' : 'error');
-        if (data.output) console.log(data.output);
-      })
-      .catch((error) => {
-        loadingOverlay.style.display = 'none';
-        showNotification('Ошибка выполнения запроса.', 'error');
-        console.error('Ошибка:', error);
-      });
+      document.querySelectorAll('.edit-form').forEach(f => f.hidden = true);
+      const targetForm = document.getElementById(`form-${btn.dataset.file}`);
+      if (targetForm) targetForm.hidden = false;
+    });
   });
 
-  document.querySelectorAll('.file-toggle').forEach((button) => {
-    button.addEventListener('click', function () {
-      const targetId = this.getAttribute('data-target');
-      const form = document.getElementById(targetId);
-      if (form.style.display === 'none') {
-        form.style.display = 'block';
-      } else {
-        form.style.display = 'none';
+  document.querySelectorAll('.edit-form').forEach(form => {
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const submitBtn = form.querySelector('.btn-save');
+      const originalText = submitBtn.textContent;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Сохраняем...';
+
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form)
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        showNotify(data.message || 'Изменения сохранены', data.success ? 'success' : 'error');
+      } catch (err) {
+        showNotify('Ошибка при сохранении', 'error');
+        console.error('Ошибка сохранения:', err);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
       }
     });
   });
 
-  document.querySelectorAll('.file-edit-form').forEach((form) => {
-    form.addEventListener('submit', function (event) {
-      event.preventDefault();
-      loadingOverlay.style.display = 'flex'; // Показываем уведомление
-      const formData = new FormData(form);
-      fetch('/edit-files', {
+  document.getElementById('run-doall')?.addEventListener('click', async () => {
+    if (!confirm('Применить все изменения и обновить список АнтиЗапрета?')) return;
+
+    const btn = document.getElementById('run-doall');
+    const originalText = btn.textContent;
+
+    btn.disabled = true;
+    btn.textContent = 'Обновляем...';
+
+    try {
+      const csrfInput = document.querySelector('input[name="csrf_token"]');
+      if (!csrfInput) throw new Error('CSRF-токен не найден');
+
+      const csrf = csrfInput.value;
+
+      const res = await fetch('/run-doall', {
         method: 'POST',
-        body: formData,
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          loadingOverlay.style.display = 'none'; // Скрываем уведомление
-          showNotification(data.message, data.success ? 'success' : 'error');
-        })
-        .catch((error) => {
-          loadingOverlay.style.display = 'none'; // Скрываем уведомление
-          showNotification('Ошибка выполнения запроса.', 'error');
-          console.error('Ошибка:', error);
-        });
-    });
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': csrf,
+        },
+        body: `csrf_token=${encodeURIComponent(csrf)}`
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      showNotify(data.message || 'Список успешно обновлён', data.success ? 'success' : 'error');
+    } catch (err) {
+      showNotify('Не удалось обновить список', 'error');
+      console.error('Ошибка обновления:', err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
   });
 </script>
 {% endblock %}

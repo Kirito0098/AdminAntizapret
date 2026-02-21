@@ -380,11 +380,17 @@ class QRGenerator:
 
 
 class FileEditor:
-    def __init__(self):
+    def __init__(self):  # если это не в __init__, перенеси туда
         self.files = {
-            "include_hosts": "/root/antizapret/config/include-hosts.txt",
-            "exclude_hosts": "/root/antizapret/config/exclude-hosts.txt",
-            "include_ips": "/root/antizapret/config/include-ips.txt",
+            "include_hosts":          "/root/antizapret/config/include-hosts.txt",
+            "exclude_hosts":          "/root/antizapret/config/exclude-hosts.txt",
+            "include_ips":            "/root/antizapret/config/include-ips.txt",
+            "allow-ips":              "/root/antizapret/config/allow-ips.txt",
+            "exclude-ips":            "/root/antizapret/config/exclude-ips.txt",
+            "forward-ips":            "/root/antizapret/config/forward-ips.txt",
+            "include-adblock-hosts":  "/root/antizapret/config/include-adblock-hosts.txt",   # ← вот этого не хватало
+            "exclude-adblock-hosts":  "/root/antizapret/config/exclude-adblock-hosts.txt",
+            "remove-hosts":           "/root/antizapret/config/remove-hosts.txt",
         }
 
     def update_file_content(self, file_type, content):
