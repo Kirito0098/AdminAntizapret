@@ -379,3 +379,27 @@ document.addEventListener(
   },
   true
 );
+
+document.addEventListener('DOMContentLoaded', () => {
+  const hamburger = document.getElementById('openSidebar');
+  const sidebar = document.getElementById('sidebar');
+
+  if (!hamburger || !sidebar) return;
+
+  // Открытие/закрытие по клику на гамбургер
+  hamburger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sidebar.classList.toggle('active');
+    document.body.classList.toggle('menu-open', sidebar.classList.contains('active'));
+  });
+
+  // Закрытие по клику вне меню
+  document.addEventListener('click', (e) => {
+    if (sidebar.classList.contains('active') &&
+      !sidebar.contains(e.target) &&
+      !hamburger.contains(e.target)) {
+      sidebar.classList.remove('active');
+      document.body.classList.remove('menu-open');
+    }
+  });
+});

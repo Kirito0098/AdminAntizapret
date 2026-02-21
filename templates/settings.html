@@ -1,8 +1,10 @@
 {% extends "base.html" %} {% block title %}Настройки{% endblock %} {% block
 content %}
 <div class="settings-layout">
+  <!-- Гамбургер виден только на мобильных -->
+  <button class="hamburger" id="openSidebar">☰</button>
   <!-- Боковое меню -->
-  <div class="settings-page-wrapper">
+  <div class="settings-page-wrapper" id="sidebar">
     <div class="settings-layout">
       <h3>Настройки</h3>
     </div>
