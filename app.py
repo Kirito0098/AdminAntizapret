@@ -65,6 +65,9 @@ CONFIG_PATHS = {
         "/root/antizapret/client/amneziawg/antizapret",
         "/root/antizapret/client/amneziawg/vpn",
     ],
+    "antizapret_result": [
+        "/root/antizapret/result"
+    ],
 }
 
 MIN_CERT_EXPIRE = 1

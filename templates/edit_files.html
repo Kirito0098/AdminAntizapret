@@ -9,45 +9,69 @@
   <!-- Тёмная боковая панель -->
   <aside class="left-sidebar">
     <div class="sidebar-header">
-      <h2>Списки</h2>
-    </div>
+      <div class="toggle-buttons">
+        <button id="btn-lists" class="toggle-btn active">Списки</button>
+        <button id="btn-routes" class="toggle-btn">Маршруты</button>
+      </div>
+      <div id="lists-panel">
+        <nav class="file-nav">
+          {% for file_type, content in file_contents.items() %}
+          <button class="nav-item {% if loop.first %}active{% endif %}" data-file="{{ file_type }}"
+            title="{{ file_type }}">
+            <span class="label">
+              {% if file_type == "include_hosts" %}
+              Добавить домены в маршрутизацию VPN
+              {% elif file_type == "exclude_hosts" %}
+              Исключить домены из VPN
+              {% elif file_type == "include_ips" %}
+              Добавить IPv4 в маршрутизацию
+              {% elif file_type == "allow-ips" %}
+              Разрешить прямой доступ (без проверки)
+              {% elif file_type == "exclude-ips" %}
+              Исключить IP из VPN
+              {% elif file_type == "forward-ips" %}
+              Только эти IP через VPN
+              {% elif file_type == "include-adblock-hosts" %}
+              Добавить в блокировку рекламы
+              {% elif file_type == "exclude-adblock-hosts" %}
+              Исключить из блокировки рекламы
+              {% elif file_type == "remove-hosts" %}
+              Удалить домены из обработки
+              {% else %}
+              {{ file_type | replace('_', ' ') | replace('-', ' ') | title }}
+              {% endif %}
+            </span>
+          </button>
+          {% endfor %}
+        </nav>
 
-    <nav class="file-nav">
-      {% for file_type, content in file_contents.items() %}
-      <button class="nav-item {% if loop.first %}active{% endif %}" data-file="{{ file_type }}" title="{{ file_type }}">
-        <span class="indicator"></span>
-        <span class="label">
-          {% if file_type == "include_hosts" %}
-          Добавить домены в маршрутизацию VPN
-          {% elif file_type == "exclude_hosts" %}
-          Исключить домены из VPN
-          {% elif file_type == "include_ips" %}
-          Добавить IPv4 в маршрутизацию
-          {% elif file_type == "allow-ips" %}
-          Разрешить прямой доступ (без проверки)
-          {% elif file_type == "exclude-ips" %}
-          Исключить IP из VPN
-          {% elif file_type == "forward-ips" %}
-          Только эти IP через VPN
-          {% elif file_type == "include-adblock-hosts" %}
-          Добавить в блокировку рекламы
-          {% elif file_type == "exclude-adblock-hosts" %}
-          Исключить из блокировки рекламы
-          {% elif file_type == "remove-hosts" %}
-          Удалить домены из обработки
-          {% else %}
-          {{ file_type | replace('_', ' ') | replace('-', ' ') | title }}
-          {% endif %}
-        </span>
-      </button>
-      {% endfor %}
-    </nav>
+        <div class="sidebar-bottom">
+          <button id="run-doall" class="btn btn-update">
+            Обновить списки
+          </button>
+        </div>
+      </div>
 
-    <div class="sidebar-bottom">
-      <button id="run-doall" class="btn btn-update">
-        Обновить список
-      </button>
-    </div>
+      <div id="routes-panel" style="display:none;">
+        <div class="routes-buttons">
+          <button class="route-btn"
+            onclick="window.location.href='{{ url_for('download', file_type='antizapret_result', filename='route-ips.txt') }}'">
+            Общий список IP
+          </button>
+          <button class="route-btn"
+            onclick="window.location.href='{{ url_for('download', file_type='antizapret_result', filename='keenetic-wireguard-routes.txt') }}'">
+            Keenetic WireGuard
+          </button>
+          <button class="route-btn"
+            onclick="window.location.href='{{ url_for('download', file_type='antizapret_result', filename='mikrotik-wireguard-routes.txt') }}'">
+            MikroTik WireGuard
+          </button>
+          <button class="route-btn"
+            onclick="window.location.href='{{ url_for('download', file_type='antizapret_result', filename='tp-link-openvpn-routes.txt') }}'">
+            TP-Link OpenVPN
+          </button>
+        </div>
+      </div>
   </aside>
 
   <!-- Основная область -->
@@ -99,93 +123,5 @@
 
 {% block scripts %}
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/edit_file.css') }}">
-
-<script>
-  const notifyEl = document.getElementById('notification');
-
-  function showNotify(msg, type = 'success') {
-    notifyEl.textContent = msg;
-    notifyEl.className = `notification notification-${type}`;
-    notifyEl.hidden = false;
-    setTimeout(() => { notifyEl.hidden = true; }, 5000);
-  }
-
-  document.querySelectorAll('.nav-item').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      document.querySelectorAll('.edit-form').forEach(f => f.hidden = true);
-      const targetForm = document.getElementById(`form-${btn.dataset.file}`);
-      if (targetForm) targetForm.hidden = false;
-    });
-  });
-
-  document.querySelectorAll('.edit-form').forEach(form => {
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
-
-      const submitBtn = form.querySelector('.btn-save');
-      const originalText = submitBtn.textContent;
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Сохраняем...';
-
-      try {
-        const res = await fetch(form.action, {
-          method: 'POST',
-          body: new FormData(form)
-        });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
-        showNotify(data.message || 'Изменения сохранены', data.success ? 'success' : 'error');
-      } catch (err) {
-        showNotify('Ошибка при сохранении', 'error');
-        console.error('Ошибка сохранения:', err);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
-      }
-    });
-  });
-
-  document.getElementById('run-doall')?.addEventListener('click', async () => {
-    if (!confirm('Применить все изменения и обновить список АнтиЗапрета?')) return;
-
-    const btn = document.getElementById('run-doall');
-    const originalText = btn.textContent;
-
-    btn.disabled = true;
-    btn.textContent = 'Обновляем...';
-
-    try {
-      const csrfInput = document.querySelector('input[name="csrf_token"]');
-      if (!csrfInput) throw new Error('CSRF-токен не найден');
-
-      const csrf = csrfInput.value;
-
-      const res = await fetch('/run-doall', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'X-CSRFToken': csrf,
-        },
-        body: `csrf_token=${encodeURIComponent(csrf)}`
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-      const data = await res.json();
-      showNotify(data.message || 'Список успешно обновлён', data.success ? 'success' : 'error');
-    } catch (err) {
-      showNotify('Не удалось обновить список', 'error');
-      console.error('Ошибка обновления:', err);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = originalText;
-    }
-  });
-</script>
+<script src="{{ url_for('static', filename='assets/js/edit_files.js') }}"></script>
 {% endblock %}

@@ -3,8 +3,6 @@
   --text-secondary: #94a3b8;
   --accent: #4caf50;
   --accent-dark: #43a047;
-  --glass-bg: hsla(0, 0%, 10%, 0.15);
-  --glass-strong: hsla(0, 0%, 10%, 0.25);
   --border-accent: #4caf50;
 }
 
@@ -32,7 +30,7 @@ body {
 
 .left-sidebar {
   width: 240px;
-  background-color: rgba(0,0,0,0.4);
+  background-color: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(50px);
   border: 2px solid var(--border-accent);
   border-radius: 1rem;
@@ -43,12 +41,6 @@ body {
 
 .sidebar-header {
   margin-bottom: 1rem;
-}
-
-.sidebar-header h2 {
-  color: #ffffff;
-  font-weight: 600;
-  letter-spacing: 0.5px;
 }
 
 .file-nav {
@@ -64,7 +56,7 @@ body {
   padding: 0.7rem 1rem;
   background: transparent;
   border-radius: 0.7rem;
-  color: rgba(255,255,255);
+  color: rgba(255, 255, 255);
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -72,12 +64,12 @@ body {
 }
 
 .nav-item:hover {
-  background: rgba(76,175,80,0.2);
+  background: rgba(76, 175, 80, 0.2);
   color: #ffffff;
 }
 
 .nav-item.active {
-  background: rgba(76,175,80,0.35);
+  background: rgba(76, 175, 80, 0.35);
   color: #ffffff;
 }
 
@@ -116,12 +108,12 @@ body {
 .editor-card {
   width: 100%;
   max-width: 1000px;
-  background-color: rgba(0,0,0,0.4);
+  background-color: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(50px);
   border: 2px solid var(--border-accent);
   border-radius: 1rem;
   padding: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 
 .editor-header h1 {
@@ -135,11 +127,11 @@ body {
   width: 100%;
   min-height: 50vh;
   padding: 1.3rem;
-  background-color: rgba(0,0,0,0.4);
+  background-color: rgba(0, 0, 0, 0.4);
   color: var(--text-primary);
   border: 1px solid var(--border-accent);
   border-radius: 0.8rem;
-  font-family: 'Consolas', monospace;
+  font-family: "Consolas", monospace;
   font-size: 1rem;
   line-height: 1.5;
   resize: vertical;
@@ -148,7 +140,7 @@ body {
 
 .code-area:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(76,175,80,0.3);
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
 }
 
 /* ===== Actions ===== */
@@ -183,16 +175,74 @@ body {
   color: white;
   z-index: 1000;
   backdrop-filter: blur(6px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
   min-width: 260px;
 }
 
 .notification-success {
-  background: rgba(76,175,80,0.85);
+  background: rgba(76, 175, 80, 0.85);
 }
 
 .notification-error {
-  background: rgba(244,67,54,0.85);
+  background: rgba(244, 67, 54, 0.85);
+}
+
+.toggle-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border-accent);
+  border-radius: 0.7rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.toggle-btn.active {
+  background: rgba(76, 175, 80, 0.35);
+  color: #fff;
+}
+
+.toggle-btn:hover {
+  background: rgba(76, 175, 80, 0.2);
+  color: #fff;
+}
+
+.routes-buttons {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.route-btn {
+  position: relative;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: transparent;
+  border-radius: 0.7rem;
+  color: rgba(255, 255, 255);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.route-btn:hover {
+  background: rgba(76, 175, 80, 0.2);
+  color: #ffffff;
+}
+
+.route-btn.active {
+  background: rgba(76, 175, 80, 0.35);
+  color: #ffffff;
 }
 
 /* ===== Адаптив ===== */
@@ -213,7 +263,6 @@ body {
 }
 
 @media (max-width: 600px) {
-
   .main-layout {
     padding: 12px;
     gap: 12px;
