@@ -52,6 +52,14 @@ csrf = CSRFProtect(app)
 ip_restriction.init_app(app)
 init_antizapret(app)
 
+#   hostname/public_download/
+RESULT_DIR_FILES = {
+    "keenetic": "keenetic-wireguard-routes.txt",
+    "mikrotik": "mikrotik-wireguard-routes.txt",
+    "ips": "route-ips.txt",
+    "tplink": "tp-link-openvpn-routes.txt"
+}
+
 OPENVPN_FOLDERS = [
     "/root/antizapret/client/openvpn/antizapret",
     "/root/antizapret/client/openvpn/antizapret-tcp",
@@ -650,6 +658,14 @@ def download(file_path, clean_name):
         print(f"Аларм! ошибка: {e}")
         abort(500)
 
+# Роут для публичного скачивания файлов
+@app.route("/public_download/<router>")
+def public_download(router):
+    filename = RESULT_DIR_FILES.get(router)
+    if not filename:
+        abort(404)
+
+    return send_from_directory("/root/antizapret/result", filename, as_attachment=True)
 
 # Роут для формирования QR кода
 @app.route("/generate_qr/<file_type>/<path:filename>")
