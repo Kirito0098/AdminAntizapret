@@ -60,6 +60,8 @@ RESULT_DIR_FILES = {
     "tplink": "tp-link-openvpn-routes.txt"
 }
 
+PUBLIC_DOWNLOAD_ENABLED = os.getenv("PUBLIC_DOWNLOAD_ENABLED", "false").lower() == "true"
+
 OPENVPN_FOLDERS = [
     "/root/antizapret/client/openvpn/antizapret",
     "/root/antizapret/client/openvpn/antizapret-tcp",
@@ -661,6 +663,8 @@ def download(file_path, clean_name):
 # Роут для публичного скачивания файлов
 @app.route("/public_download/<router>")
 def public_download(router):
+    if not PUBLIC_DOWNLOAD_ENABLED:
+        abort(404)
     filename = RESULT_DIR_FILES.get(router)
     if not filename:
         abort(404)
