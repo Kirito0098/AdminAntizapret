@@ -30,8 +30,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Функция для извлечения имени клиента из имени файла
   function extractClientName(filename) {
-    const parts = filename.split('-');
-    return parts.slice(1, -2).join('-'); // Извлекаем имя клиента между первым и предпоследними частями
+    let name = filename || "";
+    name = name.replace(/^(antizapret-|vpn-)/i, "");
+    const idx = name.indexOf('-(');
+    if (idx !== -1) {
+      name = name.substring(0, idx);
+    }
+    return name.trim();
   }
 
   // Функция для обновления видимости элементов формы
@@ -156,9 +161,10 @@ document.addEventListener('DOMContentLoaded', function () {
       rows.forEach((row) => {
         const clientNameCell = row.querySelector('td:first-child');
         if (clientNameCell) {
-          const clientName = extractClientName(
-            clientNameCell.textContent.trim(),
-          );
+          let clientName = clientNameCell.getAttribute('data-client-name');
+          if (!clientName) {
+            clientName = clientNameCell.textContent.trim();
+          }
           if (clientName && !clientName.toLowerCase().includes('client')) {
             uniqueClientNames.add(clientName);
           }

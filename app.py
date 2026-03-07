@@ -52,11 +52,23 @@ csrf = CSRFProtect(app)
 ip_restriction.init_app(app)
 init_antizapret(app)
 
+OPENVPN_FOLDERS = [
+    "/root/antizapret/client/openvpn/antizapret",
+    "/root/antizapret/client/openvpn/antizapret-tcp",
+    "/root/antizapret/client/openvpn/antizapret-udp",
+    "/root/antizapret/client/openvpn/vpn",
+    "/root/antizapret/client/openvpn/vpn-tcp",
+    "/root/antizapret/client/openvpn/vpn-udp",
+]
+
+GROUP_FOLDERS = {
+    'GROUP_UDP\TCP': [OPENVPN_FOLDERS[0], OPENVPN_FOLDERS[3]],  # UDP AND tcp
+    'GROUP_UDP':  [OPENVPN_FOLDERS[2], OPENVPN_FOLDERS[5]],  # UDP only
+    'GROUP_TCP':  [OPENVPN_FOLDERS[1], OPENVPN_FOLDERS[4]],  # TCP only
+}
+
 CONFIG_PATHS = {
-    "openvpn": [
-        "/root/antizapret/client/openvpn/antizapret",
-        "/root/antizapret/client/openvpn/vpn",
-    ],
+    "openvpn": GROUP_FOLDERS["GROUP_UDP\TCP"],
     "wg": [
         "/root/antizapret/client/wireguard/antizapret",
         "/root/antizapret/client/wireguard/vpn",
@@ -337,25 +349,24 @@ class FileValidator:
             try:
                 if file_type not in self.config_paths:
                     abort(400, description="Недопустимый тип файла")
-
-                for config_dir in self.config_paths[file_type]:
-                    for root, _, files in os.walk(config_dir):
-                        for file in files:
-                            if file.replace("(", "").replace(
-                                ")", ""
-                            ) == filename.replace("(", "").replace(")", ""):
-                                file_path = os.path.join(root, file)
-                                clean_name = file.replace("(", "").replace(")", "")
-                                return func(file_path, clean_name, *args, **kwargs)
-
+                def _scan(dirs):
+                    for config_dir in dirs:
+                        for root, _, files in os.walk(config_dir):
+                            for file in files:
+                                if file.replace("(", "").replace(")", "") == filename.replace("(", "").replace(")", ""):
+                                    return os.path.join(root, file), file.replace("(", "").replace(")", "")
+                    return None, None
+                file_path, clean_name = _scan(self.config_paths[file_type])
+                if not file_path and file_type == "openvpn":
+                    file_path, clean_name = _scan(OPENVPN_FOLDERS)
+                if file_path:
+                    return func(file_path, clean_name, *args, **kwargs)
                 abort(404, description="Файл не найден")
-
             except Exception as e:
                 print(f"Аларм! ошибка: {str(e)}")
                 abort(500)
 
         return wrapper
-
 
 class QRGenerator:
     def __init__(self):
@@ -466,6 +477,12 @@ app.view_functions['antizapret_settings_schema'] = auth_manager.login_required(
 @auth_manager.login_required
 def index():
     if request.method == "GET":
+        group = session.get("openvpn_group", "GROUP_UDP\TCP")
+        if group not in GROUP_FOLDERS:
+            group = "GROUP_UDP\TCP"
+        folders = GROUP_FOLDERS[group]
+        config_file_handler.config_paths["openvpn"] = folders
+        file_validator.config_paths["openvpn"] = folders
         openvpn_files, wg_files, amneziawg_files = config_file_handler.get_config_files()
         cert_expiry = config_file_handler.get_openvpn_cert_expiry()
 
@@ -474,7 +491,9 @@ def index():
             openvpn_files=openvpn_files,
             wg_files=wg_files,
             amneziawg_files=amneziawg_files,
-            cert_expiry=cert_expiry
+            cert_expiry=cert_expiry,
+            current_openvpn_group=group,
+            current_openvpn_folders=folders,
         )
 
     if request.method == "POST":
@@ -518,6 +537,14 @@ def index():
         except Exception as e:
             return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
+
+@app.route("/set_openvpn_group", methods=["POST"])
+def set_openvpn_group():
+    grp = request.form.get("group", "GROUP_UDP\TCP")
+    if grp not in GROUP_FOLDERS:
+        grp = "GROUP_UDP\TCP"
+    session["openvpn_group"] = grp
+    return redirect(url_for("index"))
 
 # Страница логина
 @app.route("/login", methods=["GET", "POST"])
@@ -591,24 +618,26 @@ def download(file_path, clean_name):
         base = os.path.basename(file_path)
 
         pattern = re.compile(
-            r"^([^-]+)-(.+?)-\(.+\)(?:-(wg|am))?\.(ovpn|conf)$", re.IGNORECASE
+            r"^(?P<prefix>[^-]+)-(?P<client>[^-]+)-\([^)]+\)(?:-(?P<proto>udp|tcp))?(?:-(?P<suffix>wg|am))?\.(?P<ext>ovpn|conf)$",
+            re.IGNORECASE,
         )
         m = pattern.match(base)
 
         if m:
-            prefix, client, suffix, ext = (
-                m.group(1).lower(),
-                m.group(2),
-                m.group(3).lower() if m.group(3) else None,
-                m.group(4).lower(),
-            )
-            is_az = prefix == "antizapret"
-            proto_prefix = ""
-            if suffix == "wg":
-                proto_prefix = "WG-"
-            elif suffix == "am":
-                proto_prefix = "AWG-"
-            download_name = f"{proto_prefix}{client}{'-AZ' if is_az else ''}.{ext}"
+            prefix = m.group('prefix').lower()
+            client = m.group('client')
+            proto = m.group('proto')
+            suffix = m.group('suffix')
+            ext = m.group('ext').lower()
+            if prefix == 'vpn':
+                base_name = f"{client}-vpn"
+            else:
+                base_name = client
+            az = '-az' if prefix == 'antizapret' else ''
+            if proto:
+                download_name = f"{base_name}-{proto}{az}.{ext}"
+            else:
+                download_name = f"{base_name}{az}.{ext}"
         else:
             download_name = base
         return send_from_directory(

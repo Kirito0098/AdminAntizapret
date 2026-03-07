@@ -23,7 +23,7 @@
       <div class="form-group" id="client-name-container">
         <label for="client-name">Имя клиента:</label>
         <input type="text" id="client-name" name="client-name" placeholder=" "
-          oninput="this.value = this.value.replace(/[^a-zA-Z0-9\-]/g, '').slice(0, 15);" ; />
+          oninput="this.value = this.value.replace(/[^a-zA-Z0-9\_]/g, '').slice(0, 15);" ; />
       </div>
 
       <div class="form-group" id="work-term-container">
@@ -45,6 +45,32 @@
 <div class="file-list">
   <div class="column">
     <h3>OpenVPN Конфигурации</h3>
+    <div class="folder-group-buttons" style="margin-left:10px; display:inline-block;">
+      <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="group" value="GROUP_UDP\TCP" />
+        <button type="submit" class="switch-folder-button">UDP AND TCP</button>
+      </form>
+      <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="group" value="GROUP_UDP" />
+        <button type="submit" class="switch-folder-button">UDP</button>
+      </form>
+      <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="group" value="GROUP_TCP" />
+        <button type="submit" class="switch-folder-button">TCP</button>
+      </form>
+    </div>
+    {% if current_openvpn_group %}
+    <div class="current-group-display">
+      <span class="current-group-label">Текущая группа:</span>
+      <span class="current-group-value">{{ current_openvpn_group }}</span>
+      {% if current_openvpn_folders %}
+      <br />
+      {% endif %}
+    </div>
+    {% endif %}
     <div class="scrollable">
       <table>
         <thead>
