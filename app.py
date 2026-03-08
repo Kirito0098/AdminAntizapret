@@ -35,6 +35,7 @@ import platform
 #Импорт файла с параметрами
 from utils.ip_restriction import ip_restriction
 from config.antizapret_params import ANTIZAPRET_PARAMS
+from ips import ip_manager
 from routes.settings_antizapret import init_antizapret
 
 # Загрузка переменных окружения из .env файла
@@ -72,13 +73,13 @@ OPENVPN_FOLDERS = [
 ]
 
 GROUP_FOLDERS = {
-    'GROUP_UDP\TCP': [OPENVPN_FOLDERS[0], OPENVPN_FOLDERS[3]],  # UDP AND tcp
+    'GROUP_UDP\\TCP': [OPENVPN_FOLDERS[0], OPENVPN_FOLDERS[3]],  # UDP AND tcp
     'GROUP_UDP':  [OPENVPN_FOLDERS[2], OPENVPN_FOLDERS[5]],  # UDP only
     'GROUP_TCP':  [OPENVPN_FOLDERS[1], OPENVPN_FOLDERS[4]],  # TCP only
 }
 
 CONFIG_PATHS = {
-    "openvpn": GROUP_FOLDERS["GROUP_UDP\TCP"],
+    "openvpn": GROUP_FOLDERS["GROUP_UDP\\TCP"],
     "wg": [
         "/root/antizapret/client/wireguard/antizapret",
         "/root/antizapret/client/wireguard/vpn",
@@ -487,9 +488,9 @@ app.view_functions['antizapret_settings_schema'] = auth_manager.login_required(
 @auth_manager.login_required
 def index():
     if request.method == "GET":
-        group = session.get("openvpn_group", "GROUP_UDP\TCP")
+        group = session.get("openvpn_group", "GROUP_UDP\\TCP")
         if group not in GROUP_FOLDERS:
-            group = "GROUP_UDP\TCP"
+            group = "GROUP_UDP\\TCP"
         folders = GROUP_FOLDERS[group]
         config_file_handler.config_paths["openvpn"] = folders
         file_validator.config_paths["openvpn"] = folders
@@ -550,9 +551,9 @@ def index():
 
 @app.route("/set_openvpn_group", methods=["POST"])
 def set_openvpn_group():
-    grp = request.form.get("group", "GROUP_UDP\TCP")
+    grp = request.form.get("group", "GROUP_UDP\\TCP")
     if grp not in GROUP_FOLDERS:
-        grp = "GROUP_UDP\TCP"
+        grp = "GROUP_UDP\\TCP"
     session["openvpn_group"] = grp
     return redirect(url_for("index"))
 
@@ -882,6 +883,38 @@ def settings():
             else:
                 flash("Укажите хотя бы один IP-адрес", "error")
 
+        file_action = request.form.get("file_action")
+
+        if file_action == "add_from_file":
+            ip_file = request.form.get("ip_file", "").strip()
+            if ip_file:
+                try:
+                    added_count = ip_manager.add_from_file(ip_file)
+                    flash(f"Добавлено {added_count} IP из файла {ip_file}", "success")
+                except FileNotFoundError:
+                    flash("Файл не найден", "error")
+                except Exception as e:
+                    flash(f"Ошибка при добавлении IP: {e}", "error")
+            else:
+                flash("Выберите файл", "error")
+
+        elif file_action in ("enable_file", "disable_file"):
+            ip_file = request.form.get("ip_file", "").strip()
+            if ip_file:
+                try:
+                    if file_action == "enable_file":
+                        cnt = ip_manager.enable_file(ip_file)
+                        flash(f"Добавлено {cnt} IP из файла {ip_file}", "success")
+                    else:
+                        cnt = ip_manager.disable_file(ip_file)
+                        flash(f"Удалено {cnt} IP из файла {ip_file}", "success")
+                except FileNotFoundError:
+                    flash("Файл не найден", "error")
+                except Exception as e:
+                    flash(f"Ошибка при обработке файла: {e}", "error")
+            else:
+                flash("Не указан файл", "error")
+
         # ДОБАВЬТЕ ЭТО ВНУТРЬ POST БЛОКА:
         restart_action = request.form.get("restart_action")
 
@@ -922,6 +955,10 @@ def settings():
     ip_enabled = ip_restriction.is_enabled()
     current_ip = ip_restriction.get_client_ip()
 
+    # синхронизируем список адресов и получаем текущее состояние
+    include_ips_set = ip_manager.sync_enabled()
+    ip_files = ip_manager.list_ip_files()
+    ip_file_states = ip_manager.get_file_states()
     return render_template(
         "settings.html",
         port=current_port,
@@ -929,6 +966,8 @@ def settings():
         allowed_ips=allowed_ips,
         ip_enabled=ip_enabled,
         current_ip=current_ip,
+        ip_files=ip_files,
+        ip_file_states=ip_file_states,
     )
 
 

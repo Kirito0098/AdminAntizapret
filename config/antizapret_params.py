@@ -4,14 +4,8 @@ ANTIZAPRET_PARAMS = [
     {"key": "route_all",              "env": "ROUTE_ALL",              "type": "flag",   "default": "n", "html_id": "route-all-toggle"},
     {"key": "discord_include",        "env": "DISCORD_INCLUDE",        "type": "flag",   "default": "n", "html_id": "discord-toggle"},
     {"key": "cloudflare_include",     "env": "CLOUDFLARE_INCLUDE",     "type": "flag",   "default": "n", "html_id": "cloudflare-toggle"},
-    {"key": "amazon_include",         "env": "AMAZON_INCLUDE",         "type": "flag",   "default": "n", "html_id": "amazon-toggle"},
-    {"key": "hetzner_include",        "env": "HETZNER_INCLUDE",        "type": "flag",   "default": "n", "html_id": "hetzner-toggle"},
-    {"key": "digitalocean_include",   "env": "DIGITALOCEAN_INCLUDE",   "type": "flag",   "default": "n", "html_id": "digitalocean-toggle"},
-    {"key": "ovh_include",            "env": "OVH_INCLUDE",            "type": "flag",   "default": "n", "html_id": "ovh-toggle"},
-    {"key": "akamai_include",         "env": "AKAMAI_INCLUDE",         "type": "flag",   "default": "n", "html_id": "akamai-toggle"},
     {"key": "telegram_include",       "env": "TELEGRAM_INCLUDE",       "type": "flag",   "default": "n", "html_id": "telegram-toggle"},
     {"key": "block_ads",              "env": "BLOCK_ADS",              "type": "flag",   "default": "n", "html_id": "AdBlock-toggle"},
-    {"key": "google_include",         "env": "GOOGLE_INCLUDE",         "type": "flag",   "default": "n", "html_id": "google-toggle"},
     {"key": "whatsapp_include",       "env": "WHATSAPP_INCLUDE",       "type": "flag",   "default": "n", "html_id": "whatsapp-toggle"},
     {"key": "roblox_include",         "env": "ROBLOX_INCLUDE",         "type": "flag",   "default": "n", "html_id": "roblox-toggle"},
     {"key": "OPENVPN_BACKUP_TCP",     "env": "OPENVPN_BACKUP_TCP",     "type": "flag",   "default": "n", "html_id": "OPENVPN_BACKUP_TCP-toggle"},
@@ -26,3 +20,31 @@ ANTIZAPRET_PARAMS = [
     {"key": "openvpn_host",           "env": "OPENVPN_HOST",           "type": "string", "default": "", "html_id": "openvpn-host-input"},
     {"key": "wireguard_host",         "env": "WIREGUARD_HOST",         "type": "string", "default": "", "html_id": "wireguard-host-input"},
 ]
+
+# Список разрешенных IP-файлов с отображаемыми именами и описаниями
+IP_FILES = {
+    "akamai-ips.txt": {
+        "name": "Akamai",
+        "description": "Перенаправляет трафик Akamai через Antizapret, включая сайты и сервисы, использующие Akamai для доставки контента."
+    },
+    "amazon-ips.txt": {
+        "name": "Amazon",
+        "description": "Перенаправляет трафик Amazon через Antizapret, включая облачные сервисы и веб-сайты Amazon."
+    },
+    "digitalocean-ips.txt": {
+        "name": "DigitalOcean",
+        "description": "Перенаправляет трафик DigitalOcean через Antizapret, включая облачные серверы и сервисы, предоставляемые DigitalOcean"
+    },
+    "google-ips.txt": {
+        "name": "Google",
+        "description": "Перенаправляет трафик Google через Antizapret, включая поисковую систему и другие сервисы Google"
+    },
+    "hetzner-ips.txt": {
+        "name": "Hetzner",
+        "description": "Перенаправляет трафик Hetzner через Antizapret, включая серверы и сервисы, размещенные в дата-центрах Hetzner"
+    },
+    "ovh-ips.txt": {
+        "name": "OVH",
+        "description": "Перенаправляет трафик OVH через Antizapret, включая серверы и сервисы, размещенные в дата-центрах OVH"
+    }
+}
