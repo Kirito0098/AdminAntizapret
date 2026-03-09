@@ -21,8 +21,8 @@
       {% endif %}
     </div>
     <div class="nav-group">
-      {% if current_user and current_user.is_admin() %}
       <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
+      {% if current_user and current_user.is_admin() %}
       <a href="{{ url_for('settings') }}" class="nav-link">Настройки</a>
       {% endif %}
       <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>

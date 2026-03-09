@@ -93,6 +93,164 @@ CONFIG_PATHS = {
     ],
 }
 
+
+def normalize_openvpn_group_key(filename):
+    """Нормализует имя .ovpn в ключ группы для UI доступа viewer."""
+    base_name = os.path.basename(filename)
+    stem, ext = os.path.splitext(base_name)
+    if ext.lower() != ".ovpn":
+        return stem.lower().strip() or stem.lower()
+
+    normalized = stem.strip()
+    lowered = normalized.lower()
+
+    for prefix in ("antizapret-", "vpn-"):
+        if lowered.startswith(prefix):
+            normalized = normalized[len(prefix):]
+            break
+
+    # Протокол и IP-метка являются вариациями одного и того же конфига.
+    normalized = re.sub(r"-(udp|tcp)$", "", normalized, flags=re.IGNORECASE)
+    normalized = re.sub(r"-\([^)]+\)$", "", normalized)
+
+    cleaned = normalized.strip("-_ ")
+    return cleaned.lower() if cleaned else stem.lower()
+
+
+def get_openvpn_group_display_name(filename):
+    """Возвращает отображаемое имя группы OpenVPN без префиксов/вариантов."""
+    base_name = os.path.basename(filename)
+    stem, _ = os.path.splitext(base_name)
+
+    display = stem.strip()
+    lowered = display.lower()
+
+    for prefix in ("antizapret-", "vpn-"):
+        if lowered.startswith(prefix):
+            display = display[len(prefix):]
+            break
+
+    display = re.sub(r"-(udp|tcp)$", "", display, flags=re.IGNORECASE)
+    display = re.sub(r"-\([^)]+\)$", "", display)
+    display = display.strip("-_ ")
+    return display or stem
+
+
+def collect_all_openvpn_files_for_access():
+    """Собирает все OpenVPN конфиги из всех групповых директорий."""
+    original_paths = config_file_handler.config_paths["openvpn"]
+    try:
+        config_file_handler.config_paths["openvpn"] = [
+            directory for folders in GROUP_FOLDERS.values() for directory in folders
+        ]
+        all_openvpn, _, _ = config_file_handler.get_config_files()
+        return all_openvpn
+    finally:
+        config_file_handler.config_paths["openvpn"] = original_paths
+
+
+def build_openvpn_access_groups(openvpn_paths):
+    """Группирует .ovpn файлы по одному логическому конфигу."""
+    grouped = {}
+    for file_path in openvpn_paths:
+        file_name = os.path.basename(file_path)
+        group_key = normalize_openvpn_group_key(file_name)
+        if group_key not in grouped:
+            grouped[group_key] = {
+                "group_key": group_key,
+                "display_name": get_openvpn_group_display_name(file_name),
+                "files": [],
+            }
+        grouped[group_key]["files"].append(file_name)
+
+    for item in grouped.values():
+        item["files"] = sorted(set(item["files"]), key=str.lower)
+
+    return [grouped[k] for k in sorted(grouped.keys())]
+
+
+def normalize_conf_group_key(filename, config_type):
+    """Нормализует имя .conf в ключ группы (WG/AmneziaWG)."""
+    base_name = os.path.basename(filename)
+    stem, ext = os.path.splitext(base_name)
+    if ext.lower() != ".conf":
+        return stem.lower().strip() or stem.lower()
+
+    normalized = stem.strip()
+    lowered = normalized.lower()
+
+    for prefix in ("antizapret-", "vpn-"):
+        if lowered.startswith(prefix):
+            normalized = normalized[len(prefix):]
+            break
+
+    # Варианты -am/-wg и IP-метка не меняют логический конфиг.
+    if config_type == "amneziawg":
+        normalized = re.sub(r"-am$", "", normalized, flags=re.IGNORECASE)
+    elif config_type == "wg":
+        normalized = re.sub(r"-wg$", "", normalized, flags=re.IGNORECASE)
+
+    normalized = re.sub(r"-\([^)]+\)$", "", normalized)
+    cleaned = normalized.strip("-_ ")
+    return cleaned.lower() if cleaned else stem.lower()
+
+
+def get_conf_group_display_name(filename, config_type):
+    """Отображаемое имя группы для WG/AmneziaWG без служебных суффиксов."""
+    base_name = os.path.basename(filename)
+    stem, _ = os.path.splitext(base_name)
+
+    display = stem.strip()
+    lowered = display.lower()
+
+    for prefix in ("antizapret-", "vpn-"):
+        if lowered.startswith(prefix):
+            display = display[len(prefix):]
+            break
+
+    if config_type == "amneziawg":
+        display = re.sub(r"-am$", "", display, flags=re.IGNORECASE)
+    elif config_type == "wg":
+        display = re.sub(r"-wg$", "", display, flags=re.IGNORECASE)
+
+    display = re.sub(r"-\([^)]+\)$", "", display)
+    display = display.strip("-_ ")
+    return display or stem
+
+
+def build_conf_access_groups(conf_paths, config_type):
+    """Группирует .conf файлы WG/AmneziaWG по одному логическому конфигу."""
+    grouped = {}
+    for file_path in conf_paths:
+        file_name = os.path.basename(file_path)
+        group_key = normalize_conf_group_key(file_name, config_type)
+        if group_key not in grouped:
+            grouped[group_key] = {
+                "group_key": group_key,
+                "display_name": get_conf_group_display_name(file_name, config_type),
+                "files": [],
+            }
+        grouped[group_key]["files"].append(file_name)
+
+    for item in grouped.values():
+        item["files"] = sorted(set(item["files"]), key=str.lower)
+
+    return [grouped[k] for k in sorted(grouped.keys())]
+
+
+def collect_all_configs_for_access(config_type):
+    """Возвращает список файлов выбранного типа для управления доступом."""
+    if config_type == "openvpn":
+        return collect_all_openvpn_files_for_access()
+
+    extension = ".conf" if config_type in ("wg", "amneziawg") else None
+    if not extension or config_type not in config_file_handler.config_paths:
+        return []
+
+    return config_file_handler._collect_files(
+        config_file_handler.config_paths[config_type], extension
+    )
+
 MIN_CERT_EXPIRE = 1
 MAX_CERT_EXPIRE = 3650
 
@@ -880,7 +1038,7 @@ def run_doall():
 
 # Маршрут для страницы мониторинга и обновления данных
 @app.route("/server_monitor", methods=["GET", "POST"])
-@auth_manager.admin_required
+@auth_manager.login_required
 def server_monitor():
     iface = os.getenv("VNSTAT_IFACE", "ens3")
 
@@ -1102,10 +1260,18 @@ def settings():
     viewer_users = User.query.filter_by(role='viewer').all()
 
     # Собираем все конфиги для управления доступом viewer
+    all_openvpn = collect_all_openvpn_files_for_access()
+    openvpn_access_groups = build_openvpn_access_groups(all_openvpn)
+
     _orig_paths = config_file_handler.config_paths["openvpn"]
-    config_file_handler.config_paths["openvpn"] = [d for g in GROUP_FOLDERS.values() for d in g]
-    all_openvpn, all_wg, all_amneziawg = config_file_handler.get_config_files()
-    config_file_handler.config_paths["openvpn"] = _orig_paths
+    try:
+        config_file_handler.config_paths["openvpn"] = [d for g in GROUP_FOLDERS.values() for d in g]
+        _, all_wg, all_amneziawg = config_file_handler.get_config_files()
+    finally:
+        config_file_handler.config_paths["openvpn"] = _orig_paths
+
+    wg_access_groups = build_conf_access_groups(all_wg, "wg")
+    amneziawg_access_groups = build_conf_access_groups(all_amneziawg, "amneziawg")
 
     # Карта доступа: {user_id: set(файлнаймы)}
     viewer_access = {vu.id: {acc.config_name for acc in vu.allowed_configs} for vu in viewer_users}
@@ -1130,15 +1296,18 @@ def settings():
         ip_files=ip_files,
         ip_file_states=ip_file_states,
         all_openvpn=all_openvpn,
+        openvpn_access_groups=openvpn_access_groups,
         all_wg=all_wg,
         all_amneziawg=all_amneziawg,
+        wg_access_groups=wg_access_groups,
+        amneziawg_access_groups=amneziawg_access_groups,
         viewer_access=viewer_access,
     )
 
 
 # Трафик по 5-минуткам для графика (последние 24 часа)
 @app.route("/api/bw")
-@auth_manager.admin_required
+@auth_manager.login_required
 def api_bw():
     import json, subprocess, os
     from flask import request, jsonify
@@ -1453,20 +1622,42 @@ def api_viewer_access():
     if not target_user or target_user.role != 'viewer':
         return jsonify({'success': False, 'message': 'Пользователь не найден или не является viewer'}), 404
 
+    target_config_names = [config_name]
+    if config_type in ('openvpn', 'wg', 'amneziawg'):
+        all_configs = collect_all_configs_for_access(config_type)
+        grouped_names = {
+            os.path.basename(path)
+            for path in all_configs
+            if (
+                normalize_openvpn_group_key(os.path.basename(path)) == config_name
+                if config_type == 'openvpn'
+                else normalize_conf_group_key(os.path.basename(path), config_type) == config_name
+            )
+        }
+        if grouped_names:
+            target_config_names = sorted(grouped_names, key=str.lower)
+
     if action == 'grant':
-        existing = ViewerConfigAccess.query.filter_by(
-            user_id=user_id, config_name=config_name
-        ).first()
-        if not existing:
+        existing_names = {
+            row.config_name
+            for row in ViewerConfigAccess.query.filter(
+                ViewerConfigAccess.user_id == user_id,
+                ViewerConfigAccess.config_name.in_(target_config_names),
+            ).all()
+        }
+        for target_name in target_config_names:
+            if target_name in existing_names:
+                continue
             access = ViewerConfigAccess(
-                user_id=user_id, config_type=config_type, config_name=config_name
+                user_id=user_id, config_type=config_type, config_name=target_name
             )
             db.session.add(access)
-            db.session.commit()
+        db.session.commit()
     elif action == 'revoke':
-        ViewerConfigAccess.query.filter_by(
-            user_id=user_id, config_name=config_name
-        ).delete()
+        ViewerConfigAccess.query.filter(
+            ViewerConfigAccess.user_id == user_id,
+            ViewerConfigAccess.config_name.in_(target_config_names),
+        ).delete(synchronize_session=False)
         db.session.commit()
     else:
         return jsonify({'success': False, 'message': 'Неверное действие'}), 400
