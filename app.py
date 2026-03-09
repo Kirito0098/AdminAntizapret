@@ -107,12 +107,29 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default='admin')  # 'admin' или 'viewer'
+    allowed_configs = db.relationship('ViewerConfigAccess', backref='user', lazy=True, cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def is_admin(self):
+        return self.role == 'admin'
+
+
+class ViewerConfigAccess(db.Model):
+    """Доступ viewer к конкретным конфигам."""
+    __tablename__ = 'viewer_config_access'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    config_type = db.Column(db.String(20), nullable=False)   # 'openvpn', 'wg', 'amneziawg'
+    config_name = db.Column(db.String(255), nullable=False)  # basename файла
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'config_name', name='unique_user_config'),
+    )
 
 
 class ScriptExecutor:
@@ -269,6 +286,21 @@ class AuthenticationManager:
                 return redirect(url_for("login"))
             return f(*args, **kwargs)
 
+        return decorated_function
+
+    def admin_required(self, f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if "username" not in session:
+                flash("Пожалуйста, войдите в систему.", "info")
+                return redirect(url_for("login"))
+            _user = User.query.filter_by(username=session["username"]).first()
+            if not _user or _user.role != 'admin':
+                if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': False, 'message': 'Доступ запрещён (403)'}), 403
+                flash("Доступ запрещён. Недостаточно прав.", "error")
+                return redirect(url_for("index"))
+            return f(*args, **kwargs)
         return decorated_function
 
 
@@ -472,15 +504,57 @@ file_editor = FileEditor()
 server_monitor_proc = ServerMonitor()
 
 # Защита antizapret-роутов после полной инициализации
-app.view_functions['get_antizapret_settings'] = auth_manager.login_required(
+app.view_functions['get_antizapret_settings'] = auth_manager.admin_required(
     app.view_functions['get_antizapret_settings']
 )
-app.view_functions['update_antizapret_settings'] = auth_manager.login_required(
+app.view_functions['update_antizapret_settings'] = auth_manager.admin_required(
     app.view_functions['update_antizapret_settings']
 )
-app.view_functions['antizapret_settings_schema'] = auth_manager.login_required(
+app.view_functions['antizapret_settings_schema'] = auth_manager.admin_required(
     app.view_functions['antizapret_settings_schema']
 )
+
+
+def _get_config_type(file_path):
+    """Define config type by directory path."""
+    p = file_path.lower()
+    if '/openvpn/' in p:
+        return 'openvpn'
+    elif '/wireguard/' in p:
+        return 'wg'
+    elif '/amneziawg/' in p:
+        return 'amneziawg'
+    return None
+
+
+def _run_db_migrations():
+    """Apply incremental DB schema migrations."""
+    from sqlalchemy import text
+    from sqlalchemy import inspect as sa_inspect
+    with app.app_context():
+        db.create_all()  # Создаёт новые таблицы
+        try:
+            insp = sa_inspect(db.engine)
+            cols = [c['name'] for c in insp.get_columns('user')]
+            if 'role' not in cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE \"user\" ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'admin'"
+                    ))
+                    conn.commit()
+        except Exception as e:
+            print(f"DB migration warning: {e}")
+
+
+_run_db_migrations()
+
+
+@app.context_processor
+def inject_current_user():
+    user = None
+    if "username" in session:
+        user = User.query.filter_by(username=session["username"]).first()
+    return {'current_user': user}
 
 
 # Главная страница
@@ -488,6 +562,7 @@ app.view_functions['antizapret_settings_schema'] = auth_manager.login_required(
 @auth_manager.login_required
 def index():
     if request.method == "GET":
+        _idx_user = User.query.filter_by(username=session["username"]).first()
         group = session.get("openvpn_group", "GROUP_UDP\\TCP")
         if group not in GROUP_FOLDERS:
             group = "GROUP_UDP\\TCP"
@@ -496,6 +571,12 @@ def index():
         file_validator.config_paths["openvpn"] = folders
         openvpn_files, wg_files, amneziawg_files = config_file_handler.get_config_files()
         cert_expiry = config_file_handler.get_openvpn_cert_expiry()
+
+        if _idx_user and _idx_user.role == 'viewer':
+            _allowed = {acc.config_name for acc in _idx_user.allowed_configs}
+            openvpn_files = [f for f in openvpn_files if os.path.basename(f) in _allowed]
+            wg_files = [f for f in wg_files if os.path.basename(f) in _allowed]
+            amneziawg_files = [f for f in amneziawg_files if os.path.basename(f) in _allowed]
 
         return render_template(
             "index.html",
@@ -508,6 +589,9 @@ def index():
         )
 
     if request.method == "POST":
+        _post_user = User.query.filter_by(username=session["username"]).first()
+        if not _post_user or _post_user.role != 'admin':
+            return jsonify({"success": False, "message": "Доступ запрещён."}), 403
         try:
             option = request.form.get("option")
             client_name = request.form.get("client-name", "").strip()
@@ -550,6 +634,7 @@ def index():
 
 
 @app.route("/set_openvpn_group", methods=["POST"])
+@auth_manager.login_required
 def set_openvpn_group():
     grp = request.form.get("group", "GROUP_UDP\\TCP")
     if grp not in GROUP_FOLDERS:
@@ -588,6 +673,7 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
             session["username"] = user.username
+            session["user_role"] = user.role
             session["attempts"] = 0
             return redirect(url_for("index"))
         flash("Неверные учетные данные. Попробуйте снова.", "error")
@@ -625,6 +711,18 @@ def captcha():
 @auth_manager.login_required
 @file_validator.validate_file
 def download(file_path, clean_name):
+    # Проверка доступа viewer
+    _dl_user = User.query.filter_by(username=session["username"]).first()
+    if _dl_user and _dl_user.role == 'viewer':
+        _cfg_type = _get_config_type(file_path)
+        if _cfg_type not in ('openvpn', 'wg', 'amneziawg'):
+            abort(403)
+        _cfg_name = os.path.basename(file_path)
+        _access = ViewerConfigAccess.query.filter_by(
+            user_id=_dl_user.id, config_name=_cfg_name
+        ).first()
+        if not _access:
+            abort(403)
     try:
         base = os.path.basename(file_path)
 
@@ -677,6 +775,18 @@ def public_download(router):
 @auth_manager.login_required
 @file_validator.validate_file
 def generate_qr(file_path, clean_name):
+    # Проверка доступа viewer
+    _qr_user = User.query.filter_by(username=session["username"]).first()
+    if _qr_user and _qr_user.role == 'viewer':
+        _cfg_type = _get_config_type(file_path)
+        if _cfg_type not in ('openvpn', 'wg', 'amneziawg'):
+            abort(403)
+        _cfg_name = os.path.basename(file_path)
+        _access = ViewerConfigAccess.query.filter_by(
+            user_id=_qr_user.id, config_name=_cfg_name
+        ).first()
+        if not _access:
+            abort(403)
     try:
         with open(file_path, "r") as file:
             config_text = file.read()
@@ -691,7 +801,7 @@ def generate_qr(file_path, clean_name):
 
 # Роут для редактирования файлов конфигурации
 @app.route("/edit-files", methods=["GET", "POST"])
-@auth_manager.login_required
+@auth_manager.admin_required
 def edit_files():
     if request.method == "POST":
         file_type = request.form.get("file_type")
@@ -736,7 +846,7 @@ def edit_files():
 
 # Роут для запуска скрипта doall.sh
 @app.route("/run-doall", methods=["POST"])
-@auth_manager.login_required
+@auth_manager.admin_required
 def run_doall():
     try:
         result = subprocess.run(
@@ -770,7 +880,7 @@ def run_doall():
 
 # Маршрут для страницы мониторинга и обновления данных
 @app.route("/server_monitor", methods=["GET", "POST"])
-@auth_manager.login_required
+@auth_manager.admin_required
 def server_monitor():
     iface = os.getenv("VNSTAT_IFACE", "ens3")
 
@@ -799,7 +909,7 @@ def server_monitor():
 
 
 @app.route("/settings", methods=["GET", "POST"])
-@auth_manager.login_required
+@auth_manager.admin_required
 def settings():
     if request.method == "POST":
         new_port = request.form.get("port")
@@ -822,34 +932,74 @@ def settings():
             except subprocess.CalledProcessError as e:
                 flash(f"Ошибка при перезапуске службы: {e}", "error")
 
+        # --- Добавить пользователя ---
         username = request.form.get("username")
         password = request.form.get("password")
         if username and password:
             if len(password) < 8:
                 flash("Пароль должен содержать минимум 8 символов!", "error")
             else:
+                role = request.form.get("role", "admin")
+                if role not in ('admin', 'viewer'):
+                    role = 'admin'
                 with app.app_context():
                     if User.query.filter_by(username=username).first():
                         flash(f"Пользователь '{username}' уже существует!", "error")
                     else:
-                        user = User(username=username)
+                        user = User(username=username, role=role)
                         user.set_password(password)
                         db.session.add(user)
                         db.session.commit()
-                        flash(f"Пользователь '{username}' успешно добавлен!", "success")
+                        flash(f"Пользователь '{username}' ({role}) успешно добавлен!", "success")
 
+        # --- Удалить пользователя ---
         delete_username = request.form.get("delete_username")
         if delete_username:
-            with app.app_context():
-                user = User.query.filter_by(username=delete_username).first()
-                if user:
-                    db.session.delete(user)
+            if delete_username == session.get("username"):
+                flash("Нельзя удалить собственный аккаунт!", "error")
+            else:
+                with app.app_context():
+                    user = User.query.filter_by(username=delete_username).first()
+                    if user:
+                        db.session.delete(user)
+                        db.session.commit()
+                        flash(
+                            f"Пользователь '{delete_username}' успешно удалён!", "success"
+                        )
+                    else:
+                        flash(f"Пользователь '{delete_username}' не найден!", "error")
+
+        # --- Изменить роль ---
+        change_role_username = request.form.get("change_role_username")
+        new_role = request.form.get("new_role")
+        if change_role_username and new_role:
+            if new_role not in ('admin', 'viewer'):
+                flash("Неверная роль!", "error")
+            elif change_role_username == session.get("username"):
+                flash("Нельзя изменить собственную роль!", "error")
+            else:
+                _role_user = User.query.filter_by(username=change_role_username).first()
+                if _role_user:
+                    _role_user.role = new_role
                     db.session.commit()
-                    flash(
-                        f"Пользователь '{delete_username}' успешно удалён!", "success"
-                    )
+                    flash(f"Роль пользователя '{change_role_username}' изменена на '{new_role}'!", "success")
                 else:
-                    flash(f"Пользователь '{delete_username}' не найден!", "error")
+                    flash(f"Пользователь '{change_role_username}' не найден!", "error")
+
+        # --- Изменить пароль ---
+        change_password_username = request.form.get("change_password_username")
+        new_password = request.form.get("new_password")
+        if change_password_username and new_password:
+            if len(new_password) < 8:
+                flash("Пароль должен содержать минимум 8 символов!", "error")
+            else:
+                _pw_user = User.query.filter_by(username=change_password_username).first()
+                if _pw_user:
+                    _pw_user.set_password(new_password)
+                    db.session.commit()
+                    flash(f"Пароль пользователя '{change_password_username}' изменён!", "success")
+                else:
+                    flash(f"Пользователь '{change_password_username}' не найден!", "error")
 
         ip_action = request.form.get("ip_action")
 
@@ -949,6 +1099,16 @@ def settings():
     # GET запрос - отображение страницы
     current_port = os.getenv("APP_PORT", "5050")
     users = User.query.all()
+    viewer_users = User.query.filter_by(role='viewer').all()
+
+    # Собираем все конфиги для управления доступом viewer
+    _orig_paths = config_file_handler.config_paths["openvpn"]
+    config_file_handler.config_paths["openvpn"] = [d for g in GROUP_FOLDERS.values() for d in g]
+    all_openvpn, all_wg, all_amneziawg = config_file_handler.get_config_files()
+    config_file_handler.config_paths["openvpn"] = _orig_paths
+
+    # Карта доступа: {user_id: set(файлнаймы)}
+    viewer_access = {vu.id: {acc.config_name for acc in vu.allowed_configs} for vu in viewer_users}
 
     # Добавляем данные об IP ограничениях
     allowed_ips = ip_restriction.get_allowed_ips()
@@ -963,17 +1123,22 @@ def settings():
         "settings.html",
         port=current_port,
         users=users,
+        viewer_users=viewer_users,
         allowed_ips=allowed_ips,
         ip_enabled=ip_enabled,
         current_ip=current_ip,
         ip_files=ip_files,
         ip_file_states=ip_file_states,
+        all_openvpn=all_openvpn,
+        all_wg=all_wg,
+        all_amneziawg=all_amneziawg,
+        viewer_access=viewer_access,
     )
 
 
 # Трафик по 5-минуткам для графика (последние 24 часа)
 @app.route("/api/bw")
-@auth_manager.login_required
+@auth_manager.admin_required
 def api_bw():
     import json, subprocess, os
     from flask import request, jsonify
@@ -1112,7 +1277,7 @@ def api_bw():
 
 
 @app.route("/check_updates", methods=["GET"])
-@auth_manager.login_required
+@auth_manager.admin_required
 def check_updates():
     try:
         result = subprocess.run(
@@ -1148,7 +1313,7 @@ def check_updates():
 
 
 @app.route("/update_system", methods=["POST"])
-@auth_manager.login_required
+@auth_manager.admin_required
 def update_system():
     try:
         subprocess.run(
@@ -1224,7 +1389,7 @@ def ip_blocked():
 
 
 @app.route("/api/restart-service", methods=["POST"])
-@auth_manager.login_required
+@auth_manager.admin_required
 def api_restart_service():
     """API для перезапуска службы"""
     try:
@@ -1266,3 +1431,44 @@ def api_restart_service():
     except Exception as e:
         app.logger.error(f"Ошибка: {str(e)}")
         return jsonify({"success": False, "message": f"❌ Ошибка: {str(e)}"}), 500
+
+
+@app.route("/api/viewer-access", methods=["POST"])
+@auth_manager.admin_required
+def api_viewer_access():
+    """API управления доступом viewer к конфигам."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'Неверный запрос'}), 400
+
+    user_id = data.get('user_id')
+    config_name = data.get('config_name')
+    config_type = data.get('config_type')
+    action = data.get('action')
+
+    if not all([user_id, config_name, config_type, action]):
+        return jsonify({'success': False, 'message': 'Неверные параметры'}), 400
+
+    target_user = db.session.get(User, user_id)
+    if not target_user or target_user.role != 'viewer':
+        return jsonify({'success': False, 'message': 'Пользователь не найден или не является viewer'}), 404
+
+    if action == 'grant':
+        existing = ViewerConfigAccess.query.filter_by(
+            user_id=user_id, config_name=config_name
+        ).first()
+        if not existing:
+            access = ViewerConfigAccess(
+                user_id=user_id, config_type=config_type, config_name=config_name
+            )
+            db.session.add(access)
+            db.session.commit()
+    elif action == 'revoke':
+        ViewerConfigAccess.query.filter_by(
+            user_id=user_id, config_name=config_name
+        ).delete()
+        db.session.commit()
+    else:
+        return jsonify({'success': False, 'message': 'Неверное действие'}), 400
+
+    return jsonify({'success': True})

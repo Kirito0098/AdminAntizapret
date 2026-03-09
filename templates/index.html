@@ -3,6 +3,7 @@
 
 <div id="notification" class="notification" style="display: none"></div>
 
+{% if current_user and current_user.is_admin() %}
 <div class="form-container">
   <form method="post" id="client-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
@@ -41,6 +42,7 @@
     <button type="submit">Отправить</button>
   </form>
 </div>
+{% endif %}
 
 <div class="file-list">
   <div class="column">

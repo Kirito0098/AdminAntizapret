@@ -1,5 +1,73 @@
-{% extends "base.html" %} {% block title %}Настройки{% endblock %} {% block
-content %}
+{% extends "base.html" %} {% block title %}Настройки{% endblock %}
+{% block extra_css %}
+<style>
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 600;
+  }
+
+  .badge-admin {
+    background: rgba(33, 150, 243, 0.25);
+    color: #2196f3;
+    border: 1px solid rgba(33, 150, 243, 0.4);
+  }
+
+  .badge-viewer {
+    background: rgba(156, 39, 176, 0.25);
+    color: #ce93d8;
+    border: 1px solid rgba(156, 39, 176, 0.4);
+  }
+
+  .form-control {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.95rem;
+  }
+
+  .form-control option {
+    background: #1e1e2e;
+    color: #fff;
+  }
+
+  .viewer-config-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .viewer-config-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.85);
+    transition: background 0.2s;
+  }
+
+  .viewer-config-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .viewer-config-item input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: #2196f3;
+  }
+</style>
+{% endblock %}
+{% block content %}
 <div class="settings-layout">
   <!-- Гамбургер виден только на мобильных -->
   <button class="hamburger" id="openSidebar">☰</button>
@@ -20,6 +88,10 @@ content %}
       <li class="menu-item" data-tab="user-management">
         <i class="icon">👥</i>
         <span>Управление пользователями</span>
+      </li>
+      <li class="menu-item" data-tab="viewer-access">
+        <i class="icon">🔐</i>
+        <span>Доступ к конфигам</span>
       </li>
       <li class="menu-item" data-tab="ip-restrictions">
         <i class="icon">🛡️</i>
@@ -57,6 +129,8 @@ content %}
           Добавить
         </button>
         <button class="tab-button" data-subtab="delete-user">Удалить</button>
+        <button class="tab-button" data-subtab="change-role">Роль</button>
+        <button class="tab-button" data-subtab="change-password">Пароль</button>
       </div>
 
       <div id="add-user" class="subtab-content active">
@@ -69,17 +143,38 @@ content %}
           <div class="form-group">
             <input type="password" name="password" placeholder="Пароль" required />
           </div>
+          <div class="form-group">
+            <label for="role-select">Роль:</label>
+            <select name="role" id="role-select" class="form-control">
+              <option value="admin">admin (полный доступ)</option>
+              <option value="viewer">viewer (только просмотр)</option>
+            </select>
+          </div>
           <button type="submit" class="button add-button">
             Добавить пользователя
           </button>
           <h3>Список пользователей</h3>
           <div class="users-list">
             {% if users %}
-            <ul>
-              {% for user in users %}
-              <li>{{ user.username }}</li>
-              {% endfor %}
-            </ul>
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;padding:4px 8px;">Логин</th>
+                  <th style="text-align:left;padding:4px 8px;">Роль</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user in users %}
+                <tr>
+                  <td style="padding:4px 8px;">{{ user.username }}</td>
+                  <td style="padding:4px 8px;">
+                    <span class="badge {% if user.role == 'admin' %}badge-admin{% else %}badge-viewer{% endif %}">{{
+                      user.role }}</span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
             {% else %}
             <p class="no-users">Нет зарегистрированных пользователей</p>
             {% endif %}
@@ -100,17 +195,139 @@ content %}
           <h3>Список пользователей</h3>
           <div class="users-list">
             {% if users %}
-            <ul>
-              {% for user in users %}
-              <li>{{ user.username }}</li>
-              {% endfor %}
-            </ul>
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align:left;padding:4px 8px;">Логин</th>
+                  <th style="text-align:left;padding:4px 8px;">Роль</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user in users %}
+                <tr>
+                  <td style="padding:4px 8px;">{{ user.username }}</td>
+                  <td style="padding:4px 8px;">
+                    <span class="badge {% if user.role == 'admin' %}badge-admin{% else %}badge-viewer{% endif %}">{{
+                      user.role }}</span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
             {% else %}
             <p class="no-users">Нет зарегистрированных пользователей</p>
             {% endif %}
           </div>
         </form>
       </div>
+
+      <div id="change-role" class="subtab-content">
+        <h3>Изменить роль пользователя</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <select name="change_role_username" class="form-control" required>
+              <option value="" disabled selected>Выберите пользователя</option>
+              {% for user in users %}
+              {% if user.username != current_user.username %}
+              <option value="{{ user.username }}">{{ user.username }} [{{ user.role }}]</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Новая роль:</label>
+            <select name="new_role" class="form-control" required>
+              <option value="admin">admin</option>
+              <option value="viewer">viewer</option>
+            </select>
+          </div>
+          <button type="submit" class="button save-button">Изменить роль</button>
+        </form>
+      </div>
+
+      <div id="change-password" class="subtab-content">
+        <h3>Изменить пароль пользователя</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <select name="change_password_username" class="form-control" required>
+              <option value="" disabled selected>Выберите пользователя</option>
+              {% for user in users %}
+              <option value="{{ user.username }}">{{ user.username }} [{{ user.role }}]</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <input type="password" name="new_password" placeholder="Новый пароль (мин. 8 символов)" required />
+          </div>
+          <button type="submit" class="button save-button">Изменить пароль</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Доступ к конфигам (для viewer) -->
+    <div id="viewer-access" class="content-tab">
+      <h2>Управление доступом к конфигам</h2>
+      {% if viewer_users %}
+      {% for vu in viewer_users %}
+      <div class="card" style="margin-bottom:1.5rem;">
+        <h3>👤 {{ vu.username }} <span class="badge badge-viewer">viewer</span></h3>
+        {% set va = viewer_access.get(vu.id, []) %}
+
+        {% if all_openvpn %}
+        <p class="config-description" style="margin-top:1rem;">OpenVPN</p>
+        <div class="viewer-config-list">
+          {% for fpath in all_openvpn %}
+          {% set fname = fpath.split('/')[-1] %}
+          <label class="viewer-config-item">
+            <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}" data-config-name="{{ fname }}"
+              data-config-type="openvpn" {% if fname in va %}checked{% endif %} />
+            {{ fname }}
+          </label>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if all_amneziawg %}
+        <p class="config-description" style="margin-top:1rem;">AmneziaWG</p>
+        <div class="viewer-config-list">
+          {% for fpath in all_amneziawg %}
+          {% set fname = fpath.split('/')[-1] %}
+          <label class="viewer-config-item">
+            <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}" data-config-name="{{ fname }}"
+              data-config-type="amneziawg" {% if fname in va %}checked{% endif %} />
+            {{ fname }}
+          </label>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if all_wg %}
+        <p class="config-description" style="margin-top:1rem;">WireGuard</p>
+        <div class="viewer-config-list">
+          {% for fpath in all_wg %}
+          {% set fname = fpath.split('/')[-1] %}
+          <label class="viewer-config-item">
+            <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}" data-config-name="{{ fname }}"
+              data-config-type="wg" {% if fname in va %}checked{% endif %} />
+            {{ fname }}
+          </label>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if not all_openvpn and not all_wg and not all_amneziawg %}
+        <p class="no-data">Нет доступных конфигов</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% else %}
+      <p class="no-data">Нет пользователей с ролью viewer. Создайте viewer-пользователя во вкладке «Управление
+        пользователями».</p>
+      {% endif %}
+
+      <div id="viewer-access-status" class="notification" style="display:none;margin-top:1rem;"></div>
     </div>
 
     <!-- Ограничения по IP -->
@@ -722,6 +939,49 @@ content %}
     </div>
 
     <script src="{{ url_for('static', filename='assets/js/settings.js') }}"></script>
+    <script>
+      // RBAC: управление доступом viewer к конфигам
+      document.querySelectorAll('.viewer-access-cb').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          const userId = parseInt(this.dataset.userId);
+          const configName = this.dataset.configName;
+          const configType = this.dataset.configType;
+          const action = this.checked ? 'grant' : 'revoke';
+          const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+          fetch('/api/viewer-access', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              config_name: configName,
+              config_type: configType,
+              action: action
+            })
+          })
+            .then(r => r.json())
+            .then(data => {
+              const statusEl = document.getElementById('viewer-access-status');
+              if (data.success) {
+                statusEl.textContent = (action === 'grant' ? '✅ Доступ выдан: ' : '🚫 Доступ отозван: ') + configName;
+                statusEl.className = 'notification success';
+              } else {
+                statusEl.textContent = '❌ Ошибка: ' + (data.message || 'unknown');
+                statusEl.className = 'notification error';
+                this.checked = !this.checked; // откат
+              }
+              statusEl.style.display = 'block';
+              setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+            })
+            .catch(() => {
+              this.checked = !this.checked; // откат при сетевой ошибке
+            });
+        });
+      });
+    </script>
     {% endblock %}
   </div>
 </div>
