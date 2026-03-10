@@ -352,6 +352,27 @@
     <div id="ip-restrictions" class="content-tab">
       <h2>Управление IP ограничениями</h2>
 
+      <div class="card">
+        <h3>Публичный доступ к файлам маршрутов</h3>
+        <p class="help-text">
+          Текущее состояние:
+          <strong>{% if public_download_enabled %}включен{% else %}выключен{% endif %}</strong>
+        </p>
+        <form action="{{ url_for('toggle_public_download') }}" method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <input type="hidden" name="enabled" value="{{ 'false' if public_download_enabled else 'true' }}" />
+          <input type="hidden" name="return_to" value="settings" />
+          <button type="submit"
+            class="button {% if public_download_enabled %}delete-button{% else %}save-button{% endif %}">
+            {% if public_download_enabled %}
+            Выключить публичный доступ
+            {% else %}
+            Включить публичный доступ
+            {% endif %}
+          </button>
+        </form>
+      </div>
+
       <div class="status-card">
         <h3>Текущий статус</h3>
         <div class="status-indicator {% if ip_enabled %}status-enabled{% else %}status-disabled{% endif %}">
@@ -552,7 +573,7 @@
         </div>
       </div>
     </div>
-    <div id="antizapret-config" class="content-tab active">
+    <div id="antizapret-config" class="content-tab">
       <h2>Конфигурирование Antizapret</h2>
       <p class="config-description">
         Включить маршрутизацию через Antizapret для:

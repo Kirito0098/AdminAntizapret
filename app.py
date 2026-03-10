@@ -25,6 +25,7 @@ from qrcode.image.pil import PilImage
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.exceptions import HTTPException
 from functools import wraps
 import shlex
 import psutil
@@ -49,6 +50,9 @@ app.secret_key = os.getenv("SECRET_KEY")
 if not app.secret_key:
     raise ValueError("SECRET_KEY is not set in .env!")
 app.config['SESSION_COOKIE_NAME'] = 'AdminAntizapretSession'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
 csrf = CSRFProtect(app)
 sock = Sock(app)
@@ -64,6 +68,30 @@ RESULT_DIR_FILES = {
 }
 
 PUBLIC_DOWNLOAD_ENABLED = os.getenv("PUBLIC_DOWNLOAD_ENABLED", "false").lower() == "true"
+
+
+def _set_env_value(key, value):
+    """Update or append env key in local .env file."""
+    env_path = ".env"
+    lines = []
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+    updated = False
+    new_lines = []
+    for line in lines:
+        if line.startswith(f"{key}="):
+            new_lines.append(f"{key}={value}\n")
+            updated = True
+        else:
+            new_lines.append(line)
+
+    if not updated:
+        new_lines.append(f"{key}={value}\n")
+
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
 
 OPENVPN_FOLDERS = [
     "/root/antizapret/client/openvpn/antizapret",
@@ -565,6 +593,8 @@ class FileValidator:
                 if file_path:
                     return func(file_path, clean_name, *args, **kwargs)
                 abort(404, description="Файл не найден")
+            except HTTPException:
+                raise
             except Exception as e:
                 print(f"Аларм! ошибка: {str(e)}")
                 abort(500)
@@ -996,6 +1026,32 @@ def public_download(router):
 
     return send_from_directory("/root/antizapret/result", filename, as_attachment=True)
 
+
+@app.route("/toggle_public_download", methods=["POST"])
+@auth_manager.admin_required
+def toggle_public_download():
+    global PUBLIC_DOWNLOAD_ENABLED
+
+    enabled_value = request.form.get("enabled", "").lower()
+    if enabled_value in ("true", "false"):
+        next_state = enabled_value == "true"
+    else:
+        next_state = not PUBLIC_DOWNLOAD_ENABLED
+
+    PUBLIC_DOWNLOAD_ENABLED = next_state
+    env_value = "true" if next_state else "false"
+    _set_env_value("PUBLIC_DOWNLOAD_ENABLED", env_value)
+    os.environ["PUBLIC_DOWNLOAD_ENABLED"] = env_value
+
+    flash(
+        "Публичный доступ к файлам включен." if next_state else "Публичный доступ к файлам выключен.",
+        "success",
+    )
+    return_to = request.form.get("return_to", "edit_files")
+    if return_to not in ("edit_files", "settings"):
+        return_to = "edit_files"
+    return redirect(url_for(return_to))
+
 # Роут для формирования QR кода
 @app.route("/generate_qr/<file_type>/<path:filename>")
 @auth_manager.login_required
@@ -1067,7 +1123,11 @@ def edit_files():
         return jsonify({"success": False, "message": "Неверный тип файла."}), 400
 
     file_contents = file_editor.get_file_contents()
-    return render_template("edit_files.html", file_contents=file_contents)
+    return render_template(
+        "edit_files.html",
+        file_contents=file_contents,
+        public_download_enabled=PUBLIC_DOWNLOAD_ENABLED,
+    )
 
 
 # Роут для запуска скрипта doall.sh
@@ -1355,6 +1415,7 @@ def settings():
         wg_access_groups=wg_access_groups,
         amneziawg_access_groups=amneziawg_access_groups,
         viewer_access=viewer_access,
+        public_download_enabled=PUBLIC_DOWNLOAD_ENABLED,
     )
 
 
@@ -1540,7 +1601,7 @@ def monitor_websocket(ws):
     """WebSocket для реал-тайм мониторинга сервера"""
     try:
         # Проверить авторизацию
-        if 'user_id' not in session:
+        if 'username' not in session:
             ws.close(code=1008, message="Unauthorized")
             return
 
@@ -1708,8 +1769,8 @@ def api_restart_service():
             return (
                 jsonify(
                     {
-                        "success": True,
-                        "message": "✅ Служба успешно перезапущена",
+                        "success": False,
+                        "message": "❌ Ошибка при перезапуске службы",
                         "output": result.stderr,
                     }
                 ),
