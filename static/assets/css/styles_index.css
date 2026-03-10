@@ -108,8 +108,21 @@ h1 {
   padding: 1.5rem;
   min-width: 0;
   border-color: #4caf50;
+  width: 60%;
   max-width: 500px;
-  /* Максимальная ширина колонки */
+  box-sizing: border-box;
+  align-items: center;
+}
+
+.column_serv_monitor {
+  background-color: hsla(0, 0%, 10%, 0.1);
+  border: 2px solid hsl(0, 0%, 100%);
+  border-radius: 1rem;
+  backdrop-filter: blur(8px);
+  padding: 1.5rem;
+  min-width: 0;
+  border-color: #4caf50;
+  max-width: 500px;
   box-sizing: border-box;
   align-items: center;
 }
