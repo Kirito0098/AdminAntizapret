@@ -262,6 +262,7 @@
   .status-card,
   .card {
     padding: 1rem;
+    margin-left: -4.5%;
   }
 
   .ip-table {

@@ -557,3 +557,255 @@
   }
 }
 
+/* ===== МОБИЛЬНЫЕ СТИЛИ ДЛЯ iPhone XR (375px) ===== */
+@media (max-width: 430px) {
+  /* Общие */
+  .server-monitor-wrapper {
+    margin-top: 1rem;
+    padding: 0 0.5rem;
+  }
+
+  /* Refresh контрол */
+  .refresh-control {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: stretch;
+    width: calc(100% - 1rem);
+    margin: 0 auto 1.5rem;
+    padding: 0;
+  }
+
+  .refresh-btn {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    font-size: 0.95rem;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  .refresh-icon {
+    font-size: 1rem;
+  }
+
+  .last-update {
+    font-size: 0.8rem;
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Система информация */
+  .system-info-section {
+    margin: 0 auto 1.5rem;
+    padding: 1rem 0.75rem;
+    max-width: calc(100% - 1rem);
+  }
+
+  .system-info-section h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .system-info-grid {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .system-info-item {
+    padding: 0.7rem;
+    border-radius: 0.5rem;
+  }
+
+  .system-info-item label {
+    font-size: 0.75rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .system-info-item p {
+    font-size: 0.9rem;
+  }
+
+  /* Metrics grid */
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+    width: calc(100% - 1rem);
+    max-width: 100%;
+    margin: 0 auto 1.5rem;
+    padding: 0 0.5rem;
+  }
+
+  .info-item {
+    min-width: auto;
+    max-width: 100%;
+    min-height: 140px;
+    padding: 0.8rem 0.6rem;
+    border-radius: 0.8rem;
+    border-width: 1.5px;
+  }
+
+  .info-item h3 {
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .info-item p {
+    font-size: 1.6rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .info-item canvas {
+    max-width: 100%;
+    height: 70px !important;
+    margin-top: 0.3rem;
+  }
+
+  .metric-status {
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .metric-value {
+    font-size: 1.8rem !important;
+  }
+
+  .status-indicator {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Disk info */
+  .disk-info p {
+    font-size: 0.8rem !important;
+    margin: 0.2rem 0 !important;
+  }
+
+  /* Load info */
+  .load-item {
+    gap: 0.8rem;
+    font-size: 0.9rem;
+  }
+
+  .load-item span:first-child {
+    min-width: 25px;
+  }
+
+  .uptime-icon svg {
+    width: 35px;
+    height: 35px;
+  }
+
+  /* Comparison section */
+  .comparison-section {
+    margin: 1.5rem auto;
+    padding: 1rem 0.75rem;
+    max-width: calc(100% - 1rem);
+  }
+
+  .comparison-section h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .comparison-controls {
+    flex-direction: column;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+  }
+
+  .compare-select,
+  .compare-btn {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+  }
+
+  .comparison-chart {
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+  }
+
+  .comparison-stats {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .stat-card {
+    padding: 0.8rem;
+  }
+
+  .stat-card h4 {
+    font-size: 0.75rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .stat-card p {
+    font-size: 1.1rem;
+  }
+
+  /* Unit buttons */
+  .unit-buttons-MB,
+  .unit-buttons-MBit {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    top: auto;
+    right: auto;
+    position: static;
+    margin-bottom: 0.75rem;
+  }
+
+  .iface-btn,
+  .bw-range-btn,
+  .unit-btn {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    margin-right: 0.4rem;
+  }
+}
+
+/* ===== ОЧЕНЬ УЗКИЕ ЭКРАНЫ (320px) ===== */
+@media (max-width: 360px) {
+  .server-monitor-wrapper {
+    padding: 0 0.25rem;
+  }
+
+  .metrics-grid,
+  .comparison-section,
+  .system-info-section {
+    width: calc(100% - 0.5rem) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding: 0.75rem 0.5rem !important;
+  }
+
+  .info-item {
+    min-height: 120px;
+    padding: 0.6rem 0.5rem;
+  }
+
+  .info-item h3 {
+    font-size: 0.85rem;
+  }
+
+  .info-item p {
+    font-size: 1.4rem;
+  }
+
+  .info-item canvas {
+    height: 60px !important;
+  }
+
+  .system-info-grid {
+    gap: 0.5rem;
+  }
+
+  .system-info-item {
+    padding: 0.6rem;
+  }
+
+  .compare-select,
+  .compare-btn {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+  }
+}
+

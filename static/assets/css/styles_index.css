@@ -1475,7 +1475,6 @@ td {
 .card {
   background: var(--bg-darker, hsla(0, 0%, 15%, 0.9));
   border-radius: 12px;
-  padding: 1.5rem;
   margin-bottom: 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -1678,4 +1677,301 @@ textarea.full-width {
 
 .hamburger {
   display: none;
+}
+
+/* ===== МОБИЛЬНАЯ ОПТИМИЗАЦИЯ card-body ДЛЯ iPhone XR (375px) ===== */
+@media (max-width: 430px) {
+  /* Контейнеры с центрированием */
+  .server-info.bw-section {
+    width: 100%;
+    max-width: 100%;
+    margin: 1rem auto;
+    padding: 0;
+    display: flex !important;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  /* Основная карточка */
+  .card-body {
+    padding: 0.75rem 0.5rem 1rem 0.5rem !important;
+    border-radius: 8px;
+    border-width: 1.5px;
+    margin: 0 auto;
+    display: block;
+    width: calc(100% - 1rem);
+    max-width: calc(100% - 1rem);
+    box-sizing: border-box;
+  }
+
+  /* Заголовок карточки */
+  .card-title {
+    font-size: 1rem;
+    margin: 0 0 0.5rem 0;
+  }
+
+  /* Header с элементами управления */
+  .bw-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Кнопки интерфейсов */
+  .iface-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin: 0.5rem 0 !important;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .iface-btn {
+    padding: 0.5rem 0.6rem !important;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  /* Переключатели диапазона */
+  .bw-range {
+    display: flex;
+    gap: 0.3rem;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .bw-range-btn {
+    flex: 1;
+    min-width: calc(33.333% - 0.3rem);
+    padding: 0.4rem 0.4rem !important;
+    font-size: 0.75rem;
+    border-radius: 4px;
+  }
+
+  /* Кнопки единиц измерения */
+  .unit-buttons {
+    position: relative;
+    margin-bottom: 0.75rem;
+  }
+
+  .unit-buttons-MB,
+  .unit-buttons-MBit {
+    position: static !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .unit-btn {
+    flex: 1;
+    min-width: calc(50% - 0.3rem);
+    padding: 0.4rem 0.5rem !important;
+    font-size: 0.7rem;
+    border-radius: 4px;
+    margin-right: 0 !important;
+  }
+
+  /* График */
+  .bw-chart {
+    height: 120px;
+    margin: 0.5rem 0;
+  }
+
+  /* Источник информации */
+  .bw-source {
+    font-size: 0.75rem;
+    margin-top: 0.4rem;
+  }
+
+  .bw-source code {
+    font-size: 0.7rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.1rem 0.3rem;
+    border-radius: 2px;
+  }
+
+  /* Статус загрузки */
+  .bw-load {
+    font-size: 0.8rem;
+    margin-top: 0.4rem;
+  }
+
+  /* Агрегированные данные (блоки) */
+  .bw-aggregate {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+  }
+
+  .bw-agg {
+    padding: 0.6rem 0.4rem;
+    border-radius: 6px;
+  }
+
+  .bw-agg h6 {
+    font-size: 0.7rem;
+    margin: 0 0 0.3rem;
+  }
+
+  .bw-agg p {
+    font-size: 0.85rem;
+  }
+
+  /* Статистика */
+  .bw-stats {
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .bw-stat {
+    flex: 1 1 100%;
+    padding: 0.6rem 0.5rem;
+    border-radius: 6px;
+  }
+
+  .bw-stat h5 {
+    font-size: 0.75rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .bw-stat p {
+    font-size: 0.9rem;
+  }
+
+  /* Секция пропускной способности */
+  .bw-section {
+    margin: 1rem auto 0;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    display: flex !important;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .bw-card {
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    margin: 0;
+    display: block;
+    width: calc(100% - 1rem);
+    max-width: calc(100% - 1rem);
+    box-sizing: border-box;
+    display: block;
+  }
+}
+
+/* ===== ОЧЕНЬ УЗКИЕ ЭКРАНЫ (320px) ===== */
+@media (max-width: 360px) {
+  /* Контейнеры с центрированием */
+  .server-info.bw-section {
+    width: 100%;
+    max-width: 100%;
+    margin: 0.75rem auto;
+    padding: 0;
+    display: flex !important;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .card-body {
+    padding: 0.6rem 0.4rem 0.8rem 0.4rem !important;
+    margin: 0 auto;
+    display: block;
+    width: calc(100% - 0.8rem);
+    max-width: calc(100% - 0.8rem);
+    box-sizing: border-box;
+  }
+
+  .card-title {
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .bw-header {
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .iface-buttons {
+    gap: 0.3rem;
+    margin: 0.3rem 0 !important;
+  }
+
+  .iface-btn {
+    padding: 0.4rem 0.5rem !important;
+    font-size: 0.7rem;
+  }
+
+  .bw-range-btn {
+    padding: 0.35rem 0.3rem !important;
+    font-size: 0.65rem;
+  }
+
+  .unit-btn {
+    padding: 0.35rem 0.4rem !important;
+    font-size: 0.65rem;
+  }
+
+  .bw-chart {
+    height: 100px;
+  }
+
+  .bw-aggregate {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+  }
+
+  .bw-agg {
+    padding: 0.5rem 0.3rem;
+  }
+
+  .bw-agg h6 {
+    font-size: 0.65rem;
+  }
+
+  .bw-agg p {
+    font-size: 0.8rem;
+  }
+
+  .bw-stat {
+    padding: 0.5rem 0.4rem;
+  }
+
+  .bw-stat h5 {
+    font-size: 0.7rem;
+  }
+
+  .bw-stat p {
+    font-size: 0.8rem;
+  }
+
+  /* Центрирование для узких экранов */
+  .bw-section {
+    margin: 0.75rem auto;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    display: flex !important;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .bw-card {
+    margin: 0;
+    display: block;
+    width: calc(100% - 0.8rem);
+    max-width: calc(100% - 0.8rem);
+    box-sizing: border-box;
+  }
 }
