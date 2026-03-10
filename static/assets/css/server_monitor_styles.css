@@ -426,110 +426,6 @@
   color: #fff;
 }
 
-/* Comparison section */
-.comparison-section {
-  width: 100%;
-  max-width: 1200px;
-  margin: 2rem auto;
-  padding: 1.5rem;
-  background: rgba(30, 40, 30, 0.5);
-  border: 1px solid #4caf50;
-  border-radius: 0.8rem;
-}
-
-.comparison-section h2 {
-  color: #b2ffb2;
-  margin-top: 0;
-  font-size: 1.3rem;
-}
-
-.comparison-controls {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.compare-select,
-.compare-btn {
-  padding: 0.6rem 1rem;
-  background: #2b2b2b;
-  color: #ddd;
-  border: 1px solid #555;
-  border-radius: 0.4rem;
-  cursor: pointer;
-  font-size: 0.95rem;
-}
-
-.compare-select {
-  flex: 1;
-  min-width: 200px;
-}
-
-.compare-select:focus {
-  outline: none;
-  border-color: #4caf50;
-  background: #333;
-}
-
-.compare-btn {
-  background: #4caf50;
-  color: white;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.compare-btn:hover {
-  background: #45a049;
-}
-
-.compare-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.comparison-chart {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 0.6rem;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
-  overflow-x: auto;
-}
-
-.comparison-chart canvas {
-  background: rgba(76, 175, 80, 0.02);
-  border-radius: 0.4rem;
-}
-
-.comparison-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.stat-card {
-  background: rgba(76, 175, 80, 0.05);
-  padding: 1rem;
-  border-radius: 0.6rem;
-  border-left: 3px solid #4caf50;
-  text-align: center;
-}
-
-.stat-card h4 {
-  color: #888;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  margin: 0 0 0.5rem;
-  letter-spacing: 0.05em;
-}
-
-.stat-card p {
-  font-size: 1.3rem;
-  color: #fff;
-  margin: 0;
-  font-weight: 600;
-}
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .refresh-control {
@@ -547,14 +443,6 @@
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 
-  .comparison-controls {
-    flex-direction: column;
-  }
-
-  .compare-select,
-  .compare-btn {
-    width: 100%;
-  }
 }
 
 /* ===== МОБИЛЬНЫЕ СТИЛИ ДЛЯ iPhone XR (375px) ===== */
@@ -694,54 +582,6 @@
     height: 35px;
   }
 
-  /* Comparison section */
-  .comparison-section {
-    margin: 1.5rem auto;
-    padding: 1rem 0.75rem;
-    max-width: calc(100% - 1rem);
-  }
-
-  .comparison-section h2 {
-    font-size: 1.1rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .comparison-controls {
-    flex-direction: column;
-    gap: 0.6rem;
-    margin-bottom: 1rem;
-  }
-
-  .compare-select,
-  .compare-btn {
-    width: 100%;
-    padding: 0.6rem 0.8rem;
-    font-size: 0.9rem;
-  }
-
-  .comparison-chart {
-    padding: 0.8rem;
-    margin-bottom: 1rem;
-  }
-
-  .comparison-stats {
-    grid-template-columns: 1fr;
-    gap: 0.6rem;
-  }
-
-  .stat-card {
-    padding: 0.8rem;
-  }
-
-  .stat-card h4 {
-    font-size: 0.75rem;
-    margin-bottom: 0.3rem;
-  }
-
-  .stat-card p {
-    font-size: 1.1rem;
-  }
-
   /* Unit buttons */
   .unit-buttons-MB,
   .unit-buttons-MBit {
@@ -769,7 +609,6 @@
   }
 
   .metrics-grid,
-  .comparison-section,
   .system-info-section {
     width: calc(100% - 0.5rem) !important;
     margin-left: auto !important;
@@ -802,10 +641,5 @@
     padding: 0.6rem;
   }
 
-  .compare-select,
-  .compare-btn {
-    padding: 0.5rem 0.6rem;
-    font-size: 0.85rem;
-  }
 }
 

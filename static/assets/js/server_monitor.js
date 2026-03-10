@@ -2,7 +2,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let cpuChart = null;
   let memoryChart = null;
   let bwChart = null;
-  let comparisonChart = null;
   let pollInterval = null;
 
   const ifaceGroups = {
@@ -205,56 +204,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (e) {
       console.error("Ошибка загрузки /api/system-info:", e);
-    }
-  }
-
-  async function loadComparison() {
-    try {
-      const compareType = document.getElementById("compareType")?.value || "day";
-      const res = await fetch(`/api/bw-compare?type=${encodeURIComponent(compareType)}`, { cache: "no-store" });
-      const payload = await res.json();
-      if (!res.ok || !Array.isArray(payload?.data)) return;
-
-      const labels = payload.data.map((d) => d.date);
-      const rx = payload.data.map((d) => (Number(d.rx_bytes || 0) / (1024 ** 3)));
-      const tx = payload.data.map((d) => (Number(d.tx_bytes || 0) / (1024 ** 3)));
-      const totals = payload.data.map((d) => (Number(d.total_bytes || 0) / (1024 ** 3)));
-
-      const ctx = document.getElementById("comparisonCanvas")?.getContext("2d");
-      if (!ctx) return;
-
-      if (comparisonChart) comparisonChart.destroy();
-      comparisonChart = new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels,
-          datasets: [
-            { label: "Rx (GB)", data: rx, backgroundColor: "rgba(76,175,80,0.7)", borderColor: "#4caf50", borderWidth: 1 },
-            { label: "Tx (GB)", data: tx, backgroundColor: "rgba(244,67,54,0.7)", borderColor: "#f44336", borderWidth: 1 },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: "#fff" } } },
-          scales: {
-            y: { beginAtZero: true, ticks: { color: "#ddd" }, grid: { color: "rgba(255,255,255,0.1)" } },
-            x: { ticks: { color: "#bbb", autoSkip: true, maxTicksLimit: 10 }, grid: { color: "rgba(255,255,255,0.05)" } },
-          },
-        },
-      });
-
-      const maxRx = rx.length ? Math.max(...rx) : 0;
-      const maxTx = tx.length ? Math.max(...tx) : 0;
-      const avgTotal = totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : 0;
-
-      const maxRxEl = document.getElementById("maxRx");
-      const maxTxEl = document.getElementById("maxTx");
-      const avgEl = document.getElementById("avgTotal");
-      if (maxRxEl) maxRxEl.textContent = `${maxRx.toFixed(2)} GB`;
-      if (maxTxEl) maxTxEl.textContent = `${maxTx.toFixed(2)} GB`;
-      if (avgEl) avgEl.textContent = `${avgTotal.toFixed(2)} GB/день`;
-    } catch (e) {
-      console.error("Ошибка загрузки /api/bw-compare:", e);
     }
   }
 
@@ -503,13 +452,10 @@ document.addEventListener("DOMContentLoaded", () => {
     btn?.classList.remove("loading");
   });
 
-  document.getElementById("loadComparisonBtn")?.addEventListener("click", loadComparison);
-
   initMiniCharts();
   setActiveBtns();
   loadSystemInfo();
   loadBandwidth();
-  loadComparison();
   startWebSocket();
 
   if (!pollInterval) {

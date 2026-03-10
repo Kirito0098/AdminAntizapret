@@ -214,50 +214,6 @@ document.addEventListener('DOMContentLoaded', function () {
       });
   }
 
-  // Функция для обновления данных о сервере
-  function updateServerInfo() {
-    if (window.location.pathname !== '/server_monitor') {
-      return;
-    }
-
-    fetch('/server_monitor', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')
-          .content,
-      },
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.error) {
-          console.error('Ошибка:', data.error);
-          return;
-        }
-        const cpuElement = document.getElementById('cpu-usage');
-        const memoryElement = document.getElementById('memory-usage');
-        const uptimeElement = document.getElementById('uptime');
-
-        if (cpuElement) cpuElement.textContent = data.cpu_usage + '%';
-        if (memoryElement) memoryElement.textContent = data.memory_usage + '%';
-        if (uptimeElement) uptimeElement.textContent = data.uptime;
-
-        // --- Добавлено: обновление графиков ---
-        if (typeof window.updateServerCharts === 'function') {
-          window.updateServerCharts(data.cpu_usage, data.memory_usage);
-        }
-      })
-      .catch((error) => console.error('Ошибка при обновлении данных:', error));
-  }
-
-  // Проверяем, находимся ли мы на странице мониторинга
-  if (window.location.pathname === '/server_monitor') {
-    // Запускаем первоначальное обновление
-    updateServerInfo();
-    // Запускаем периодическое обновление каждые 5 секунд
-    setInterval(updateServerInfo, 5000);
-  }
-
   // Обработчик отправки формы
   clientForm.addEventListener('submit', function (event) {
     event.preventDefault();
@@ -343,8 +299,4 @@ document.addEventListener('DOMContentLoaded', function () {
   updateFormVisibility();
   optionSelect.addEventListener('change', updateFormVisibility);
 
-  if (window.location.pathname === '/server_monitor') {
-    updateServerInfo();
-    setInterval(updateServerInfo, 5000);
-  }
 });

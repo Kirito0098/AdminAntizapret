@@ -1104,34 +1104,19 @@ def run_doall():
         return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
 
-# Маршрут для страницы мониторинга и обновления данных
-@app.route("/server_monitor", methods=["GET", "POST"])
+# Маршрут для страницы мониторинга
+@app.route("/server_monitor", methods=["GET"])
 @auth_manager.login_required
 def server_monitor():
     iface = os.getenv("VNSTAT_IFACE", "ens3")
-
-    if request.method == "GET":
-        cpu_usage = server_monitor_proc.get_cpu_usage()
-        memory_usage = server_monitor_proc.get_memory_usage()
-        uptime = server_monitor_proc.get_uptime()
-        return render_template(
-            "server_monitor.html",
-            cpu_usage=cpu_usage,
-            memory_usage=memory_usage,
-            uptime=uptime,
-            iface=iface,
-        )
-    elif request.method == "POST":
-        try:
-            cpu_usage = server_monitor_proc.get_cpu_usage()
-            memory_usage = server_monitor_proc.get_memory_usage()
-            uptime = server_monitor_proc.get_uptime()
-            return jsonify(
-                {"cpu_usage": cpu_usage, "memory_usage": memory_usage, "uptime": uptime}
-            )
-        except Exception as e:
-            app.logger.error(f"Ошибка при обновлении данных мониторинга: {e}")
-            return jsonify({"error": "Ошибка при обновлении данных мониторинга"}), 500
+    cpu_usage = server_monitor_proc.get_cpu_usage()
+    memory_usage = server_monitor_proc.get_memory_usage()
+    return render_template(
+        "server_monitor.html",
+        cpu_usage=cpu_usage,
+        memory_usage=memory_usage,
+        iface=iface,
+    )
 
 
 @app.route("/settings", methods=["GET", "POST"])
@@ -1548,88 +1533,6 @@ def api_system_info():
     except Exception as e:
         app.logger.error(f"Ошибка при получении информации о системе: {e}")
         return jsonify({"error": "Ошибка при получении информации о системе"}), 500
-
-
-@app.route("/api/bw-compare")
-@auth_manager.login_required
-def api_bw_compare():
-    """API для сравнения данных трафика между днями"""
-    try:
-        import json, subprocess, os
-        from json import JSONDecodeError
-
-        iface = os.environ.get("VNSTAT_IFACE") or app.config.get("VNSTAT_IFACE")
-        q_iface = request.args.get("iface")
-        if q_iface:
-            iface = q_iface
-
-        compare_date = request.args.get("date")  # формат: YYYY-MM-DD
-        compare_type = request.args.get("type", "day")  # day или week
-
-        vnstat_bin = os.environ.get("VNSTAT_BIN", "/usr/bin/vnstat")
-
-        def _run(args):
-            return subprocess.run(args, check=True, capture_output=True, text=True)
-
-        try:
-            data_d = json.loads(_run([vnstat_bin, "--json", "d", "-i", iface]).stdout)
-        except Exception as e:
-            return jsonify({"error": str(e), "iface": iface}), 500
-
-        def get_iface_block(data):
-            for it in data.get("interfaces") or []:
-                if it.get("name") == iface:
-                    return it
-            return {}
-
-        it_d = get_iface_block(data_d)
-        traffic_d = it_d.get("traffic") or {}
-        days = traffic_d.get("day") or traffic_d.get("days") or []
-
-        def sort_key_dt(h):
-            d = h.get("date") or {}
-            return (d.get("year", 0), d.get("month", 0), d.get("day", 0))
-
-        days_sorted = sorted(days, key=sort_key_dt)
-
-        comparison_data = []
-        if compare_type == "day" and compare_date:
-            try:
-                target_date = datetime.strptime(compare_date, "%Y-%m-%d")
-                # Найти трафик за выбранный день и сравнить с сегодня
-                for day_data in days_sorted[-30:]:
-                    date = day_data.get("date") or {}
-                    day_date = datetime(
-                        year=int(date.get("year", 2000)),
-                        month=int(date.get("month", 1)),
-                        day=int(date.get("day", 1))
-                    )
-                    comparison_data.append({
-                        "date": day_date.strftime("%Y-%m-%d"),
-                        "rx_bytes": int(day_data.get("rx", 0)),
-                        "tx_bytes": int(day_data.get("tx", 0)),
-                        "total_bytes": int(day_data.get("rx", 0)) + int(day_data.get("tx", 0)),
-                    })
-            except ValueError:
-                pass
-        else:
-            comparison_data = [{
-                "date": f"{d.get('date', {}).get('year', 2000)}-"
-                        f"{int(d.get('date', {}).get('month', 1)):02d}-"
-                        f"{int(d.get('date', {}).get('day', 1)):02d}",
-                "rx_bytes": int(d.get("rx", 0)),
-                "tx_bytes": int(d.get("tx", 0)),
-                "total_bytes": int(d.get("rx", 0)) + int(d.get("tx", 0)),
-            } for d in days_sorted[-30:]]
-
-        return jsonify({
-            "iface": iface,
-            "comparison_type": compare_type,
-            "data": comparison_data,
-        })
-    except Exception as e:
-        app.logger.error(f"Ошибка при сравнении данных трафика: {e}")
-        return jsonify({"error": "Ошибка при сравнении данных трафика"}), 500
 
 
 @sock.route("/ws/monitor")
