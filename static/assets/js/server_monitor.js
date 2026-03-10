@@ -337,14 +337,21 @@ document.addEventListener("DOMContentLoaded", () => {
     return { labels, rx_mbps: rx, tx_mbps: tx, totals };
   }
 
-  function aggregateToDaily(labels, rxMbps, txMbps, unit) {
+  function aggregateToDaily(labels, rxMbps, txMbps, unit, isRateMode) {
     const buckets = new Map();
+    const secondsPerDay = 86400;
+
     labels.forEach((label, i) => {
       const day = String(label || "").split(" ")[0];
       const prev = buckets.get(day) || { rx: 0, tx: 0 };
       const factor = unit === "MB" ? 8 : 1;
-      prev.rx += (Number(rxMbps[i]) || 0) / factor;
-      prev.tx += (Number(txMbps[i]) || 0) / factor;
+
+      // Для режимов 7d/30d нужно конвертировать средние скорости в общие объемы за день
+      const rxVal = isRateMode ? Number(rxMbps[i]) || 0 : (Number(rxMbps[i]) || 0) * secondsPerDay;
+      const txVal = isRateMode ? Number(txMbps[i]) || 0 : (Number(txMbps[i]) || 0) * secondsPerDay;
+
+      prev.rx += rxVal / factor;
+      prev.tx += txVal / factor;
       buckets.set(day, prev);
     });
 
@@ -392,7 +399,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let isRateMode = currentRange === "1d";
 
       if (!isRateMode) {
-        const daily = aggregateToDaily(labels, data.rx_mbps || [], data.tx_mbps || [], currentUnit);
+        const daily = aggregateToDaily(labels, data.rx_mbps || [], data.tx_mbps || [], currentUnit, isRateMode);
         chartLabels = daily.labels;
         rxSeries = daily.rx;
         txSeries = daily.tx;
@@ -402,10 +409,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const lastRx = rxSeries.at(-1) || 0;
       const lastTx = txSeries.at(-1) || 0;
-      const speedUnit = currentUnit === "MB" ? "МБ/с" : "Мбит/с";
-      if (elRx) elRx.textContent = `${fmtRate(lastRx)} ${speedUnit}`;
-      if (elTx) elTx.textContent = `${fmtRate(lastTx)} ${speedUnit}`;
-      if (elLoad) elLoad.textContent = `Текущая нагрузка: Rx ${fmtRate(lastRx)} ${speedUnit}, Tx ${fmtRate(lastTx)} ${speedUnit}`;
+
+      if (isRateMode) {
+        // Для режима 1d это скорости
+        const speedUnit = currentUnit === "MB" ? "МБ/с" : "Мбит/с";
+        if (elRx) elRx.textContent = `${fmtRate(lastRx)} ${speedUnit}`;
+        if (elTx) elTx.textContent = `${fmtRate(lastTx)} ${speedUnit}`;
+        if (elLoad) elLoad.textContent = `Текущая нагрузка: Rx ${fmtRate(lastRx)} ${speedUnit}, Tx ${fmtRate(lastTx)} ${speedUnit}`;
+      } else {
+        // Для режимов 7d/30d это объемы за день
+        if (elRx) elRx.textContent = `${fmtVolume(lastRx, currentUnit)}`;
+        if (elTx) elTx.textContent = `${fmtVolume(lastTx, currentUnit)}`;
+        if (elLoad) elLoad.textContent = `Последний день: Rx ${fmtVolume(lastRx, currentUnit)}, Tx ${fmtVolume(lastTx, currentUnit)}`;
+      }
 
       setAggText("bw-rx-1d", "1d", data?.totals?.["1d"]?.rx_bytes);
       setAggText("bw-rx-7d", "7d", data?.totals?.["7d"]?.rx_bytes);
