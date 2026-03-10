@@ -315,19 +315,45 @@ td {
 }
 
 /*=============== NAVIGATION STYLES ===============*/
+
 .navigation {
   background-color: hsla(0, 0%, 10%, 0.8);
-  padding: 1rem;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1.5rem;
+  padding: 1rem 0;
   border-bottom: 2px solid #4caf50;
+}
+
+.nav-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
 }
 
 .nav-group {
   display: flex;
   gap: 1.5rem;
+  flex: 1 1 auto;
+  justify-content: center;
+  margin: 0;
+}
+
+.user-info-block {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  gap: 1rem;
+}
+
+.nav-group {
+  display: flex;
+  gap: 1.5rem;
+  margin-inline: auto;
 }
 
 .nav-link {
@@ -336,10 +362,50 @@ td {
   font-weight: 500;
   font-size: 1rem;
   transition: color 0.3s;
+
 }
 
 .nav-link:hover {
   color: #4caf50;
+}
+
+/*=============== USER INFO STYLES ===============*/
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding-left: 1.5rem;
+    border-left: 2px solid #4caf50;
+    padding-right: 1.5rem;
+    border-right: 2px solid #4caf50;
+    margin-right: 50px;
+}
+
+.username {
+  color: hsl(0, 0%, 100%);
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.user-role {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.role-admin {
+  background-color: #4caf50;
+  color: hsl(0, 0%, 100%);
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+}
+
+.role-viewer {
+  background-color: #2196f3;
+  color: hsl(0, 0%, 100%);
+  box-shadow: 0 0 10px rgba(33, 150, 243, 0.3);
 }
 
 /*=============== LOADING OVERLAY ===============*/
