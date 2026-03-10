@@ -884,8 +884,10 @@ def download(file_path, clean_name):
     try:
         base = os.path.basename(file_path)
 
+        # Новый паттерн для преобразования имени файла
+        # Универсальный паттерн для всех случаев
         pattern = re.compile(
-            r"^(?P<prefix>[^-]+)-(?P<client>[^-]+)-\([^)]+\)(?:-(?P<proto>udp|tcp))?(?:-(?P<suffix>wg|am))?\.(?P<ext>ovpn|conf)$",
+            r"^(?P<prefix>antizapret|vpn)-(?P<client>[\w\-]+?)(?:_(?P<id>[\w\-]+))?(?:-\([^)]+\))?(?:-(?P<proto>udp|tcp))?(?:-(?P<suffix>wg|am))?\.(?P<ext>ovpn|conf)$",
             re.IGNORECASE,
         )
         m = pattern.match(base)
@@ -893,18 +895,22 @@ def download(file_path, clean_name):
         if m:
             prefix = m.group('prefix').lower()
             client = m.group('client')
+            id_ = m.group('id')
             proto = m.group('proto')
-            suffix = m.group('suffix')
             ext = m.group('ext').lower()
-            if prefix == 'vpn':
-                base_name = f"{client}-vpn"
+            # Формируем имя: az-<client>[-<id>][-<proto>].<ext> или vpn-<client>[-<id>][-<proto>].<ext>
+            if prefix == 'antizapret':
+                prefix_out = 'az'
             else:
-                base_name = client
-            az = '-az' if prefix == 'antizapret' else ''
+                prefix_out = 'vpn'
+            if id_:
+                base_name = f"{prefix_out}-{client}_{id_}"
+            else:
+                base_name = f"{prefix_out}-{client}"
             if proto:
-                download_name = f"{base_name}-{proto}{az}.{ext}"
+                download_name = f"{base_name}-{proto}.{ext}"
             else:
-                download_name = f"{base_name}{az}.{ext}"
+                download_name = f"{base_name}.{ext}"
         else:
             download_name = base
         return send_from_directory(
