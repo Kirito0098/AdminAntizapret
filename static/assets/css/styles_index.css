@@ -108,9 +108,6 @@ h1 {
   padding: 1.5rem;
   min-width: 0;
   border-color: #4caf50;
-  /* Зеленый цвет для отличия */
-  width: 60%;
-  /* Каждая колонка занимает 60% от file-list */
   max-width: 500px;
   /* Максимальная ширина колонки */
   box-sizing: border-box;

@@ -12,6 +12,7 @@ from flask import (
     send_file,
     make_response,
 )
+from flask_sock import Sock
 import subprocess
 import os
 import re
@@ -50,6 +51,7 @@ if not app.secret_key:
 app.config['SESSION_COOKIE_NAME'] = 'AdminAntizapretSession'
 
 csrf = CSRFProtect(app)
+sock = Sock(app)
 ip_restriction.init_app(app)
 init_antizapret(app)
 
@@ -649,6 +651,66 @@ class ServerMonitor:
         hours, remainder = divmod(remainder, 3600)
         minutes, _ = divmod(remainder, 60)
         return f"{int(days)}д {int(hours)}ч {int(minutes)}м"
+
+    def get_system_info(self):
+        """Получить системную информацию"""
+        try:
+            import socket
+            return {
+                "os": platform.system(),
+                "os_release": platform.release(),
+                "kernel": platform.platform(),
+                "hostname": socket.gethostname(),
+                "processor": platform.processor(),
+                "python_version": platform.python_version(),
+            }
+        except Exception as e:
+            app.logger.error(f"Ошибка при получении системной информации: {e}")
+            return {}
+
+    def get_disk_usage(self):
+        """Получить использование диска"""
+        try:
+            disk = psutil.disk_usage("/")
+            return {
+                "total": disk.total,
+                "used": disk.used,
+                "free": disk.free,
+                "percent": disk.percent,
+            }
+        except Exception as e:
+            app.logger.error(f"Ошибка при получении информации о диске: {e}")
+            return {}
+
+    def get_load_average(self):
+        """Получить load average"""
+        try:
+            load = os.getloadavg() if hasattr(os, "getloadavg") else psutil.getloadavg()
+            cpu_count = psutil.cpu_count()
+            return {
+                "load_1m": round(load[0], 2),
+                "load_5m": round(load[1], 2),
+                "load_15m": round(load[2], 2),
+                "cpu_count": cpu_count,
+            }
+        except Exception as e:
+            app.logger.error(f"Ошибка при получении load average: {e}")
+            return {}
+
+    def get_status_color(self, value, thresholds=None):
+        """
+        Определить цвет статуса на основе значения
+        thresholds: {"yellow": 70, "red": 90}
+        """
+        if thresholds is None:
+            thresholds = {"yellow": 70, "red": 90}
+
+        if value >= thresholds.get("red", 90):
+            return "red"
+        elif value >= thresholds.get("yellow", 70):
+            return "yellow"
+        else:
+            return "green"
 
 
 # Инициализация классов
@@ -1449,6 +1511,160 @@ def api_bw():
             "totals": totals,
         }
     )
+
+
+@app.route("/api/system-info")
+@auth_manager.login_required
+def api_system_info():
+    """API для получения информации о системе"""
+    try:
+        cpu_usage = server_monitor_proc.get_cpu_usage()
+        memory_usage = server_monitor_proc.get_memory_usage()
+        disk_usage = server_monitor_proc.get_disk_usage()
+        load_avg = server_monitor_proc.get_load_average()
+        system_info = server_monitor_proc.get_system_info()
+        uptime = server_monitor_proc.get_uptime()
+
+        return jsonify({
+            "cpu": {
+                "usage": cpu_usage,
+                "color": server_monitor_proc.get_status_color(cpu_usage),
+            },
+            "memory": {
+                "usage": memory_usage,
+                "color": server_monitor_proc.get_status_color(memory_usage),
+            },
+            "disk": {
+                "usage_percent": disk_usage.get("percent", 0),
+                "used_gb": round(disk_usage.get("used", 0) / (1024**3), 2),
+                "total_gb": round(disk_usage.get("total", 0) / (1024**3), 2),
+                "color": server_monitor_proc.get_status_color(disk_usage.get("percent", 0)),
+            },
+            "load_average": load_avg,
+            "system_info": system_info,
+            "uptime": uptime,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception as e:
+        app.logger.error(f"Ошибка при получении информации о системе: {e}")
+        return jsonify({"error": "Ошибка при получении информации о системе"}), 500
+
+
+@app.route("/api/bw-compare")
+@auth_manager.login_required
+def api_bw_compare():
+    """API для сравнения данных трафика между днями"""
+    try:
+        import json, subprocess, os
+        from json import JSONDecodeError
+
+        iface = os.environ.get("VNSTAT_IFACE") or app.config.get("VNSTAT_IFACE")
+        q_iface = request.args.get("iface")
+        if q_iface:
+            iface = q_iface
+
+        compare_date = request.args.get("date")  # формат: YYYY-MM-DD
+        compare_type = request.args.get("type", "day")  # day или week
+
+        vnstat_bin = os.environ.get("VNSTAT_BIN", "/usr/bin/vnstat")
+
+        def _run(args):
+            return subprocess.run(args, check=True, capture_output=True, text=True)
+
+        try:
+            data_d = json.loads(_run([vnstat_bin, "--json", "d", "-i", iface]).stdout)
+        except Exception as e:
+            return jsonify({"error": str(e), "iface": iface}), 500
+
+        def get_iface_block(data):
+            for it in data.get("interfaces") or []:
+                if it.get("name") == iface:
+                    return it
+            return {}
+
+        it_d = get_iface_block(data_d)
+        traffic_d = it_d.get("traffic") or {}
+        days = traffic_d.get("day") or traffic_d.get("days") or []
+
+        def sort_key_dt(h):
+            d = h.get("date") or {}
+            return (d.get("year", 0), d.get("month", 0), d.get("day", 0))
+
+        days_sorted = sorted(days, key=sort_key_dt)
+
+        comparison_data = []
+        if compare_type == "day" and compare_date:
+            try:
+                target_date = datetime.strptime(compare_date, "%Y-%m-%d")
+                # Найти трафик за выбранный день и сравнить с сегодня
+                for day_data in days_sorted[-30:]:
+                    date = day_data.get("date") or {}
+                    day_date = datetime(
+                        year=int(date.get("year", 2000)),
+                        month=int(date.get("month", 1)),
+                        day=int(date.get("day", 1))
+                    )
+                    comparison_data.append({
+                        "date": day_date.strftime("%Y-%m-%d"),
+                        "rx_bytes": int(day_data.get("rx", 0)),
+                        "tx_bytes": int(day_data.get("tx", 0)),
+                        "total_bytes": int(day_data.get("rx", 0)) + int(day_data.get("tx", 0)),
+                    })
+            except ValueError:
+                pass
+        else:
+            comparison_data = [{
+                "date": f"{d.get('date', {}).get('year', 2000)}-"
+                        f"{int(d.get('date', {}).get('month', 1)):02d}-"
+                        f"{int(d.get('date', {}).get('day', 1)):02d}",
+                "rx_bytes": int(d.get("rx", 0)),
+                "tx_bytes": int(d.get("tx", 0)),
+                "total_bytes": int(d.get("rx", 0)) + int(d.get("tx", 0)),
+            } for d in days_sorted[-30:]]
+
+        return jsonify({
+            "iface": iface,
+            "comparison_type": compare_type,
+            "data": comparison_data,
+        })
+    except Exception as e:
+        app.logger.error(f"Ошибка при сравнении данных трафика: {e}")
+        return jsonify({"error": "Ошибка при сравнении данных трафика"}), 500
+
+
+@sock.route("/ws/monitor")
+def monitor_websocket(ws):
+    """WebSocket для реал-тайм мониторинга сервера"""
+    try:
+        # Проверить авторизацию
+        if 'user_id' not in session:
+            ws.close(code=1008, message="Unauthorized")
+            return
+
+        # Отправлять обновления каждые 2 секунды
+        import json
+        while True:
+            time.sleep(2)
+            try:
+                cpu_usage = server_monitor_proc.get_cpu_usage()
+                memory_usage = server_monitor_proc.get_memory_usage()
+
+                message = json.dumps({
+                    'type': 'monitor_update',
+                    'cpu': round(cpu_usage, 1),
+                    'memory': round(memory_usage, 1),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
+                })
+                ws.send(message)
+            except Exception as e:
+                app.logger.error(f"Ошибка при отправке WebSocket сообщения: {e}")
+                break
+    except Exception as e:
+        app.logger.error(f"Ошибка WebSocket подключения: {e}")
+        try:
+            ws.close()
+        except:
+            pass
 
 
 @app.route("/check_updates", methods=["GET"])
