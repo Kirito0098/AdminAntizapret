@@ -819,10 +819,10 @@ STATUS_LOG_FILES = {
 }
 
 EVENT_LOG_FILES = {
-    "antizapret-tcp": "antizapret-tcp.log",
-    "antizapret-udp": "antizapret-udp.log",
-    "vpn-tcp": "vpn-tcp.log",
-    "vpn-udp": "vpn-udp.log",
+    "antizapret-tcp": os.path.join(LOGS_DIR, "antizapret-tcp.log"),
+    "antizapret-udp": os.path.join(LOGS_DIR, "antizapret-udp.log"),
+    "vpn-tcp": os.path.join(LOGS_DIR, "vpn-tcp.log"),
+    "vpn-udp": os.path.join(LOGS_DIR, "vpn-udp.log"),
 }
 
 STATUS_LOG_CLEANUP_MARKER = "# adminantizapret-status-cleanup"
@@ -995,7 +995,7 @@ def _profile_meta(profile_key):
 
 
 def _parse_status_log(profile_key, filename):
-    path = os.path.join(LOGS_DIR, filename)
+    path = filename
     raw = _read_log_file(path)
     meta = _profile_meta(profile_key)
 
@@ -1003,7 +1003,7 @@ def _parse_status_log(profile_key, filename):
         return {
             "profile": profile_key,
             "label": f"{meta['network']} {meta['transport']}",
-            "filename": filename,
+            "filename": os.path.basename(path),
             "exists": False,
             "snapshot_time": "-",
             "updated_at": "-",
@@ -1072,7 +1072,7 @@ def _parse_status_log(profile_key, filename):
     return {
         "profile": profile_key,
         "label": f"{meta['network']} {meta['transport']}",
-        "filename": filename,
+        "filename": os.path.basename(path),
         "exists": True,
         "snapshot_time": snapshot_time,
         "updated_at": updated_at,
@@ -1088,7 +1088,7 @@ def _parse_status_log(profile_key, filename):
 
 
 def _parse_event_log(profile_key, filename):
-    path = os.path.join(LOGS_DIR, filename)
+    path = filename
     raw = _read_log_file(path)
     meta = _profile_meta(profile_key)
 
@@ -1096,7 +1096,7 @@ def _parse_event_log(profile_key, filename):
         return {
             "profile": profile_key,
             "label": f"{meta['network']} {meta['transport']}",
-            "filename": filename,
+            "filename": os.path.basename(path),
             "exists": False,
             "updated_at": "-",
             "updated_at_ts": 0,
@@ -1232,7 +1232,7 @@ def _parse_event_log(profile_key, filename):
     return {
         "profile": profile_key,
         "label": f"{meta['network']} {meta['transport']}",
-        "filename": filename,
+        "filename": os.path.basename(path),
         "exists": True,
         "updated_at": updated_at,
         "updated_at_ts": updated_at_ts,
@@ -1379,10 +1379,10 @@ def _collect_logs_dashboard_data():
     existing_event_log_files = [
         filename
         for filename in required_event_log_files
-        if os.path.exists(os.path.join(LOGS_DIR, filename))
+        if os.path.exists(filename)
     ]
     missing_event_log_files = [
-        filename for filename in required_event_log_files if filename not in existing_event_log_files
+        os.path.basename(filename) for filename in required_event_log_files if filename not in existing_event_log_files
     ]
     openvpn_logging_enabled = len(existing_event_log_files) > 0
 
