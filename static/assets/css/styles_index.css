@@ -2055,7 +2055,8 @@ body {
 
 /*=============== SIDEBAR FORM ===============*/
 .sidebar-form {
-  width: 320px;
+  min-width: 320px;
+  width: 380px;
   background: var(--glass-bg);
   backdrop-filter: blur(10px);
   border: 1px solid var(--glass-border);
@@ -2086,6 +2087,9 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .sidebar-form .form-group {
