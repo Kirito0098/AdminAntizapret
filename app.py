@@ -17,6 +17,7 @@ import subprocess
 import os
 import re
 import io
+import glob
 import qrcode
 import random
 import string
@@ -824,6 +825,126 @@ EVENT_LOG_FILES = {
     "vpn-udp": "vpn-udp.log",
 }
 
+STATUS_LOG_CLEANUP_MARKER = "# adminantizapret-status-cleanup"
+STATUS_LOG_CLEANUP_PERIODS = {
+    "daily": ("0 3 * * *", "Ежедневно"),
+    "weekly": ("0 3 * * 0", "Еженедельно"),
+    "monthly": ("0 3 1 * *", "Ежемесячно"),
+}
+
+
+def _status_log_cleanup_command():
+    quoted_logs_dir = shlex.quote(LOGS_DIR)
+    return (
+        f"find {quoted_logs_dir} -maxdepth 1 -type f "
+        "-name '*.log' ! -name '*-status.log' -delete >/dev/null 2>&1"
+    )
+
+
+def _read_crontab_lines():
+    try:
+        result = subprocess.run(
+            ["crontab", "-l"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return None
+
+    # Если crontab отсутствует у пользователя, считаем что список пустой.
+    if result.returncode != 0:
+        stderr = (result.stderr or "").strip().lower()
+        if "no crontab for" in stderr:
+            return []
+        return None
+
+    lines = [line.rstrip("\n") for line in result.stdout.splitlines()]
+    return lines
+
+
+def _write_crontab_lines(lines):
+    payload = "\n".join(lines).strip()
+    if payload:
+        payload += "\n"
+
+    subprocess.run(
+        ["crontab", "-"],
+        input=payload,
+        text=True,
+        check=True,
+    )
+
+
+def _strip_status_cleanup_jobs(lines):
+    return [line for line in lines if STATUS_LOG_CLEANUP_MARKER not in line]
+
+
+def _get_status_cleanup_schedule():
+    lines = _read_crontab_lines()
+    if lines is None:
+        return {
+            "period": "none",
+            "label": "Недоступно (cron не найден)",
+            "available": False,
+        }
+
+    for line in lines:
+        if STATUS_LOG_CLEANUP_MARKER not in line:
+            continue
+
+        marker_part = line.split(STATUS_LOG_CLEANUP_MARKER, 1)[-1].strip()
+        period = "none"
+        if marker_part.startswith(":"):
+            period = marker_part[1:]
+
+        period = period if period in STATUS_LOG_CLEANUP_PERIODS else "none"
+        label = STATUS_LOG_CLEANUP_PERIODS.get(period, (None, "Выключено"))[1]
+        return {"period": period, "label": label, "available": True}
+
+    return {"period": "none", "label": "Выключено", "available": True}
+
+
+def _set_status_cleanup_schedule(period):
+    lines = _read_crontab_lines()
+    if lines is None:
+        return False, "Не удалось прочитать crontab (cron недоступен)."
+
+    lines = _strip_status_cleanup_jobs(lines)
+
+    if period in STATUS_LOG_CLEANUP_PERIODS:
+        cron_expr, _ = STATUS_LOG_CLEANUP_PERIODS[period]
+        cmd = _status_log_cleanup_command()
+        lines.append(f"{cron_expr} {cmd} {STATUS_LOG_CLEANUP_MARKER}:{period}")
+
+    try:
+        _write_crontab_lines(lines)
+    except Exception as e:
+        return False, f"Ошибка записи crontab: {e}"
+
+    if period in STATUS_LOG_CLEANUP_PERIODS:
+        return True, f"Расписание очистки *.log (кроме *-status.log) установлено: {STATUS_LOG_CLEANUP_PERIODS[period][1]}"
+    return True, "Расписание очистки *.log (кроме *-status.log) отключено"
+
+
+def _cleanup_status_logs_now():
+    pattern = os.path.join(LOGS_DIR, "*.log")
+    deleted = 0
+    failed = []
+
+    for file_path in glob.glob(pattern):
+        try:
+            # Не трогаем status-логи, удаляем только обычные .log
+            if os.path.isfile(file_path) and not file_path.endswith("-status.log"):
+                os.remove(file_path)
+                deleted += 1
+        except Exception:
+            failed.append(os.path.basename(file_path))
+
+    if failed:
+        return False, f"Удалено обычных .log: {deleted}. Ошибки: {', '.join(failed)}"
+    return True, f"Удалено обычных .log (без *-status.log): {deleted}"
+
 
 def _read_log_file(path):
     try:
@@ -978,15 +1099,19 @@ def _parse_event_log(profile_key, filename):
             "filename": filename,
             "exists": False,
             "updated_at": "-",
+            "updated_at_ts": 0,
             "line_count": 0,
             "event_counts": {},
             "peer_connected_clients": [],
+            "client_sessions": [],
             "recent_lines": [],
         }
 
     try:
-        updated_at = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M:%S")
+        updated_at_ts = int(os.path.getmtime(path))
+        updated_at = datetime.fromtimestamp(updated_at_ts).strftime("%Y-%m-%d %H:%M:%S")
     except Exception:
+        updated_at_ts = 0
         updated_at = "-"
 
     line_count = len(raw.splitlines())
@@ -1008,7 +1133,7 @@ def _parse_event_log(profile_key, filename):
     # Извлекаем сведения о клиенте: endpoint/IP, версия (IV_VER), платформа (IV_PLAT)
     endpoint_info = {}
 
-    for line in raw.splitlines():
+    for line_no, line in enumerate(raw.splitlines()):
         line = line.strip()
         if not line:
             continue
@@ -1020,7 +1145,13 @@ def _parse_event_log(profile_key, filename):
             client_name = m_verify.group(2)
             endpoint_info.setdefault(
                 endpoint,
-                {"client": "-", "ip": endpoint.rsplit(":", 1)[0], "versions": set(), "platforms": set()},
+                {
+                    "client": "-",
+                    "ip": endpoint.rsplit(":", 1)[0],
+                    "version": None,
+                    "platform": None,
+                    "last_order": -1,
+                },
             )
             endpoint_info[endpoint]["client"] = client_name
 
@@ -1031,7 +1162,13 @@ def _parse_event_log(profile_key, filename):
             endpoint = m_peer.group(2)
             endpoint_info.setdefault(
                 endpoint,
-                {"client": "-", "ip": endpoint.rsplit(":", 1)[0], "versions": set(), "platforms": set()},
+                {
+                    "client": "-",
+                    "ip": endpoint.rsplit(":", 1)[0],
+                    "version": None,
+                    "platform": None,
+                    "last_order": -1,
+                },
             )
             endpoint_info[endpoint]["client"] = client_name
 
@@ -1042,7 +1179,13 @@ def _parse_event_log(profile_key, filename):
             endpoint = m_name_endpoint.group(2)
             endpoint_info.setdefault(
                 endpoint,
-                {"client": "-", "ip": endpoint.rsplit(":", 1)[0], "versions": set(), "platforms": set()},
+                {
+                    "client": "-",
+                    "ip": endpoint.rsplit(":", 1)[0],
+                    "version": None,
+                    "platform": None,
+                    "last_order": -1,
+                },
             )
             if endpoint_info[endpoint]["client"] == "-":
                 endpoint_info[endpoint]["client"] = client_name
@@ -1055,12 +1198,20 @@ def _parse_event_log(profile_key, filename):
             val = m_peer_info.group(3)
             endpoint_info.setdefault(
                 endpoint,
-                {"client": "-", "ip": endpoint.rsplit(":", 1)[0], "versions": set(), "platforms": set()},
+                {
+                    "client": "-",
+                    "ip": endpoint.rsplit(":", 1)[0],
+                    "version": None,
+                    "platform": None,
+                    "last_order": -1,
+                },
             )
             if key == "IV_VER":
-                endpoint_info[endpoint]["versions"].add(val)
+                endpoint_info[endpoint]["version"] = val
+                endpoint_info[endpoint]["last_order"] = line_no
             elif key == "IV_PLAT":
-                endpoint_info[endpoint]["platforms"].add(val)
+                endpoint_info[endpoint]["platform"] = val
+                endpoint_info[endpoint]["last_order"] = line_no
 
     client_sessions = []
     for endpoint, info in endpoint_info.items():
@@ -1069,8 +1220,9 @@ def _parse_event_log(profile_key, filename):
                 "client": info["client"],
                 "endpoint": endpoint,
                 "ip": info["ip"],
-                "versions": sorted(info["versions"]),
-                "platforms": sorted(info["platforms"]),
+                "version": info.get("version"),
+                "platform": info.get("platform"),
+                "last_order": info.get("last_order", -1),
             }
         )
 
@@ -1083,6 +1235,7 @@ def _parse_event_log(profile_key, filename):
         "filename": filename,
         "exists": True,
         "updated_at": updated_at,
+        "updated_at_ts": updated_at_ts,
         "line_count": line_count,
         "event_counts": event_counts,
         "peer_connected_clients": peer_connected,
@@ -1135,8 +1288,9 @@ def _collect_logs_dashboard_data():
                 client_aggregate[name]["ips"].add(client["real_ip"])
                 if client["real_ip"] not in client_aggregate[name]["ip_details"]:
                     client_aggregate[name]["ip_details"][client["real_ip"]] = {
-                        "versions": set(),
-                        "platforms": set(),
+                        "version": None,
+                        "platform": None,
+                        "rank": -1,
                     }
 
     # Дополняем версии/платформы и IP из event-логов
@@ -1161,29 +1315,35 @@ def _collect_logs_dashboard_data():
 
             if sess_ip not in client_aggregate[client_name]["ip_details"]:
                 client_aggregate[client_name]["ip_details"][sess_ip] = {
-                        "versions": set(),
-                        "platforms": set(),
+                        "version": None,
+                        "platform": None,
+                        "rank": -1,
                     }
 
-            for ver in sess.get("versions", []):
-                client_aggregate[client_name]["versions"].add(ver)
-                client_aggregate[client_name]["ip_details"][sess_ip]["versions"].add(ver)
-
-            for plat in sess.get("platforms", []):
-                client_aggregate[client_name]["platforms"].add(plat)
-                client_aggregate[client_name]["ip_details"][sess_ip]["platforms"].add(plat)
+            # Для активного IP берём только наиболее актуальные данные из event-логов.
+            event_rank = int(event.get("updated_at_ts", 0)) * 1000000 + int(sess.get("last_order", -1))
+            current_rank = int(client_aggregate[client_name]["ip_details"][sess_ip].get("rank", -1))
+            if event_rank >= current_rank:
+                client_aggregate[client_name]["ip_details"][sess_ip]["version"] = sess.get("version")
+                client_aggregate[client_name]["ip_details"][sess_ip]["platform"] = sess.get("platform")
+                client_aggregate[client_name]["ip_details"][sess_ip]["rank"] = event_rank
 
     connected_clients = []
     for name, stats in client_aggregate.items():
         total_bytes = stats["bytes_received"] + stats["bytes_sent"]
         ip_device_map = []
+        client_versions_set = set()
+        client_platforms_set = set()
         for ip in sorted(stats["ips"]):
-            details = stats["ip_details"].get(ip, {"versions": set(), "platforms": set()})
-            human_platforms = sorted({_human_device_type(item) for item in details.get("platforms", set())})
-            versions = sorted(details.get("versions", set()))
+            details = stats["ip_details"].get(ip, {"version": None, "platform": None})
+            platform_str = _human_device_type(details.get("platform")) if details.get("platform") else "Не определено"
+            version_str = details.get("version") or "Не определено"
 
-            platform_str = ", ".join(human_platforms) if human_platforms else "Не определено"
-            version_str = ", ".join(versions) if versions else "Не определено"
+            if version_str != "Не определено":
+                client_versions_set.add(version_str)
+            if platform_str != "Не определено":
+                client_platforms_set.add(platform_str)
+
             ip_device_map.append({
                 "ip": ip,
                 "platform": platform_str,
@@ -1202,10 +1362,8 @@ def _collect_logs_dashboard_data():
                 "sessions": stats["sessions"],
                 "profiles": ", ".join(sorted(stats["profiles"])),
                 "ips": ", ".join(sorted(stats["ips"])) if stats["ips"] else "-",
-                "client_versions": ", ".join(sorted(stats["versions"])) if stats["versions"] else "-",
-                "device_types": ", ".join(
-                    sorted({_human_device_type(item) for item in stats["platforms"]})
-                ) if stats["platforms"] else "Не определено",
+                "client_versions": ", ".join(sorted(client_versions_set)) if client_versions_set else "-",
+                "device_types": ", ".join(sorted(client_platforms_set)) if client_platforms_set else "Не определено",
                 "ip_device_map": ip_device_map,
             }
         )
@@ -1749,6 +1907,9 @@ def server_monitor():
 @auth_manager.login_required
 def logs_dashboard():
     dashboard_data = _collect_logs_dashboard_data()
+    cleanup_schedule = _get_status_cleanup_schedule()
+    cleanup_notice = request.args.get("cleanup_notice", "")
+    cleanup_notice_kind = request.args.get("cleanup_notice_kind", "info")
     return render_template(
         "logs_dashboard.html",
         status_rows=dashboard_data["status_rows"],
@@ -1760,6 +1921,39 @@ def logs_dashboard():
         summary=dashboard_data["summary"],
         connected_clients=dashboard_data["connected_clients"],
         generated_at=dashboard_data["generated_at"],
+        cleanup_schedule=cleanup_schedule,
+        cleanup_notice=cleanup_notice,
+        cleanup_notice_kind=cleanup_notice_kind,
+    )
+
+
+@app.route("/logs_dashboard/cleanup_status_now", methods=["POST"])
+@auth_manager.admin_required
+def logs_cleanup_status_now():
+    ok, message = _cleanup_status_logs_now()
+    return redirect(
+        url_for(
+            "logs_dashboard",
+            cleanup_notice=message,
+            cleanup_notice_kind="success" if ok else "error",
+        )
+    )
+
+
+@app.route("/logs_dashboard/cleanup_status_schedule", methods=["POST"])
+@auth_manager.admin_required
+def logs_cleanup_status_schedule():
+    period = (request.form.get("cleanup_period") or "none").strip().lower()
+    if period not in ("none", "daily", "weekly", "monthly"):
+        period = "none"
+
+    ok, message = _set_status_cleanup_schedule(period)
+    return redirect(
+        url_for(
+            "logs_dashboard",
+            cleanup_notice=message,
+            cleanup_notice_kind="success" if ok else "error",
+        )
     )
 
 

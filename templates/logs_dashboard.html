@@ -8,6 +8,48 @@
 {% block content %}
 <div class="logs-page-wrapper">
 
+    {% if cleanup_notice %}
+    <section class="logs-section">
+        <div
+            class="logs-alert {% if cleanup_notice_kind == 'success' %}logs-alert-success{% elif cleanup_notice_kind == 'error' %}logs-alert-error{% endif %}">
+            {{ cleanup_notice }}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if current_user and current_user.is_admin() %}
+    <section class="logs-section">
+        <div class="section-title-wrap">
+            <h2>Управление обычными логами</h2>
+        </div>
+        <div class="cleanup-tools-row">
+            <form method="post" action="{{ url_for('logs_cleanup_status_now') }}" class="cleanup-form-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить *.log (кроме *-status.log)
+                    сейчас</button>
+            </form>
+
+            <form method="post" action="{{ url_for('logs_cleanup_status_schedule') }}" class="cleanup-form-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <label for="cleanup_period" class="cleanup-label">Расписание очистки *.log (без *-status.log):</label>
+                <select id="cleanup_period" name="cleanup_period" class="cleanup-select" {% if not
+                    cleanup_schedule.available %}disabled{% endif %}>
+                    <option value="none" {% if cleanup_schedule.period=='none' %}selected{% endif %}>Выключено</option>
+                    <option value="daily" {% if cleanup_schedule.period=='daily' %}selected{% endif %}>Каждый день
+                    </option>
+                    <option value="weekly" {% if cleanup_schedule.period=='weekly' %}selected{% endif %}>Каждую неделю
+                    </option>
+                    <option value="monthly" {% if cleanup_schedule.period=='monthly' %}selected{% endif %}>Каждый месяц
+                    </option>
+                </select>
+                <button type="submit" class="cleanup-btn" {% if not cleanup_schedule.available %}disabled{% endif
+                    %}>Сохранить</button>
+            </form>
+        </div>
+        <div class="cleanup-state">Текущее расписание: <strong>{{ cleanup_schedule.label }}</strong></div>
+    </section>
+    {% endif %}
+
 
     <section class="logs-summary-grid">
         <article class="summary-card">

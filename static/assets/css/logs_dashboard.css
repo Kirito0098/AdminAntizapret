@@ -115,6 +115,81 @@
   font-weight: 500;
 }
 
+.logs-alert-success {
+  border-color: rgba(92, 201, 126, 0.45);
+  background: rgba(17, 75, 34, 0.55);
+  color: #d3ffd9;
+}
+
+.logs-alert-error {
+  border-color: rgba(255, 110, 110, 0.45);
+  background: rgba(86, 23, 23, 0.55);
+  color: #ffd8d8;
+}
+
+.cleanup-tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.cleanup-form-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.cleanup-label {
+  color: rgba(208, 231, 223, 0.95);
+  font-size: 0.9rem;
+}
+
+.cleanup-select {
+  background: rgba(14, 36, 30, 0.8);
+  border: 1px solid rgba(121, 184, 163, 0.45);
+  color: #e8fff5;
+  border-radius: 7px;
+  padding: 0.35rem 0.5rem;
+}
+
+.cleanup-btn {
+  border: 1px solid rgba(121, 184, 163, 0.45);
+  background: rgba(14, 36, 30, 0.75);
+  color: #d8fff2;
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.84rem;
+}
+
+.cleanup-btn:hover {
+  background: rgba(19, 58, 48, 0.85);
+}
+
+.cleanup-btn-danger {
+  border-color: rgba(236, 125, 125, 0.6);
+  background: rgba(86, 23, 23, 0.65);
+  color: #ffdede;
+}
+
+.cleanup-btn-danger:hover {
+  background: rgba(105, 29, 29, 0.72);
+}
+
+.cleanup-btn:disabled,
+.cleanup-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cleanup-state {
+  margin-top: 0.55rem;
+  color: rgba(214, 240, 231, 0.92);
+  font-size: 0.88rem;
+}
+
 .table-scroll {
   overflow-x: auto;
 }
