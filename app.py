@@ -809,13 +809,13 @@ def inject_current_user():
     return {'current_user': user}
 
 
-LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+LOGS_DIR = "/etc/openvpn/server/logs"
 
 STATUS_LOG_FILES = {
-    "antizapret-tcp": "antizapret-tcp-status.log",
-    "antizapret-udp": "antizapret-udp-status.log",
-    "vpn-tcp": "vpn-tcp-status.log",
-    "vpn-udp": "vpn-udp-status.log",
+    "antizapret-tcp": os.path.join(LOGS_DIR, "antizapret-tcp-status.log"),
+    "antizapret-udp": os.path.join(LOGS_DIR, "antizapret-udp-status.log"),
+    "vpn-tcp": os.path.join(LOGS_DIR, "vpn-tcp-status.log"),
+    "vpn-udp": os.path.join(LOGS_DIR, "vpn-udp-status.log"),
 }
 
 EVENT_LOG_FILES = {
