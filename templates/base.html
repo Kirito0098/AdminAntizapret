@@ -22,6 +22,7 @@
         <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
         {% endif %}
         <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
+        <a href="{{ url_for('logs_dashboard') }}" class="nav-link">Подключенные клиенты</a>
         {% if current_user and current_user.is_admin() %}
         <a href="{{ url_for('settings') }}" class="nav-link">Настройки</a>
         {% endif %}

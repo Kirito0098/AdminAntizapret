@@ -21,6 +21,7 @@ import qrcode
 import random
 import string
 from datetime import datetime, timezone
+from collections import Counter, defaultdict
 from qrcode.image.pil import PilImage
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from flask_sqlalchemy import SQLAlchemy
@@ -807,6 +808,571 @@ def inject_current_user():
     return {'current_user': user}
 
 
+LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+
+STATUS_LOG_FILES = {
+    "antizapret-tcp": "antizapret-tcp-status.log",
+    "antizapret-udp": "antizapret-udp-status.log",
+    "vpn-tcp": "vpn-tcp-status.log",
+    "vpn-udp": "vpn-udp-status.log",
+}
+
+EVENT_LOG_FILES = {
+    "antizapret-tcp": "antizapret-tcp.log",
+    "antizapret-udp": "antizapret-udp.log",
+    "vpn-tcp": "vpn-tcp.log",
+    "vpn-udp": "vpn-udp.log",
+}
+
+
+def _read_log_file(path):
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
+    except Exception:
+        return ""
+
+
+def _human_bytes(value):
+    size = float(value or 0)
+    units = ["B", "KB", "MB", "GB", "TB"]
+    idx = 0
+    while size >= 1024 and idx < len(units) - 1:
+        size /= 1024
+        idx += 1
+    precision = 0 if idx == 0 else (2 if size < 10 else 1)
+    return f"{size:.{precision}f} {units[idx]}"
+
+
+def _human_device_type(platform):
+    if not platform:
+        return "Не определено"
+
+    key = str(platform).strip().lower()
+    mapping = {
+        "win": "Windows",
+        "windows": "Windows",
+        "ios": "iOS (iPhone/iPad)",
+        "android": "Android",
+        "mac": "macOS",
+        "macos": "macOS",
+        "darwin": "macOS",
+        "linux": "Linux",
+    }
+    return mapping.get(key, platform)
+
+
+def _profile_meta(profile_key):
+    is_antizapret = profile_key.startswith("antizapret")
+    is_tcp = "-tcp" in profile_key
+    return {
+        "network": "Antizapret" if is_antizapret else "VPN",
+        "transport": "TCP" if is_tcp else "UDP",
+    }
+
+
+def _parse_status_log(profile_key, filename):
+    path = os.path.join(LOGS_DIR, filename)
+    raw = _read_log_file(path)
+    meta = _profile_meta(profile_key)
+
+    if not raw:
+        return {
+            "profile": profile_key,
+            "label": f"{meta['network']} {meta['transport']}",
+            "filename": filename,
+            "exists": False,
+            "snapshot_time": "-",
+            "updated_at": "-",
+            "client_count": 0,
+            "unique_real_ips": 0,
+            "total_received": 0,
+            "total_sent": 0,
+            "total_received_human": _human_bytes(0),
+            "total_sent_human": _human_bytes(0),
+            "total_traffic_human": _human_bytes(0),
+            "clients": [],
+        }
+
+    time_match = re.search(r"TIME,([^,\n]+),(\d{10,})", raw)
+    if time_match:
+        snapshot_time = time_match.group(1).strip()
+    else:
+        snapshot_time = "-"
+
+    try:
+        updated_at = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        updated_at = "-"
+
+    client_pattern = re.compile(
+        r"CLIENT_LIST,([^,\n]+),([^,\n]+),([^,\n]*),([^,\n]*),(\d+),(\d+),([^,\n]+),(\d+),([^,\n]*),([^,\n]*),([^,\n]*),([^,\n\r ]+)"
+    )
+
+    clients = []
+    for match in client_pattern.finditer(raw):
+        common_name = match.group(1).strip()
+        real_address = match.group(2).strip()
+        virtual_address = match.group(3).strip()
+        bytes_received = int(match.group(5) or 0)
+        bytes_sent = int(match.group(6) or 0)
+        connected_since = match.group(7).strip()
+        connected_since_ts = int(match.group(8) or 0)
+        cipher = match.group(12).strip()
+
+        ip_only = real_address.rsplit(":", 1)[0] if ":" in real_address else real_address
+
+        clients.append(
+            {
+                "common_name": common_name,
+                "real_address": real_address,
+                "real_ip": ip_only,
+                "virtual_address": virtual_address,
+                "bytes_received": bytes_received,
+                "bytes_sent": bytes_sent,
+                "total_bytes": bytes_received + bytes_sent,
+                "bytes_received_human": _human_bytes(bytes_received),
+                "bytes_sent_human": _human_bytes(bytes_sent),
+                "total_bytes_human": _human_bytes(bytes_received + bytes_sent),
+                "connected_since": connected_since,
+                "connected_since_ts": connected_since_ts,
+                "cipher": cipher,
+            }
+        )
+
+    clients.sort(key=lambda x: x["total_bytes"], reverse=True)
+
+    total_received = sum(c["bytes_received"] for c in clients)
+    total_sent = sum(c["bytes_sent"] for c in clients)
+    unique_real_ips = len({c["real_ip"] for c in clients if c.get("real_ip")})
+
+    return {
+        "profile": profile_key,
+        "label": f"{meta['network']} {meta['transport']}",
+        "filename": filename,
+        "exists": True,
+        "snapshot_time": snapshot_time,
+        "updated_at": updated_at,
+        "client_count": len(clients),
+        "unique_real_ips": unique_real_ips,
+        "total_received": total_received,
+        "total_sent": total_sent,
+        "total_received_human": _human_bytes(total_received),
+        "total_sent_human": _human_bytes(total_sent),
+        "total_traffic_human": _human_bytes(total_received + total_sent),
+        "clients": clients,
+    }
+
+
+def _parse_event_log(profile_key, filename):
+    path = os.path.join(LOGS_DIR, filename)
+    raw = _read_log_file(path)
+    meta = _profile_meta(profile_key)
+
+    if not raw:
+        return {
+            "profile": profile_key,
+            "label": f"{meta['network']} {meta['transport']}",
+            "filename": filename,
+            "exists": False,
+            "updated_at": "-",
+            "line_count": 0,
+            "event_counts": {},
+            "peer_connected_clients": [],
+            "recent_lines": [],
+        }
+
+    try:
+        updated_at = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        updated_at = "-"
+
+    line_count = len(raw.splitlines())
+    event_patterns = {
+        "peer_connection": r"Peer Connection Initiated",
+        "push_request": r"PUSH_REQUEST",
+        "push_reply": r"PUSH_REPLY",
+        "tls_events": r"\bTLS:",
+        "multi_create": r"MULTI_sva|MULTI: multi_create_instance called",
+        "sigterm": r"\bSIGTERM\b",
+    }
+    event_counts = {
+        key: len(re.findall(pattern, raw)) for key, pattern in event_patterns.items()
+    }
+
+    peer_clients = re.findall(r"\[([^\]]+)\] Peer Connection Initiated", raw)
+    peer_connected = Counter(peer_clients).most_common(10)
+
+    # Извлекаем сведения о клиенте: endpoint/IP, версия (IV_VER), платформа (IV_PLAT)
+    endpoint_info = {}
+
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+
+        # Привязка CN к endpoint по строке VERIFY OK depth=0
+        m_verify = re.search(r"^([0-9A-Fa-f\.:]+:\d+)\s+VERIFY OK: depth=0, CN=([^\s]+)", line)
+        if m_verify:
+            endpoint = m_verify.group(1)
+            client_name = m_verify.group(2)
+            endpoint_info.setdefault(
+                endpoint,
+                {"client": "-", "ip": endpoint.rsplit(":", 1)[0], "versions": set(), "platforms": set()},
+            )
+            endpoint_info[endpoint]["client"] = client_name
+
+        # Альтернативная привязка из Peer Connection Initiated
+        m_peer = re.search(r"\[([^\]]+)\] Peer Connection Initiated with \[AF_INET\]([0-9A-Fa-f\.:]+:\d+)", line)
+        if m_peer:
+            client_name = m_peer.group(1)
+            endpoint = m_peer.group(2)
+            endpoint_info.setdefault(
+                endpoint,
+                {"client": "-", "ip": endpoint.rsplit(":", 1)[0], "versions": set(), "platforms": set()},
+            )
+            endpoint_info[endpoint]["client"] = client_name
+
+        # Привязка из строк вида ClientName/ip:port ...
+        m_name_endpoint = re.search(r"([A-Za-z0-9_.\-]+)/([0-9A-Fa-f\.:]+:\d+)", line)
+        if m_name_endpoint:
+            client_name = m_name_endpoint.group(1)
+            endpoint = m_name_endpoint.group(2)
+            endpoint_info.setdefault(
+                endpoint,
+                {"client": "-", "ip": endpoint.rsplit(":", 1)[0], "versions": set(), "platforms": set()},
+            )
+            if endpoint_info[endpoint]["client"] == "-":
+                endpoint_info[endpoint]["client"] = client_name
+
+        # Версия и платформа клиента (peer info)
+        m_peer_info = re.search(r"^([0-9A-Fa-f\.:]+:\d+)\s+peer info: (IV_VER|IV_PLAT)=([^\s]+)", line)
+        if m_peer_info:
+            endpoint = m_peer_info.group(1)
+            key = m_peer_info.group(2)
+            val = m_peer_info.group(3)
+            endpoint_info.setdefault(
+                endpoint,
+                {"client": "-", "ip": endpoint.rsplit(":", 1)[0], "versions": set(), "platforms": set()},
+            )
+            if key == "IV_VER":
+                endpoint_info[endpoint]["versions"].add(val)
+            elif key == "IV_PLAT":
+                endpoint_info[endpoint]["platforms"].add(val)
+
+    client_sessions = []
+    for endpoint, info in endpoint_info.items():
+        client_sessions.append(
+            {
+                "client": info["client"],
+                "endpoint": endpoint,
+                "ip": info["ip"],
+                "versions": sorted(info["versions"]),
+                "platforms": sorted(info["platforms"]),
+            }
+        )
+
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    recent_lines = [line[:220] for line in lines[-8:]]
+
+    return {
+        "profile": profile_key,
+        "label": f"{meta['network']} {meta['transport']}",
+        "filename": filename,
+        "exists": True,
+        "updated_at": updated_at,
+        "line_count": line_count,
+        "event_counts": event_counts,
+        "peer_connected_clients": peer_connected,
+        "client_sessions": client_sessions,
+        "recent_lines": recent_lines,
+    }
+
+
+def _collect_logs_dashboard_data():
+    status_rows = [
+        _parse_status_log(profile_key, filename)
+        for profile_key, filename in STATUS_LOG_FILES.items()
+    ]
+    event_rows = [
+        _parse_event_log(profile_key, filename)
+        for profile_key, filename in EVENT_LOG_FILES.items()
+    ]
+
+    total_active_clients = sum(item["client_count"] for item in status_rows)
+    total_received = sum(item["total_received"] for item in status_rows)
+    total_sent = sum(item["total_sent"] for item in status_rows)
+
+    unique_client_names = set()
+    unique_ips = set()
+    client_aggregate = defaultdict(
+        lambda: {
+            "bytes_received": 0,
+            "bytes_sent": 0,
+            "sessions": 0,
+            "profiles": set(),
+            "ips": set(),
+            "versions": set(),
+            "platforms": set(),
+            "ip_details": {},
+        }
+    )
+
+    for item in status_rows:
+        for client in item["clients"]:
+            name = client["common_name"]
+            unique_client_names.add(name)
+            if client.get("real_ip"):
+                unique_ips.add(client["real_ip"])
+
+            client_aggregate[name]["bytes_received"] += client["bytes_received"]
+            client_aggregate[name]["bytes_sent"] += client["bytes_sent"]
+            client_aggregate[name]["sessions"] += 1
+            client_aggregate[name]["profiles"].add(item["label"])
+            if client.get("real_ip"):
+                client_aggregate[name]["ips"].add(client["real_ip"])
+                if client["real_ip"] not in client_aggregate[name]["ip_details"]:
+                    client_aggregate[name]["ip_details"][client["real_ip"]] = {
+                        "versions": set(),
+                        "platforms": set(),
+                    }
+
+    # Дополняем версии/платформы и IP из event-логов
+    for event in event_rows:
+        for sess in event.get("client_sessions", []):
+            client_name = sess.get("client")
+            if not client_name or client_name == "-":
+                continue
+
+            # Подключенные клиенты формируются только из *-status.log.
+            # Event-логи лишь дополняют метаданные уже активных клиентов.
+            if client_name not in client_aggregate:
+                continue
+
+            sess_ip = sess.get("ip")
+            if not sess_ip:
+                continue
+
+            # Привязываем версию/платформу только к активным IP из status-логов.
+            if sess_ip not in client_aggregate[client_name]["ips"]:
+                continue
+
+            if sess_ip not in client_aggregate[client_name]["ip_details"]:
+                client_aggregate[client_name]["ip_details"][sess_ip] = {
+                        "versions": set(),
+                        "platforms": set(),
+                    }
+
+            for ver in sess.get("versions", []):
+                client_aggregate[client_name]["versions"].add(ver)
+                client_aggregate[client_name]["ip_details"][sess_ip]["versions"].add(ver)
+
+            for plat in sess.get("platforms", []):
+                client_aggregate[client_name]["platforms"].add(plat)
+                client_aggregate[client_name]["ip_details"][sess_ip]["platforms"].add(plat)
+
+    connected_clients = []
+    for name, stats in client_aggregate.items():
+        total_bytes = stats["bytes_received"] + stats["bytes_sent"]
+        ip_device_map = []
+        for ip in sorted(stats["ips"]):
+            details = stats["ip_details"].get(ip, {"versions": set(), "platforms": set()})
+            human_platforms = sorted({_human_device_type(item) for item in details.get("platforms", set())})
+            versions = sorted(details.get("versions", set()))
+
+            platform_str = ", ".join(human_platforms) if human_platforms else "Не определено"
+            version_str = ", ".join(versions) if versions else "Не определено"
+            ip_device_map.append({
+                "ip": ip,
+                "platform": platform_str,
+                "version": version_str,
+            })
+
+        connected_clients.append(
+            {
+                "common_name": name,
+                "bytes_received": stats["bytes_received"],
+                "bytes_sent": stats["bytes_sent"],
+                "total_bytes": total_bytes,
+                "bytes_received_human": _human_bytes(stats["bytes_received"]),
+                "bytes_sent_human": _human_bytes(stats["bytes_sent"]),
+                "total_bytes_human": _human_bytes(total_bytes),
+                "sessions": stats["sessions"],
+                "profiles": ", ".join(sorted(stats["profiles"])),
+                "ips": ", ".join(sorted(stats["ips"])) if stats["ips"] else "-",
+                "client_versions": ", ".join(sorted(stats["versions"])) if stats["versions"] else "-",
+                "device_types": ", ".join(
+                    sorted({_human_device_type(item) for item in stats["platforms"]})
+                ) if stats["platforms"] else "Не определено",
+                "ip_device_map": ip_device_map,
+            }
+        )
+
+    connected_clients.sort(key=lambda item: item["common_name"].lower())
+
+    total_event_lines = sum(item["line_count"] for item in event_rows)
+    total_event_counts = Counter()
+    for item in event_rows:
+        total_event_counts.update(item.get("event_counts", {}))
+
+    required_event_log_files = sorted(EVENT_LOG_FILES.values())
+    existing_event_log_files = [
+        filename
+        for filename in required_event_log_files
+        if os.path.exists(os.path.join(LOGS_DIR, filename))
+    ]
+    missing_event_log_files = [
+        filename for filename in required_event_log_files if filename not in existing_event_log_files
+    ]
+    openvpn_logging_enabled = len(existing_event_log_files) > 0
+
+    grouped_status_map = {
+        "Antizapret": {
+            "network": "Antizapret",
+            "files": [],
+            "snapshot_times": [],
+            "updated_values": [],
+            "client_count": 0,
+            "total_received": 0,
+            "total_sent": 0,
+            "real_ips": set(),
+            "transport_clients": {"TCP": 0, "UDP": 0},
+        },
+        "VPN": {
+            "network": "VPN",
+            "files": [],
+            "snapshot_times": [],
+            "updated_values": [],
+            "client_count": 0,
+            "total_received": 0,
+            "total_sent": 0,
+            "real_ips": set(),
+            "transport_clients": {"TCP": 0, "UDP": 0},
+        },
+    }
+
+    for row in status_rows:
+        network = "Antizapret" if row["profile"].startswith("antizapret") else "VPN"
+        transport = "TCP" if row["profile"].endswith("-tcp") else "UDP"
+        group = grouped_status_map[network]
+
+        if row.get("filename"):
+            group["files"].append(row["filename"])
+        if row.get("snapshot_time") and row["snapshot_time"] != "-":
+            group["snapshot_times"].append(row["snapshot_time"])
+        if row.get("updated_at") and row["updated_at"] != "-":
+            group["updated_values"].append(row["updated_at"])
+
+        group["client_count"] += row.get("client_count", 0)
+        group["total_received"] += row.get("total_received", 0)
+        group["total_sent"] += row.get("total_sent", 0)
+        group["transport_clients"][transport] += row.get("client_count", 0)
+
+        for client in row.get("clients", []):
+            if client.get("real_ip"):
+                group["real_ips"].add(client["real_ip"])
+
+    grouped_status_rows = []
+    for network in ("Antizapret", "VPN"):
+        group = grouped_status_map[network]
+        total_traffic = group["total_received"] + group["total_sent"]
+        grouped_status_rows.append(
+            {
+                "network": network,
+                "files": ", ".join(sorted(set(group["files"]))),
+                "snapshot_times": ", ".join(sorted(set(group["snapshot_times"]))),
+                "updated_at": max(group["updated_values"]) if group["updated_values"] else "-",
+                "client_count": group["client_count"],
+                "unique_real_ips": len(group["real_ips"]),
+                "transport_split": f"TCP: {group['transport_clients']['TCP']}, UDP: {group['transport_clients']['UDP']}",
+                "total_received": group["total_received"],
+                "total_sent": group["total_sent"],
+                "total_traffic": total_traffic,
+                "total_received_human": _human_bytes(group["total_received"]),
+                "total_sent_human": _human_bytes(group["total_sent"]),
+                "total_traffic_human": _human_bytes(total_traffic),
+            }
+        )
+
+    grouped_event_map = {
+        "Antizapret": {
+            "network": "Antizapret",
+            "files": [],
+            "updated_values": [],
+            "line_count": 0,
+            "event_counts": Counter(),
+            "peer_connected": Counter(),
+            "recent_lines": [],
+        },
+        "VPN": {
+            "network": "VPN",
+            "files": [],
+            "updated_values": [],
+            "line_count": 0,
+            "event_counts": Counter(),
+            "peer_connected": Counter(),
+            "recent_lines": [],
+        },
+    }
+
+    for row in event_rows:
+        network = "Antizapret" if row["profile"].startswith("antizapret") else "VPN"
+        transport = "TCP" if row["profile"].endswith("-tcp") else "UDP"
+        group = grouped_event_map[network]
+
+        if row.get("filename"):
+            group["files"].append(row["filename"])
+        if row.get("updated_at") and row["updated_at"] != "-":
+            group["updated_values"].append(row["updated_at"])
+
+        group["line_count"] += row.get("line_count", 0)
+        group["event_counts"].update(row.get("event_counts", {}))
+        group["peer_connected"].update(dict(row.get("peer_connected_clients", [])))
+
+        for line in row.get("recent_lines", []):
+            group["recent_lines"].append(f"[{transport}] {line}")
+
+    grouped_event_rows = []
+    for network in ("Antizapret", "VPN"):
+        group = grouped_event_map[network]
+        grouped_event_rows.append(
+            {
+                "network": network,
+                "files": ", ".join(sorted(set(group["files"]))),
+                "updated_at": max(group["updated_values"]) if group["updated_values"] else "-",
+                "line_count": group["line_count"],
+                "event_counts": dict(group["event_counts"]),
+                "peer_connected_clients": group["peer_connected"].most_common(10),
+                "recent_lines": group["recent_lines"][-10:],
+            }
+        )
+
+    return {
+        "status_rows": status_rows,
+        "event_rows": event_rows,
+        "grouped_status_rows": grouped_status_rows,
+        "grouped_event_rows": grouped_event_rows,
+        "openvpn_logging_enabled": openvpn_logging_enabled,
+        "missing_event_log_files": missing_event_log_files,
+        "summary": {
+            "total_active_clients": total_active_clients,
+            "unique_client_names": len(unique_client_names),
+            "unique_ips": len(unique_ips),
+            "total_received": total_received,
+            "total_sent": total_sent,
+            "total_received_human": _human_bytes(total_received),
+            "total_sent_human": _human_bytes(total_sent),
+            "total_traffic_human": _human_bytes(total_received + total_sent),
+            "total_event_lines": total_event_lines,
+            "total_event_counts": dict(total_event_counts),
+        },
+        "connected_clients": connected_clients,
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
 # Главная страница
 @app.route("/", methods=["GET", "POST"])
 @auth_manager.login_required
@@ -1176,6 +1742,24 @@ def server_monitor():
         cpu_usage=cpu_usage,
         memory_usage=memory_usage,
         iface=iface,
+    )
+
+
+@app.route("/logs_dashboard", methods=["GET"])
+@auth_manager.login_required
+def logs_dashboard():
+    dashboard_data = _collect_logs_dashboard_data()
+    return render_template(
+        "logs_dashboard.html",
+        status_rows=dashboard_data["status_rows"],
+        event_rows=dashboard_data["event_rows"],
+        grouped_status_rows=dashboard_data["grouped_status_rows"],
+        grouped_event_rows=dashboard_data["grouped_event_rows"],
+        openvpn_logging_enabled=dashboard_data["openvpn_logging_enabled"],
+        missing_event_log_files=dashboard_data["missing_event_log_files"],
+        summary=dashboard_data["summary"],
+        connected_clients=dashboard_data["connected_clients"],
+        generated_at=dashboard_data["generated_at"],
     )
 
 
