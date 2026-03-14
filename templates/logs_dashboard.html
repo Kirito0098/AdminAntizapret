@@ -118,34 +118,36 @@
         <div class="section-title-wrap">
             <h2>Сводка подключенных клиентов по сетям</h2>
         </div>
-        <table class="logs-table status-table">
-            <thead>
-                <tr>
-                    <th>Сеть</th>
-                    <th>Разбивка сессий</th>
-                    <th>Клиентов</th>
-                    <th>Уник. IP</th>
-                    <th>Входящий трафик (Rx)</th>
-                    <th>Исходящий трафик (Tx)</th>
-                    <th>Общий трафик</th>
-                    <th>Обновлен</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in grouped_status_rows %}
-                <tr>
-                    <td>{{ row.network }}</td>
-                    <td>{{ row.transport_split }}</td>
-                    <td>{{ row.client_count }}</td>
-                    <td>{{ row.unique_real_ips }}</td>
-                    <td>{{ row.total_received_human }}</td>
-                    <td>{{ row.total_sent_human }}</td>
-                    <td>{{ row.total_traffic_human }}</td>
-                    <td>{{ row.updated_at }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-scroll">
+            <table class="logs-table status-table">
+                <thead>
+                    <tr>
+                        <th>Сеть</th>
+                        <th>Разбивка сессий</th>
+                        <th>Клиентов</th>
+                        <th>Уник. IP</th>
+                        <th>Входящий трафик (Rx)</th>
+                        <th>Исходящий трафик (Tx)</th>
+                        <th>Общий трафик</th>
+                        <th>Обновлен</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in grouped_status_rows %}
+                    <tr>
+                        <td>{{ row.network }}</td>
+                        <td>{{ row.transport_split }}</td>
+                        <td>{{ row.client_count }}</td>
+                        <td>{{ row.unique_real_ips }}</td>
+                        <td>{{ row.total_received_human }}</td>
+                        <td>{{ row.total_sent_human }}</td>
+                        <td>{{ row.total_traffic_human }}</td>
+                        <td>{{ row.updated_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </section>
 
     <section class="logs-section">

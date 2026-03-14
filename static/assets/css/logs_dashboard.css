@@ -601,6 +601,17 @@
 @media (max-width: 760px) {
   .logs-page-wrapper {
     width: 98%;
+    margin: 1rem auto;
+  }
+
+  .logs-section {
+    padding: 0.85rem;
+  }
+
+  .section-title-wrap {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.55rem;
   }
 
   .logs-summary-grid {
@@ -626,5 +637,182 @@
 
   .traffic-chart-wrap {
     height: 270px;
+  }
+}
+
+@media (max-width: 430px) {
+  .logs-page-wrapper {
+    width: 100%;
+    margin: 0.85rem auto;
+    padding-right: max(0.45rem, env(safe-area-inset-right));
+    padding-left: max(0.45rem, env(safe-area-inset-left));
+    box-sizing: border-box;
+  }
+
+  .logs-section {
+    border-radius: 12px;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .section-title-wrap h2 {
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+
+  .logs-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    margin-bottom: 0.95rem;
+  }
+
+  .summary-card {
+    min-height: 0;
+    padding: 0.75rem;
+  }
+
+  .summary-card h3 {
+    font-size: 0.82rem;
+  }
+
+  .summary-value {
+    font-size: 1.1rem;
+  }
+
+  .cleanup-tools-row,
+  .cleanup-form-inline {
+    width: 100%;
+    gap: 0.45rem;
+  }
+
+  .cleanup-form-inline {
+    align-items: stretch;
+  }
+
+  .cleanup-label,
+  .cleanup-select,
+  .cleanup-btn,
+  .charts-toggle-btn {
+    width: 100%;
+  }
+
+  .cleanup-btn,
+  .charts-toggle-btn {
+    min-height: 36px;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  .cleanup-state,
+  .logs-alert,
+  .logs-alert-note,
+  .logs-alert-files,
+  .traffic-table-hint,
+  .traffic-chart-meta {
+    font-size: 0.82rem;
+  }
+
+  .chart-card {
+    min-height: 250px;
+    padding: 0.7rem;
+  }
+
+  .chart-card h3 {
+    font-size: 0.9rem;
+  }
+
+  .chart-canvas-wrap {
+    height: 210px;
+  }
+
+  .traffic-chart-controls,
+  .traffic-chart-controls.server-monitor-look {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+  }
+
+  .traffic-client-select {
+    font-size: 0.84rem;
+    padding: 0.45rem 0.6rem;
+  }
+
+  .bw-range {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+    width: 100%;
+  }
+
+  .bw-range-btn {
+    margin-right: 0;
+    width: 100%;
+    min-height: 34px;
+    font-size: 0.78rem;
+    padding: 0.4rem 0.45rem;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .logs-table th,
+  .logs-table td {
+    font-size: 0.78rem;
+    padding: 0.44rem;
+    line-height: 1.28;
+  }
+
+  .status-table,
+  .clients-table,
+  .traffic-usage-table {
+    min-width: 860px;
+  }
+
+  .traffic-usage-table .table-sort-btn {
+    font-size: 0.7rem;
+    padding: 0.18rem 0.38rem;
+  }
+
+  .traffic-status-badge {
+    font-size: 0.72rem;
+    padding: 0.16rem 0.45rem;
+  }
+
+  .traffic-chart-wrap {
+    height: 230px;
+  }
+
+  .event-card {
+    padding: 0.7rem;
+  }
+
+  .event-card header h3,
+  .event-subsection h4 {
+    font-size: 0.88rem;
+  }
+
+  .event-card header p,
+  .compact-list li,
+  .empty-note,
+  .log-snippet {
+    font-size: 0.78rem;
+  }
+
+  .event-metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .event-metric span {
+    font-size: 0.7rem;
+  }
+
+  .event-metric strong {
+    font-size: 0.9rem;
+  }
+
+  .log-snippet {
+    max-height: 140px;
   }
 }
