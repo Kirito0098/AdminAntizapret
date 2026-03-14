@@ -291,11 +291,45 @@ Environment="PYTHONUNBUFFERED=1"
 WantedBy=multi-user.target
 EOL
 
+	# Создание systemd сервиса и таймера для фоновой синхронизации трафика
+	echo "${YELLOW}Создание systemd таймера синхронизации трафика...${NC}"
+	cat >"/etc/systemd/system/admin-antizapret-traffic-sync.service" <<EOL
+[Unit]
+Description=AdminAntizapret Traffic Sync
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=$INSTALL_DIR
+EnvironmentFile=$INSTALL_DIR/.env
+ExecStart=$VENV_PATH/bin/python3 $INSTALL_DIR/utils/traffic_sync.py
+Environment="PYTHONUNBUFFERED=1"
+EOL
+
+	cat >"/etc/systemd/system/admin-antizapret-traffic-sync.timer" <<EOL
+[Unit]
+Description=Run AdminAntizapret traffic sync every 30 seconds
+
+[Timer]
+OnBootSec=45sec
+OnUnitActiveSec=30sec
+AccuracySec=1s
+Unit=admin-antizapret-traffic-sync.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOL
+
 	# Включение и запуск сервиса
 	systemctl daemon-reload
 	systemctl enable "$SERVICE_NAME"
 	systemctl start "$SERVICE_NAME"
 	check_error "Не удалось запустить сервис"
+	systemctl enable --now admin-antizapret-traffic-sync.timer
+	check_error "Не удалось включить таймер синхронизации трафика"
 
 	# Фильтрация и получение списка доступных сетевых интерфейсов (исключая lo, docker, veth и т.д.)
 	available_interfaces=$(ip link show | grep -E '^[0-9]+: ' | awk -F: '{print $2}' | sed 's/ //g' |

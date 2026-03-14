@@ -262,6 +262,132 @@
   display: block;
 }
 
+.traffic-chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+
+.traffic-chart-controls.server-monitor-look {
+  justify-content: space-between;
+}
+
+.traffic-client-select {
+  min-width: 240px;
+  max-width: 360px;
+  width: 100%;
+  margin-right: 6px;
+  padding: 6px 10px;
+  background: #2b2b2b;
+  color: #ddd;
+  border: 1px solid #555;
+  border-radius: 6px;
+}
+
+.bw-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bw-range-btn {
+  margin-right: 6px;
+  padding: 6px 10px;
+  background: #2b2b2b;
+  color: #ddd;
+  border: 1px solid #555;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.bw-range-btn.active {
+  background: #4caf50;
+  color: #fff;
+  border-color: #4caf50;
+}
+
+.bw-range-btn:disabled {
+  opacity: 0.9;
+  cursor: default;
+}
+
+.traffic-chart-meta {
+  color: #b2ffb2;
+  font-size: 0.9rem;
+  margin-bottom: 0.6rem;
+}
+
+.traffic-table-hint {
+  margin: 0 0 0.7rem;
+  color: rgba(207, 234, 224, 0.92);
+  font-size: 0.9rem;
+}
+
+.traffic-user-cell {
+  font-weight: 600;
+}
+
+.traffic-total-cell {
+  font-weight: 700;
+  color: #eafff5;
+}
+
+.table-sort-btn {
+  margin-left: 0.45rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid rgba(121, 184, 163, 0.45);
+  background: rgba(14, 36, 30, 0.75);
+  color: #d8fff2;
+  cursor: pointer;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.table-sort-btn:hover {
+  background: rgba(19, 58, 48, 0.85);
+}
+
+.traffic-status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.traffic-status-badge.is-online {
+  background: rgba(76, 175, 80, 0.2);
+  color: #a9f5ab;
+  border: 1px solid rgba(76, 175, 80, 0.55);
+}
+
+.traffic-status-badge.is-offline {
+  background: rgba(255, 193, 7, 0.16);
+  color: #ffe08a;
+  border: 1px solid rgba(255, 193, 7, 0.5);
+}
+
+.traffic-chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0.7rem;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.08);
+}
+
+.traffic-chart-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
 .status-table th:nth-child(1),
 .status-table td:nth-child(1) {
   min-width: 100px;
@@ -310,6 +436,59 @@
 .clients-table th:nth-child(3),
 .clients-table td:nth-child(3) {
   min-width: 330px;
+}
+
+.traffic-usage-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.traffic-usage-table th,
+.traffic-usage-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.28;
+}
+
+.traffic-usage-table th:nth-child(1),
+.traffic-usage-table td:nth-child(1) {
+  width: 16%;
+}
+
+.traffic-usage-table th:nth-child(2),
+.traffic-usage-table td:nth-child(2) {
+  width: 10%;
+}
+
+.traffic-usage-table th:nth-child(3),
+.traffic-usage-table td:nth-child(3),
+.traffic-usage-table th:nth-child(4),
+.traffic-usage-table td:nth-child(4),
+.traffic-usage-table th:nth-child(5),
+.traffic-usage-table td:nth-child(5) {
+  width: 9%;
+}
+
+.traffic-usage-table th:nth-child(6),
+.traffic-usage-table td:nth-child(6),
+.traffic-usage-table th:nth-child(7),
+.traffic-usage-table td:nth-child(7),
+.traffic-usage-table th:nth-child(8),
+.traffic-usage-table td:nth-child(8) {
+  width: 12%;
+}
+
+.traffic-usage-table th:nth-child(9),
+.traffic-usage-table td:nth-child(9) {
+  width: 10%;
+}
+
+.traffic-usage-table .table-sort-btn {
+  display: block;
+  margin-left: 0;
+  margin-top: 0.3rem;
 }
 
 .ip-device-list {
@@ -454,5 +633,22 @@
 
   .logs-header h1 {
     font-size: 1.4rem;
+  }
+
+  .traffic-client-select {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    margin-right: 0;
+  }
+
+  .bw-range-btn {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    margin-right: 0.4rem;
+  }
+
+  .traffic-chart-wrap {
+    height: 270px;
   }
 }

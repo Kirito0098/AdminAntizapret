@@ -78,6 +78,41 @@
         </article>
     </section>
 
+    <section class="logs-summary-grid">
+        <article class="summary-card">
+            <h3>Пользователей в БД трафика</h3>
+            <p class="summary-value">{{ persisted_traffic_summary.users_count }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Активных сейчас</h3>
+            <p class="summary-value">{{ persisted_traffic_summary.active_users_count }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Отключенных сейчас</h3>
+            <p class="summary-value">{{ persisted_traffic_summary.offline_users_count }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Накопленный Rx (БД)</h3>
+            <p class="summary-value">{{ persisted_traffic_summary.total_received_human }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Накопленный Tx (БД)</h3>
+            <p class="summary-value">{{ persisted_traffic_summary.total_sent_human }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Накопленный трафик (БД)</h3>
+            <p class="summary-value">{{ persisted_traffic_summary.total_traffic_human }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>VPN трафик (БД)</h3>
+            <p class="summary-value">{{ persisted_traffic_summary.total_traffic_vpn_human }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Antizapret трафик (БД)</h3>
+            <p class="summary-value">{{ persisted_traffic_summary.total_traffic_antizapret_human }}</p>
+        </article>
+    </section>
+
     {% if not openvpn_logging_enabled %}
     <section class="logs-section">
         <div class="logs-alert">
@@ -202,6 +237,91 @@
         </div>
     </section>
 
+    <section class="logs-section">
+        <div class="section-title-wrap">
+            <h2>График трафика клиента (БД)</h2>
+        </div>
+        <div class="traffic-chart-controls server-monitor-look">
+            <label for="trafficClientSelect" class="cleanup-label">Клиент:</label>
+            <select id="trafficClientSelect" class="traffic-client-select">
+                {% for client in persisted_traffic_rows %}
+                <option value="{{ client.common_name }}">{{ client.common_name }}</option>
+                {% endfor %}
+            </select>
+
+            <div class="bw-range" role="tablist" aria-label="Диапазон графика клиента">
+                <button type="button" class="bw-range-btn" data-range="1h">1 час</button>
+                <button type="button" class="bw-range-btn" data-range="24h">24 часа</button>
+                <button type="button" class="bw-range-btn" data-range="7d">7 дней</button>
+                <button type="button" class="bw-range-btn" data-range="30d">30 дней</button>
+                <button type="button" class="bw-range-btn" data-range="all">За все время</button>
+            </div>
+        </div>
+        <div id="trafficChartMeta" class="traffic-chart-meta">Загрузка...</div>
+        <div class="traffic-chart-wrap">
+            <canvas id="userTrafficRangeChart"></canvas>
+        </div>
+    </section>
+
+    <section class="logs-section">
+        <div class="section-title-wrap">
+            <h2>Накопленный трафик пользователей (БД)</h2>
+        </div>
+        <p class="traffic-table-hint">
+            Простая сводка: сколько интернета использовал каждый пользователь и где именно (обычный VPN или Antizapret).
+        </p>
+        <div class="table-scroll">
+            <table class="logs-table clients-table traffic-usage-table" id="persistedTrafficTable">
+                <thead>
+                    <tr>
+                        <th>Пользователь</th>
+                        <th>Сейчас</th>
+                        <th>За 1 день</th>
+                        <th>За 7 дней</th>
+                        <th>За 30 дней</th>
+                        <th>VPN</th>
+                        <th>Antizapret</th>
+                        <th>
+                            Всего использовано
+                            <button type="button" id="sortByTotalTraffic" class="table-sort-btn"
+                                aria-label="Сортировать по общему трафику">
+                                По убыванию
+                            </button>
+                        </th>
+                        <th>Последняя активность</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if persisted_traffic_rows %}
+                    {% for client in persisted_traffic_rows %}
+                    <tr data-total-bytes="{{ client.total_bytes }}">
+                        <td class="traffic-user-cell">{{ client.common_name }}</td>
+                        <td>
+                            {% if client.is_active %}
+                            <span class="traffic-status-badge is-online">Онлайн</span>
+                            {% else %}
+                            <span class="traffic-status-badge is-offline">Оффлайн</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ client.traffic_1d_human }}</td>
+                        <td>{{ client.traffic_7d_human }}</td>
+                        <td>{{ client.traffic_30d_human }}</td>
+                        <td>{{ client.total_bytes_vpn_human }}</td>
+                        <td>{{ client.total_bytes_antizapret_human }}</td>
+                        <td class="traffic-total-cell">{{ client.total_bytes_human }}</td>
+                        <td>{{ client.last_seen_at }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="9">Пока нет накопленных данных по трафику</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
     {% if openvpn_logging_enabled %}
     <section class="logs-section">
         <div class="section-title-wrap">
@@ -278,8 +398,8 @@
     {% endif %}
 </div>
 
-{% if openvpn_logging_enabled %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js"></script>
+{% if openvpn_logging_enabled %}
 <script>
     (function () {
         const groupedStatusRows = {{ grouped_status_rows | tojson
@@ -422,4 +542,208 @@
     })();
 </script>
 {% endif %}
+
+<script>
+    (function () {
+        function humanBytes(value) {
+            let size = Number(value || 0);
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let idx = 0;
+            while (size >= 1024 && idx < units.length - 1) {
+                size /= 1024;
+                idx += 1;
+            }
+            const precision = idx === 0 ? 0 : (size < 10 ? 2 : 1);
+            return `${size.toFixed(precision)} ${units[idx]}`;
+        }
+
+        const clientSelect = document.getElementById('trafficClientSelect');
+        const rangeButtons = Array.from(document.querySelectorAll('.bw-range-btn'));
+        const chartCanvas = document.getElementById('userTrafficRangeChart');
+        const chartMeta = document.getElementById('trafficChartMeta');
+        const storageClientKey = 'logs_dashboard_selected_client';
+        const storageRangeKey = 'logs_dashboard_selected_range';
+
+        if (!clientSelect || !rangeButtons.length || !chartCanvas || !chartMeta || typeof Chart === 'undefined') {
+            return;
+        }
+
+        if (!clientSelect.options.length) {
+            chartMeta.textContent = 'Нет клиентов для построения графика';
+            return;
+        }
+
+        const savedClient = localStorage.getItem(storageClientKey);
+        let currentRange = localStorage.getItem(storageRangeKey) || '7d';
+        if (savedClient && Array.from(clientSelect.options).some(opt => opt.value === savedClient)) {
+            clientSelect.value = savedClient;
+        }
+        if (!rangeButtons.some(btn => btn.dataset.range === currentRange)) {
+            currentRange = '7d';
+        }
+
+        function setActiveRangeButtons() {
+            rangeButtons.forEach(btn => {
+                const active = btn.dataset.range === currentRange;
+                btn.classList.toggle('active', active);
+                btn.disabled = active;
+            });
+        }
+
+        let clientTrafficChart = null;
+
+        async function loadClientChart() {
+            const client = clientSelect.value;
+            localStorage.setItem(storageClientKey, client);
+            localStorage.setItem(storageRangeKey, currentRange);
+            setActiveRangeButtons();
+
+            try {
+                const url = `/api/user-traffic-chart?client=${encodeURIComponent(client)}&range=${encodeURIComponent(currentRange)}`;
+                const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+
+                const labels = (data.labels || []).slice();
+                const vpnData = (data.vpn_bytes || []).map(v => Number(v || 0));
+                const antData = (data.antizapret_bytes || []).map(v => Number(v || 0));
+
+                if (!labels.length) {
+                    labels.push('Нет данных');
+                    vpnData.push(0);
+                    antData.push(0);
+                }
+
+                if (clientTrafficChart) {
+                    clientTrafficChart.destroy();
+                }
+
+                clientTrafficChart = new Chart(chartCanvas, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'VPN',
+                                data: vpnData,
+                                borderColor: '#4caf50',
+                                backgroundColor: 'rgba(76,175,80,0.12)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.2,
+                            },
+                            {
+                                label: 'Antizapret',
+                                data: antData,
+                                borderColor: '#f44336',
+                                backgroundColor: 'rgba(244,67,54,0.12)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.2,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        interaction: { mode: 'index', intersect: false },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: '#bbb',
+                                    autoSkip: true,
+                                    maxTicksLimit: currentRange === '1h' ? 12 : (currentRange === '24h' ? 24 : 10)
+                                },
+                                grid: { color: 'rgba(255,255,255,0.05)' }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    color: '#ddd',
+                                    callback: function (value) {
+                                        return humanBytes(value);
+                                    }
+                                },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: '#fff' }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) {
+                                        return `${ctx.dataset.label}: ${humanBytes(ctx.parsed.y)}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                chartMeta.textContent =
+                    `VPN: ${data.total_vpn_human || humanBytes(data.total_vpn)} | ` +
+                    `Antizapret: ${data.total_antizapret_human || humanBytes(data.total_antizapret)} | ` +
+                    `Итого: ${data.total_human || humanBytes(data.total)}`;
+            } catch (err) {
+                chartMeta.textContent = `Не удалось загрузить график: ${err.message}`;
+            }
+        }
+
+        clientSelect.addEventListener('change', loadClientChart);
+        rangeButtons.forEach(btn => {
+            btn.addEventListener('click', function () {
+                currentRange = btn.dataset.range || '7d';
+                loadClientChart();
+            });
+        });
+
+        setActiveRangeButtons();
+        loadClientChart();
+    })();
+</script>
+
+<script>
+    (function () {
+        const table = document.getElementById('persistedTrafficTable');
+        const sortBtn = document.getElementById('sortByTotalTraffic');
+        if (!table || !sortBtn) {
+            return;
+        }
+
+        const tbody = table.querySelector('tbody');
+        if (!tbody) {
+            return;
+        }
+
+        let isDesc = true;
+
+        function sortRows() {
+            const rows = Array.from(tbody.querySelectorAll('tr[data-total-bytes]'));
+            rows.sort(function (a, b) {
+                const aVal = Number(a.getAttribute('data-total-bytes') || 0);
+                const bVal = Number(b.getAttribute('data-total-bytes') || 0);
+                return isDesc ? (bVal - aVal) : (aVal - bVal);
+            });
+
+            rows.forEach(function (row) {
+                tbody.appendChild(row);
+            });
+
+            sortBtn.textContent = isDesc ? 'По убыванию' : 'По возрастанию';
+        }
+
+        sortBtn.addEventListener('click', function () {
+            isDesc = !isDesc;
+            sortRows();
+        });
+
+        sortRows();
+    })();
+</script>
 {% endblock %}

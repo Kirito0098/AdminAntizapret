@@ -21,7 +21,7 @@ import glob
 import qrcode
 import random
 import string
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from collections import Counter, defaultdict
 from qrcode.image.pil import PilImage
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
@@ -320,6 +320,54 @@ class ViewerConfigAccess(db.Model):
     __table_args__ = (
         db.UniqueConstraint('user_id', 'config_name', name='unique_user_config'),
     )
+
+
+class UserTrafficStat(db.Model):
+    """Накопленный трафик по пользователю (CN)."""
+    __tablename__ = 'user_traffic_stat'
+
+    id = db.Column(db.Integer, primary_key=True)
+    common_name = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    total_received = db.Column(db.BigInteger, nullable=False, default=0)
+    total_sent = db.Column(db.BigInteger, nullable=False, default=0)
+    total_received_vpn = db.Column(db.BigInteger, nullable=False, default=0)
+    total_sent_vpn = db.Column(db.BigInteger, nullable=False, default=0)
+    total_received_antizapret = db.Column(db.BigInteger, nullable=False, default=0)
+    total_sent_antizapret = db.Column(db.BigInteger, nullable=False, default=0)
+    total_sessions = db.Column(db.Integer, nullable=False, default=0)
+    first_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TrafficSessionState(db.Model):
+    """Последнее состояние активной сессии из *-status.log для расчета дельты."""
+    __tablename__ = 'traffic_session_state'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_key = db.Column(db.String(512), unique=True, nullable=False, index=True)
+    profile = db.Column(db.String(64), nullable=False)
+    common_name = db.Column(db.String(255), nullable=False, index=True)
+    real_address = db.Column(db.String(255), nullable=True)
+    virtual_address = db.Column(db.String(255), nullable=True)
+    connected_since_ts = db.Column(db.BigInteger, nullable=False, default=0)
+    last_bytes_received = db.Column(db.BigInteger, nullable=False, default=0)
+    last_bytes_sent = db.Column(db.BigInteger, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    ended_at = db.Column(db.DateTime, nullable=True)
+
+
+class UserTrafficSample(db.Model):
+    """Дельта трафика пользователя по сети за конкретный снимок."""
+    __tablename__ = 'user_traffic_sample'
+
+    id = db.Column(db.Integer, primary_key=True)
+    common_name = db.Column(db.String(255), nullable=False, index=True)
+    network_type = db.Column(db.String(20), nullable=False, index=True)  # vpn | antizapret
+    delta_received = db.Column(db.BigInteger, nullable=False, default=0)
+    delta_sent = db.Column(db.BigInteger, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 
 
 class ScriptExecutor:
@@ -794,6 +842,20 @@ def _run_db_migrations():
                         "ALTER TABLE \"user\" ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'admin'"
                     ))
                     conn.commit()
+
+            if insp.has_table('user_traffic_stat'):
+                traffic_cols = {c['name'] for c in insp.get_columns('user_traffic_stat')}
+                traffic_missing = {
+                    'total_received_vpn': "ALTER TABLE user_traffic_stat ADD COLUMN total_received_vpn BIGINT NOT NULL DEFAULT 0",
+                    'total_sent_vpn': "ALTER TABLE user_traffic_stat ADD COLUMN total_sent_vpn BIGINT NOT NULL DEFAULT 0",
+                    'total_received_antizapret': "ALTER TABLE user_traffic_stat ADD COLUMN total_received_antizapret BIGINT NOT NULL DEFAULT 0",
+                    'total_sent_antizapret': "ALTER TABLE user_traffic_stat ADD COLUMN total_sent_antizapret BIGINT NOT NULL DEFAULT 0",
+                }
+                with db.engine.connect() as conn:
+                    for col_name, alter_sql in traffic_missing.items():
+                        if col_name not in traffic_cols:
+                            conn.execute(text(alter_sql))
+                    conn.commit()
         except Exception as e:
             print(f"DB migration warning: {e}")
 
@@ -992,6 +1054,258 @@ def _profile_meta(profile_key):
         "network": "Antizapret" if is_antizapret else "VPN",
         "transport": "TCP" if is_tcp else "UDP",
     }
+
+
+def _format_dt(dt_obj):
+    if not dt_obj:
+        return "-"
+    try:
+        return dt_obj.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return "-"
+
+
+def _build_session_key(profile, client):
+    common_name = (client.get("common_name") or "-").strip()
+    real_address = (client.get("real_address") or "-").strip()
+    virtual_address = (client.get("virtual_address") or "-").strip()
+    connected_since_ts = int(client.get("connected_since_ts") or 0)
+    return f"{profile}|{common_name}|{real_address}|{virtual_address}|{connected_since_ts}"
+
+
+def _persist_traffic_snapshot(status_rows):
+    """Сохраняет дельту трафика из текущего снимка *-status.log в БД."""
+    now = datetime.utcnow()
+
+    active_sessions = {
+        row.session_key: row
+        for row in TrafficSessionState.query.filter_by(is_active=True).all()
+    }
+    stats_by_user = {
+        row.common_name: row
+        for row in UserTrafficStat.query.all()
+    }
+
+    seen_keys = set()
+
+    for status_row in status_rows:
+        profile = status_row.get("profile", "unknown")
+        for client in status_row.get("clients", []):
+            session_key = _build_session_key(profile, client)
+            seen_keys.add(session_key)
+
+            current_rx = int(client.get("bytes_received") or 0)
+            current_tx = int(client.get("bytes_sent") or 0)
+            common_name = (client.get("common_name") or "-").strip()
+            is_antizapret_profile = str(profile).startswith("antizapret")
+
+            session_state = active_sessions.get(session_key)
+            is_new_session = session_state is None
+
+            if is_new_session:
+                session_state = TrafficSessionState(
+                    session_key=session_key,
+                    profile=profile,
+                    common_name=common_name,
+                    real_address=(client.get("real_address") or "").strip() or None,
+                    virtual_address=(client.get("virtual_address") or "").strip() or None,
+                    connected_since_ts=int(client.get("connected_since_ts") or 0),
+                    last_bytes_received=current_rx,
+                    last_bytes_sent=current_tx,
+                    is_active=True,
+                    last_seen_at=now,
+                    ended_at=None,
+                )
+                db.session.add(session_state)
+                active_sessions[session_key] = session_state
+                delta_rx = max(current_rx, 0)
+                delta_tx = max(current_tx, 0)
+            else:
+                delta_rx = current_rx - int(session_state.last_bytes_received or 0)
+                delta_tx = current_tx - int(session_state.last_bytes_sent or 0)
+
+                # Если счётчик сбросился, учитываем текущее значение как новую дельту.
+                if delta_rx < 0:
+                    delta_rx = max(current_rx, 0)
+                if delta_tx < 0:
+                    delta_tx = max(current_tx, 0)
+
+                session_state.last_bytes_received = current_rx
+                session_state.last_bytes_sent = current_tx
+                session_state.last_seen_at = now
+                session_state.is_active = True
+                session_state.ended_at = None
+
+            user_stat = stats_by_user.get(common_name)
+            if user_stat is None:
+                user_stat = UserTrafficStat(
+                    common_name=common_name,
+                    total_received=0,
+                    total_sent=0,
+                    total_received_vpn=0,
+                    total_sent_vpn=0,
+                    total_received_antizapret=0,
+                    total_sent_antizapret=0,
+                    total_sessions=0,
+                    first_seen_at=now,
+                    last_seen_at=now,
+                )
+                db.session.add(user_stat)
+                stats_by_user[common_name] = user_stat
+
+            user_stat.total_received = int(user_stat.total_received or 0) + max(delta_rx, 0)
+            user_stat.total_sent = int(user_stat.total_sent or 0) + max(delta_tx, 0)
+
+            if max(delta_rx, 0) > 0 or max(delta_tx, 0) > 0:
+                db.session.add(
+                    UserTrafficSample(
+                        common_name=common_name,
+                        network_type="antizapret" if is_antizapret_profile else "vpn",
+                        delta_received=max(delta_rx, 0),
+                        delta_sent=max(delta_tx, 0),
+                        created_at=now,
+                    )
+                )
+
+            if is_antizapret_profile:
+                user_stat.total_received_antizapret = int(user_stat.total_received_antizapret or 0) + max(delta_rx, 0)
+                user_stat.total_sent_antizapret = int(user_stat.total_sent_antizapret or 0) + max(delta_tx, 0)
+            else:
+                user_stat.total_received_vpn = int(user_stat.total_received_vpn or 0) + max(delta_rx, 0)
+                user_stat.total_sent_vpn = int(user_stat.total_sent_vpn or 0) + max(delta_tx, 0)
+            user_stat.last_seen_at = now
+            if is_new_session:
+                user_stat.total_sessions = int(user_stat.total_sessions or 0) + 1
+
+    for session_key, session_state in active_sessions.items():
+        if session_key in seen_keys:
+            continue
+        if session_state.is_active:
+            session_state.is_active = False
+            session_state.ended_at = now
+
+    db.session.commit()
+
+
+def _collect_persisted_traffic_data(active_names):
+    users = UserTrafficStat.query.all()
+    now = datetime.utcnow()
+    day_1_since = now - timedelta(days=1)
+    day_7_since = now - timedelta(days=7)
+    day_30_since = now - timedelta(days=30)
+
+    recent_samples = UserTrafficSample.query.filter(
+        UserTrafficSample.created_at >= day_30_since
+    ).all()
+
+    recent_usage = defaultdict(
+        lambda: {"days_1": 0, "days_7": 0, "days_30": 0}
+    )
+    for sample in recent_samples:
+        sample_time = sample.created_at
+        if not sample_time:
+            continue
+        delta_total = int(sample.delta_received or 0) + int(sample.delta_sent or 0)
+        if delta_total <= 0:
+            continue
+
+        user_bucket = recent_usage[sample.common_name]
+        user_bucket["days_30"] += delta_total
+        if sample_time >= day_7_since:
+            user_bucket["days_7"] += delta_total
+        if sample_time >= day_1_since:
+            user_bucket["days_1"] += delta_total
+
+    users_sorted = sorted(
+        users,
+        key=lambda row: (int(row.total_received or 0) + int(row.total_sent or 0)),
+        reverse=True,
+    )
+
+    rows = []
+    total_received = 0
+    total_sent = 0
+    total_received_vpn = 0
+    total_sent_vpn = 0
+    total_received_antizapret = 0
+    total_sent_antizapret = 0
+
+    for row in users_sorted:
+        rx = int(row.total_received or 0)
+        tx = int(row.total_sent or 0)
+        rx_vpn = int(row.total_received_vpn or 0)
+        tx_vpn = int(row.total_sent_vpn or 0)
+        rx_antizapret = int(row.total_received_antizapret or 0)
+        tx_antizapret = int(row.total_sent_antizapret or 0)
+        total = rx + tx
+        total_received += rx
+        total_sent += tx
+        total_received_vpn += rx_vpn
+        total_sent_vpn += tx_vpn
+        total_received_antizapret += rx_antizapret
+        total_sent_antizapret += tx_antizapret
+
+        recent = recent_usage.get(row.common_name, {"days_1": 0, "days_7": 0, "days_30": 0})
+        traffic_1d = int(recent.get("days_1", 0))
+        traffic_7d = int(recent.get("days_7", 0))
+        traffic_30d = int(recent.get("days_30", 0))
+
+        is_active = row.common_name in active_names
+        rows.append(
+            {
+                "common_name": row.common_name,
+                "total_received": rx,
+                "total_sent": tx,
+                "total_bytes": total,
+                "total_received_vpn": rx_vpn,
+                "total_sent_vpn": tx_vpn,
+                "total_bytes_vpn": rx_vpn + tx_vpn,
+                "total_received_antizapret": rx_antizapret,
+                "total_sent_antizapret": tx_antizapret,
+                "total_bytes_antizapret": rx_antizapret + tx_antizapret,
+                "total_received_human": _human_bytes(rx),
+                "total_sent_human": _human_bytes(tx),
+                "total_bytes_human": _human_bytes(total),
+                "total_received_vpn_human": _human_bytes(rx_vpn),
+                "total_sent_vpn_human": _human_bytes(tx_vpn),
+                "total_bytes_vpn_human": _human_bytes(rx_vpn + tx_vpn),
+                "total_received_antizapret_human": _human_bytes(rx_antizapret),
+                "total_sent_antizapret_human": _human_bytes(tx_antizapret),
+                "total_bytes_antizapret_human": _human_bytes(rx_antizapret + tx_antizapret),
+                "traffic_1d": traffic_1d,
+                "traffic_7d": traffic_7d,
+                "traffic_30d": traffic_30d,
+                "traffic_1d_human": _human_bytes(traffic_1d),
+                "traffic_7d_human": _human_bytes(traffic_7d),
+                "traffic_30d_human": _human_bytes(traffic_30d),
+                "total_sessions": int(row.total_sessions or 0),
+                "first_seen_at": _format_dt(row.first_seen_at),
+                "last_seen_at": _format_dt(row.last_seen_at),
+                "is_active": is_active,
+            }
+        )
+
+    summary = {
+        "users_count": len(rows),
+        "active_users_count": sum(1 for item in rows if item.get("is_active")),
+        "offline_users_count": sum(1 for item in rows if not item.get("is_active")),
+        "total_received": total_received,
+        "total_sent": total_sent,
+        "total_received_human": _human_bytes(total_received),
+        "total_sent_human": _human_bytes(total_sent),
+        "total_traffic_human": _human_bytes(total_received + total_sent),
+        "total_received_vpn": total_received_vpn,
+        "total_sent_vpn": total_sent_vpn,
+        "total_received_antizapret": total_received_antizapret,
+        "total_sent_antizapret": total_sent_antizapret,
+        "total_received_vpn_human": _human_bytes(total_received_vpn),
+        "total_sent_vpn_human": _human_bytes(total_sent_vpn),
+        "total_traffic_vpn_human": _human_bytes(total_received_vpn + total_sent_vpn),
+        "total_received_antizapret_human": _human_bytes(total_received_antizapret),
+        "total_sent_antizapret_human": _human_bytes(total_sent_antizapret),
+        "total_traffic_antizapret_human": _human_bytes(total_received_antizapret + total_sent_antizapret),
+    }
+    return rows, summary
 
 
 def _parse_status_log(profile_key, filename):
@@ -1249,6 +1563,9 @@ def _collect_logs_dashboard_data():
         _parse_status_log(profile_key, filename)
         for profile_key, filename in STATUS_LOG_FILES.items()
     ]
+
+    _persist_traffic_snapshot(status_rows)
+
     event_rows = [
         _parse_event_log(profile_key, filename)
         for profile_key, filename in EVENT_LOG_FILES.items()
@@ -1369,6 +1686,10 @@ def _collect_logs_dashboard_data():
         )
 
     connected_clients.sort(key=lambda item: item["common_name"].lower())
+
+    persisted_traffic_rows, persisted_traffic_summary = _collect_persisted_traffic_data(
+        active_names=unique_client_names
+    )
 
     total_event_lines = sum(item["line_count"] for item in event_rows)
     total_event_counts = Counter()
@@ -1527,6 +1848,8 @@ def _collect_logs_dashboard_data():
             "total_event_counts": dict(total_event_counts),
         },
         "connected_clients": connected_clients,
+        "persisted_traffic_rows": persisted_traffic_rows,
+        "persisted_traffic_summary": persisted_traffic_summary,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
@@ -1920,6 +2243,8 @@ def logs_dashboard():
         missing_event_log_files=dashboard_data["missing_event_log_files"],
         summary=dashboard_data["summary"],
         connected_clients=dashboard_data["connected_clients"],
+        persisted_traffic_rows=dashboard_data["persisted_traffic_rows"],
+        persisted_traffic_summary=dashboard_data["persisted_traffic_summary"],
         generated_at=dashboard_data["generated_at"],
         cleanup_schedule=cleanup_schedule,
         cleanup_notice=cleanup_notice,
@@ -2333,6 +2658,96 @@ def api_bw():
             "rx_mbps": rx_mbps,
             "tx_mbps": tx_mbps,
             "totals": totals,
+        }
+    )
+
+
+@app.route("/api/user-traffic-chart")
+@auth_manager.login_required
+def api_user_traffic_chart():
+    client = (request.args.get("client") or "").strip()
+    range_key = (request.args.get("range") or "7d").strip().lower()
+
+    if not client:
+        return jsonify({"error": "Параметр client обязателен"}), 400
+
+    if range_key not in ("1h", "24h", "7d", "30d", "all"):
+        range_key = "7d"
+
+    now = datetime.utcnow()
+    since_dt = None
+    bucket = "day"
+
+    if range_key == "1h":
+        since_dt = now - timedelta(hours=1)
+        bucket = "minute5"
+    elif range_key == "24h":
+        since_dt = now - timedelta(hours=24)
+        bucket = "hour"
+    elif range_key == "7d":
+        since_dt = now - timedelta(days=7)
+        bucket = "day"
+    elif range_key == "30d":
+        since_dt = now - timedelta(days=30)
+        bucket = "day"
+    else:
+        bucket = "month"
+
+    query = UserTrafficSample.query.filter_by(common_name=client)
+    if since_dt is not None:
+        query = query.filter(UserTrafficSample.created_at >= since_dt)
+
+    samples = query.order_by(UserTrafficSample.created_at.asc()).all()
+
+    grouped = defaultdict(lambda: {"vpn": 0, "antizapret": 0})
+
+    for item in samples:
+        dt = item.created_at
+        if not dt:
+            continue
+
+        if bucket == "minute5":
+            minute = (dt.minute // 5) * 5
+            bucket_key = dt.strftime("%Y-%m-%d %H") + f":{minute:02d}"
+            label = dt.strftime("%H") + f":{minute:02d}"
+        elif bucket == "hour":
+            bucket_key = dt.strftime("%Y-%m-%d %H")
+            label = dt.strftime("%d.%m %H:00")
+        elif bucket == "day":
+            bucket_key = dt.strftime("%Y-%m-%d")
+            label = dt.strftime("%d.%m")
+        else:
+            bucket_key = dt.strftime("%Y-%m")
+            label = dt.strftime("%Y-%m")
+
+        total_delta = int(item.delta_received or 0) + int(item.delta_sent or 0)
+        net = "antizapret" if item.network_type == "antizapret" else "vpn"
+
+        grouped[bucket_key]["label"] = label
+        grouped[bucket_key][net] += total_delta
+
+    ordered_keys = sorted(grouped.keys())
+    labels = [grouped[key].get("label", key) for key in ordered_keys]
+    vpn_bytes = [int(grouped[key].get("vpn", 0)) for key in ordered_keys]
+    antizapret_bytes = [int(grouped[key].get("antizapret", 0)) for key in ordered_keys]
+
+    total_vpn = sum(vpn_bytes)
+    total_antizapret = sum(antizapret_bytes)
+
+    return jsonify(
+        {
+            "client": client,
+            "range": range_key,
+            "bucket": bucket,
+            "labels": labels,
+            "vpn_bytes": vpn_bytes,
+            "antizapret_bytes": antizapret_bytes,
+            "total_vpn": total_vpn,
+            "total_antizapret": total_antizapret,
+            "total": total_vpn + total_antizapret,
+            "total_vpn_human": _human_bytes(total_vpn),
+            "total_antizapret_human": _human_bytes(total_antizapret),
+            "total_human": _human_bytes(total_vpn + total_antizapret),
         }
     )
 
