@@ -260,12 +260,19 @@
                   {% endif %}
                 </td>
                 <td>
-                  {% if files['vpn'] or files['antizapret'] %}
+                  {% if files['vpn'] %}
                   <button type="button" class="vpn-qr-button"
-                    data-config="{% if files['vpn'] %}{{ url_for('generate_qr', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}{% else %}{{ url_for('generate_qr', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
-                    title="Показать QR-код">📱 QR</button>
+                    data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}"
+                    title="Показать QR-код VPN">📱 VPN</button>
                   {% else %}
-                  <button type="button" class="vpn-qr-button" disabled>—</button>
+                  <button type="button" class="vpn-qr-button" disabled>VPN</button>
+                  {% endif %}
+                  {% if files['antizapret'] %}
+                  <button type="button" class="vpn-qr-button"
+                    data-config="{{ url_for('generate_qr', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}"
+                    title="Показать QR-код Antizapret">📱 AZ</button>
+                  {% else %}
+                  <button type="button" class="vpn-qr-button" disabled>AZ</button>
                   {% endif %}
                 </td>
               </tr>
@@ -323,12 +330,19 @@
                   {% endif %}
                 </td>
                 <td>
-                  {% if files['vpn'] or files['antizapret'] %}
+                  {% if files['vpn'] %}
                   <button type="button" class="vpn-qr-button"
-                    data-config="{% if files['vpn'] %}{{ url_for('generate_qr', file_type='wg', filename=files['vpn'].split('/')[-1]) }}{% else %}{{ url_for('generate_qr', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
-                    title="Показать QR-код">📱 QR</button>
+                    data-config="{{ url_for('generate_qr', file_type='wg', filename=files['vpn'].split('/')[-1]) }}"
+                    title="Показать QR-код VPN">📱 VPN</button>
                   {% else %}
-                  <button type="button" class="vpn-qr-button" disabled>—</button>
+                  <button type="button" class="vpn-qr-button" disabled>VPN</button>
+                  {% endif %}
+                  {% if files['antizapret'] %}
+                  <button type="button" class="vpn-qr-button"
+                    data-config="{{ url_for('generate_qr', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}"
+                    title="Показать QR-код Antizapret">📱 AZ</button>
+                  {% else %}
+                  <button type="button" class="vpn-qr-button" disabled>AZ</button>
                   {% endif %}
                 </td>
               </tr>

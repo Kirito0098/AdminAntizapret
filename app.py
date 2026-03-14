@@ -1197,6 +1197,32 @@ def _human_device_type(platform):
     return mapping.get(key, platform)
 
 
+def _normalize_openvpn_endpoint(endpoint):
+    """Remove OpenVPN transport prefixes from endpoint token."""
+    if not endpoint:
+        return endpoint
+    return re.sub(r"^(?:tcp|udp)\d(?:-server)?:", "", endpoint.strip(), flags=re.IGNORECASE)
+
+
+def _extract_ip_from_openvpn_address(address):
+    """Extract host/IP from OpenVPN real address token."""
+    normalized = _normalize_openvpn_endpoint(address)
+    if not normalized:
+        return normalized
+
+    if normalized.startswith("["):
+        m_v6 = re.match(r"^\[([^\]]+)\](?::\d+)?$", normalized)
+        if m_v6:
+            return m_v6.group(1)
+
+    if ":" in normalized:
+        host_part, maybe_port = normalized.rsplit(":", 1)
+        if maybe_port.isdigit():
+            return host_part
+
+    return normalized
+
+
 def _profile_meta(profile_key):
     is_antizapret = profile_key.startswith("antizapret")
     is_tcp = "-tcp" in profile_key
@@ -1507,7 +1533,7 @@ def _parse_status_log(profile_key, filename):
         connected_since_ts = int(match.group(8) or 0)
         cipher = match.group(12).strip()
 
-        ip_only = real_address.rsplit(":", 1)[0] if ":" in real_address else real_address
+        ip_only = _extract_ip_from_openvpn_address(real_address)
 
         clients.append(
             {
@@ -1603,15 +1629,15 @@ def _parse_event_log(profile_key, filename):
             continue
 
         # Привязка CN к endpoint по строке VERIFY OK depth=0
-        m_verify = re.search(r"^([0-9A-Fa-f\.:]+:\d+)\s+VERIFY OK: depth=0, CN=([^\s]+)", line)
+        m_verify = re.search(r"^([^\s]+:\d+)\s+VERIFY OK: depth=0, CN=([^\s]+)", line)
         if m_verify:
-            endpoint = m_verify.group(1)
+            endpoint = _normalize_openvpn_endpoint(m_verify.group(1))
             client_name = m_verify.group(2)
             endpoint_info.setdefault(
                 endpoint,
                 {
                     "client": "-",
-                    "ip": endpoint.rsplit(":", 1)[0],
+                    "ip": _extract_ip_from_openvpn_address(endpoint),
                     "version": None,
                     "platform": None,
                     "last_order": -1,
@@ -1620,15 +1646,15 @@ def _parse_event_log(profile_key, filename):
             endpoint_info[endpoint]["client"] = client_name
 
         # Альтернативная привязка из Peer Connection Initiated
-        m_peer = re.search(r"\[([^\]]+)\] Peer Connection Initiated with \[AF_INET\]([0-9A-Fa-f\.:]+:\d+)", line)
+        m_peer = re.search(r"\[([^\]]+)\] Peer Connection Initiated with \[AF_INET\]([^\s]+:\d+)", line)
         if m_peer:
             client_name = m_peer.group(1)
-            endpoint = m_peer.group(2)
+            endpoint = _normalize_openvpn_endpoint(m_peer.group(2))
             endpoint_info.setdefault(
                 endpoint,
                 {
                     "client": "-",
-                    "ip": endpoint.rsplit(":", 1)[0],
+                    "ip": _extract_ip_from_openvpn_address(endpoint),
                     "version": None,
                     "platform": None,
                     "last_order": -1,
@@ -1637,15 +1663,15 @@ def _parse_event_log(profile_key, filename):
             endpoint_info[endpoint]["client"] = client_name
 
         # Привязка из строк вида ClientName/ip:port ...
-        m_name_endpoint = re.search(r"([A-Za-z0-9_.\-]+)/([0-9A-Fa-f\.:]+:\d+)", line)
+        m_name_endpoint = re.search(r"([A-Za-z0-9_.\-]+)/([^\s,]+:\d+)", line)
         if m_name_endpoint:
             client_name = m_name_endpoint.group(1)
-            endpoint = m_name_endpoint.group(2)
+            endpoint = _normalize_openvpn_endpoint(m_name_endpoint.group(2))
             endpoint_info.setdefault(
                 endpoint,
                 {
                     "client": "-",
-                    "ip": endpoint.rsplit(":", 1)[0],
+                    "ip": _extract_ip_from_openvpn_address(endpoint),
                     "version": None,
                     "platform": None,
                     "last_order": -1,
@@ -1655,16 +1681,16 @@ def _parse_event_log(profile_key, filename):
                 endpoint_info[endpoint]["client"] = client_name
 
         # Версия и платформа клиента (peer info)
-        m_peer_info = re.search(r"^([0-9A-Fa-f\.:]+:\d+)\s+peer info: (IV_VER|IV_PLAT)=([^\s]+)", line)
+        m_peer_info = re.search(r"^([^\s]+:\d+)\s+peer info: (IV_VER|IV_PLAT)=([^\s]+)", line)
         if m_peer_info:
-            endpoint = m_peer_info.group(1)
+            endpoint = _normalize_openvpn_endpoint(m_peer_info.group(1))
             key = m_peer_info.group(2)
             val = m_peer_info.group(3)
             endpoint_info.setdefault(
                 endpoint,
                 {
                     "client": "-",
-                    "ip": endpoint.rsplit(":", 1)[0],
+                    "ip": _extract_ip_from_openvpn_address(endpoint),
                     "version": None,
                     "platform": None,
                     "last_order": -1,
