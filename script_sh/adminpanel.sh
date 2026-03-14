@@ -20,6 +20,11 @@ DB_FILE="$INSTALL_DIR/instance/users.db"
 ANTIZAPRET_INSTALL_DIR="/root/antizapret"
 ANTIZAPRET_INSTALL_SCRIPT="https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/main/setup.sh"
 LOG_FILE="/var/log/adminpanel.log"
+INSTALL_LOG_FILE=""
+INSTALL_LOG_ACTIVE=0
+INSTALL_LOG_KEEP_COUNT=30
+MAX_MAIN_LOG_SIZE_MB=20
+MAX_MAIN_LOG_BACKUPS=5
 INCLUDE_DIR="$INSTALL_DIR/script_sh"
 ADMIN_PANEL_DIR="/root/AdminPanel"
 
@@ -76,6 +81,185 @@ check_dependencies() {
 	apt-get install -y --quiet --quiet python3 python3-pip git wget openssl python3-venv cron vnstat >/dev/null
 	echo "${GREEN}[✓] Готово${NC}"
 	check_error "Не удалось установить зависимости"
+}
+
+# Полная проверка окружения и зависимостей
+verify_project_environment() {
+	echo "${YELLOW}Проверка окружения AdminAntizapret...${NC}"
+
+	local failed=0
+	local warned=0
+	local passed=0
+	local req_file="$INSTALL_DIR/requirements.txt"
+	local missing_system_packages=()
+	local required_system_packages=(python3 python3-pip python3-venv git wget openssl cron vnstat)
+
+	print_ok() {
+		echo "${GREEN}[✓] $1${NC}"
+		passed=$((passed + 1))
+	}
+
+	print_warn() {
+		echo "${YELLOW}[!] $1${NC}"
+		warned=$((warned + 1))
+	}
+
+	print_fail() {
+		echo "${RED}[✗] $1${NC}"
+		failed=$((failed + 1))
+	}
+
+	normalize_pkg_name() {
+		echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[-_.]+/-/g'
+	}
+
+	echo "${YELLOW}1) Проверка системных команд...${NC}"
+	local required_commands=(python3 pip3 git wget openssl systemctl awk sed grep)
+	for cmd in "${required_commands[@]}"; do
+		if command -v "$cmd" >/dev/null 2>&1; then
+			print_ok "Команда '$cmd' доступна"
+		else
+			print_fail "Команда '$cmd' не найдена"
+		fi
+	done
+
+	echo "${YELLOW}2) Проверка системных пакетов...${NC}"
+	for pkg in "${required_system_packages[@]}"; do
+		if dpkg -s "$pkg" >/dev/null 2>&1; then
+			print_ok "Пакет '$pkg' установлен"
+		else
+			print_fail "Пакет '$pkg' не установлен"
+			missing_system_packages+=("$pkg")
+		fi
+	done
+
+	if [ "${#missing_system_packages[@]}" -gt 0 ]; then
+		echo "${YELLOW}Найдены отсутствующие системные пакеты: ${missing_system_packages[*]}${NC}"
+		read -r -p "Установить их сейчас? (y/n): " install_missing_sys
+		install_missing_sys=$(echo "$install_missing_sys" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+		if [[ "$install_missing_sys" =~ ^y ]]; then
+			echo "${YELLOW}Устанавливаем недостающие системные пакеты...${NC}"
+			apt-get update --quiet --quiet >/dev/null && apt-get install -y --quiet --quiet "${missing_system_packages[@]}" >/dev/null
+			if [ $? -eq 0 ]; then
+				print_ok "Системные пакеты установлены"
+			else
+				print_fail "Не удалось установить часть системных пакетов"
+			fi
+		else
+			print_warn "Установка системных пакетов пропущена"
+		fi
+	fi
+
+	echo "${YELLOW}3) Проверка виртуального окружения...${NC}"
+	if [ -x "$VENV_PATH/bin/python3" ] && [ -x "$VENV_PATH/bin/pip" ]; then
+		print_ok "Виртуальное окружение найдено: $VENV_PATH"
+	else
+		print_fail "Виртуальное окружение не найдено или повреждено ($VENV_PATH)"
+	fi
+
+	echo "${YELLOW}4) Проверка Python-зависимостей из requirements.txt...${NC}"
+	if [ ! -f "$req_file" ]; then
+		print_fail "Файл requirements.txt не найден: $req_file"
+	else
+		print_ok "Файл requirements.txt найден"
+
+		if [ -x "$VENV_PATH/bin/pip" ]; then
+			local installed_pkgs
+			installed_pkgs=$(
+				"$VENV_PATH/bin/pip" list --format=freeze 2>/dev/null |
+					cut -d'=' -f1 |
+					sed '/^$/d' |
+					while IFS= read -r p; do normalize_pkg_name "$p"; done
+			)
+
+			local missing_python_packages=()
+			while IFS= read -r line; do
+				line=$(echo "$line" | sed -E 's/[[:space:]]*#.*$//' | tr -d '[:space:]')
+				[ -z "$line" ] && continue
+
+				local req_name
+				req_name=$(echo "$line" | sed -E 's/[<>=!~].*$//' | sed -E 's/\[.*\]$//')
+				req_name=$(normalize_pkg_name "$req_name")
+
+				if ! echo "$installed_pkgs" | grep -qx "$req_name"; then
+					missing_python_packages+=("$line")
+				fi
+			done <"$req_file"
+
+			if [ "${#missing_python_packages[@]}" -eq 0 ]; then
+				print_ok "Все пакеты из requirements.txt установлены"
+			else
+				print_fail "Не установлены Python-пакеты из requirements.txt (${#missing_python_packages[@]} шт.)"
+				printf '%s\n' "${missing_python_packages[@]}" | sed 's/^/  - /'
+
+				read -r -p "Установить/обновить Python-зависимости сейчас? (y/n): " install_py_missing
+				install_py_missing=$(echo "$install_py_missing" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+				if [[ "$install_py_missing" =~ ^y ]]; then
+					echo "${YELLOW}Устанавливаем Python-зависимости...${NC}"
+					"$VENV_PATH/bin/pip" install -q -r "$req_file"
+					if [ $? -eq 0 ]; then
+						print_ok "Python-зависимости установлены"
+					else
+						print_fail "Не удалось установить Python-зависимости"
+					fi
+				else
+					print_warn "Установка Python-зависимостей пропущена"
+				fi
+			fi
+
+			"$VENV_PATH/bin/pip" check >/dev/null 2>&1
+			if [ $? -eq 0 ]; then
+				print_ok "Зависимости Python согласованы (pip check)"
+			else
+				print_warn "Обнаружены конфликты зависимостей Python (pip check). Выполните: $VENV_PATH/bin/pip check"
+			fi
+		else
+			print_fail "Невозможно проверить Python-зависимости: pip в venv не найден"
+		fi
+	fi
+
+	echo "${YELLOW}5) Проверка ключевых файлов и сервисов...${NC}"
+	if [ -f "$INSTALL_DIR/.env" ]; then
+		print_ok "Файл .env присутствует"
+	else
+		print_fail "Файл .env отсутствует"
+	fi
+
+	if [ -f "$DB_FILE" ]; then
+		print_ok "База данных пользователей найдена: $DB_FILE"
+	else
+		print_fail "База данных пользователей не найдена: $DB_FILE"
+	fi
+
+	if [ -f "/etc/systemd/system/$SERVICE_NAME.service" ]; then
+		print_ok "Systemd unit найден: $SERVICE_NAME.service"
+	else
+		print_fail "Systemd unit не найден: /etc/systemd/system/$SERVICE_NAME.service"
+	fi
+
+	if systemctl is-enabled "$SERVICE_NAME" >/dev/null 2>&1; then
+		print_ok "Сервис $SERVICE_NAME включен в автозапуск"
+	else
+		print_warn "Сервис $SERVICE_NAME не включен в автозапуск"
+	fi
+
+	if systemctl is-active --quiet "$SERVICE_NAME"; then
+		print_ok "Сервис $SERVICE_NAME запущен"
+	else
+		print_warn "Сервис $SERVICE_NAME не запущен"
+	fi
+
+	echo ""
+	echo "${YELLOW}Итог проверки:${NC}"
+	echo "${GREEN}Успешно: $passed${NC}"
+	echo "${RED}Ошибок: $failed${NC}"
+	echo "${YELLOW}Предупреждений: $warned${NC}"
+
+	if [ "$failed" -eq 0 ]; then
+		echo "${GREEN}Окружение готово для работы проекта.${NC}"
+	else
+		echo "${RED}Обнаружены проблемы. Рекомендуется устранить ошибки перед дальнейшей работой.${NC}"
+	fi
 }
 
 # Проверка прав root
@@ -145,6 +329,44 @@ auto_update() {
 	fi
 }
 
+start_install_logging() {
+	prune_logs_by_pattern "/var/log/adminpanel-install-*.log" "$INSTALL_LOG_KEEP_COUNT"
+
+	INSTALL_LOG_FILE="/var/log/adminpanel-install-$(date '+%Y%m%d-%H%M%S').log"
+	if ! touch "$INSTALL_LOG_FILE" 2>/dev/null; then
+		echo "${RED}Не удалось создать файл лога установки: $INSTALL_LOG_FILE${NC}"
+		return 1
+	fi
+	chmod 600 "$INSTALL_LOG_FILE" 2>/dev/null || true
+
+	INSTALL_LOG_ACTIVE=1
+	exec 7>&1 8>&2
+	exec > >(tee -a "$INSTALL_LOG_FILE") 2>&1
+
+	echo "${YELLOW}Лог установки: $INSTALL_LOG_FILE${NC}"
+	log "Начата установка. Подробный лог: $INSTALL_LOG_FILE"
+}
+
+finish_install_logging() {
+	local status=${1:-0}
+	if [ "${INSTALL_LOG_ACTIVE:-0}" -ne 1 ]; then
+		return
+	fi
+
+	if [ "$status" -eq 0 ]; then
+		log "Установка завершена успешно"
+		echo "${GREEN}Установка завершена успешно${NC}"
+	else
+		log "Установка завершена с ошибкой (код: $status)"
+		echo "${RED}Установка завершена с ошибкой (код: $status)${NC}"
+	fi
+	echo "${YELLOW}Подробный лог установки: $INSTALL_LOG_FILE${NC}"
+
+	exec 1>&7 2>&8
+	exec 7>&- 8>&-
+	INSTALL_LOG_ACTIVE=0
+}
+
 # Главное меню
 main_menu() {
 	while true; do
@@ -168,11 +390,12 @@ main_menu() {
 		printf "│ 13. Проверить конфигурацию                 │\n"
 		printf "│ 14. Проверить конфликт портов 80/443       │\n"
 		printf "│ 15. Изменить протокол (HTTP/HTTPS)         │\n"
+		printf "│ 16. Проверить окружение проекта            │\n"
 		printf "│ 0. Выход                                   │\n"
 		printf "└────────────────────────────────────────────┘\n"
 		printf "%s\n" "${NC}"
 
-		read -p "Выберите действие [0-15]: " choice
+		read -p "Выберите действие [0-16]: " choice
 		case $choice in
 		1) add_admin ;;
 		2) delete_admin ;;
@@ -199,6 +422,10 @@ main_menu() {
 			press_any_key
 			;;
 		15) change_protocol ;;
+		16)
+			verify_project_environment
+			press_any_key
+			;;
 		0) exit 0 ;;
 		*)
 			printf "%s\n" "${RED}Неверный выбор!${NC}"
@@ -210,6 +437,9 @@ main_menu() {
 
 # Установка AdminAntizapret
 install() {
+	start_install_logging || exit 1
+	log "Старт процедуры установки AdminAntizapret"
+
 	clear
 	printf "%s\n" "${GREEN}"
 	printf "┌────────────────────────────────────────────┐\n"
@@ -230,6 +460,7 @@ install() {
 		if ! check_antizapret_installed; then
 			echo "${RED}[!] Критическая ошибка: AntiZapret-VPN не установлен!${NC}"
 			echo "${YELLOW}Админ-панель не может работать без AntiZapret. Установка прервана.${NC}"
+			finish_install_logging 1
 			exit 1
 		fi
 	else
@@ -347,6 +578,7 @@ EOL
 	# Проверка наличия доступных интерфейсов
 	if [ -z "$available_interfaces" ]; then
 		echo "${RED}Не найдено доступных сетевых интерфейсов!${NC}"
+		finish_install_logging 1
 		exit 1
 	fi
 
@@ -485,9 +717,11 @@ EOL
 	else
 		echo "${RED}Ошибка при запуске сервиса!${NC}"
 		journalctl -u "$SERVICE_NAME" -n 10 --no-pager
+		finish_install_logging 1
 		exit 1
 	fi
 
+	finish_install_logging 0
 	press_any_key
 }
 
