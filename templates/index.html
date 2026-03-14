@@ -121,9 +121,14 @@
             <thead>
               <tr>
                 <th class="sortable" data-sort="name">📝 Клиент</th>
+                {% if current_user and current_user.is_admin() %}
                 <th>🔒 Блокировка</th>
+                {% endif %}
                 <th>Скачать VPN</th>
                 <th>Antizapret</th>
+                {% if current_user and current_user.is_admin() %}
+                <th>Одноразовая ссылка</th>
+                {% endif %}
               </tr>
             </thead>
             <tbody>
@@ -137,6 +142,7 @@
               'antizapret' %} {% set _ = openvpn_files_dict[client_name].update({'antizapret': file}) %} {% else %} {%
               set _ = openvpn_files_dict[client_name].update({'vpn': file}) %} {% endif %} {% endfor %} {% for
               client_name, files in openvpn_files_dict | dictsort %}
+              {% set show_cert_meta = current_user and current_user.is_admin() %}
               {% set cert_info = cert_expiry.get(client_name) if cert_expiry else none %}
               {% set cert_days = cert_info.get('days_left') if cert_info else none %}
               {% set cert_expires_at = cert_info.get('expires_at') if cert_info else none %}
@@ -145,11 +151,13 @@
               {% set cert_state = 'active' %}
               {% elif cert_days <= 0 %} {% set cert_state='expired' %} {% elif cert_days <=30 %} {% set
                 cert_state='expiring' %} {% endif %} {% set is_blocked=banned_clients and client_name in banned_clients
-                %} <tr class="client-row" data-client-name="{{ client_name }}" data-cert-state="{{ cert_state }}"
-                data-cert-days="{{ cert_days if cert_days is not none else 99999 }}"
+                %} <tr class="client-row" data-client-name="{{ client_name }}"
+                data-cert-state="{{ cert_state if show_cert_meta else 'active' }}"
+                data-cert-days="{{ cert_days if show_cert_meta and cert_days is not none else 99999 }}"
                 data-blocked="{{ 1 if is_blocked else 0 }}">
                 <td class="client-name client-name-cell">
                   <div class="client-name-main">{{ client_name }}</div>
+                  {% if show_cert_meta %}
                   <div class="client-cert-meta {{ cert_state }}">
                     {% if cert_expires_at %}
                     <div>До: {{ cert_expires_at.split(' ')[0] }}</div>
@@ -168,9 +176,10 @@
                       {% endif %}
                     </div>
                   </div>
+                  {% endif %}
                 </td>
-                <td class="client-status">
-                  {% if current_user and current_user.is_admin() %}
+                {% if current_user and current_user.is_admin() %}
+                <td class="client-status openvpn-block-col">
                   <div class="client-block-control">
                     <label class="toggle-switch" title="Заблокировать подключение клиента">
                       <input type="checkbox" class="toggle-input client-ban-toggle" data-client-name="{{ client_name }}"
@@ -178,15 +187,8 @@
                       <span class="toggle-slider"></span>
                     </label>
                   </div>
-                  {% else %}
-                  <div class="client-block-control">
-                    <label class="toggle-switch" title="Состояние блокировки клиента">
-                      <input type="checkbox" class="toggle-input" {% if is_blocked %}checked{% endif %} disabled />
-                      <span class="toggle-slider"></span>
-                    </label>
-                  </div>
-                  {% endif %}
                 </td>
+                {% endif %}
                 <td>
                   {% if files['vpn'] %}
                   <button type="button" class="download-button"
@@ -205,6 +207,24 @@
                   <button type="button" class="download-button" disabled>—</button>
                   {% endif %}
                 </td>
+                {% if current_user and current_user.is_admin() %}
+                <td>
+                  {% if files['vpn'] %}
+                  <button type="button" class="download-button one-time-link-button"
+                    data-link-endpoint="{{ url_for('generate_one_time_download', file_type='openvpn', filename=files['vpn'].split('/')[-1]) }}"
+                    title="Сформировать и скопировать одноразовую ссылку VPN">🔗 VPN</button>
+                  {% else %}
+                  <button type="button" class="download-button one-time-link-button" disabled>VPN</button>
+                  {% endif %}
+                  {% if files['antizapret'] %}
+                  <button type="button" class="download-button one-time-link-button"
+                    data-link-endpoint="{{ url_for('generate_one_time_download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) }}"
+                    title="Сформировать и скопировать одноразовую ссылку Antizapret">🔗 AZ</button>
+                  {% else %}
+                  <button type="button" class="download-button one-time-link-button" disabled>AZ</button>
+                  {% endif %}
+                </td>
+                {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>

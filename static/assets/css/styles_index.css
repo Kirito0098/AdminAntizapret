@@ -2368,7 +2368,6 @@ body {
 .config-table td {
   padding: 1rem;
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
   white-space: normal;
   overflow: visible;
@@ -2423,7 +2422,6 @@ body {
 }
 
 .client-name-cell {
-  display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
@@ -2463,8 +2461,7 @@ body {
   margin: 0 auto;
 }
 
-.config-table[data-protocol="openvpn"] th:nth-child(2),
-.config-table[data-protocol="openvpn"] td:nth-child(2) {
+.config-table[data-protocol="openvpn"] .openvpn-block-col {
   width: 84px;
   max-width: 84px;
   text-align: center;

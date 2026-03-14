@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeTableSorting();
     initializeOpenVpnGroupSwitching();
     initializeQRButtons();
+    initializeOneTimeLinkButtons();
     initializeClientBanToggles();
 });
 
@@ -163,6 +164,7 @@ async function refreshMainContent() {
     initializeTableSorting();
     initializeOpenVpnGroupSwitching();
     initializeQRButtons();
+    initializeOneTimeLinkButtons();
     initializeClientBanToggles();
 
     switchTab(currentTab);
@@ -421,6 +423,7 @@ function initializeOpenVpnGroupSwitching() {
                 initializeOpenVpnGroupSwitching();
                 initializeTableSorting();
                 initializeQRButtons();
+                initializeOneTimeLinkButtons();
                 initializeClientBanToggles();
 
                 if (currentTab === 'openvpn') {
@@ -521,31 +524,6 @@ function showQRModal(configUrl) {
     const qrInfo = document.getElementById('qrInfoMessage');
     const qrCopyLinkButton = document.getElementById('qrCopyLinkButton');
 
-    const copyTextToClipboard = async (text) => {
-        if (!text) {
-            throw new Error('Ссылка для копирования отсутствует');
-        }
-
-        if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(text);
-            return;
-        }
-
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.setAttribute('readonly', '');
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-9999px';
-        document.body.appendChild(textArea);
-        textArea.select();
-        const copied = document.execCommand('copy');
-        document.body.removeChild(textArea);
-
-        if (!copied) {
-            throw new Error('Не удалось скопировать ссылку');
-        }
-    };
-
     if (modal && img && configUrl) {
         modal.style.display = 'flex';
         img.removeAttribute('src');
@@ -643,6 +621,89 @@ function showQRModal(configUrl) {
                 modal.style.display = 'none';
             }
         });
+    }
+}
+
+function initializeOneTimeLinkButtons() {
+    const linkButtons = document.querySelectorAll('.one-time-link-button');
+
+    linkButtons.forEach(btn => {
+        if (btn.dataset.oneTimeBound === '1') {
+            return;
+        }
+        btn.dataset.oneTimeBound = '1';
+
+        btn.addEventListener('click', async function (e) {
+            if (this.disabled) return;
+
+            e.preventDefault();
+            const endpoint = this.getAttribute('data-link-endpoint');
+            if (!endpoint) {
+                showNotification('Не найден endpoint для генерации ссылки', 'error');
+                return;
+            }
+
+            const originalText = this.textContent;
+            this.disabled = true;
+            this.textContent = '...';
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'GET',
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                let payload = null;
+                try {
+                    payload = await response.json();
+                } catch (_error) {
+                    payload = null;
+                }
+
+                if (!response.ok || !payload || !payload.success || !payload.download_url) {
+                    const message = payload && payload.message
+                        ? payload.message
+                        : `Не удалось создать ссылку (HTTP ${response.status})`;
+                    throw new Error(message);
+                }
+
+                await copyTextToClipboard(payload.download_url);
+                showNotification('Одноразовая ссылка скопирована в буфер', 'success');
+            } catch (error) {
+                showNotification(error.message || 'Ошибка формирования ссылки', 'error');
+            } finally {
+                this.disabled = false;
+                this.textContent = originalText;
+            }
+        });
+    });
+}
+
+async function copyTextToClipboard(text) {
+    if (!text) {
+        throw new Error('Ссылка для копирования отсутствует');
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+    }
+
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.setAttribute('readonly', '');
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textArea);
+
+    if (!copied) {
+        throw new Error('Не удалось скопировать ссылку');
     }
 }
 

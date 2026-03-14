@@ -2526,6 +2526,31 @@ def generate_qr(file_path, clean_name):
         abort(500)
 
 
+@app.route("/generate_one_time_download/<file_type>/<path:filename>")
+@auth_manager.login_required
+@file_validator.validate_file
+def generate_one_time_download(file_path, clean_name):
+    _url_user = User.query.filter_by(username=session["username"]).first()
+    if not _url_user or _url_user.role != 'admin':
+        return jsonify({"success": False, "message": "Доступ запрещён."}), 403
+
+    try:
+        download_url = _create_one_time_download_url(file_path)
+        return jsonify(
+            {
+                "success": True,
+                "download_url": download_url,
+            }
+        )
+    except HTTPException:
+        raise
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+    except Exception as e:
+        print(f"Аларм! ошибка: {str(e)}")
+        abort(500)
+
+
 # Роут для редактирования файлов конфигурации
 @app.route("/edit-files", methods=["GET", "POST"])
 @auth_manager.admin_required
