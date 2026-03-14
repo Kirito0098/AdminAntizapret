@@ -1008,6 +1008,82 @@ def _cleanup_status_logs_now():
     return True, f"Удалено обычных .log (без *-status.log): {deleted}"
 
 
+def _reset_persisted_traffic_data():
+    """Полностью сбрасывает накопленную статистику трафика и ставит baseline по активным сессиям."""
+    try:
+        UserTrafficSample.query.delete()
+        TrafficSessionState.query.delete()
+        UserTrafficStat.query.delete()
+
+        status_rows = [
+            _parse_status_log(profile_key, filename)
+            for profile_key, filename in STATUS_LOG_FILES.items()
+        ]
+
+        now = datetime.utcnow()
+        seeded_sessions = 0
+        seeded_users = set()
+        seen_session_keys = set()
+
+        for status_row in status_rows:
+            profile = status_row.get("profile", "unknown")
+            for client in status_row.get("clients", []):
+                common_name = (client.get("common_name") or "-").strip()
+                if not common_name or common_name == "-":
+                    continue
+
+                session_key = _build_session_key(profile, client)
+                if session_key in seen_session_keys:
+                    continue
+                seen_session_keys.add(session_key)
+
+                current_rx = int(client.get("bytes_received") or 0)
+                current_tx = int(client.get("bytes_sent") or 0)
+
+                db.session.add(
+                    TrafficSessionState(
+                        session_key=session_key,
+                        profile=profile,
+                        common_name=common_name,
+                        real_address=(client.get("real_address") or "").strip() or None,
+                        virtual_address=(client.get("virtual_address") or "").strip() or None,
+                        connected_since_ts=int(client.get("connected_since_ts") or 0),
+                        last_bytes_received=current_rx,
+                        last_bytes_sent=current_tx,
+                        is_active=True,
+                        last_seen_at=now,
+                        ended_at=None,
+                    )
+                )
+                seeded_sessions += 1
+
+                if common_name not in seeded_users:
+                    db.session.add(
+                        UserTrafficStat(
+                            common_name=common_name,
+                            total_received=0,
+                            total_sent=0,
+                            total_received_vpn=0,
+                            total_sent_vpn=0,
+                            total_received_antizapret=0,
+                            total_sent_antizapret=0,
+                            total_sessions=0,
+                            first_seen_at=now,
+                            last_seen_at=now,
+                        )
+                    )
+                    seeded_users.add(common_name)
+
+        db.session.commit()
+        return True, (
+            "Накопленная статистика трафика очищена. "
+            f"Точка отсчета установлена: пользователей {len(seeded_users)}, активных сессий {seeded_sessions}."
+        )
+    except Exception as e:
+        db.session.rollback()
+        return False, f"Ошибка сброса статистики трафика: {e}"
+
+
 def _read_log_file(path):
     try:
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -2273,6 +2349,19 @@ def logs_cleanup_status_schedule():
         period = "none"
 
     ok, message = _set_status_cleanup_schedule(period)
+    return redirect(
+        url_for(
+            "logs_dashboard",
+            cleanup_notice=message,
+            cleanup_notice_kind="success" if ok else "error",
+        )
+    )
+
+
+@app.route("/logs_dashboard/reset_persisted_traffic", methods=["POST"])
+@auth_manager.admin_required
+def logs_reset_persisted_traffic():
+    ok, message = _reset_persisted_traffic_data()
     return redirect(
         url_for(
             "logs_dashboard",

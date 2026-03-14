@@ -65,51 +65,16 @@
             <p class="summary-value">{{ summary.unique_ips }}</p>
         </article>
         <article class="summary-card">
-            <h3>Входящий трафик</h3>
+            <h3>Текущий Rx (сессии)</h3>
             <p class="summary-value">{{ summary.total_received_human }}</p>
         </article>
         <article class="summary-card">
-            <h3>Исходящий трафик</h3>
+            <h3>Текущий Tx (сессии)</h3>
             <p class="summary-value">{{ summary.total_sent_human }}</p>
         </article>
         <article class="summary-card">
-            <h3>Суммарный трафик</h3>
+            <h3>Текущий трафик (сессии)</h3>
             <p class="summary-value">{{ summary.total_traffic_human }}</p>
-        </article>
-    </section>
-
-    <section class="logs-summary-grid">
-        <article class="summary-card">
-            <h3>Пользователей в БД трафика</h3>
-            <p class="summary-value">{{ persisted_traffic_summary.users_count }}</p>
-        </article>
-        <article class="summary-card">
-            <h3>Активных сейчас</h3>
-            <p class="summary-value">{{ persisted_traffic_summary.active_users_count }}</p>
-        </article>
-        <article class="summary-card">
-            <h3>Отключенных сейчас</h3>
-            <p class="summary-value">{{ persisted_traffic_summary.offline_users_count }}</p>
-        </article>
-        <article class="summary-card">
-            <h3>Накопленный Rx (БД)</h3>
-            <p class="summary-value">{{ persisted_traffic_summary.total_received_human }}</p>
-        </article>
-        <article class="summary-card">
-            <h3>Накопленный Tx (БД)</h3>
-            <p class="summary-value">{{ persisted_traffic_summary.total_sent_human }}</p>
-        </article>
-        <article class="summary-card">
-            <h3>Накопленный трафик (БД)</h3>
-            <p class="summary-value">{{ persisted_traffic_summary.total_traffic_human }}</p>
-        </article>
-        <article class="summary-card">
-            <h3>VPN трафик (БД)</h3>
-            <p class="summary-value">{{ persisted_traffic_summary.total_traffic_vpn_human }}</p>
-        </article>
-        <article class="summary-card">
-            <h3>Antizapret трафик (БД)</h3>
-            <p class="summary-value">{{ persisted_traffic_summary.total_traffic_antizapret_human }}</p>
         </article>
     </section>
 
@@ -266,6 +231,13 @@
     <section class="logs-section">
         <div class="section-title-wrap">
             <h2>Накопленный трафик пользователей (БД)</h2>
+            {% if current_user and current_user.is_admin() %}
+            <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}" class="cleanup-form-inline"
+                onsubmit="return confirm('Очистить всю накопленную статистику трафика и начать сбор с нуля?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить всё и начать с нуля</button>
+            </form>
+            {% endif %}
         </div>
         <p class="traffic-table-hint">
             Простая сводка: сколько интернета использовал каждый пользователь и где именно (обычный VPN или Antizapret).

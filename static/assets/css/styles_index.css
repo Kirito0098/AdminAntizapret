@@ -127,13 +127,6 @@ h1 {
   align-items: center;
 }
 
-.scrollable {
-  overflow: visible;
-  /* Полностью убираем прокрутку */
-  max-height: none;
-  /* Убираем ограничение высоты */
-}
-
 /* Увеличиваем отступы между строками таблицы */
 .file-list tbody tr {
   height: 48px;
@@ -184,25 +177,6 @@ th {
   width: 120px;
 }
 
-/* кнопки переключения группы папок */
-.switch-folder-button {
-  background-color: #4caf50;
-  border: none;
-  color: white;
-  padding: 0.5rem 1rem;
-  margin: 0 0.2rem;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-.switch-folder-button:hover {
-  background-color: #45a049;
-}
-
-.folder-group-buttons form {
-  display: inline;
-}
-
 /* стиль отображения выбранной группы */
 .current-group-display {
   margin-top: 0.5rem;
@@ -212,19 +186,6 @@ th {
   display: inline-block;
   font-size: 0.9rem;
 }
-.current-group-label {
-  font-weight: bold;
-  margin-right: 0.3rem;
-}
-.current-group-value {
-  color: #4caf50;
-}
-.current-group-paths {
-  display: block;
-  font-size: 0.8rem;
-  color: #ccc;
-}
-
 /* укладываем имена в ячейки с многоточием */
 td {
   max-width: 120px;
@@ -240,12 +201,6 @@ td {
 .download-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.form-row {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
 }
 
 .form-group {
@@ -298,32 +253,6 @@ td {
   background-color: hsla(120, 100%, 25%, 0.2);
 }
 
-/*=============== LOGOUT BUTTON ===============*/
-.logout-container {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
-}
-
-.logout-button {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  background-color: hsla(0, 100%, 50%, 0.2);
-  color: hsl(0, 0%, 100%);
-  border: 1px solid hsl(0, 100%, 50%);
-  border-radius: 0.5rem;
-  text-decoration: none;
-  transition: all 0.3s;
-  font-family: "Poppins", sans-serif;
-  font-size: 0.9rem;
-}
-
-.logout-button:hover {
-  background-color: hsla(0, 100%, 50%, 0.4);
-  transform: translateY(-2px);
-}
-
 /*=============== NAVIGATION STYLES ===============*/
 
 .navigation {
@@ -372,7 +301,6 @@ td {
   font-weight: 500;
   font-size: 1rem;
   transition: color 0.3s;
-
 }
 
 .nav-link:hover {
@@ -381,14 +309,13 @@ td {
 
 /*=============== USER INFO STYLES ===============*/
 .user-info {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    padding-left: 1.5rem;
-    border-left: 2px solid #4caf50;
-    padding-right: 1.5rem;
-    border-right: 2px solid #4caf50;
-    margin-right: 50px;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding-left: 1.5rem;
+  border-left: 2px solid #4caf50;
+  padding-right: 1.5rem;
+  border-right: 2px solid #4caf50;
 }
 
 .username {
@@ -664,14 +591,6 @@ td {
   font-family: "Poppins", sans-serif;
   font-size: 1rem;
   color: #fff;
-}
-
-.notification-success {
-  background-color: #4caf50;
-}
-
-.notification-error {
-  background-color: #f44336;
 }
 
 /*=============== FOOTER STYLES ===============*/
@@ -1042,13 +961,6 @@ td {
   font-weight: 500;
   color: #f0f0f0;
   font-size: 0.95rem;
-}
-
-.config-item-param {
-  color: #7a7a7a;
-  font-size: 0.82rem;
-  margin-left: 0.5rem;
-  font-family: monospace;
 }
 
 .config-item-tooltip {
@@ -1989,16 +1901,15 @@ textarea.full-width {
   }
 }
 .main-content {
-    background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    box-sizing: border-box;
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
-    overflow-x: auto;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+  overflow-x: auto;
 }
-
 
 /*=============== GOOGLE FONTS ===============*/
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
@@ -2143,7 +2054,11 @@ body {
 .btn-primary {
   width: 100%;
   padding: 0.9rem;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--primary-color) 0%,
+    var(--primary-dark) 100%
+  );
   border: none;
   border-radius: 0.7rem;
   color: white;
@@ -2251,7 +2166,11 @@ body {
 }
 
 .filter-btn.active {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--primary-color) 0%,
+    var(--primary-dark) 100%
+  );
   border-color: var(--primary-color);
   box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
 }
@@ -2811,8 +2730,4 @@ body {
 /*=============== UTILITY CLASSES ===============*/
 .hidden {
   display: none !important;
-}
-
-.visible {
-  display: block !important;
 }

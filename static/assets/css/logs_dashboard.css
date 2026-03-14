@@ -4,26 +4,6 @@
   padding-bottom: 2rem;
 }
 
-.logs-header {
-  background: linear-gradient(135deg, rgba(17, 67, 48, 0.9), rgba(14, 35, 48, 0.9));
-  border: 1px solid rgba(106, 214, 171, 0.35);
-  border-radius: 16px;
-  padding: 1.2rem 1.4rem;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
-  margin-bottom: 1.2rem;
-}
-
-.logs-header h1 {
-  margin: 0 0 0.4rem;
-  font-size: 1.7rem;
-  letter-spacing: 0.02em;
-}
-
-.logs-header p {
-  margin: 0;
-  color: rgba(225, 247, 240, 0.88);
-}
-
 .logs-summary-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(140px, 1fr));
@@ -629,10 +609,6 @@
 
   .event-metrics-grid {
     grid-template-columns: repeat(2, minmax(110px, 1fr));
-  }
-
-  .logs-header h1 {
-    font-size: 1.4rem;
   }
 
   .traffic-client-select {
