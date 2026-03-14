@@ -85,6 +85,10 @@
         <i class="icon">⚙️</i>
         <span>Настройки порта</span>
       </li>
+      <li class="menu-item" data-tab="qr-settings">
+        <i class="icon">🔗</i>
+        <span>Настройки QR</span>
+      </li>
       <li class="menu-item" data-tab="user-management">
         <i class="icon">👥</i>
         <span>Управление пользователями</span>
@@ -117,6 +121,22 @@
         <div class="form-group">
           <label for="port">Текущий порт: {{ port }}</label>
           <input type="text" id="port" name="port" placeholder="Введите новый порт" />
+        </div>
+        <button type="submit" class="button save-button">Сохранить</button>
+      </form>
+    </div>
+
+    <!-- Настройки QR -->
+    <div id="qr-settings" class="content-tab">
+      <h2>Настройки QR</h2>
+      <form method="POST" class="settings-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="form-group">
+          <label for="qr_download_token_ttl_seconds">TTL одноразовой QR-ссылки (секунд)</label>
+          <input type="number" id="qr_download_token_ttl_seconds" name="qr_download_token_ttl_seconds" min="60"
+            max="3600" step="1" value="{{ qr_download_token_ttl_seconds }}" placeholder="60..3600" />
+          <small class="help-text">Используется для ссылок вида /qr_download/&lt;token&gt;. Диапазон: 60..3600
+            сек.</small>
         </div>
         <button type="submit" class="button save-button">Сохранить</button>
       </form>

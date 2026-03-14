@@ -2717,6 +2717,19 @@ def settings():
             except subprocess.CalledProcessError as e:
                 flash(f"Ошибка при перезапуске службы: {e}", "error")
 
+        ttl_raw = request.form.get("qr_download_token_ttl_seconds", "").strip()
+        if ttl_raw:
+            if ttl_raw.isdigit():
+                ttl_value = int(ttl_raw)
+                if 60 <= ttl_value <= 3600:
+                    _set_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", str(ttl_value))
+                    os.environ["QR_DOWNLOAD_TOKEN_TTL_SECONDS"] = str(ttl_value)
+                    flash("TTL одноразовой QR-ссылки обновлен", "success")
+                else:
+                    flash("TTL QR-ссылки должен быть в диапазоне 60..3600 секунд", "error")
+            else:
+                flash("TTL QR-ссылки должен быть целым числом", "error")
+
         # --- Добавить пользователя ---
         username = request.form.get("username")
         password = request.form.get("password")
@@ -2883,6 +2896,7 @@ def settings():
 
     # GET запрос - отображение страницы
     current_port = os.getenv("APP_PORT", "5050")
+    qr_download_token_ttl_seconds = os.getenv("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600")
     users = User.query.all()
     viewer_users = User.query.filter_by(role='viewer').all()
 
@@ -2930,6 +2944,7 @@ def settings():
         amneziawg_access_groups=amneziawg_access_groups,
         viewer_access=viewer_access,
         public_download_enabled=PUBLIC_DOWNLOAD_ENABLED,
+        qr_download_token_ttl_seconds=qr_download_token_ttl_seconds,
     )
 
 
