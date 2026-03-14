@@ -1253,9 +1253,12 @@ def _persist_traffic_snapshot(status_rows):
     """Сохраняет дельту трафика из текущего снимка *-status.log в БД."""
     now = datetime.utcnow()
 
-    active_sessions = {
+    sessions_by_key = {
         row.session_key: row
-        for row in TrafficSessionState.query.filter_by(is_active=True).all()
+        for row in TrafficSessionState.query.all()
+    }
+    previously_active_keys = {
+        key for key, row in sessions_by_key.items() if bool(row.is_active)
     }
     stats_by_user = {
         row.common_name: row
@@ -1275,7 +1278,7 @@ def _persist_traffic_snapshot(status_rows):
             common_name = (client.get("common_name") or "-").strip()
             is_antizapret_profile = str(profile).startswith("antizapret")
 
-            session_state = active_sessions.get(session_key)
+            session_state = sessions_by_key.get(session_key)
             is_new_session = session_state is None
 
             if is_new_session:
@@ -1293,7 +1296,7 @@ def _persist_traffic_snapshot(status_rows):
                     ended_at=None,
                 )
                 db.session.add(session_state)
-                active_sessions[session_key] = session_state
+                sessions_by_key[session_key] = session_state
                 delta_rx = max(current_rx, 0)
                 delta_tx = max(current_tx, 0)
             else:
@@ -1353,8 +1356,8 @@ def _persist_traffic_snapshot(status_rows):
             if is_new_session:
                 user_stat.total_sessions = int(user_stat.total_sessions or 0) + 1
 
-    for session_key, session_state in active_sessions.items():
-        if session_key in seen_keys:
+    for session_key, session_state in sessions_by_key.items():
+        if session_key in seen_keys or session_key not in previously_active_keys:
             continue
         if session_state.is_active:
             session_state.is_active = False
