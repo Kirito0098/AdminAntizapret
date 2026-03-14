@@ -13,6 +13,8 @@ create_backup() {
     tar -czf "$backup_file" \
         "$INSTALL_DIR" \
         /etc/systemd/system/$SERVICE_NAME.service \
+        /etc/systemd/system/admin-antizapret-traffic-sync.service \
+        /etc/systemd/system/admin-antizapret-traffic-sync.timer \
         "$DB_FILE" \
         /etc/ssl/certs/admin-antizapret.crt \
         /etc/ssl/private/admin-antizapret.key \

@@ -1,0 +1,551 @@
+// ============ INITIALIZATION ============
+document.addEventListener('DOMContentLoaded', function () {
+    initializeUI();
+    initializeFormLogic();
+    initializeTabSwitching();
+    initializeSearch();
+    initializeFiltering();
+    initializeTableSorting();
+    initializeOpenVpnGroupSwitching();
+    initializeQRButtons();
+});
+
+// ============ STATE MANAGEMENT ============
+let currentTab = 'openvpn';
+let currentFilter = 'all';
+let sortColumn = 'name';
+let sortOrder = 'asc';
+let clientExpiry = {};
+
+// Extract cert expiry data from HTML on load
+function extractCertExpiryData() {
+    const rows = document.querySelectorAll('.client-row');
+    rows.forEach(row => {
+        const badge = row.querySelector('.status-badge');
+        if (badge) {
+            const clientName = row.getAttribute('data-client-name');
+            if (badge.classList.contains('active')) {
+                clientExpiry[clientName] = { status: 'active', days: 999 };
+            } else if (badge.classList.contains('expiring')) {
+                const match = badge.textContent.match(/(\d+)/);
+                const days = match ? parseInt(match[1]) : 30;
+                clientExpiry[clientName] = { status: 'expiring', days };
+            } else if (badge.classList.contains('expired')) {
+                clientExpiry[clientName] = { status: 'expired', days: -1 };
+            }
+        }
+    });
+}
+
+// ============ UI INITIALIZATION ============
+function initializeUI() {
+    extractCertExpiryData();
+
+    // Set first tab active
+    document.querySelector('.tab-btn[data-protocol="openvpn"]').classList.add('active');
+    document.querySelector('#openvpn-tab').classList.add('active');
+
+    // Set "All" filter as active
+    const allFilterButton = document.querySelector('[data-filter="all"]');
+    if (allFilterButton) {
+        allFilterButton.classList.add('active');
+    }
+}
+
+// ============ FORM LOGIC ============
+function initializeFormLogic() {
+    const optionSelect = document.getElementById('option');
+    const clientNameContainer = document.getElementById('client-name-container');
+    const workTermContainer = document.getElementById('work-term-container');
+    const clientSelectContainer = document.getElementById('client-select-container');
+    const clientForm = document.getElementById('client-form');
+
+    if (optionSelect) {
+        optionSelect.addEventListener('change', function () {
+            const value = this.value;
+
+            clientNameContainer.style.display =
+                (value === '1' || value === '4') ? 'flex' : 'none';
+            workTermContainer.style.display =
+                (value === '1') ? 'flex' : 'none';
+            clientSelectContainer.style.display =
+                (value === '2' || value === '5') ? 'flex' : 'none';
+
+            if (value === '2' || value === '5') {
+                populateClientSelect(value);
+            }
+        });
+    }
+
+    const clientSelect = document.getElementById('client-select');
+    const clientNameInput = document.getElementById('client-name');
+    if (clientSelect && clientNameInput) {
+        clientSelect.addEventListener('change', function () {
+            clientNameInput.value = this.value || '';
+        });
+    }
+
+    if (clientForm) {
+        clientForm.addEventListener('submit', function (e) {
+            const option = document.getElementById('option').value;
+            if (!option) {
+                e.preventDefault();
+                showNotification('Выберите действие', 'error');
+                return false;
+            }
+        });
+    }
+}
+
+function populateClientSelect(option) {
+    const clientSelect = document.getElementById('client-select');
+    const clientNameInput = document.getElementById('client-name');
+
+    clientSelect.innerHTML = '<option value="">-- Выберите клиента --</option>';
+
+    const tableSelectors = option === '2'
+        ? ['.config-table[data-protocol="openvpn"]']
+        : ['.config-table[data-protocol="amneziawg"]', '.config-table[data-protocol="wg"]'];
+
+    const uniqueNames = new Set();
+    tableSelectors.forEach(selector => {
+        const table = document.querySelector(selector);
+        if (!table) {
+            return;
+        }
+        table.querySelectorAll('.client-row').forEach(row => {
+            const name = row.getAttribute('data-client-name');
+            if (name) {
+                uniqueNames.add(name);
+            }
+        });
+    });
+
+    Array.from(uniqueNames).sort().forEach(clientName => {
+        const opt = document.createElement('option');
+        opt.value = clientName;
+        opt.textContent = clientName;
+        clientSelect.appendChild(opt);
+    });
+
+    if (clientNameInput) {
+        clientNameInput.value = '';
+    }
+}
+
+async function refreshMainContent() {
+    const response = await fetch(window.location.pathname, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    const newTabContent = doc.querySelector('.tab-content');
+    const currentTabContent = document.querySelector('.tab-content');
+    if (newTabContent && currentTabContent) {
+        currentTabContent.innerHTML = newTabContent.innerHTML;
+    }
+
+    const newProtocolTabs = doc.querySelector('.protocol-tabs');
+    const currentProtocolTabs = document.querySelector('.protocol-tabs');
+    if (newProtocolTabs && currentProtocolTabs) {
+        currentProtocolTabs.innerHTML = newProtocolTabs.innerHTML;
+    }
+
+    initializeTabSwitching();
+    initializeTableSorting();
+    initializeOpenVpnGroupSwitching();
+    initializeQRButtons();
+
+    switchTab(currentTab);
+
+    const optionSelect = document.getElementById('option');
+    if (optionSelect && (optionSelect.value === '2' || optionSelect.value === '5')) {
+        populateClientSelect(optionSelect.value);
+    }
+}
+
+// ============ TAB SWITCHING ============
+function initializeTabSwitching() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', function () {
+            const tabName = this.getAttribute('data-protocol');
+            switchTab(tabName);
+        });
+    });
+}
+
+function switchTab(tabName) {
+    // Remove active class from all tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+
+    // Add active class to selected tab
+    document.querySelector(`.tab-btn[data-protocol="${tabName}"]`).classList.add('active');
+
+    const tabId = tabName === 'amneziawg' ? `${tabName}-tab` :
+        tabName === 'wireguard' ? `${tabName}-tab` : `${tabName}-tab`;
+    document.getElementById(tabId).classList.add('active');
+
+    currentTab = tabName;
+    filterTable();
+}
+
+// ============ SEARCH FUNCTIONALITY ============
+function initializeSearch() {
+    const searchInput = document.getElementById('search-clients');
+    const clearBtn = document.getElementById('clear-search');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', filterTable);
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            filterTable();
+        });
+    }
+}
+
+// ============ FILTERING ============
+function initializeFiltering() {
+    const filterBtns = document.querySelectorAll('.filter-btn');
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function () {
+            // Remove active class from all filter buttons
+            filterBtns.forEach(b => b.classList.remove('active'));
+
+            // Add active class to selected filter
+            this.classList.add('active');
+
+            currentFilter = this.getAttribute('data-filter');
+            filterTable();
+        });
+    });
+}
+
+function getFilterStatus(row) {
+    const badge = row.querySelector('.status-badge');
+    if (!badge) return 'active';
+
+    if (badge.classList.contains('expired')) return 'expired';
+    if (badge.classList.contains('expiring')) return 'expiring';
+    return 'active';
+}
+
+// ============ TABLE FILTERING & SEARCH ============
+function filterTable() {
+    const searchInput = document.getElementById('search-clients');
+    const searchValue = searchInput ? searchInput.value.toLowerCase() : '';
+    const table = document.querySelector(`.config-table[data-protocol="${currentTab}"]`);
+
+    if (!table) return;
+
+    const rows = table.querySelectorAll('.client-row');
+
+    rows.forEach(row => {
+        const clientName = row.getAttribute('data-client-name').toLowerCase();
+        const matchSearch = clientName.includes(searchValue);
+
+        let matchFilter = true;
+        if (currentFilter !== 'all') {
+            const status = getFilterStatus(row);
+            matchFilter = (currentFilter === 'active' && status === 'active') ||
+                (currentFilter === 'expiring' && status === 'expiring') ||
+                (currentFilter === 'expired' && status === 'expired');
+        }
+
+        row.style.display = (matchSearch && matchFilter) ? '' : 'none';
+    });
+}
+
+// ============ TABLE SORTING ============
+function initializeTableSorting() {
+    const headers = document.querySelectorAll('.config-table th.sortable');
+
+    headers.forEach(header => {
+        if (header.dataset.sortBound === '1') {
+            return;
+        }
+        header.dataset.sortBound = '1';
+
+        header.addEventListener('click', function () {
+            const column = this.getAttribute('data-sort');
+            const table = this.closest('.config-table');
+
+            // Remove sort class from all headers in this table
+            table.querySelectorAll('th.sortable').forEach(h => {
+                h.classList.remove('sort-asc', 'sort-desc');
+            });
+
+            // Toggle sort order
+            if (sortColumn === column) {
+                sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortOrder = 'asc';
+            }
+
+            // Add sort class to current header
+            this.classList.add(`sort-${sortOrder}`);
+
+            sortTable(table, column, sortOrder);
+        });
+    });
+}
+
+function sortTable(table, column, order) {
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('.client-row'));
+
+    rows.sort((a, b) => {
+        let aValue, bValue;
+
+        if (column === 'name') {
+            aValue = a.getAttribute('data-client-name');
+            bValue = b.getAttribute('data-client-name');
+        } else if (column === 'status') {
+            const aStatus = getFilterStatus(a);
+            const bStatus = getFilterStatus(b);
+            const statusOrder = { 'active': 1, 'expiring': 2, 'expired': 3 };
+            aValue = statusOrder[aStatus];
+            bValue = statusOrder[bStatus];
+        }
+
+        if (order === 'asc') {
+            return aValue > bValue ? 1 : -1;
+        } else {
+            return aValue < bValue ? 1 : -1;
+        }
+    });
+
+    tbody.innerHTML = '';
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+// ============ QR BUTTON FUNCTIONALITY ============
+function initializeQRButtons() {
+    const qrButtons = document.querySelectorAll('.vpn-qr-button');
+
+    qrButtons.forEach(btn => {
+        if (btn.dataset.qrBound === '1') {
+            return;
+        }
+        btn.dataset.qrBound = '1';
+
+        btn.addEventListener('click', function (e) {
+            if (this.disabled) return;
+
+            e.preventDefault();
+            const configUrl = this.getAttribute('data-config');
+            showQRModal(configUrl);
+        });
+    });
+}
+
+function initializeOpenVpnGroupSwitching() {
+    const forms = document.querySelectorAll('.folder-group-buttons form[action*="set_openvpn_group"]');
+
+    forms.forEach(form => {
+        if (form.dataset.ajaxBound === '1') {
+            return;
+        }
+        form.dataset.ajaxBound = '1';
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton ? submitButton.textContent : '';
+
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent = '...';
+            }
+
+            try {
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newOpenVpnTab = doc.getElementById('openvpn-tab');
+                const currentOpenVpnTab = document.getElementById('openvpn-tab');
+
+                if (!newOpenVpnTab || !currentOpenVpnTab) {
+                    throw new Error('OpenVPN tab content not found');
+                }
+
+                const wasOpenVpnActive = currentOpenVpnTab.classList.contains('active');
+                currentOpenVpnTab.innerHTML = newOpenVpnTab.innerHTML;
+                if (wasOpenVpnActive) {
+                    currentOpenVpnTab.classList.add('active');
+                }
+
+                initializeOpenVpnGroupSwitching();
+                initializeTableSorting();
+                initializeQRButtons();
+
+                if (currentTab === 'openvpn') {
+                    filterTable();
+                }
+
+                showNotification('Группа OpenVPN обновлена', 'success');
+            } catch (error) {
+                console.error('OpenVPN group switch error:', error);
+                showNotification('Не удалось обновить группу OpenVPN', 'error');
+            } finally {
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalButtonText;
+                }
+            }
+        });
+    });
+}
+
+function showQRModal(configUrl) {
+    const modal = document.getElementById('modalQRContainer');
+    const img = document.getElementById('qrImage');
+
+    if (modal && img && configUrl) {
+        img.src = configUrl;
+        modal.style.display = 'flex';
+
+        // Close on backdrop click
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        // Close on escape key
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            }
+        });
+    }
+}
+
+// ============ NOTIFICATIONS ============
+function showNotification(message, type = 'success') {
+    const notification = document.getElementById('notification');
+
+    if (notification) {
+        notification.textContent = message;
+        notification.className = `notification notification-${type}`;
+        notification.style.display = 'block';
+
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 3000);
+    }
+}
+
+// ============ FORM SUBMISSION ============
+document.addEventListener('submit', function (e) {
+    const form = e.target;
+
+    if (form.id === 'client-form') {
+        e.preventDefault();
+
+        const formData = new FormData(form);
+        const option = formData.get('option');
+        const selectedClient = formData.get('client-select');
+
+        if ((option === '2' || option === '5') && !selectedClient) {
+            showNotification('Выберите клиента для удаления', 'warning');
+            return;
+        }
+
+        if ((option === '2' || option === '5') && selectedClient) {
+            formData.set('client-name', selectedClient);
+        }
+
+        fetch(form.action || '/', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json()
+                        .then(err => {
+                            throw new Error(err.message || `HTTP error! status: ${response.status}`);
+                        })
+                        .catch(() => {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        });
+                }
+                return response.json();
+            })
+            .then(async (data) => {
+                showNotification(data.message || 'Операция выполнена успешно', 'success');
+                await refreshMainContent();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification(error.message || 'Ошибка при выполнении операции', 'error');
+            });
+    }
+});
+
+// ============ DOUBLE-CLICK DOWNLOAD ============
+document.addEventListener('dblclick', function (e) {
+    if (e.target.classList.contains('client-name')) {
+        const row = e.target.closest('.client-row');
+        const firstDownloadBtn = row.querySelector('.download-button:not(:disabled)');
+
+        if (firstDownloadBtn) {
+            firstDownloadBtn.click();
+        }
+    }
+});
+
+// ============ KEYBOARD SHORTCUTS ============
+document.addEventListener('keydown', function (e) {
+    // Ctrl/Cmd + F: focus search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const searchInput = document.getElementById('search-clients');
+        if (searchInput) {
+            searchInput.focus();
+        }
+    }
+
+    // ESC: close modal
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('modalQRContainer');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+});

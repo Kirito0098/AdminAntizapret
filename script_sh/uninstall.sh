@@ -29,6 +29,12 @@ uninstall() {
 		fi
 
 		printf "%s\n" "${YELLOW}Остановка сервиса...${NC}"
+		systemctl stop "admin-antizapret-traffic-sync.timer" 2>/dev/null || true
+		systemctl disable "admin-antizapret-traffic-sync.timer" 2>/dev/null || true
+		systemctl stop "admin-antizapret-traffic-sync.service" 2>/dev/null || true
+		systemctl disable "admin-antizapret-traffic-sync.service" 2>/dev/null || true
+		rm -f "/etc/systemd/system/admin-antizapret-traffic-sync.timer"
+		rm -f "/etc/systemd/system/admin-antizapret-traffic-sync.service"
 		systemctl stop "$SERVICE_NAME" 2>/dev/null || true
 		systemctl disable "$SERVICE_NAME" 2>/dev/null || true
 		rm -f "/etc/systemd/system/$SERVICE_NAME.service"

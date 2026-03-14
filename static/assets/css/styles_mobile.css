@@ -1,3 +1,43 @@
+@media (max-width: 768px) {
+  .user-info-block {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .user-info-block .nav-link {
+    width: 100%;
+    max-width: 320px;
+    box-sizing: border-box;
+    text-align: center;
+    margin: 0 auto;
+    display: block;
+  }
+}
+@media (max-width: 768px) {
+  .nav-content {
+    flex-direction: column;
+    align-items: stretch;
+    position: static;
+    gap: 0.5rem;
+  }
+  .nav-group {
+    width: 100%;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+  }
+  .user-info-block {
+    position: static;
+    transform: none;
+    justify-content: center;
+    width: 100%;
+    margin-top: 0.5rem;
+    gap: 0.5rem;
+  }
+}
 @media (max-width: 1023px) {
   .hamburger {
     display: block;
@@ -14,7 +54,6 @@
     line-height: 1;
   }
 }
-
 
 @media (max-width: 1200px) {
   .form-container {
@@ -97,20 +136,12 @@
     padding: 0.8rem;
   }
 
-  .config-item-param {
-    display: block;
-    margin-left: 0;
-    margin-top: 0.3rem;
-  }
-
   .config-description {
     font-size: 0.9rem;
   }
 }
 
 @media (max-width: 992px) and (orientation: landscape) {
-
-
   .settings-content {
     max-height: calc(100vh - 120px);
     overflow-y: auto;
@@ -162,11 +193,6 @@
     padding: 1rem;
   }
 
-  .form-row {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
   .download-button {
     width: 100%;
     padding: 0.5rem;
@@ -191,16 +217,6 @@
     text-align: center;
   }
 
-  .logout-container {
-    top: 10px;
-    right: 10px;
-  }
-
-  .logout-button {
-    font-size: 0.8rem;
-    padding: 0.3rem 0.5rem;
-  }
-
   .qr-modal-container .modal-dialog {
     max-width: 90%;
   }
@@ -222,6 +238,7 @@
   .status-card,
   .card {
     padding: 1rem;
+    margin-left: -4.5%;
   }
 
   .ip-table {
@@ -255,8 +272,6 @@
 }
 
 @media (max-width: 768px) and (orientation: landscape) {
-
-
   .settings-content {
     max-height: calc(100vh - 100px);
     overflow-y: auto;
@@ -297,6 +312,19 @@
 
   .modal-dialog {
     max-width: 80%;
+  }
+
+  .user-info {
+    margin-right: 0px;
+  }
+
+  .username {
+    font-size: 0.9rem;
+  }
+
+  .user-role {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.6rem;
   }
 }
 

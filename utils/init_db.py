@@ -45,17 +45,19 @@ def create_admin():
 
     return username, password
 
-def add_user(username, password):
+def add_user(username, password, role='admin'):
     with app.app_context():
         if User.query.filter_by(username=username).first():
             print(f"Пользователь '{username}' уже существует!")
             return False
 
-        user = User(username=username)
+        if role not in ('admin', 'viewer'):
+            role = 'admin'
+        user = User(username=username, role=role)
         user.password_hash = generate_password_hash(password)
         db.session.add(user)
         db.session.commit()
-        print(f"Пользователь '{username}' успешно добавлен!")
+        print(f"Пользователь '{username}' ({role}) успешно добавлен!")
         return True
 
 def delete_user(username):
@@ -83,7 +85,7 @@ def list_users():
 
         print("Список пользователей:")
         for user in users:
-            print(f"- {user.username}")
+            print(f"- {user.username} [{getattr(user, 'role', 'admin')}]")
         return True
 
 if __name__ == "__main__":
@@ -117,7 +119,7 @@ if __name__ == "__main__":
                 print("В системе нет пользователей")
                 username, password = create_admin()
 
-                admin = User(username=username)
+                admin = User(username=username, role='admin')
                 admin.password_hash = generate_password_hash(password)
                 db.session.add(admin)
                 db.session.commit()
@@ -126,13 +128,13 @@ if __name__ == "__main__":
             else:
                 print("\nВ базе уже есть пользователи:")
                 for user in User.query.all():
-                    print(f"- {user.username}")
+                    print(f"- {user.username} [{getattr(user, 'role', 'admin')}]")
 
                 choice = input("\nСоздать нового администратора? (y/n): ").lower()
                 if choice == 'y':
                     username, password = create_admin()
 
-                    admin = User(username=username)
+                    admin = User(username=username, role='admin')
                     admin.password_hash = generate_password_hash(password)
                     db.session.add(admin)
                     db.session.commit()

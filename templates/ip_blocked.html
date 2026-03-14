@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,7 +32,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: 
+            background:
                 radial-gradient(circle at 20% 80%, rgba(76, 175, 80, 0.1) 0%, transparent 50%),
                 radial-gradient(circle at 80% 20%, rgba(244, 67, 54, 0.1) 0%, transparent 50%),
                 radial-gradient(circle at 40% 40%, rgba(33, 150, 243, 0.05) 0%, transparent 50%);
@@ -45,7 +46,7 @@
             backdrop-filter: blur(10px);
             border-radius: 20px;
             padding: 40px;
-            box-shadow: 
+            box-shadow:
                 0 20px 40px rgba(0, 0, 0, 0.3),
                 0 0 0 1px rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -222,10 +223,13 @@
         }
 
         @keyframes pulse {
-            0%, 100% {
+
+            0%,
+            100% {
                 transform: scale(1);
                 filter: drop-shadow(0 0 10px rgba(244, 67, 54, 0.5));
             }
+
             50% {
                 transform: scale(1.05);
                 filter: drop-shadow(0 0 15px rgba(244, 67, 54, 0.7));
@@ -237,6 +241,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -251,15 +256,15 @@
             .container {
                 padding: 25px;
             }
-            
+
             h1 {
                 font-size: 2rem;
             }
-            
+
             .lock-icon {
                 font-size: 60px;
             }
-            
+
             .info-row {
                 flex-direction: column;
                 gap: 5px;
@@ -270,11 +275,11 @@
             .container {
                 padding: 20px;
             }
-            
+
             h1 {
                 font-size: 1.8rem;
             }
-            
+
             .lock-icon {
                 font-size: 50px;
             }
@@ -302,25 +307,27 @@
             0% {
                 transform: translateY(100vh) rotate(0deg);
             }
+
             100% {
                 transform: translateY(-100vh) rotate(360deg);
             }
         }
     </style>
 </head>
+
 <body>
     <!-- Эффект частиц -->
     <div class="particles" id="particles"></div>
-    
+
     <div class="container">
         <div class="lock-icon">🔒</div>
         <h1>Доступ ограничен</h1>
         <p class="subtitle">Ваш IP-адрес не входит в список разрешенных для доступа к этой системе</p>
-        
+
         <div class="ip-address" id="ipDisplay">
             {{ client_ip }}
         </div>
-        
+
         <div class="info-box">
             <div class="info-row">
                 <span class="info-label">IP-адрес:</span>
@@ -332,57 +339,55 @@
             </div>
         </div>
 
-    <script>
-        // Создаем эффект частиц
-        function createParticles() {
-            const particlesContainer = document.getElementById('particles');
-            const particleCount = 30;
-            
-            for (let i = 0; i < particleCount; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                
-                // Случайные параметры
-                const size = Math.random() * 5 + 2;
-                const left = Math.random() * 100;
-                const delay = Math.random() * 20;
-                const duration = Math.random() * 10 + 20;
-                
-                particle.style.width = `${size}px`;
-                particle.style.height = `${size}px`;
-                particle.style.left = `${left}%`;
-                particle.style.animationDelay = `${delay}s`;
-                particle.style.animationDuration = `${duration}s`;
-                
-                particlesContainer.appendChild(particle);
-            }
-        }
-        
-        // Плавное отображение IP
-        function animateIp() {
-            const ipElement = document.getElementById('ipDisplay');
-            const ip = ipElement.textContent;
-            ipElement.textContent = '';
-            
-            let i = 0;
-            function typeWriter() {
-                if (i < ip.length) {
-                    ipElement.textContent += ip.charAt(i);
-                    i++;
-                    setTimeout(typeWriter, 50);
+        <script>
+            // Создаем эффект частиц
+            function createParticles() {
+                const particlesContainer = document.getElementById('particles');
+                const particleCount = 30;
+
+                for (let i = 0; i < particleCount; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+
+                    // Случайные параметры
+                    const size = Math.random() * 5 + 2;
+                    const left = Math.random() * 100;
+                    const delay = Math.random() * 20;
+                    const duration = Math.random() * 10 + 20;
+
+                    particle.style.width = `${size}px`;
+                    particle.style.height = `${size}px`;
+                    particle.style.left = `${left}%`;
+                    particle.style.animationDelay = `${delay}s`;
+                    particle.style.animationDuration = `${duration}s`;
+
+                    particlesContainer.appendChild(particle);
                 }
             }
-            
-            setTimeout(typeWriter, 500);
-        }
-        // Инициализация
-        document.addEventListener('DOMContentLoaded', () => {
-            createParticles();
-            animateIp();
-            
-            // Начинаем проверку через 30 секунд
-            setTimeout(checkAccess, 30000);
-        });
-    </script>
+
+            // Плавное отображение IP
+            function animateIp() {
+                const ipElement = document.getElementById('ipDisplay');
+                const ip = ipElement.textContent;
+                ipElement.textContent = '';
+
+                let i = 0;
+                function typeWriter() {
+                    if (i < ip.length) {
+                        ipElement.textContent += ip.charAt(i);
+                        i++;
+                        setTimeout(typeWriter, 50);
+                    }
+                }
+
+                setTimeout(typeWriter, 500);
+            }
+            // Инициализация
+            document.addEventListener('DOMContentLoaded', () => {
+                createParticles();
+                animateIp();
+            });
+        </script>
 </body>
+
 </html>

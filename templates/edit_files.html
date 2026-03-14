@@ -54,6 +54,19 @@
 
       <div id="routes-panel" style="display:none;">
         <div class="routes-buttons">
+          <form action="{{ url_for('toggle_public_download') }}" method="post" style="margin-bottom: 10px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() | e }}">
+            <input type="hidden" name="enabled" value="{{ 'false' if public_download_enabled else 'true' }}">
+            <input type="hidden" name="return_to" value="edit_files">
+            <button type="submit" class="route-btn">
+              {% if public_download_enabled %}
+              Выключить публичный доступ
+              {% else %}
+              Включить публичный доступ
+              {% endif %}
+            </button>
+          </form>
+
           <button class="route-btn"
             onclick="window.location.href='{{ url_for('download', file_type='antizapret_result', filename='route-ips.txt') }}'">
             Общий список IP
@@ -70,6 +83,25 @@
             onclick="window.location.href='{{ url_for('download', file_type='antizapret_result', filename='tp-link-openvpn-routes.txt') }}'">
             TP-Link OpenVPN
           </button>
+
+          {% if public_download_enabled %}
+          <button class="route-btn"
+            onclick="window.open('{{ url_for('public_download', router='ips') }}', '_blank', 'noopener')">
+            Публично: Общий список IP
+          </button>
+          <button class="route-btn"
+            onclick="window.open('{{ url_for('public_download', router='keenetic') }}', '_blank', 'noopener')">
+            Публично: Keenetic WireGuard
+          </button>
+          <button class="route-btn"
+            onclick="window.open('{{ url_for('public_download', router='mikrotik') }}', '_blank', 'noopener')">
+            Публично: MikroTik WireGuard
+          </button>
+          <button class="route-btn"
+            onclick="window.open('{{ url_for('public_download', router='tplink') }}', '_blank', 'noopener')">
+            Публично: TP-Link OpenVPN
+          </button>
+          {% endif %}
         </div>
       </div>
   </aside>

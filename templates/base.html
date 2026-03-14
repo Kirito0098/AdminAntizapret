@@ -13,15 +13,29 @@
 </head>
 
 <body>
+
   <nav class="navigation">
-    <div class="nav-group">
-      <a href="{{ url_for('index') }}" class="nav-link">Главная</a>
-      <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
-    </div>
-    <div class="nav-group">
-      <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
-      <a href="{{ url_for('settings') }}" class="nav-link">Настройки</a>
-      <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>
+    <div class="nav-content">
+      <div class="nav-group">
+        <a href="{{ url_for('index') }}" class="nav-link">Главная</a>
+        {% if current_user and current_user.is_admin() %}
+        <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
+        <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
+        <a href="{{ url_for('logs_dashboard') }}" class="nav-link">Подключенные клиенты</a>
+        <a href="{{ url_for('settings') }}" class="nav-link">Настройки</a>
+        {% endif %}
+      </div>
+      {% if current_user %}
+      <div class="user-info-block">
+        <div class="user-info">
+          <span class="username">{{ current_user.username }}</span>
+          <span class="user-role {% if current_user.is_admin() %}role-admin{% else %}role-viewer{% endif %}">
+            {% if current_user.is_admin() %}Admin{% else %}Viewer{% endif %}
+          </span>
+        </div>
+        <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>
+      </div>
+      {% endif %}
     </div>
   </nav>
 
