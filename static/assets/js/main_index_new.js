@@ -517,10 +517,118 @@ function initializeClientBanToggles() {
 function showQRModal(configUrl) {
     const modal = document.getElementById('modalQRContainer');
     const img = document.getElementById('qrImage');
+    const qrContainer = modal ? modal.querySelector('.qr-code-container') : null;
+    const qrInfo = document.getElementById('qrInfoMessage');
+    const qrCopyLinkButton = document.getElementById('qrCopyLinkButton');
+
+    const copyTextToClipboard = async (text) => {
+        if (!text) {
+            throw new Error('Ссылка для копирования отсутствует');
+        }
+
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.setAttribute('readonly', '');
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        const copied = document.execCommand('copy');
+        document.body.removeChild(textArea);
+
+        if (!copied) {
+            throw new Error('Не удалось скопировать ссылку');
+        }
+    };
 
     if (modal && img && configUrl) {
-        img.src = configUrl;
         modal.style.display = 'flex';
+        img.removeAttribute('src');
+
+        if (qrContainer) {
+            qrContainer.style.display = 'inline-block';
+        }
+
+        if (qrInfo) {
+            qrInfo.textContent = 'Загрузка QR...';
+            qrInfo.style.display = 'block';
+        }
+        if (qrCopyLinkButton) {
+            qrCopyLinkButton.style.display = 'none';
+            qrCopyLinkButton.dataset.link = '';
+            qrCopyLinkButton.onclick = null;
+        }
+
+        fetch(configUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(async (response) => {
+                if (!response.ok) {
+                    throw new Error(`Не удалось сформировать QR (HTTP ${response.status})`);
+                }
+
+                const mode = response.headers.get('X-QR-Mode') || 'config';
+                const messageCode = response.headers.get('X-QR-Message-Code') || '';
+                const oneTimeDownloadUrl = response.headers.get('X-QR-Download-Url') || '';
+                const blob = await response.blob();
+
+                if (!blob || !blob.size) {
+                    throw new Error('Получено пустое изображение QR');
+                }
+
+                if (qrInfo) {
+                    if (mode === 'download-url') {
+                        qrInfo.textContent = 'Конфиг слишком большой для стабильного QR. Скопируйте одноразовую ссылку на скачивание конфигурации.';
+                    } else {
+                        qrInfo.textContent = 'Сканируйте QR в приложении.';
+                    }
+                }
+
+                if (mode === 'download-url') {
+                    if (qrContainer) {
+                        qrContainer.style.display = 'none';
+                    }
+
+                    if (qrCopyLinkButton) {
+                        const linkToCopy = oneTimeDownloadUrl || '';
+                        qrCopyLinkButton.dataset.link = linkToCopy;
+                        qrCopyLinkButton.style.display = linkToCopy ? 'inline-flex' : 'none';
+                        qrCopyLinkButton.onclick = async function () {
+                            try {
+                                await copyTextToClipboard(linkToCopy);
+                                showNotification('Одноразовая ссылка скопирована', 'success');
+                            } catch (copyError) {
+                                showNotification(copyError.message || 'Ошибка копирования ссылки', 'error');
+                            }
+                        };
+                    }
+                } else {
+                    const objectUrl = URL.createObjectURL(blob);
+                    img.onload = () => {
+                        URL.revokeObjectURL(objectUrl);
+                    };
+                    img.onerror = () => {
+                        URL.revokeObjectURL(objectUrl);
+                        showNotification('Ошибка отображения QR изображения', 'error');
+                    };
+                    img.src = objectUrl;
+                }
+            })
+            .catch((error) => {
+                if (qrInfo) {
+                    qrInfo.textContent = error.message || 'Ошибка загрузки QR';
+                }
+                showNotification(error.message || 'Не удалось загрузить QR', 'error');
+            });
 
         // Close on backdrop click
         modal.addEventListener('click', function (e) {

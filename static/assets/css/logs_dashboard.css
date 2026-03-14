@@ -250,10 +250,6 @@
   margin-bottom: 0.65rem;
 }
 
-.traffic-chart-controls.server-monitor-look {
-  justify-content: space-between;
-}
-
 .traffic-client-select {
   min-width: 240px;
   max-width: 360px;

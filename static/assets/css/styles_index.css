@@ -2370,6 +2370,30 @@ body {
   border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+}
+
+.config-table td .download-button,
+.config-table td .vpn-qr-button {
+  max-width: 100%;
+  white-space: nowrap;
+  word-break: normal;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.config-table td:nth-child(5) {
+  white-space: nowrap;
+}
+
+.config-table td:nth-child(5) .vpn-qr-button {
+  min-width: 72px;
+  padding: 0.45rem 0.7rem;
 }
 
 .config-table tbody tr {
@@ -2540,7 +2564,7 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 1.2rem;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  max-width: 500px;
+  max-width: 980px;
   width: 90%;
   animation: slideUp 0.3s ease;
 }
@@ -2566,14 +2590,40 @@ body {
 
 .qr-code-container {
   background: white;
-  padding: 1.5rem;
+  padding: 1.2rem;
   border-radius: 0.8rem;
   display: inline-block;
 }
 
 .qr-code-container img {
+  width: min(88vw, 860px);
   max-width: 100%;
   height: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.qr-info-message {
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  max-width: min(100%, 760px);
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.qr-copy-link-button {
+  margin-top: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: min(100%, 360px);
+  width: 100%;
+  white-space: normal;
+  line-height: 1.35;
+  padding: 0.65rem 1rem;
 }
 
 /*=============== NOTIFICATIONS ===============*/

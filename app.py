@@ -18,7 +18,10 @@ import os
 import re
 import io
 import glob
+import hashlib
+import secrets
 import qrcode
+from qrcode.exceptions import DataOverflowError
 import random
 import string
 from datetime import datetime, timezone, timedelta
@@ -370,6 +373,20 @@ class User(db.Model):
 
     def is_admin(self):
         return self.role == 'admin'
+
+
+class QrDownloadToken(db.Model):
+    """Одноразовый токен для короткоживущей ссылки на скачивание конфига."""
+    __tablename__ = 'qr_download_token'
+
+    id = db.Column(db.Integer, primary_key=True)
+    token_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    config_type = db.Column(db.String(20), nullable=False)
+    config_name = db.Column(db.String(255), nullable=False)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    used_at = db.Column(db.DateTime, nullable=True, index=True)
 
 
 class ViewerConfigAccess(db.Model):
@@ -730,14 +747,34 @@ class QRGenerator:
         pass
 
     def generate_qr_code(self, config_text):
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=10,
-            border=4,
+        # Для длинных конфигов сначала пробуем высокий уровень коррекции,
+        # затем снижаем его, чтобы поместить данные в максимально допустимую версию QR (40).
+        correction_levels = (
+            qrcode.constants.ERROR_CORRECT_H,
+            qrcode.constants.ERROR_CORRECT_Q,
+            qrcode.constants.ERROR_CORRECT_M,
+            qrcode.constants.ERROR_CORRECT_L,
         )
-        qr.add_data(config_text)
-        qr.make(fit=True)
+
+        qr = None
+        last_error = None
+        for correction_level in correction_levels:
+            try:
+                candidate = qrcode.QRCode(
+                    version=None,
+                    error_correction=correction_level,
+                    box_size=10,
+                    border=4,
+                )
+                candidate.add_data(config_text)
+                candidate.make(fit=True)
+                qr = candidate
+                break
+            except (DataOverflowError, ValueError) as e:
+                last_error = e
+
+        if qr is None:
+            raise ValueError(f"Конфигурация слишком длинная для QR-кода: {last_error}")
 
         img = qr.make_image(
             fill_color="black", back_color="white", image_factory=PilImage
@@ -748,6 +785,10 @@ class QRGenerator:
         img_byte_arr.seek(0)
 
         return img_byte_arr
+
+    def generate_qr_for_download_url(self, download_url):
+        """Генерирует QR с URL скачивания как fallback для слишком длинных конфигов."""
+        return self.generate_qr_code(download_url)
 
 
 class FileEditor:
@@ -899,6 +940,66 @@ def _get_config_type(file_path):
     elif '/amneziawg/' in p:
         return 'amneziawg'
     return None
+
+
+def _resolve_config_file(file_type, filename):
+    """Находит путь к конфигу по типу и имени файла."""
+    if file_type not in CONFIG_PATHS:
+        return None, None
+
+    def _scan(dirs):
+        for config_dir in dirs:
+            for root, _, files in os.walk(config_dir):
+                for file in files:
+                    if file.replace("(", "").replace(")", "") == filename.replace("(", "").replace(")", ""):
+                        return os.path.join(root, file), file.replace("(", "").replace(")", "")
+        return None, None
+
+    file_path, clean_name = _scan(CONFIG_PATHS[file_type])
+    if not file_path and file_type == "openvpn":
+        file_path, clean_name = _scan(OPENVPN_FOLDERS)
+    return file_path, clean_name
+
+
+def _create_one_time_download_url(file_path):
+    """Создаёт одноразовую ссылку на скачивание с TTL."""
+    config_type = _get_config_type(file_path)
+    if config_type not in CONFIG_PATHS:
+        raise ValueError("Невозможно определить тип конфигурации для одноразовой ссылки")
+
+    ttl_seconds = int(os.getenv("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600"))
+    # Защита от слишком маленького/большого значения из окружения.
+    ttl_seconds = max(60, min(ttl_seconds, 3600))
+
+    now = datetime.utcnow()
+    token = secrets.token_urlsafe(24)
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    creator_id = None
+    username = session.get("username")
+    if username:
+        user = User.query.filter_by(username=username).first()
+        if user:
+            creator_id = user.id
+
+    token_row = QrDownloadToken(
+        token_hash=token_hash,
+        config_type=config_type,
+        config_name=os.path.basename(file_path),
+        created_by_user_id=creator_id,
+        expires_at=now + timedelta(seconds=ttl_seconds),
+    )
+    db.session.add(token_row)
+
+    # Периодическая чистка старых токенов.
+    stale_threshold = now - timedelta(days=1)
+    db.session.query(QrDownloadToken).filter(
+        (QrDownloadToken.expires_at < stale_threshold)
+        | (QrDownloadToken.used_at.isnot(None) & (QrDownloadToken.used_at < stale_threshold))
+    ).delete(synchronize_session=False)
+
+    db.session.commit()
+    return url_for("one_time_qr_download", token=token, _external=True)
 
 
 def _run_db_migrations():
@@ -2227,6 +2328,49 @@ def captcha():
 
 
 # Роут для скачивания конфигурационных файлов
+@app.route("/qr_download/<token>")
+def one_time_qr_download(token):
+    if not token or len(token) < 16:
+        abort(404)
+
+    now = datetime.utcnow()
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    try:
+        token_row = QrDownloadToken.query.filter_by(token_hash=token_hash).first()
+        if not token_row or token_row.used_at is not None or token_row.expires_at < now:
+            abort(410, description="Ссылка истекла или уже использована")
+
+        updated = db.session.query(QrDownloadToken).filter(
+            QrDownloadToken.id == token_row.id,
+            QrDownloadToken.used_at.is_(None),
+            QrDownloadToken.expires_at >= now,
+        ).update({"used_at": now}, synchronize_session=False)
+
+        if updated != 1:
+            db.session.rollback()
+            abort(410, description="Ссылка уже использована")
+
+        db.session.commit()
+
+        file_path, _ = _resolve_config_file(token_row.config_type, token_row.config_name)
+        if not file_path:
+            abort(404, description="Файл не найден")
+
+        base = os.path.basename(file_path)
+        return send_from_directory(
+            os.path.dirname(file_path),
+            base,
+            as_attachment=True,
+            download_name=base,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Аларм! ошибка: {str(e)}")
+        abort(500)
+
+
 @app.route("/download/<file_type>/<path:filename>")
 @auth_manager.login_required
 @file_validator.validate_file
@@ -2343,9 +2487,40 @@ def generate_qr(file_path, clean_name):
         with open(file_path, "r") as file:
             config_text = file.read()
 
-        img_byte_arr = qr_generator.generate_qr_code(config_text)
+        config_type = _get_config_type(file_path)
 
-        return send_file(img_byte_arr, mimetype="image/png")
+        # AmneziaWG конфиги часто слишком плотные для стабильного сканирования,
+        # даже когда формально помещаются в QR. Для крупных конфигов сразу
+        # отдаём QR со ссылкой на скачивание.
+        force_download_url_qr = (
+            config_type == "amneziawg" and len(config_text.encode("utf-8")) > 2200
+        )
+
+        if force_download_url_qr:
+            download_url = _create_one_time_download_url(file_path)
+            img_byte_arr = qr_generator.generate_qr_for_download_url(download_url)
+            response = send_file(img_byte_arr, mimetype="image/png")
+            response.headers["X-QR-Mode"] = "download-url"
+            response.headers["X-QR-Message-Code"] = "CONFIG_TOO_LARGE_USE_DOWNLOAD"
+            response.headers["X-QR-Download-Url"] = download_url
+            return response
+
+        try:
+            img_byte_arr = qr_generator.generate_qr_code(config_text)
+            response = send_file(img_byte_arr, mimetype="image/png")
+            response.headers["X-QR-Mode"] = "config"
+            return response
+        except ValueError as qr_error:
+            # Для конфигов, которые не помещаются в QR, отдаём QR со ссылкой на скачивание.
+            if "слишком длинная" in str(qr_error):
+                download_url = _create_one_time_download_url(file_path)
+                img_byte_arr = qr_generator.generate_qr_for_download_url(download_url)
+                response = send_file(img_byte_arr, mimetype="image/png")
+                response.headers["X-QR-Mode"] = "download-url"
+                response.headers["X-QR-Message-Code"] = "CONFIG_OVERFLOW_USE_DOWNLOAD"
+                response.headers["X-QR-Download-Url"] = download_url
+                return response
+            raise
     except Exception as e:
         print(f"Аларм! ошибка: {str(e)}")
         abort(500)
