@@ -2367,12 +2367,21 @@ body {
 
 .config-table td {
   padding: 1rem;
+  border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
 }
 
 .config-table tbody tr {
   transition: all 0.3s ease;
+}
+
+.client-row {
+  outline: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.client-row:hover {
+  outline-color: rgba(255, 255, 255, 0.5);
 }
 
 .config-table tbody tr:hover {
