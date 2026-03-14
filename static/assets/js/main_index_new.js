@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeTableSorting();
     initializeOpenVpnGroupSwitching();
     initializeQRButtons();
+    initializeClientBanToggles();
 });
 
 // ============ STATE MANAGEMENT ============
@@ -19,21 +20,18 @@ let clientExpiry = {};
 
 // Extract cert expiry data from HTML on load
 function extractCertExpiryData() {
+    clientExpiry = {};
     const rows = document.querySelectorAll('.client-row');
     rows.forEach(row => {
-        const badge = row.querySelector('.status-badge');
-        if (badge) {
-            const clientName = row.getAttribute('data-client-name');
-            if (badge.classList.contains('active')) {
-                clientExpiry[clientName] = { status: 'active', days: 999 };
-            } else if (badge.classList.contains('expiring')) {
-                const match = badge.textContent.match(/(\d+)/);
-                const days = match ? parseInt(match[1]) : 30;
-                clientExpiry[clientName] = { status: 'expiring', days };
-            } else if (badge.classList.contains('expired')) {
-                clientExpiry[clientName] = { status: 'expired', days: -1 };
-            }
-        }
+        const clientName = row.getAttribute('data-client-name');
+        if (!clientName) return;
+
+        const certState = row.dataset.certState || 'active';
+        const certDays = Number.parseInt(row.dataset.certDays || '999', 10);
+        clientExpiry[clientName] = {
+            status: certState,
+            days: Number.isNaN(certDays) ? 999 : certDays,
+        };
     });
 }
 
@@ -165,6 +163,7 @@ async function refreshMainContent() {
     initializeTableSorting();
     initializeOpenVpnGroupSwitching();
     initializeQRButtons();
+    initializeClientBanToggles();
 
     switchTab(currentTab);
 
@@ -242,6 +241,10 @@ function initializeFiltering() {
 }
 
 function getFilterStatus(row) {
+    if (row && row.dataset && row.dataset.certState) {
+        return row.dataset.certState;
+    }
+
     const badge = row.querySelector('.status-badge');
     if (!badge) return 'active';
 
@@ -322,11 +325,16 @@ function sortTable(table, column, order) {
             aValue = a.getAttribute('data-client-name');
             bValue = b.getAttribute('data-client-name');
         } else if (column === 'status') {
-            const aStatus = getFilterStatus(a);
-            const bStatus = getFilterStatus(b);
-            const statusOrder = { 'active': 1, 'expiring': 2, 'expired': 3 };
-            aValue = statusOrder[aStatus];
-            bValue = statusOrder[bStatus];
+            if (table.dataset.protocol === 'openvpn') {
+                aValue = Number.parseInt(a.dataset.blocked || '0', 10);
+                bValue = Number.parseInt(b.dataset.blocked || '0', 10);
+            } else {
+                const aStatus = getFilterStatus(a);
+                const bStatus = getFilterStatus(b);
+                const statusOrder = { 'active': 1, 'expiring': 2, 'expired': 3 };
+                aValue = statusOrder[aStatus];
+                bValue = statusOrder[bStatus];
+            }
         }
 
         if (order === 'asc') {
@@ -413,6 +421,7 @@ function initializeOpenVpnGroupSwitching() {
                 initializeOpenVpnGroupSwitching();
                 initializeTableSorting();
                 initializeQRButtons();
+                initializeClientBanToggles();
 
                 if (currentTab === 'openvpn') {
                     filterTable();
@@ -427,6 +436,79 @@ function initializeOpenVpnGroupSwitching() {
                     submitButton.disabled = false;
                     submitButton.textContent = originalButtonText;
                 }
+            }
+        });
+    });
+}
+
+function initializeClientBanToggles() {
+    const toggles = document.querySelectorAll('.client-ban-toggle');
+    if (!toggles.length) {
+        return;
+    }
+
+    const csrfInput = document.getElementById('csrf-token-value');
+    const csrfToken = csrfInput ? csrfInput.value : '';
+
+    toggles.forEach(toggle => {
+        if (toggle.dataset.blockBound === '1') {
+            return;
+        }
+        toggle.dataset.blockBound = '1';
+
+        toggle.addEventListener('change', async function () {
+            const checkbox = this;
+            const row = checkbox.closest('.client-row');
+            const clientName = checkbox.dataset.clientName || '';
+            const shouldBlock = checkbox.checked;
+            const previousState = !shouldBlock;
+
+            if (!clientName) {
+                checkbox.checked = previousState;
+                showNotification('Не удалось определить CN клиента', 'error');
+                return;
+            }
+
+            checkbox.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('client_name', clientName);
+                formData.append('blocked', shouldBlock ? '1' : '0');
+                if (csrfToken) {
+                    formData.append('csrf_token', csrfToken);
+                }
+
+                const response = await fetch('/api/openvpn/client-block', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                let payload = null;
+                try {
+                    payload = await response.json();
+                } catch (_e) {
+                    payload = null;
+                }
+
+                if (!response.ok || !payload || !payload.success) {
+                    const msg = payload && payload.message ? payload.message : `HTTP error! status: ${response.status}`;
+                    throw new Error(msg);
+                }
+
+                if (row) {
+                    row.dataset.blocked = shouldBlock ? '1' : '0';
+                }
+
+                showNotification(payload.message || 'Статус блокировки обновлён', 'success');
+            } catch (error) {
+                checkbox.checked = previousState;
+                showNotification(error.message || 'Не удалось изменить блокировку клиента', 'error');
+            } finally {
+                checkbox.disabled = false;
             }
         });
     });

@@ -188,7 +188,6 @@ th {
 }
 /* укладываем имена в ячейки с многоточием */
 td {
-  max-width: 120px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2390,8 +2389,54 @@ body {
   color: var(--primary-light);
 }
 
+.client-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.client-name-main {
+  font-weight: 600;
+  color: var(--primary-light);
+}
+
+.client-cert-meta {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.client-cert-meta.expiring {
+  color: #ffcc80;
+}
+
+.client-cert-meta.expired {
+  color: #ef9a9a;
+}
+
 .client-status {
-  padding: 0 !important;
+  min-width: 120px;
+}
+
+.client-block-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 100%;
+}
+
+.client-block-control .toggle-switch {
+  margin: 0 auto;
+}
+
+.config-table[data-protocol="openvpn"] th:nth-child(2),
+.config-table[data-protocol="openvpn"] td:nth-child(2) {
+  width: 84px;
+  max-width: 84px;
+  text-align: center;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
 }
 
 .status-badge {
@@ -2704,6 +2749,21 @@ body {
   .status-badge {
     padding: 0.3rem 0.6rem;
     font-size: 0.75rem;
+  }
+
+  .client-status {
+    min-width: 100px;
+  }
+
+  .config-table[data-protocol="openvpn"] th:nth-child(2),
+  .config-table[data-protocol="openvpn"] td:nth-child(2) {
+    width: 72px;
+    min-width: 72px;
+    max-width: 72px;
+  }
+
+  .client-cert-meta {
+    font-size: 0.7rem;
   }
 }
 

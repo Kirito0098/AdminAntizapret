@@ -2,6 +2,7 @@
 {% block content %}
 
 <div id="notification" class="notification" style="display: none"></div>
+<input type="hidden" id="csrf-token-value" value="{{ csrf_token() }}" />
 
 <div class="index-container">
   <!-- Боковая панель с формой управления -->
@@ -120,7 +121,7 @@
             <thead>
               <tr>
                 <th class="sortable" data-sort="name">📝 Клиент</th>
-                <th class="sortable" data-sort="status">🔔 Статус</th>
+                <th class="sortable" data-sort="status">🔒 Блокировка</th>
                 <th>Скачать VPN</th>
                 <th>Antizapret</th>
               </tr>
@@ -136,20 +137,54 @@
               'antizapret' %} {% set _ = openvpn_files_dict[client_name].update({'antizapret': file}) %} {% else %} {%
               set _ = openvpn_files_dict[client_name].update({'vpn': file}) %} {% endif %} {% endfor %} {% for
               client_name, files in openvpn_files_dict | dictsort %}
-              <tr class="client-row" data-client-name="{{ client_name }}">
-                <td class="client-name">{{ client_name }}</td>
+              {% set cert_info = cert_expiry.get(client_name) if cert_expiry else none %}
+              {% set cert_days = cert_info.get('days_left') if cert_info else none %}
+              {% set cert_expires_at = cert_info.get('expires_at') if cert_info else none %}
+              {% set cert_state = 'active' %}
+              {% if cert_days is none %}
+              {% set cert_state = 'active' %}
+              {% elif cert_days <= 0 %} {% set cert_state='expired' %} {% elif cert_days <=30 %} {% set
+                cert_state='expiring' %} {% endif %} {% set is_blocked=banned_clients and client_name in banned_clients
+                %} <tr class="client-row" data-client-name="{{ client_name }}" data-cert-state="{{ cert_state }}"
+                data-cert-days="{{ cert_days if cert_days is not none else 99999 }}"
+                data-blocked="{{ 1 if is_blocked else 0 }}">
+                <td class="client-name client-name-cell">
+                  <div class="client-name-main">{{ client_name }}</div>
+                  <div class="client-cert-meta {{ cert_state }}">
+                    {% if cert_expires_at %}
+                    <div>До: {{ cert_expires_at.split(' ')[0] }}</div>
+                    {% else %}
+                    <div>До: не определено</div>
+                    {% endif %}
+                    <div>
+                      {% if cert_days is none %}
+                      Осталось: неизвестно
+                      {% elif cert_days > 0 %}
+                      Осталось: {{ cert_days }} дн.
+                      {% elif cert_days == 0 %}
+                      Осталось: сегодня истекает
+                      {% else %}
+                      Осталось: истёк
+                      {% endif %}
+                    </div>
+                  </div>
+                </td>
                 <td class="client-status">
-                  {% if cert_expiry and cert_expiry.get(client_name) is not none %}
-                  {% set days = cert_expiry[client_name] %}
-                  <span
-                    class="status-badge {% if days <= 0 %}expired{% elif days <= 30 %}expiring{% else %}active{% endif %}">
-                    {% if days > 30 %}✓ Активен ({{ days }} дн.)
-                    {% elif days > 0 %}⚠ Истекает ({{ days }} дн.)
-                    {% elif days == 0 %}🔴 Сегодня
-                    {% else %}✗ Истёк{% endif %}
-                  </span>
+                  {% if current_user and current_user.is_admin() %}
+                  <div class="client-block-control">
+                    <label class="toggle-switch" title="Заблокировать подключение клиента">
+                      <input type="checkbox" class="toggle-input client-ban-toggle" data-client-name="{{ client_name }}"
+                        {% if is_blocked %}checked{% endif %} />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
                   {% else %}
-                  <span class="status-badge active">✓ Активен</span>
+                  <div class="client-block-control">
+                    <label class="toggle-switch" title="Состояние блокировки клиента">
+                      <input type="checkbox" class="toggle-input" {% if is_blocked %}checked{% endif %} disabled />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
                   {% endif %}
                 </td>
                 <td>
@@ -170,8 +205,8 @@
                   <button type="button" class="download-button" disabled>—</button>
                   {% endif %}
                 </td>
-              </tr>
-              {% endfor %}
+                </tr>
+                {% endfor %}
             </tbody>
           </table>
         </div>

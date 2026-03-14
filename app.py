@@ -125,6 +125,68 @@ CONFIG_PATHS = {
     ],
 }
 
+OPENVPN_BANNED_CLIENTS_FILE = "/etc/openvpn/server/banned_clients"
+OPENVPN_CLIENT_CONNECT_SCRIPT = "/etc/openvpn/server/scripts/client-connect.sh"
+CLIENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+CLIENT_CONNECT_BAN_CHECK_BLOCK = (
+    "BANNED=\"/etc/openvpn/server/banned_clients\"\n\n"
+    "if [ -f \"$BANNED\" ]; then\n"
+    "    if grep -q \"^$common_name$\" \"$BANNED\"; then\n"
+    "        echo \"Client $common_name banned\" >&2\n"
+    "        exit 1\n"
+    "    fi\n"
+    "fi\n"
+)
+
+
+def _read_banned_clients():
+    banned = set()
+    try:
+        with open(OPENVPN_BANNED_CLIENTS_FILE, "r", encoding="utf-8") as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                banned.add(line)
+    except FileNotFoundError:
+        return set()
+    return banned
+
+
+def _write_banned_clients(clients):
+    ordered = sorted(set(clients), key=str.lower)
+    with open(OPENVPN_BANNED_CLIENTS_FILE, "w", encoding="utf-8") as f:
+        if ordered:
+            f.write("\n".join(ordered) + "\n")
+
+
+def _ensure_client_connect_ban_check_block():
+    """Гарантирует наличие проверки banned_clients в client-connect.sh."""
+    try:
+        with open(OPENVPN_CLIENT_CONNECT_SCRIPT, "r", encoding="utf-8") as f:
+            content = f.read()
+    except FileNotFoundError:
+        content = ""
+
+    if CLIENT_CONNECT_BAN_CHECK_BLOCK in content:
+        return
+
+    if content.startswith("#!"):
+        first_line_end = content.find("\n")
+        if first_line_end == -1:
+            shebang_line = content + "\n"
+            rest = ""
+        else:
+            shebang_line = content[: first_line_end + 1]
+            rest = content[first_line_end + 1 :]
+        new_content = shebang_line + "\n" + CLIENT_CONNECT_BAN_CHECK_BLOCK + "\n" + rest.lstrip("\n")
+    else:
+        new_content = CLIENT_CONNECT_BAN_CHECK_BLOCK + "\n" + content.lstrip("\n")
+
+    with open(OPENVPN_CLIENT_CONNECT_SCRIPT, "w", encoding="utf-8") as f:
+        f.write(new_content)
+
 
 def normalize_openvpn_group_key(filename):
     """Нормализует имя .ovpn в ключ группы для UI доступа viewer."""
@@ -454,7 +516,10 @@ class ConfigFileHandler:
                             break
 
                     if not crt_path:
-                        expiry[client_name] = -1
+                        expiry[client_name] = {
+                            "days_left": None,
+                            "expires_at": None,
+                        }
                         continue
 
                     try:
@@ -467,7 +532,10 @@ class ConfigFileHandler:
 
                         line = result.stdout.strip()
                         if not line.startswith("notAfter="):
-                            expiry[client_name] = -1
+                            expiry[client_name] = {
+                                "days_left": None,
+                                "expires_at": None,
+                            }
                             continue
 
                         date_str = line.split("=", 1)[1].strip()
@@ -477,10 +545,16 @@ class ConfigFileHandler:
                         now = datetime.now(timezone.utc)
                         days_left = (expiry_date - now).days
 
-                        expiry[client_name] = days_left
+                        expiry[client_name] = {
+                            "days_left": days_left,
+                            "expires_at": expiry_date.strftime("%Y-%m-%d %H:%M UTC"),
+                        }
 
                     except Exception as e:
-                        expiry[client_name] = -1
+                        expiry[client_name] = {
+                            "days_left": None,
+                            "expires_at": None,
+                        }
 
         return expiry
 
@@ -1944,6 +2018,14 @@ def index():
         file_validator.config_paths["openvpn"] = folders
         openvpn_files, wg_files, amneziawg_files = config_file_handler.get_config_files()
         cert_expiry = config_file_handler.get_openvpn_cert_expiry()
+        raw_banned_clients = _read_banned_clients()
+        banned_clients = set()
+
+        for file_path in openvpn_files:
+            filename = os.path.basename(file_path)
+            client_name = config_file_handler._extract_client_name_from_ovpn(filename)
+            if client_name and client_name in raw_banned_clients:
+                banned_clients.add(client_name)
 
         if _idx_user and _idx_user.role == 'viewer':
             _allowed = {acc.config_name for acc in _idx_user.allowed_configs}
@@ -1957,6 +2039,7 @@ def index():
             wg_files=wg_files,
             amneziawg_files=amneziawg_files,
             cert_expiry=cert_expiry,
+            banned_clients=banned_clients,
             current_openvpn_group=group,
             current_openvpn_folders=folders,
         )
@@ -2004,6 +2087,41 @@ def index():
             )
         except Exception as e:
             return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
+
+
+@app.route("/api/openvpn/client-block", methods=["POST"])
+@auth_manager.admin_required
+def api_openvpn_client_block():
+    client_name = request.form.get("client_name", "").strip()
+    blocked_raw = (request.form.get("blocked", "").strip().lower())
+
+    if not CLIENT_NAME_PATTERN.fullmatch(client_name):
+        return jsonify({"success": False, "message": "Некорректный CN клиента."}), 400
+
+    should_block = blocked_raw in {"1", "true", "yes", "on"}
+
+    try:
+        _ensure_client_connect_ban_check_block()
+        banned_clients = _read_banned_clients()
+
+        if should_block:
+            banned_clients.add(client_name)
+        else:
+            banned_clients.discard(client_name)
+
+        _write_banned_clients(banned_clients)
+        return jsonify(
+            {
+                "success": True,
+                "client_name": client_name,
+                "blocked": should_block,
+                "message": "Клиент заблокирован." if should_block else "Блокировка снята.",
+            }
+        )
+    except PermissionError:
+        return jsonify({"success": False, "message": "Нет прав на запись banned_clients."}), 500
+    except OSError as e:
+        return jsonify({"success": False, "message": f"Ошибка работы с banned_clients: {e}"}), 500
 
 
 @app.route("/set_openvpn_group", methods=["POST"])
