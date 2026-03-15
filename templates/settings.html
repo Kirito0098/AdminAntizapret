@@ -138,8 +138,71 @@
           <small class="help-text">Используется для ссылок вида /qr_download/&lt;token&gt;. Диапазон: 60..3600
             сек.</small>
         </div>
+        <div class="form-group">
+          <label for="qr_download_token_max_downloads">Лимит скачиваний по одноразовой ссылке</label>
+          <select id="qr_download_token_max_downloads" name="qr_download_token_max_downloads" class="form-control">
+            <option value="1" {% if qr_download_token_max_downloads|string=='1' %}selected{% endif %}>1</option>
+            <option value="3" {% if qr_download_token_max_downloads|string=='3' %}selected{% endif %}>3</option>
+            <option value="5" {% if qr_download_token_max_downloads|string=='5' %}selected{% endif %}>5</option>
+          </select>
+          <small class="help-text">Применяется к новым ссылкам. Уже созданные ссылки сохраняют свой текущий
+            лимит.</small>
+        </div>
+        <div class="form-group">
+          <label for="qr_download_pin">PIN для защиты одноразовых ссылок (опционально)</label>
+          <input type="password" id="qr_download_pin" name="qr_download_pin" inputmode="numeric" pattern="[0-9]*"
+            minlength="4" maxlength="12" placeholder="Оставьте пустым, чтобы не менять" />
+          <small class="help-text">
+            Если PIN задан, при открытии QR-ссылки потребуется ввод PIN. Разрешены только цифры, 4..12 символов.
+            Текущий статус: <strong>{% if qr_download_pin_set %}PIN установлен{% else %}PIN не установлен{% endif
+              %}</strong>.
+          </small>
+          <div class="help-text"
+            style="margin-top:6px; font-weight:600; color:{% if qr_download_pin_set %}#2ecc71{% else %}#b0b7c3{% endif %};">
+            {% if qr_download_pin_set %}● Защита PIN активна{% else %}● Защита PIN выключена{% endif %}
+          </div>
+          <div class="form-group" style="margin-top:10px; margin-bottom:0;">
+            <button type="submit" name="clear_qr_download_pin" value="on" class="button delete-button"
+              onclick="return confirm('Очистить текущий PIN?');">
+              Очистить текущий PIN
+            </button>
+          </div>
+        </div>
         <button type="submit" class="button save-button">Сохранить</button>
       </form>
+
+      <div class="card" style="margin-top:1.5rem;">
+        <h3>Журнал QR-ссылок</h3>
+        <p class="help-text">Показываются последние 100 событий генерации и скачивания.</p>
+        {% if qr_download_audit_logs %}
+        <div class="users-list">
+          <table style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:6px 8px;">Время (UTC)</th>
+                <th style="text-align:left;padding:6px 8px;">Событие</th>
+                <th style="text-align:left;padding:6px 8px;">Пользователь</th>
+                <th style="text-align:left;padding:6px 8px;">IP</th>
+                <th style="text-align:left;padding:6px 8px;">Детали</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in qr_download_audit_logs %}
+              <tr>
+                <td style="padding:6px 8px;white-space:nowrap;">{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td style="padding:6px 8px;">{{ row.event_type }}</td>
+                <td style="padding:6px 8px;">{{ row.actor_username or 'anonymous' }}</td>
+                <td style="padding:6px 8px;">{{ row.remote_addr or '-' }}</td>
+                <td style="padding:6px 8px;">{{ row.details or '-' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="no-data">Событий пока нет</p>
+        {% endif %}
+      </div>
     </div>
 
     <!-- Управление пользователями -->
@@ -289,6 +352,28 @@
     <!-- Доступ к конфигам (для viewer) -->
     <div id="viewer-access" class="content-tab">
       <h2>Управление доступом к конфигам</h2>
+
+      <div class="card" style="margin-bottom:1.5rem;">
+        <h3>Публичный доступ к файлам маршрутов</h3>
+        <p class="help-text">
+          Текущее состояние:
+          <strong>{% if public_download_enabled %}включен{% else %}выключен{% endif %}</strong>
+        </p>
+        <form action="{{ url_for('toggle_public_download') }}" method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <input type="hidden" name="enabled" value="{{ 'false' if public_download_enabled else 'true' }}" />
+          <input type="hidden" name="return_to" value="settings" />
+          <button type="submit"
+            class="button {% if public_download_enabled %}delete-button{% else %}save-button{% endif %}">
+            {% if public_download_enabled %}
+            Выключить публичный доступ
+            {% else %}
+            Включить публичный доступ
+            {% endif %}
+          </button>
+        </form>
+      </div>
+
       {% if viewer_users %}
       {% for vu in viewer_users %}
       <div class="card" style="margin-bottom:1.5rem;">
@@ -371,27 +456,6 @@
     <!-- Ограничения по IP -->
     <div id="ip-restrictions" class="content-tab">
       <h2>Управление IP ограничениями</h2>
-
-      <div class="card">
-        <h3>Публичный доступ к файлам маршрутов</h3>
-        <p class="help-text">
-          Текущее состояние:
-          <strong>{% if public_download_enabled %}включен{% else %}выключен{% endif %}</strong>
-        </p>
-        <form action="{{ url_for('toggle_public_download') }}" method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <input type="hidden" name="enabled" value="{{ 'false' if public_download_enabled else 'true' }}" />
-          <input type="hidden" name="return_to" value="settings" />
-          <button type="submit"
-            class="button {% if public_download_enabled %}delete-button{% else %}save-button{% endif %}">
-            {% if public_download_enabled %}
-            Выключить публичный доступ
-            {% else %}
-            Включить публичный доступ
-            {% endif %}
-          </button>
-        </form>
-      </div>
 
       <div class="status-card">
         <h3>Текущий статус</h3>

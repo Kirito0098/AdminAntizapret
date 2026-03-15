@@ -55,7 +55,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     if (menuItems.length > 0 && !window.location.hash) {
-      menuItems[0].click();
+      const activeMenuItem = document.querySelector(".menu-item.active");
+      (activeMenuItem || menuItems[0]).click();
     }
   };
 

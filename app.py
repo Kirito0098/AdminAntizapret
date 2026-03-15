@@ -1,6 +1,7 @@
 from flask import (
     Flask,
     render_template,
+    render_template_string,
     request,
     redirect,
     url_for,
@@ -34,6 +35,7 @@ from werkzeug.exceptions import HTTPException
 from functools import wraps
 import shlex
 import psutil
+from sqlalchemy import case
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
@@ -45,8 +47,12 @@ from config.antizapret_params import ANTIZAPRET_PARAMS
 from ips import ip_manager
 from routes.settings_antizapret import init_antizapret
 
+# Абсолютный путь к корню приложения и .env (не зависит от рабочего каталога процесса).
+APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+ENV_FILE_PATH = os.path.join(APP_ROOT, ".env")
+
 # Загрузка переменных окружения из .env файла
-load_dotenv()
+load_dotenv(dotenv_path=ENV_FILE_PATH)
 
 port = int(os.getenv("APP_PORT", "5050"))
 
@@ -77,7 +83,7 @@ PUBLIC_DOWNLOAD_ENABLED = os.getenv("PUBLIC_DOWNLOAD_ENABLED", "false").lower() 
 
 def _set_env_value(key, value):
     """Update or append env key in local .env file."""
-    env_path = ".env"
+    env_path = ENV_FILE_PATH
     lines = []
     if os.path.exists(env_path):
         with open(env_path, "r", encoding="utf-8") as f:
@@ -97,6 +103,20 @@ def _set_env_value(key, value):
 
     with open(env_path, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
+
+
+def _get_env_value(key, default=""):
+    """Reads env value from .env first, then from process env as fallback."""
+    env_path = ENV_FILE_PATH
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith(f"{key}="):
+                    return line.split("=", 1)[1].strip()
+    return os.getenv(key, default)
 
 OPENVPN_FOLDERS = [
     "/root/antizapret/client/openvpn/antizapret",
@@ -386,7 +406,25 @@ class QrDownloadToken(db.Model):
     created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False, index=True)
+    max_downloads = db.Column(db.Integer, nullable=False, default=1)
+    download_count = db.Column(db.Integer, nullable=False, default=0)
+    pin_hash = db.Column(db.String(64), nullable=True)
     used_at = db.Column(db.DateTime, nullable=True, index=True)
+
+
+class QrDownloadAuditLog(db.Model):
+    """Журнал событий для одноразовых QR-ссылок."""
+    __tablename__ = 'qr_download_audit_log'
+
+    id = db.Column(db.Integer, primary_key=True)
+    token_id = db.Column(db.Integer, db.ForeignKey('qr_download_token.id'), nullable=True, index=True)
+    event_type = db.Column(db.String(32), nullable=False, index=True)
+    actor_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    actor_username = db.Column(db.String(80), nullable=True, index=True)
+    remote_addr = db.Column(db.String(64), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+    details = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 
 
 class ViewerConfigAccess(db.Model):
@@ -967,9 +1005,16 @@ def _create_one_time_download_url(file_path):
     if config_type not in CONFIG_PATHS:
         raise ValueError("Невозможно определить тип конфигурации для одноразовой ссылки")
 
-    ttl_seconds = int(os.getenv("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600"))
+    ttl_seconds = int(_get_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600"))
     # Защита от слишком маленького/большого значения из окружения.
     ttl_seconds = max(60, min(ttl_seconds, 3600))
+
+    max_downloads = int(_get_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", "1"))
+    if max_downloads not in (1, 3, 5):
+        max_downloads = 1
+
+    pin_raw = (_get_env_value("QR_DOWNLOAD_PIN", "") or "").strip()
+    pin_hash = hashlib.sha256(pin_raw.encode("utf-8")).hexdigest() if pin_raw else None
 
     now = datetime.utcnow()
     token = secrets.token_urlsafe(24)
@@ -988,18 +1033,69 @@ def _create_one_time_download_url(file_path):
         config_name=os.path.basename(file_path),
         created_by_user_id=creator_id,
         expires_at=now + timedelta(seconds=ttl_seconds),
+        max_downloads=max_downloads,
+        pin_hash=pin_hash,
     )
     db.session.add(token_row)
+    db.session.flush()
 
     # Периодическая чистка старых токенов.
     stale_threshold = now - timedelta(days=1)
     db.session.query(QrDownloadToken).filter(
         (QrDownloadToken.expires_at < stale_threshold)
-        | (QrDownloadToken.used_at.isnot(None) & (QrDownloadToken.used_at < stale_threshold))
+        | (
+            (QrDownloadToken.used_at.isnot(None))
+            & (QrDownloadToken.used_at < stale_threshold)
+            & (QrDownloadToken.download_count >= QrDownloadToken.max_downloads)
+        )
     ).delete(synchronize_session=False)
+
+    remote_addr = ((request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",", 1)[0]).strip()
+    user_agent = (request.headers.get("User-Agent") or "")[:255]
+    db.session.add(
+        QrDownloadAuditLog(
+            token_id=token_row.id,
+            event_type="generated",
+            actor_user_id=creator_id,
+            actor_username=username,
+            remote_addr=remote_addr,
+            user_agent=user_agent,
+            details=f"cfg={config_type}/{os.path.basename(file_path)} ttl={ttl_seconds}s max={max_downloads} pin={'y' if pin_hash else 'n'}",
+        )
+    )
 
     db.session.commit()
     return url_for("one_time_qr_download", token=token, _external=True)
+
+
+def _log_qr_event(event_type, token_row=None, details=None):
+    """Пишет событие в журнал QR-ссылок без влияния на основной сценарий."""
+    try:
+        username = session.get("username")
+        actor_user_id = None
+        if username:
+            actor = User.query.filter_by(username=username).first()
+            if actor:
+                actor_user_id = actor.id
+
+        remote_addr = ((request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",", 1)[0]).strip()
+        user_agent = (request.headers.get("User-Agent") or "")[:255]
+
+        db.session.add(
+            QrDownloadAuditLog(
+                token_id=token_row.id if token_row else None,
+                event_type=event_type,
+                actor_user_id=actor_user_id,
+                actor_username=username,
+                remote_addr=remote_addr,
+                user_agent=user_agent,
+                details=(details or "")[:255],
+            )
+        )
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Не удалось записать событие QR-журнала: {e}")
 
 
 def _run_db_migrations():
@@ -1029,6 +1125,19 @@ def _run_db_migrations():
                 with db.engine.connect() as conn:
                     for col_name, alter_sql in traffic_missing.items():
                         if col_name not in traffic_cols:
+                            conn.execute(text(alter_sql))
+                    conn.commit()
+
+            if insp.has_table('qr_download_token'):
+                qr_cols = {c['name'] for c in insp.get_columns('qr_download_token')}
+                qr_missing = {
+                    'max_downloads': "ALTER TABLE qr_download_token ADD COLUMN max_downloads INTEGER NOT NULL DEFAULT 1",
+                    'download_count': "ALTER TABLE qr_download_token ADD COLUMN download_count INTEGER NOT NULL DEFAULT 0",
+                    'pin_hash': "ALTER TABLE qr_download_token ADD COLUMN pin_hash VARCHAR(64)",
+                }
+                with db.engine.connect() as conn:
+                    for col_name, alter_sql in qr_missing.items():
+                        if col_name not in qr_cols:
                             conn.execute(text(alter_sql))
                     conn.commit()
         except Exception as e:
@@ -2335,26 +2444,85 @@ def one_time_qr_download(token):
 
     now = datetime.utcnow()
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    pin_page_tpl = """
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Введите PIN</title>
+  <style>
+    body { font-family: sans-serif; background: #101722; color: #e6edf3; margin: 0; }
+    .wrap { max-width: 420px; margin: 60px auto; padding: 24px; border-radius: 12px; background: #162133; }
+    h2 { margin-top: 0; }
+    input { width: 100%; box-sizing: border-box; padding: 12px; border-radius: 8px; border: 1px solid #2d3d56; background: #0f1725; color: #fff; }
+    button { margin-top: 12px; width: 100%; padding: 12px; border: none; border-radius: 8px; background: #2c84ff; color: #fff; cursor: pointer; }
+    .hint { color: #9fb3c8; font-size: 0.92rem; margin-top: 8px; }
+    .error { color: #ff8b8b; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>PIN для скачивания</h2>
+    <form method="GET">
+      <input type="password" name="pin" inputmode="numeric" pattern="[0-9]*" placeholder="Введите PIN" autofocus required />
+      <button type="submit">Скачать файл</button>
+    </form>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <div class="hint">Осталось скачиваний: {{ remaining }}</div>
+  </div>
+</body>
+</html>
+    """
 
     try:
         token_row = QrDownloadToken.query.filter_by(token_hash=token_hash).first()
-        if not token_row or token_row.used_at is not None or token_row.expires_at < now:
+        if not token_row:
+            _log_qr_event("download_not_found", details="token_not_found")
             abort(410, description="Ссылка истекла или уже использована")
+
+        if token_row.expires_at < now:
+            _log_qr_event("download_expired", token_row=token_row, details="token_expired")
+            abort(410, description="Ссылка истекла или уже использована")
+
+        if token_row.download_count >= token_row.max_downloads:
+            _log_qr_event("download_limit_reached", token_row=token_row, details="limit_reached")
+            abort(410, description="Ссылка истекла или уже использована")
+
+        if token_row.pin_hash:
+            pin = (request.args.get("pin") or "").strip()
+            remaining = max(token_row.max_downloads - token_row.download_count, 0)
+            if not pin:
+                return render_template_string(pin_page_tpl, error=None, remaining=remaining)
+
+            pin_hash = hashlib.sha256(pin.encode("utf-8")).hexdigest()
+            if pin_hash != token_row.pin_hash:
+                _log_qr_event("download_pin_invalid", token_row=token_row, details="invalid_pin")
+                return render_template_string(pin_page_tpl, error="Неверный PIN", remaining=remaining), 403
 
         updated = db.session.query(QrDownloadToken).filter(
             QrDownloadToken.id == token_row.id,
-            QrDownloadToken.used_at.is_(None),
             QrDownloadToken.expires_at >= now,
-        ).update({"used_at": now}, synchronize_session=False)
+            QrDownloadToken.download_count < QrDownloadToken.max_downloads,
+        ).update(
+            {
+                "used_at": case((QrDownloadToken.used_at.is_(None), now), else_=QrDownloadToken.used_at),
+                "download_count": QrDownloadToken.download_count + 1,
+            },
+            synchronize_session=False,
+        )
 
         if updated != 1:
             db.session.rollback()
+            _log_qr_event("download_limit_reached", token_row=token_row, details="race_limit_reached")
             abort(410, description="Ссылка уже использована")
 
         db.session.commit()
+        _log_qr_event("download_success", token_row=token_row, details=f"count+1/{token_row.max_downloads}")
 
         file_path, _ = _resolve_config_file(token_row.config_type, token_row.config_name)
         if not file_path:
+            _log_qr_event("download_file_missing", token_row=token_row, details="file_not_found")
             abort(404, description="Файл не найден")
 
         base = os.path.basename(file_path)
@@ -2755,6 +2923,29 @@ def settings():
             else:
                 flash("TTL QR-ссылки должен быть целым числом", "error")
 
+        max_downloads_raw = request.form.get("qr_download_token_max_downloads", "").strip()
+        if max_downloads_raw:
+            if max_downloads_raw.isdigit() and int(max_downloads_raw) in (1, 3, 5):
+                _set_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", max_downloads_raw)
+                os.environ["QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS"] = max_downloads_raw
+                flash("Лимит скачиваний одноразовой ссылки обновлен", "success")
+            else:
+                flash("Лимит скачиваний должен быть одним из значений: 1, 3 или 5", "error")
+
+        clear_pin = request.form.get("clear_qr_download_pin") == "on"
+        pin_raw = (request.form.get("qr_download_pin") or "").strip()
+        if clear_pin:
+            _set_env_value("QR_DOWNLOAD_PIN", "")
+            os.environ["QR_DOWNLOAD_PIN"] = ""
+            flash("PIN для QR-ссылок очищен", "success")
+        elif pin_raw:
+            if pin_raw.isdigit() and 4 <= len(pin_raw) <= 12:
+                _set_env_value("QR_DOWNLOAD_PIN", pin_raw)
+                os.environ["QR_DOWNLOAD_PIN"] = pin_raw
+                flash("PIN для QR-ссылок обновлен", "success")
+            else:
+                flash("PIN должен содержать только цифры и иметь длину от 4 до 12", "error")
+
         # --- Добавить пользователя ---
         username = request.form.get("username")
         password = request.form.get("password")
@@ -2921,7 +3112,10 @@ def settings():
 
     # GET запрос - отображение страницы
     current_port = os.getenv("APP_PORT", "5050")
-    qr_download_token_ttl_seconds = os.getenv("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600")
+    qr_download_token_ttl_seconds = _get_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600")
+    qr_download_token_max_downloads = _get_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", "1")
+    qr_download_pin_set = bool((_get_env_value("QR_DOWNLOAD_PIN", "") or "").strip())
+    qr_download_audit_logs = QrDownloadAuditLog.query.order_by(QrDownloadAuditLog.created_at.desc()).limit(100).all()
     users = User.query.all()
     viewer_users = User.query.filter_by(role='viewer').all()
 
@@ -2970,6 +3164,9 @@ def settings():
         viewer_access=viewer_access,
         public_download_enabled=PUBLIC_DOWNLOAD_ENABLED,
         qr_download_token_ttl_seconds=qr_download_token_ttl_seconds,
+        qr_download_token_max_downloads=qr_download_token_max_downloads,
+        qr_download_pin_set=qr_download_pin_set,
+        qr_download_audit_logs=qr_download_audit_logs,
     )
 
 
