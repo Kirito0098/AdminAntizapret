@@ -19,6 +19,8 @@ import os
 import re
 import io
 import glob
+import socket
+import sys
 import hashlib
 import secrets
 import qrcode
@@ -485,6 +487,26 @@ class UserTrafficSample(db.Model):
     delta_received = db.Column(db.BigInteger, nullable=False, default=0)
     delta_sent = db.Column(db.BigInteger, nullable=False, default=0)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+
+class OpenVPNPeerInfoCache(db.Model):
+    """Кэш последней версии/платформы OpenVPN-клиента для быстрого отображения из БД."""
+    __tablename__ = 'openvpn_peer_info_cache'
+
+    id = db.Column(db.Integer, primary_key=True)
+    profile = db.Column(db.String(64), nullable=False, index=True)
+    client_name = db.Column(db.String(255), nullable=False, index=True)
+    ip = db.Column(db.String(64), nullable=False, index=True)
+    endpoint = db.Column(db.String(255), nullable=True)
+    version = db.Column(db.String(128), nullable=True)
+    platform = db.Column(db.String(64), nullable=True)
+    last_event_rank = db.Column(db.BigInteger, nullable=False, default=0, index=True)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('profile', 'client_name', 'ip', name='uq_openvpn_peer_info_profile_client_ip'),
+    )
 
 
 class ScriptExecutor:
@@ -1156,6 +1178,33 @@ def inject_current_user():
 
 
 LOGS_DIR = "/etc/openvpn/server/logs"
+OPENVPN_SOCKET_DIR = _get_env_value("OPENVPN_SOCKET_DIR", "/run/openvpn-server")
+OPENVPN_SOCKET_TIMEOUT = 2.5
+OPENVPN_SOCKET_IDLE_TIMEOUT = 0.12
+try:
+    OPENVPN_LOG_TAIL_LINES = int(_get_env_value("OPENVPN_LOG_TAIL_LINES", "2000"))
+except (TypeError, ValueError):
+    OPENVPN_LOG_TAIL_LINES = 2000
+if OPENVPN_LOG_TAIL_LINES < 0:
+    OPENVPN_LOG_TAIL_LINES = 0
+
+try:
+    OPENVPN_PEER_INFO_CACHE_TTL_SECONDS = int(_get_env_value("OPENVPN_PEER_INFO_CACHE_TTL_SECONDS", "172800"))
+except (TypeError, ValueError):
+    OPENVPN_PEER_INFO_CACHE_TTL_SECONDS = 43200
+if OPENVPN_PEER_INFO_CACHE_TTL_SECONDS < 0:
+    OPENVPN_PEER_INFO_CACHE_TTL_SECONDS = 0
+
+try:
+    TRAFFIC_DB_STALE_SECONDS = int(_get_env_value("TRAFFIC_DB_STALE_SECONDS", "600"))
+except (TypeError, ValueError):
+    TRAFFIC_DB_STALE_SECONDS = 600
+if TRAFFIC_DB_STALE_SECONDS < 0:
+    TRAFFIC_DB_STALE_SECONDS = 0
+
+TRAFFIC_SYNC_CRON_MARKER = "# adminantizapret-traffic-sync"
+TRAFFIC_SYNC_CRON_EXPR = (_get_env_value("TRAFFIC_SYNC_CRON", "*/1 * * * *") or "*/1 * * * *").strip()
+TRAFFIC_SYNC_ENABLED = _get_env_value("TRAFFIC_SYNC_ENABLED", "true").strip().lower() == "true"
 
 STATUS_LOG_FILES = {
     "antizapret-tcp": os.path.join(LOGS_DIR, "antizapret-tcp-status.log"),
@@ -1226,6 +1275,54 @@ def _strip_status_cleanup_jobs(lines):
     return [line for line in lines if STATUS_LOG_CLEANUP_MARKER not in line]
 
 
+def _traffic_sync_command():
+    python_bin = shlex.quote(sys.executable or "python3")
+    script_path = shlex.quote(os.path.join(APP_ROOT, "utils", "traffic_sync.py"))
+    return f"{python_bin} {script_path} >/dev/null 2>&1"
+
+
+def _is_systemd_traffic_sync_timer_enabled():
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-enabled", "admin-antizapret-traffic-sync.timer"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _ensure_traffic_sync_cron():
+    lines = _read_crontab_lines()
+    if lines is None:
+        return False, "Не удалось прочитать crontab для авто-синхронизации трафика."
+
+    lines = [line for line in lines if TRAFFIC_SYNC_CRON_MARKER not in line]
+
+    # Если installer уже включил systemd timer sync, не дублируем cron-задачу.
+    if _is_systemd_traffic_sync_timer_enabled():
+        try:
+            _write_crontab_lines(lines)
+        except Exception as e:
+            return False, f"Ошибка очистки cron sync при активном timer: {e}"
+        return True, "Systemd timer sync активен, cron sync не требуется"
+
+    if TRAFFIC_SYNC_ENABLED:
+        command = _traffic_sync_command()
+        lines.append(f"{TRAFFIC_SYNC_CRON_EXPR} {command} {TRAFFIC_SYNC_CRON_MARKER}")
+
+    try:
+        _write_crontab_lines(lines)
+    except Exception as e:
+        return False, f"Ошибка записи cron sync: {e}"
+
+    if TRAFFIC_SYNC_ENABLED:
+        return True, "Cron sync трафика включен"
+    return True, "Cron sync трафика отключен"
+
+
 def _get_status_cleanup_schedule():
     lines = _read_crontab_lines()
     if lines is None:
@@ -1290,6 +1387,14 @@ def _cleanup_status_logs_now():
     if failed:
         return False, f"Удалено обычных .log: {deleted}. Ошибки: {', '.join(failed)}"
     return True, f"Удалено обычных .log (без *-status.log): {deleted}"
+
+
+try:
+    _sync_ok, _sync_msg = _ensure_traffic_sync_cron()
+    if not _sync_ok:
+        app.logger.warning(_sync_msg)
+except Exception as e:
+    app.logger.warning(f"Не удалось инициализировать cron sync трафика: {e}")
 
 
 def _reset_persisted_traffic_data():
@@ -1378,6 +1483,285 @@ def _read_log_file(path):
         return ""
 
 
+def _openvpn_socket_path(profile_key):
+    return os.path.join(OPENVPN_SOCKET_DIR, f"{profile_key}.sock")
+
+
+def _query_openvpn_management_socket(socket_path, command):
+    if not socket_path or not os.path.exists(socket_path):
+        return ""
+
+    cmd = (command or "").strip()
+    if not cmd:
+        return ""
+
+    chunks = []
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock_conn:
+            sock_conn.settimeout(OPENVPN_SOCKET_TIMEOUT)
+            sock_conn.connect(socket_path)
+
+            # Считываем приветствие management-интерфейса до отправки команды.
+            try:
+                banner = sock_conn.recv(65536)
+                if banner:
+                    chunks.append(banner.decode("utf-8", errors="ignore"))
+            except socket.timeout:
+                pass
+
+            sock_conn.sendall((cmd + "\n").encode("utf-8", errors="ignore"))
+
+            idle_timeout = OPENVPN_SOCKET_IDLE_TIMEOUT
+            is_status_cmd = cmd.lower().startswith("status")
+            read_deadline = time.monotonic() + (1.4 if is_status_cmd else 0.9)
+            got_payload = False
+            timeout_streak = 0
+            end_probe = ""
+
+            while time.monotonic() < read_deadline:
+                try:
+                    sock_conn.settimeout(idle_timeout)
+                    data = sock_conn.recv(65536)
+                except socket.timeout:
+                    timeout_streak += 1
+                    if got_payload and timeout_streak >= 2:
+                        break
+                    continue
+                if not data:
+                    break
+                text_chunk = data.decode("utf-8", errors="ignore")
+                chunks.append(text_chunk)
+                got_payload = True
+                timeout_streak = 0
+                if is_status_cmd:
+                    end_probe = (end_probe + text_chunk)[-256:]
+                    if re.search(r"(^|\n)END(\n|$)", end_probe):
+                        break
+
+            try:
+                sock_conn.sendall(b"quit\n")
+            except Exception:
+                pass
+
+            # Быстро дочитываем хвост после quit, если OpenVPN уже отправил оставшиеся байты.
+            try:
+                sock_conn.settimeout(0.05)
+                while True:
+                    tail = sock_conn.recv(65536)
+                    if not tail:
+                        break
+                    chunks.append(tail.decode("utf-8", errors="ignore"))
+            except Exception:
+                pass
+    except Exception:
+        return ""
+
+    return "".join(chunks)
+
+
+def _extract_status_payload_from_management(raw):
+    lines = []
+    for raw_line in (raw or "").splitlines():
+        line = raw_line.strip("\r")
+        if not line:
+            continue
+        if (
+            line.startswith("TITLE,")
+            or line.startswith("TIME,")
+            or line.startswith("HEADER,")
+            or line.startswith("TITLE\t")
+            or line.startswith("TIME\t")
+            or line.startswith("HEADER\t")
+            or line.startswith("TITLE ")
+            or line.startswith("TIME ")
+            or line.startswith("HEADER ")
+        ):
+            lines.append(line)
+            continue
+        if (
+            line.startswith("CLIENT_LIST,")
+            or line.startswith("ROUTING_TABLE,")
+            or line.startswith("GLOBAL_STATS,")
+            or line.startswith("CLIENT_LIST\t")
+            or line.startswith("ROUTING_TABLE\t")
+            or line.startswith("GLOBAL_STATS\t")
+            or line.startswith("CLIENT_LIST ")
+            or line.startswith("ROUTING_TABLE ")
+            or line.startswith("GLOBAL_STATS ")
+        ):
+            lines.append(line)
+            continue
+        if line == "END":
+            lines.append(line)
+
+    return "\n".join(lines)
+
+
+def _extract_event_payload_from_management(raw):
+    lines = []
+    for raw_line in (raw or "").splitlines():
+        line = raw_line.strip("\r")
+        if not line:
+            continue
+
+        if line.startswith(">LOG:"):
+            parts = line.split(",", 2)
+            msg = parts[2] if len(parts) >= 3 else ""
+            msg = msg.strip()
+            if msg:
+                lines.append(msg)
+            continue
+
+        if any(token in line for token in ("Peer Connection Initiated", "VERIFY OK", "peer info:")):
+            lines.append(line)
+
+    return "\n".join(lines)
+
+
+def _read_status_source(profile_key, fallback_path):
+    _ = fallback_path
+    socket_path = _openvpn_socket_path(profile_key)
+    raw_mgmt = _query_openvpn_management_socket(socket_path, "status 3")
+    payload = _extract_status_payload_from_management(raw_mgmt)
+    if payload:
+        return {
+            "raw": payload,
+            "source_name": os.path.basename(socket_path),
+            "exists": True,
+            "updated_at_ts": int(time.time()),
+            "source_type": "socket",
+        }
+
+    return {
+        "raw": "",
+        "source_name": os.path.basename(socket_path),
+        "exists": False,
+        "updated_at_ts": 0,
+        "source_type": "socket",
+    }
+
+
+def _read_event_source(profile_key, fallback_path):
+    _ = fallback_path
+    socket_path = _openvpn_socket_path(profile_key)
+    log_cmd = "log all" if OPENVPN_LOG_TAIL_LINES == 0 else f"log {OPENVPN_LOG_TAIL_LINES}"
+    raw_mgmt = _query_openvpn_management_socket(socket_path, log_cmd)
+    payload = _extract_event_payload_from_management(raw_mgmt)
+    if payload:
+        return {
+            "raw": payload,
+            "source_name": os.path.basename(socket_path),
+            "exists": True,
+            "updated_at_ts": int(time.time()),
+            "source_type": "socket",
+        }
+
+    return {
+        "raw": "",
+        "source_name": os.path.basename(socket_path),
+        "exists": False,
+        "updated_at_ts": 0,
+        "source_type": "socket",
+    }
+
+
+def _persist_peer_info_cache(event_rows):
+    """Сохраняет версию/платформу клиентов в БД, чтобы UI мог брать данные из кэша."""
+    best_rows = {}
+    now = datetime.utcnow()
+
+    for event in event_rows:
+        profile = event.get("profile") or ""
+        base_rank = int(event.get("updated_at_ts", 0)) * 1000000
+
+        for sess in event.get("client_sessions", []):
+            client_name = (sess.get("client") or "").strip()
+            ip = (sess.get("ip") or "").strip()
+            if not client_name or client_name == "-" or not ip:
+                continue
+
+            version = (sess.get("version") or "").strip() or None
+            platform = (sess.get("platform") or "").strip() or None
+            if not version and not platform:
+                continue
+
+            endpoint = (sess.get("endpoint") or "").strip() or None
+            rank = base_rank + int(sess.get("last_order", -1))
+            key = (profile, client_name, ip)
+            prev = best_rows.get(key)
+            if prev is None or rank >= int(prev.get("rank", -1)):
+                best_rows[key] = {
+                    "rank": rank,
+                    "version": version,
+                    "platform": platform,
+                    "endpoint": endpoint,
+                }
+
+    if not best_rows:
+        return
+
+    changed = False
+    for (profile, client_name, ip), data in best_rows.items():
+        row = OpenVPNPeerInfoCache.query.filter_by(
+            profile=profile,
+            client_name=client_name,
+            ip=ip,
+        ).first()
+
+        if row is None:
+            db.session.add(
+                OpenVPNPeerInfoCache(
+                    profile=profile,
+                    client_name=client_name,
+                    ip=ip,
+                    endpoint=data.get("endpoint"),
+                    version=data.get("version"),
+                    platform=data.get("platform"),
+                    last_event_rank=int(data.get("rank", 0)),
+                    last_seen_at=now,
+                )
+            )
+            changed = True
+            continue
+
+        incoming_rank = int(data.get("rank", 0))
+        current_rank = int(row.last_event_rank or 0)
+        if incoming_rank >= current_rank:
+            row.last_event_rank = incoming_rank
+            row.last_seen_at = now
+            if data.get("endpoint"):
+                row.endpoint = data.get("endpoint")
+            if data.get("version"):
+                row.version = data.get("version")
+            if data.get("platform"):
+                row.platform = data.get("platform")
+            changed = True
+
+    if changed:
+        db.session.commit()
+
+
+def _load_peer_info_cache_map():
+    """Возвращает map (profile, client_name, ip) -> последняя версия/платформа из БД."""
+    query = OpenVPNPeerInfoCache.query
+    if OPENVPN_PEER_INFO_CACHE_TTL_SECONDS > 0:
+        cutoff = datetime.utcnow() - timedelta(seconds=OPENVPN_PEER_INFO_CACHE_TTL_SECONDS)
+        query = query.filter(OpenVPNPeerInfoCache.last_seen_at >= cutoff)
+
+    rows = query.order_by(OpenVPNPeerInfoCache.last_event_rank.desc()).all()
+    out = {}
+    for row in rows:
+        key = ((row.profile or "").strip(), (row.client_name or "").strip(), (row.ip or "").strip())
+        if not key[0] or not key[1] or not key[2] or key in out:
+            continue
+        out[key] = {
+            "version": (row.version or "").strip() or None,
+            "platform": (row.platform or "").strip() or None,
+            "rank": int(row.last_event_rank or 0),
+        }
+    return out
+
+
 def _human_bytes(value):
     size = float(value or 0)
     units = ["B", "KB", "MB", "GB", "TB"]
@@ -1387,6 +1771,17 @@ def _human_bytes(value):
         idx += 1
     precision = 0 if idx == 0 else (2 if size < 10 else 1)
     return f"{size:.{precision}f} {units[idx]}"
+
+
+def _human_seconds(seconds_value):
+    value = int(seconds_value or 0)
+    if value < 60:
+        return f"{value} сек"
+    if value < 3600:
+        return f"{value // 60} мин"
+    if value < 86400:
+        return f"{value // 3600} ч"
+    return f"{value // 86400} д"
 
 
 def _human_device_type(platform):
@@ -1674,6 +2069,17 @@ def _collect_persisted_traffic_data(active_names):
             }
         )
 
+    latest_sample_dt = db.session.query(db.func.max(UserTrafficSample.created_at)).scalar()
+    latest_stat_dt = db.session.query(db.func.max(UserTrafficStat.last_seen_at)).scalar()
+    latest_dt_candidates = [dt for dt in (latest_sample_dt, latest_stat_dt) if dt is not None]
+    latest_db_dt = max(latest_dt_candidates) if latest_dt_candidates else None
+    db_age_seconds = None
+    if latest_db_dt:
+        try:
+            db_age_seconds = max(int((now - latest_db_dt).total_seconds()), 0)
+        except Exception:
+            db_age_seconds = None
+
     summary = {
         "users_count": len(rows),
         "active_users_count": sum(1 for item in rows if item.get("is_active")),
@@ -1693,20 +2099,25 @@ def _collect_persisted_traffic_data(active_names):
         "total_received_antizapret_human": _human_bytes(total_received_antizapret),
         "total_sent_antizapret_human": _human_bytes(total_sent_antizapret),
         "total_traffic_antizapret_human": _human_bytes(total_received_antizapret + total_sent_antizapret),
+        "latest_sample_at": _format_dt(latest_sample_dt),
+        "latest_stat_seen_at": _format_dt(latest_stat_dt),
+        "db_age_seconds": db_age_seconds,
+        "db_age_human": "-" if db_age_seconds is None else _human_seconds(db_age_seconds),
+        "db_is_stale": False if db_age_seconds is None else (db_age_seconds > TRAFFIC_DB_STALE_SECONDS),
     }
     return rows, summary
 
 
 def _parse_status_log(profile_key, filename):
-    path = filename
-    raw = _read_log_file(path)
+    source = _read_status_source(profile_key, filename)
+    raw = source.get("raw", "")
     meta = _profile_meta(profile_key)
 
     if not raw:
         return {
             "profile": profile_key,
             "label": f"{meta['network']} {meta['transport']}",
-            "filename": os.path.basename(path),
+            "filename": source.get("source_name", os.path.basename(filename)),
             "exists": False,
             "snapshot_time": "-",
             "updated_at": "-",
@@ -1724,12 +2135,11 @@ def _parse_status_log(profile_key, filename):
     if time_match:
         snapshot_time = time_match.group(1).strip()
     else:
-        snapshot_time = "-"
+        time_match_tab = re.search(r"^TIME\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(\d{10,})$", raw, re.MULTILINE)
+        snapshot_time = time_match_tab.group(1).strip() if time_match_tab else "-"
 
-    try:
-        updated_at = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M:%S")
-    except Exception:
-        updated_at = "-"
+    updated_ts = int(source.get("updated_at_ts") or 0)
+    updated_at = datetime.fromtimestamp(updated_ts).strftime("%Y-%m-%d %H:%M:%S") if updated_ts > 0 else "-"
 
     client_pattern = re.compile(
         r"CLIENT_LIST,([^,\n]+),([^,\n]+),([^,\n]*),([^,\n]*),(\d+),(\d+),([^,\n]+),(\d+),([^,\n]*),([^,\n]*),([^,\n]*),([^,\n\r ]+)"
@@ -1766,6 +2176,44 @@ def _parse_status_log(profile_key, filename):
             }
         )
 
+    # OpenVPN management может вернуть status 3 в табличном формате (без запятых).
+    if not clients:
+        client_pattern_tab = re.compile(
+            r"^CLIENT_LIST\s+(\S+)\s+(\S+)\s+(\S+)\s+(?:(\S+)\s+)?(\d+)\s+(\d+)\s+"
+            r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)",
+            re.MULTILINE,
+        )
+
+        for match in client_pattern_tab.finditer(raw):
+            common_name = match.group(1).strip()
+            real_address = match.group(2).strip()
+            virtual_address = match.group(3).strip()
+            bytes_received = int(match.group(5) or 0)
+            bytes_sent = int(match.group(6) or 0)
+            connected_since = match.group(7).strip()
+            connected_since_ts = int(match.group(8) or 0)
+            cipher = match.group(12).strip()
+
+            ip_only = _extract_ip_from_openvpn_address(real_address)
+
+            clients.append(
+                {
+                    "common_name": common_name,
+                    "real_address": real_address,
+                    "real_ip": ip_only,
+                    "virtual_address": virtual_address,
+                    "bytes_received": bytes_received,
+                    "bytes_sent": bytes_sent,
+                    "total_bytes": bytes_received + bytes_sent,
+                    "bytes_received_human": _human_bytes(bytes_received),
+                    "bytes_sent_human": _human_bytes(bytes_sent),
+                    "total_bytes_human": _human_bytes(bytes_received + bytes_sent),
+                    "connected_since": connected_since,
+                    "connected_since_ts": connected_since_ts,
+                    "cipher": cipher,
+                }
+            )
+
     clients.sort(key=lambda x: x["total_bytes"], reverse=True)
 
     total_received = sum(c["bytes_received"] for c in clients)
@@ -1775,7 +2223,7 @@ def _parse_status_log(profile_key, filename):
     return {
         "profile": profile_key,
         "label": f"{meta['network']} {meta['transport']}",
-        "filename": os.path.basename(path),
+        "filename": source.get("source_name", os.path.basename(filename)),
         "exists": True,
         "snapshot_time": snapshot_time,
         "updated_at": updated_at,
@@ -1791,15 +2239,15 @@ def _parse_status_log(profile_key, filename):
 
 
 def _parse_event_log(profile_key, filename):
-    path = filename
-    raw = _read_log_file(path)
+    source = _read_event_source(profile_key, filename)
+    raw = source.get("raw", "")
     meta = _profile_meta(profile_key)
 
     if not raw:
         return {
             "profile": profile_key,
             "label": f"{meta['network']} {meta['transport']}",
-            "filename": os.path.basename(path),
+            "filename": source.get("source_name", os.path.basename(filename)),
             "exists": False,
             "updated_at": "-",
             "updated_at_ts": 0,
@@ -1810,12 +2258,8 @@ def _parse_event_log(profile_key, filename):
             "recent_lines": [],
         }
 
-    try:
-        updated_at_ts = int(os.path.getmtime(path))
-        updated_at = datetime.fromtimestamp(updated_at_ts).strftime("%Y-%m-%d %H:%M:%S")
-    except Exception:
-        updated_at_ts = 0
-        updated_at = "-"
+    updated_at_ts = int(source.get("updated_at_ts") or 0)
+    updated_at = datetime.fromtimestamp(updated_at_ts).strftime("%Y-%m-%d %H:%M:%S") if updated_at_ts > 0 else "-"
 
     line_count = len(raw.splitlines())
     event_patterns = {
@@ -1836,8 +2280,14 @@ def _parse_event_log(profile_key, filename):
     # Извлекаем сведения о клиенте: endpoint/IP, версия (IV_VER), платформа (IV_PLAT)
     endpoint_info = {}
 
-    for line_no, line in enumerate(raw.splitlines()):
-        line = line.strip()
+    for line_no, raw_line in enumerate(raw.splitlines()):
+        raw_line = raw_line.strip()
+        if not raw_line:
+            continue
+
+        # Строки management часто приходят в формате: "<ts>,<level>,<message>".
+        # Для регулярных выражений ниже используем message-часть.
+        line = re.sub(r"^\d+,[A-Z]?,", "", raw_line, count=1).strip()
         if not line:
             continue
 
@@ -1863,6 +2313,23 @@ def _parse_event_log(profile_key, filename):
         if m_peer:
             client_name = m_peer.group(1)
             endpoint = _normalize_openvpn_endpoint(m_peer.group(2))
+            endpoint_info.setdefault(
+                endpoint,
+                {
+                    "client": "-",
+                    "ip": _extract_ip_from_openvpn_address(endpoint),
+                    "version": None,
+                    "platform": None,
+                    "last_order": -1,
+                },
+            )
+            endpoint_info[endpoint]["client"] = client_name
+
+        # В management-логах встречается формат: "ip:port [Client] Peer Connection Initiated ..."
+        m_peer_alt = re.search(r"^([^\s]+:\d+)\s+\[([^\]]+)\] Peer Connection Initiated with \[AF_INET\]([^\s]+:\d+)", line)
+        if m_peer_alt:
+            endpoint = _normalize_openvpn_endpoint(m_peer_alt.group(3))
+            client_name = m_peer_alt.group(2)
             endpoint_info.setdefault(
                 endpoint,
                 {
@@ -1935,7 +2402,7 @@ def _parse_event_log(profile_key, filename):
     return {
         "profile": profile_key,
         "label": f"{meta['network']} {meta['transport']}",
-        "filename": os.path.basename(path),
+        "filename": source.get("source_name", os.path.basename(filename)),
         "exists": True,
         "updated_at": updated_at,
         "updated_at_ts": updated_at_ts,
@@ -1960,6 +2427,12 @@ def _collect_logs_dashboard_data():
         for profile_key, filename in EVENT_LOG_FILES.items()
     ]
 
+    try:
+        _persist_peer_info_cache(event_rows)
+    except Exception:
+        db.session.rollback()
+    peer_info_cache = _load_peer_info_cache_map()
+
     total_active_clients = sum(item["client_count"] for item in status_rows)
     total_received = sum(item["total_received"] for item in status_rows)
     total_sent = sum(item["total_sent"] for item in status_rows)
@@ -1976,6 +2449,7 @@ def _collect_logs_dashboard_data():
             "versions": set(),
             "platforms": set(),
             "ip_details": {},
+            "ip_profiles": {},
         }
     )
 
@@ -1992,6 +2466,7 @@ def _collect_logs_dashboard_data():
             client_aggregate[name]["profiles"].add(item["label"])
             if client.get("real_ip"):
                 client_aggregate[name]["ips"].add(client["real_ip"])
+                client_aggregate[name]["ip_profiles"].setdefault(client["real_ip"], set()).add(item["profile"])
                 if client["real_ip"] not in client_aggregate[name]["ip_details"]:
                     client_aggregate[name]["ip_details"][client["real_ip"]] = {
                         "version": None,
@@ -2033,6 +2508,29 @@ def _collect_logs_dashboard_data():
                 client_aggregate[client_name]["ip_details"][sess_ip]["version"] = sess.get("version")
                 client_aggregate[client_name]["ip_details"][sess_ip]["platform"] = sess.get("platform")
                 client_aggregate[client_name]["ip_details"][sess_ip]["rank"] = event_rank
+
+    # Для клиентов без свежего события подставляем последнее известное значение из БД.
+    for client_name, stats in client_aggregate.items():
+        for ip in sorted(stats.get("ips", set())):
+            profile_candidates = sorted(stats.get("ip_profiles", {}).get(ip, set()))
+            best_cached = None
+            for profile_key in profile_candidates:
+                cached = peer_info_cache.get((profile_key, client_name, ip))
+                if not cached:
+                    continue
+                if best_cached is None or int(cached.get("rank", -1)) > int(best_cached.get("rank", -1)):
+                    best_cached = cached
+
+            if not best_cached:
+                continue
+            details = stats["ip_details"].setdefault(
+                ip,
+                {"version": None, "platform": None, "rank": -1},
+            )
+            if not details.get("version") and best_cached.get("version"):
+                details["version"] = best_cached.get("version")
+            if not details.get("platform") and best_cached.get("platform"):
+                details["platform"] = best_cached.get("platform")
 
     connected_clients = []
     for name, stats in client_aggregate.items():
@@ -2085,16 +2583,29 @@ def _collect_logs_dashboard_data():
     for item in event_rows:
         total_event_counts.update(item.get("event_counts", {}))
 
-    required_event_log_files = sorted(EVENT_LOG_FILES.values())
-    existing_event_log_files = [
-        filename
-        for filename in required_event_log_files
-        if os.path.exists(filename)
-    ]
-    missing_event_log_files = [
-        os.path.basename(filename) for filename in required_event_log_files if filename not in existing_event_log_files
-    ]
-    openvpn_logging_enabled = len(existing_event_log_files) > 0
+    status_exists_map = {item.get("profile"): bool(item.get("exists")) for item in status_rows}
+    event_exists_map = {item.get("profile"): bool(item.get("exists")) for item in event_rows}
+
+    openvpn_logging_enabled = any(
+        status_exists_map.get(profile_key, False) or event_exists_map.get(profile_key, False)
+        for profile_key in EVENT_LOG_FILES.keys()
+    )
+
+    missing_event_log_files = []
+    if not openvpn_logging_enabled:
+        for profile_key in EVENT_LOG_FILES.keys():
+            socket_path = _openvpn_socket_path(profile_key)
+            socket_name = os.path.basename(socket_path)
+            socket_exists = os.path.exists(socket_path)
+            profile_has_data = status_exists_map.get(profile_key, False) or event_exists_map.get(profile_key, False)
+
+            if profile_has_data:
+                continue
+
+            if not socket_exists:
+                missing_event_log_files.append(f"{socket_name} (не найден)")
+            else:
+                missing_event_log_files.append(f"{socket_name} (нет ответа на status/log)")
 
     grouped_status_map = {
         "Antizapret": {
@@ -2821,7 +3332,6 @@ def server_monitor():
 @auth_manager.login_required
 def logs_dashboard():
     dashboard_data = _collect_logs_dashboard_data()
-    cleanup_schedule = _get_status_cleanup_schedule()
     cleanup_notice = request.args.get("cleanup_notice", "")
     cleanup_notice_kind = request.args.get("cleanup_notice_kind", "info")
     return render_template(
@@ -2837,7 +3347,6 @@ def logs_dashboard():
         persisted_traffic_rows=dashboard_data["persisted_traffic_rows"],
         persisted_traffic_summary=dashboard_data["persisted_traffic_summary"],
         generated_at=dashboard_data["generated_at"],
-        cleanup_schedule=cleanup_schedule,
         cleanup_notice=cleanup_notice,
         cleanup_notice_kind=cleanup_notice_kind,
     )

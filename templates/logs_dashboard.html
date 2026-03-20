@@ -17,40 +17,6 @@
     </section>
     {% endif %}
 
-    {% if current_user and current_user.is_admin() %}
-    <section class="logs-section">
-        <div class="section-title-wrap">
-            <h2>Управление обычными логами</h2>
-        </div>
-        <div class="cleanup-tools-row">
-            <form method="post" action="{{ url_for('logs_cleanup_status_now') }}" class="cleanup-form-inline">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить *.log (кроме *-status.log)
-                    сейчас</button>
-            </form>
-
-            <form method="post" action="{{ url_for('logs_cleanup_status_schedule') }}" class="cleanup-form-inline">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <label for="cleanup_period" class="cleanup-label">Расписание очистки *.log (без *-status.log):</label>
-                <select id="cleanup_period" name="cleanup_period" class="cleanup-select" {% if not
-                    cleanup_schedule.available %}disabled{% endif %}>
-                    <option value="none" {% if cleanup_schedule.period=='none' %}selected{% endif %}>Выключено</option>
-                    <option value="daily" {% if cleanup_schedule.period=='daily' %}selected{% endif %}>Каждый день
-                    </option>
-                    <option value="weekly" {% if cleanup_schedule.period=='weekly' %}selected{% endif %}>Каждую неделю
-                    </option>
-                    <option value="monthly" {% if cleanup_schedule.period=='monthly' %}selected{% endif %}>Каждый месяц
-                    </option>
-                </select>
-                <button type="submit" class="cleanup-btn" {% if not cleanup_schedule.available %}disabled{% endif
-                    %}>Сохранить</button>
-            </form>
-        </div>
-        <div class="cleanup-state">Текущее расписание: <strong>{{ cleanup_schedule.label }}</strong></div>
-    </section>
-    {% endif %}
-
-
     <section class="logs-summary-grid">
         <article class="summary-card">
             <h3>Подключенные сессии</h3>
@@ -81,9 +47,11 @@
     {% if not openvpn_logging_enabled %}
     <section class="logs-section">
         <div class="logs-alert">
-            Некоторые модули недоступны: отсутствуют файлы логирования OpenVPN.
-            <div class="logs-alert-files">Отсутствуют: {{ missing_event_log_files | join(', ') }}</div>
-            <div class="logs-alert-note">Если хотите полный функционал, необходимо включить полное логирование OpenVPN.
+            Некоторые модули недоступны: нет доступа к UNIX-сокетам OpenVPN management.
+            <div class="logs-alert-files">Отсутствуют/недоступны сокеты: {{ missing_event_log_files | join(', ') }}
+            </div>
+            <div class="logs-alert-note">Для полного функционала проверьте сокеты в /run/openvpn-server и права доступа
+                процесса веб-панели.
             </div>
         </div>
     </section>
@@ -244,6 +212,14 @@
         <p class="traffic-table-hint">
             Простая сводка: сколько интернета использовал каждый пользователь и где именно (обычный VPN или Antizapret).
         </p>
+        <div
+            class="logs-alert {% if persisted_traffic_summary.db_is_stale %}logs-alert-error{% else %}logs-alert-success{% endif %}">
+            Состояние БД трафика: {% if persisted_traffic_summary.db_is_stale %}данные устарели{% else %}данные
+            актуальны{% endif %}.
+            Последний sample: {{ persisted_traffic_summary.latest_sample_at }},
+            последний stat: {{ persisted_traffic_summary.latest_stat_seen_at }},
+            возраст: {{ persisted_traffic_summary.db_age_human }}.
+        </div>
         <div class="table-scroll">
             <table class="logs-table clients-table traffic-usage-table" id="persistedTrafficTable">
                 <thead>
