@@ -211,6 +211,7 @@
         </div>
         <p class="traffic-table-hint">
             Простая сводка: сколько интернета использовал каждый пользователь и где именно (обычный VPN или Antizapret).
+            В этой таблице показываются только клиенты с актуальными .ovpn-конфигами.
         </p>
         <div
             class="logs-alert {% if persisted_traffic_summary.db_is_stale %}logs-alert-error{% else %}logs-alert-success{% endif %}">
@@ -265,6 +266,73 @@
                     {% else %}
                     <tr>
                         <td colspan="9">Пока нет накопленных данных по трафику</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section-title-wrap" style="margin-top: 18px;">
+            <h3>Удалённые клиенты (статистика в БД)</h3>
+        </div>
+        <p class="traffic-table-hint">
+            Здесь отображаются клиенты, чьи .ovpn-конфиги уже удалены, но историческая статистика ещё осталась в БД.
+            Таких клиентов: <strong>{{ deleted_persisted_traffic_summary.users_count }}</strong>,
+            суммарный трафик: <strong>{{ deleted_persisted_traffic_summary.total_bytes_human }}</strong>.
+        </p>
+        <div class="table-scroll">
+            <table class="logs-table clients-table traffic-usage-table" id="deletedPersistedTrafficTable">
+                <thead>
+                    <tr>
+                        <th>Пользователь</th>
+                        <th>Сейчас</th>
+                        <th>За 1 день</th>
+                        <th>За 7 дней</th>
+                        <th>За 30 дней</th>
+                        <th>VPN</th>
+                        <th>Antizapret</th>
+                        <th>Всего использовано</th>
+                        <th>Последняя активность</th>
+                        {% if current_user and current_user.is_admin() %}
+                        <th>Действие</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if deleted_persisted_traffic_rows %}
+                    {% for client in deleted_persisted_traffic_rows %}
+                    <tr data-total-bytes="{{ client.total_bytes }}">
+                        <td class="traffic-user-cell">{{ client.common_name }}</td>
+                        <td>
+                            {% if client.is_active %}
+                            <span class="traffic-status-badge is-online">Онлайн</span>
+                            {% else %}
+                            <span class="traffic-status-badge is-offline">Оффлайн</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ client.traffic_1d_human }}</td>
+                        <td>{{ client.traffic_7d_human }}</td>
+                        <td>{{ client.traffic_30d_human }}</td>
+                        <td>{{ client.total_bytes_vpn_human }}</td>
+                        <td>{{ client.total_bytes_antizapret_human }}</td>
+                        <td class="traffic-total-cell">{{ client.total_bytes_human }}</td>
+                        <td>{{ client.last_seen_at }}</td>
+                        {% if current_user and current_user.is_admin() %}
+                        <td>
+                            <form method="post" action="{{ url_for('logs_delete_deleted_client_traffic') }}"
+                                onsubmit="return confirm('Удалить всю статистику для клиента {{ client.common_name }}?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <input type="hidden" name="client_name" value="{{ client.common_name }}" />
+                                <button type="submit" class="cleanup-btn cleanup-btn-danger">Удалить статистику</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="{% if current_user and current_user.is_admin() %}10{% else %}9{% endif %}">
+                            Удалённых клиентов в накопленной статистике нет</td>
                     </tr>
                     {% endif %}
                 </tbody>
@@ -474,8 +542,11 @@
         });
     }
 
-    const refreshIntervalMs = 25000;
+    const refreshIntervalMs = 60000;
     setInterval(function () {
+        if (document.visibilityState !== 'visible') {
+            return;
+        }
         window.location.reload();
     }, refreshIntervalMs);
     }) ();
@@ -485,8 +556,11 @@
 {% if not openvpn_logging_enabled %}
 <script>
     (function () {
-        const refreshIntervalMs = 25000;
+        const refreshIntervalMs = 60000;
         setInterval(function () {
+            if (document.visibilityState !== 'visible') {
+                return;
+            }
             window.location.reload();
         }, refreshIntervalMs);
     })();

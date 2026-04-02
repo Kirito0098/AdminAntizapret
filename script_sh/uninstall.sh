@@ -29,6 +29,7 @@ uninstall() {
 		fi
 
 		printf "%s\n" "${YELLOW}Остановка сервиса...${NC}"
+		crontab -l 2>/dev/null | grep -v 'adminantizapret-nightly-idle-restart' | crontab - 2>/dev/null || true
 		systemctl stop "admin-antizapret-traffic-sync.timer" 2>/dev/null || true
 		systemctl disable "admin-antizapret-traffic-sync.timer" 2>/dev/null || true
 		systemctl stop "admin-antizapret-traffic-sync.service" 2>/dev/null || true

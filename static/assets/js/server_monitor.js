@@ -405,18 +405,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
       ws.onerror = () => {
         if (!pollInterval) {
-          pollInterval = setInterval(loadSystemInfo, 5000);
+          pollInterval = setInterval(loadSystemInfo, 15000);
         }
       };
 
       ws.onclose = () => {
         if (!pollInterval) {
-          pollInterval = setInterval(loadSystemInfo, 5000);
+          pollInterval = setInterval(loadSystemInfo, 15000);
         }
       };
     } catch (e) {
       if (!pollInterval) {
-        pollInterval = setInterval(loadSystemInfo, 5000);
+        pollInterval = setInterval(loadSystemInfo, 15000);
       }
     }
   }
@@ -459,6 +459,6 @@ document.addEventListener("DOMContentLoaded", () => {
   startWebSocket();
 
   if (!pollInterval) {
-    pollInterval = setInterval(loadSystemInfo, 5000);
+    pollInterval = setInterval(loadSystemInfo, 15000);
   }
 });

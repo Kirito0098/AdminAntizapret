@@ -1,24 +1,59 @@
 #!/bin/bash
 
+append_if_exists() {
+    local -n _arr_ref=$1
+    shift
+    local path
+    for path in "$@"; do
+        [ -e "$path" ] || continue
+        _arr_ref+=("$path")
+    done
+}
+
 # Функция создания резервной копии
 create_backup() {
     local backup_dir="/var/backups/antizapret"
     local timestamp=$(date +%Y%m%d_%H%M%S)
     local backup_file="$backup_dir/full_backup_$timestamp.tar.gz"
+    local backup_meta_file="$backup_dir/full_backup_$timestamp.meta.txt"
+    local backup_items=()
 
     log "Создание резервной копии в $backup_file"
     echo "${YELLOW}Создание полной резервной копии...${NC}"
     mkdir -p "$backup_dir"
 
-    tar -czf "$backup_file" \
-        "$INSTALL_DIR" \
-        /etc/systemd/system/$SERVICE_NAME.service \
-        /etc/systemd/system/admin-antizapret-traffic-sync.service \
-        /etc/systemd/system/admin-antizapret-traffic-sync.timer \
+    # Data-only backup: только пользовательские данные приложения (БД),
+    # без инфраструктуры установки (.env, certs, nginx, systemd, cron, /root/antizapret).
+    append_if_exists backup_items \
         "$DB_FILE" \
-        /etc/ssl/certs/admin-antizapret.crt \
-        /etc/ssl/private/admin-antizapret.key \
-        /etc/letsencrypt/live/$DOMAIN 2>/dev/null 2>/dev/null 2>/dev/null
+        "$DB_FILE-wal" \
+        "$DB_FILE-shm" \
+        "$INSTALL_DIR/users.db" \
+        "$INSTALL_DIR/users.db-wal" \
+        "$INSTALL_DIR/users.db-shm" \
+        "$INSTALL_DIR/instance/site.db" \
+        "$INSTALL_DIR/instance/site.db-wal" \
+        "$INSTALL_DIR/instance/site.db-shm"
+
+    if [ "${#backup_items[@]}" -eq 0 ]; then
+        echo "${RED}Ошибка: не найдено данных для резервного копирования.${NC}"
+        return 1
+    fi
+
+    {
+        echo "backup_created_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        echo "backup_scope=data-only"
+        echo "service_name=$SERVICE_NAME"
+        echo "db_file=$DB_FILE"
+        echo "data_items_count=${#backup_items[@]}"
+    } >"$backup_meta_file"
+
+    tar -czf "$backup_file" "${backup_items[@]}" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "${RED}Ошибка: не удалось создать архив резервной копии.${NC}"
+        rm -f "$backup_file"
+        return 1
+    fi
 
     if ! tar -tzf "$backup_file" >/dev/null; then
         echo "${RED}Ошибка: резервная копия повреждена!${NC}"
@@ -44,11 +79,24 @@ restore_backup() {
     log "Восстановление из резервной копии $backup_file"
     echo "${YELLOW}Восстановление из резервной копии...${NC}"
 
-    systemctl stop $SERVICE_NAME 2>/dev/null
-    tar -xzf "$backup_file" -C /
-    systemctl daemon-reload
-    systemctl start $SERVICE_NAME
+    systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+
+    if ! tar -xzf "$backup_file" -C /; then
+        echo "${RED}Ошибка: не удалось распаковать резервную копию.${NC}"
+        return 1
+    fi
+
+    if systemctl list-unit-files | grep -q "^${SERVICE_NAME}\.service"; then
+        systemctl start "$SERVICE_NAME" 2>/dev/null || true
+        if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+            echo "${RED}Данные восстановлены, но сервис $SERVICE_NAME не запустился автоматически.${NC}"
+            echo "${YELLOW}Проверьте журнал: journalctl -u $SERVICE_NAME -n 100 --no-pager${NC}"
+            return 1
+        fi
+    else
+        echo "${YELLOW}Сервис $SERVICE_NAME не найден. Установите проект и затем повторите восстановление данных.${NC}"
+    fi
 
     log "Восстановление завершено"
-    echo "${GREEN}Восстановление завершено успешно!${NC}"
+    echo "${GREEN}Восстановление данных завершено успешно!${NC}"
 }

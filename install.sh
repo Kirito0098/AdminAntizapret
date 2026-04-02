@@ -14,6 +14,15 @@ SCRIPT_SH_DIR="$INSTALL_DIR/script_sh"
 MAIN_SCRIPT="$SCRIPT_SH_DIR/adminpanel.sh"
 BOOTSTRAP_LOG_FILE="/var/log/adminantizapret-bootstrap-$(date '+%Y%m%d-%H%M%S').log"
 BOOTSTRAP_LOG_KEEP_COUNT=30
+DEBIAN_FRONTEND=noninteractive
+
+require_command() {
+  local cmd="$1"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo -e "${RED}Ошибка: не найдена обязательная команда '$cmd'${NC}" >&2
+    exit 1
+  fi
+}
 
 log() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') - $*"
@@ -40,6 +49,10 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+for cmd in apt-get dpkg-query git systemctl tee find; do
+  require_command "$cmd"
+done
+
 # Полный лог bootstrap-установки
 prune_logs_by_pattern "/var/log/adminantizapret-bootstrap-*.log" "$BOOTSTRAP_LOG_KEEP_COUNT"
 
@@ -59,7 +72,10 @@ for package in "${packages[@]}"; do
     status=$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null)
     if [[ "$status" != *"ok installed"* ]]; then
         echo -e "${YELLOW}Установка необходимых для работы скрипта компонентов...${NC}"
-      apt-get update
+      if ! apt-get update; then
+        echo -e "${RED}Ошибка: не удалось обновить индексы пакетов (apt-get update).${NC}" >&2
+        exit 1
+      fi
         break
     fi
 done
@@ -68,7 +84,10 @@ for package in "${packages[@]}"; do
     status=$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null)
     if [[ "$status" != *"ok installed"* ]]; then
         echo "Установка $package"
-      apt-get install -y "$package"
+      if ! apt-get install -y "$package"; then
+        echo -e "${RED}Ошибка: не удалось установить пакет '$package'.${NC}" >&2
+        exit 1
+      fi
     fi
 done
 # Включение и запуск vnstat
@@ -123,4 +142,4 @@ find "$SCRIPT_SH_DIR" -type f -name "*.sh" -exec chmod +x {} \; || {
 echo -e "${GREEN}Установка завершена. Запускаем основной скрипт...${NC}"
 log "Bootstrap-этап завершен успешно"
 echo -e "${YELLOW}Подробный лог bootstrap-установки: ${BOOTSTRAP_LOG_FILE}${NC}"
-exec "$MAIN_SCRIPT"
+exec bash "$MAIN_SCRIPT"

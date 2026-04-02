@@ -42,6 +42,7 @@ from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
 import platform
+from sqlalchemy.exc import IntegrityError
 
 #Импорт файла с параметрами
 from utils.ip_restriction import ip_restriction
@@ -119,6 +120,21 @@ def _get_env_value(key, default=""):
                 if line.startswith(f"{key}="):
                     return line.split("=", 1)[1].strip()
     return os.getenv(key, default)
+
+
+def _to_bool(value, default=False):
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_valid_cron_expression(expr):
+    value = (expr or "").strip()
+    parts = value.split()
+    if len(parts) != 5:
+        return False
+    token_pattern = re.compile(r"^[0-9*/,\-]+$")
+    return all(token_pattern.fullmatch(part or "") for part in parts)
 
 OPENVPN_FOLDERS = [
     "/root/antizapret/client/openvpn/antizapret",
@@ -507,6 +523,19 @@ class OpenVPNPeerInfoCache(db.Model):
     __table_args__ = (
         db.UniqueConstraint('profile', 'client_name', 'ip', name='uq_openvpn_peer_info_profile_client_ip'),
     )
+
+
+class ActiveWebSession(db.Model):
+    """Активные веб-сессии для безопасного ночного рестарта."""
+    __tablename__ = 'active_web_session'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    username = db.Column(db.String(80), nullable=False, index=True)
+    remote_addr = db.Column(db.String(64), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 
 
 class ScriptExecutor:
@@ -1189,6 +1218,15 @@ if OPENVPN_LOG_TAIL_LINES < 0:
     OPENVPN_LOG_TAIL_LINES = 0
 
 try:
+    OPENVPN_EVENT_MAX_RESPONSE_BYTES = int(
+        _get_env_value("OPENVPN_EVENT_MAX_RESPONSE_BYTES", "1048576")
+    )
+except (TypeError, ValueError):
+    OPENVPN_EVENT_MAX_RESPONSE_BYTES = 1048576
+if OPENVPN_EVENT_MAX_RESPONSE_BYTES < 0:
+    OPENVPN_EVENT_MAX_RESPONSE_BYTES = 0
+
+try:
     OPENVPN_PEER_INFO_CACHE_TTL_SECONDS = int(_get_env_value("OPENVPN_PEER_INFO_CACHE_TTL_SECONDS", "172800"))
 except (TypeError, ValueError):
     OPENVPN_PEER_INFO_CACHE_TTL_SECONDS = 43200
@@ -1205,6 +1243,32 @@ if TRAFFIC_DB_STALE_SECONDS < 0:
 TRAFFIC_SYNC_CRON_MARKER = "# adminantizapret-traffic-sync"
 TRAFFIC_SYNC_CRON_EXPR = (_get_env_value("TRAFFIC_SYNC_CRON", "*/1 * * * *") or "*/1 * * * *").strip()
 TRAFFIC_SYNC_ENABLED = _get_env_value("TRAFFIC_SYNC_ENABLED", "true").strip().lower() == "true"
+
+NIGHTLY_IDLE_RESTART_MARKER = "# adminantizapret-nightly-idle-restart"
+NIGHTLY_IDLE_RESTART_CRON_EXPR = (
+    _get_env_value("NIGHTLY_IDLE_RESTART_CRON", "0 4 * * *") or "0 4 * * *"
+).strip()
+NIGHTLY_IDLE_RESTART_ENABLED = (
+    _get_env_value("NIGHTLY_IDLE_RESTART_ENABLED", "true").strip().lower() == "true"
+)
+
+try:
+    ACTIVE_WEB_SESSION_TTL_SECONDS = int(
+        _get_env_value("ACTIVE_WEB_SESSION_TTL_SECONDS", "180")
+    )
+except (TypeError, ValueError):
+    ACTIVE_WEB_SESSION_TTL_SECONDS = 180
+if ACTIVE_WEB_SESSION_TTL_SECONDS < 30:
+    ACTIVE_WEB_SESSION_TTL_SECONDS = 30
+
+try:
+    ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS = int(
+        _get_env_value("ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS", "30")
+    )
+except (TypeError, ValueError):
+    ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS = 30
+if ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS < 1:
+    ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS = 1
 
 STATUS_LOG_FILES = {
     "antizapret-tcp": os.path.join(LOGS_DIR, "antizapret-tcp-status.log"),
@@ -1281,6 +1345,12 @@ def _traffic_sync_command():
     return f"{python_bin} {script_path} >/dev/null 2>&1"
 
 
+def _nightly_idle_restart_command():
+    python_bin = shlex.quote(sys.executable or "python3")
+    script_path = shlex.quote(os.path.join(APP_ROOT, "utils", "nightly_idle_restart.py"))
+    return f"{python_bin} {script_path} >/dev/null 2>&1"
+
+
 def _is_systemd_traffic_sync_timer_enabled():
     try:
         result = subprocess.run(
@@ -1321,6 +1391,100 @@ def _ensure_traffic_sync_cron():
     if TRAFFIC_SYNC_ENABLED:
         return True, "Cron sync трафика включен"
     return True, "Cron sync трафика отключен"
+
+
+def _ensure_nightly_idle_restart_cron():
+    lines = _read_crontab_lines()
+    if lines is None:
+        return False, "Не удалось прочитать crontab для ночного рестарта сайта."
+
+    if NIGHTLY_IDLE_RESTART_ENABLED and not _is_valid_cron_expression(NIGHTLY_IDLE_RESTART_CRON_EXPR):
+        return False, "Некорректное cron-выражение для ночного рестарта."
+
+    lines = [line for line in lines if NIGHTLY_IDLE_RESTART_MARKER not in line]
+
+    if NIGHTLY_IDLE_RESTART_ENABLED:
+        command = _nightly_idle_restart_command()
+        lines.append(
+            f"{NIGHTLY_IDLE_RESTART_CRON_EXPR} {command} {NIGHTLY_IDLE_RESTART_MARKER}"
+        )
+
+    try:
+        _write_crontab_lines(lines)
+    except Exception as e:
+        return False, f"Ошибка записи cron ночного рестарта: {e}"
+
+    if NIGHTLY_IDLE_RESTART_ENABLED:
+        return True, "Cron ночного рестарта включен"
+    return True, "Cron ночного рестарта отключен"
+
+
+def _get_or_create_auth_session_id():
+    sid = (session.get("auth_sid") or "").strip()
+    if sid:
+        return sid
+
+    sid = secrets.token_hex(16)
+    session["auth_sid"] = sid
+    session.modified = True
+    return sid
+
+
+def _cleanup_stale_active_web_sessions(now=None):
+    now = now or datetime.utcnow()
+    cutoff = now - timedelta(seconds=max(ACTIVE_WEB_SESSION_TTL_SECONDS * 2, 300))
+    ActiveWebSession.query.filter(
+        ActiveWebSession.last_seen_at < cutoff
+    ).delete(synchronize_session=False)
+
+
+def _touch_active_web_session(username, force=False):
+    username = (username or "").strip()
+    if not username:
+        return
+
+    now = datetime.utcnow()
+    now_ts = int(time.time())
+
+    if not force and ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS > 0:
+        last_touch_ts = int(session.get("_active_session_touch_ts") or 0)
+        if last_touch_ts and (now_ts - last_touch_ts) < ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS:
+            return
+
+    sid = _get_or_create_auth_session_id()
+    remote_addr = ((request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",", 1)[0]).strip()
+    user_agent = (request.headers.get("User-Agent") or "")[:255]
+
+    row = ActiveWebSession.query.filter_by(session_id=sid).first()
+    if row is None:
+        db.session.add(
+            ActiveWebSession(
+                session_id=sid,
+                username=username,
+                remote_addr=remote_addr,
+                user_agent=user_agent,
+                created_at=now,
+                last_seen_at=now,
+            )
+        )
+    else:
+        row.username = username
+        row.remote_addr = remote_addr
+        row.user_agent = user_agent
+        row.last_seen_at = now
+
+    _cleanup_stale_active_web_sessions(now=now)
+    db.session.commit()
+    session["_active_session_touch_ts"] = now_ts
+
+
+def _remove_active_web_session():
+    sid = (session.get("auth_sid") or "").strip()
+    if not sid:
+        return
+
+    ActiveWebSession.query.filter_by(session_id=sid).delete(synchronize_session=False)
+    db.session.commit()
 
 
 def _get_status_cleanup_schedule():
@@ -1395,6 +1559,13 @@ try:
         app.logger.warning(_sync_msg)
 except Exception as e:
     app.logger.warning(f"Не удалось инициализировать cron sync трафика: {e}")
+
+try:
+    _idle_restart_ok, _idle_restart_msg = _ensure_nightly_idle_restart_cron()
+    if not _idle_restart_ok:
+        app.logger.warning(_idle_restart_msg)
+except Exception as e:
+    app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
 
 
 def _reset_persisted_traffic_data():
@@ -1487,13 +1658,35 @@ def _openvpn_socket_path(profile_key):
     return os.path.join(OPENVPN_SOCKET_DIR, f"{profile_key}.sock")
 
 
-def _query_openvpn_management_socket(socket_path, command):
+def _query_openvpn_management_socket(socket_path, command, max_response_bytes=0):
     if not socket_path or not os.path.exists(socket_path):
         return ""
 
     cmd = (command or "").strip()
     if not cmd:
         return ""
+
+    max_response_bytes = int(max_response_bytes or 0)
+    received_bytes = 0
+
+    def _append_chunk(raw_bytes, target):
+        nonlocal received_bytes
+        if not raw_bytes:
+            return False
+
+        if max_response_bytes > 0:
+            remaining = max_response_bytes - received_bytes
+            if remaining <= 0:
+                return True
+            if len(raw_bytes) > remaining:
+                raw_bytes = raw_bytes[:remaining]
+                target.append(raw_bytes.decode("utf-8", errors="ignore"))
+                received_bytes += len(raw_bytes)
+                return True
+
+        target.append(raw_bytes.decode("utf-8", errors="ignore"))
+        received_bytes += len(raw_bytes)
+        return False
 
     chunks = []
     try:
@@ -1505,7 +1698,8 @@ def _query_openvpn_management_socket(socket_path, command):
             try:
                 banner = sock_conn.recv(65536)
                 if banner:
-                    chunks.append(banner.decode("utf-8", errors="ignore"))
+                    if _append_chunk(banner, chunks):
+                        return "".join(chunks)
             except socket.timeout:
                 pass
 
@@ -1529,14 +1723,16 @@ def _query_openvpn_management_socket(socket_path, command):
                     continue
                 if not data:
                     break
-                text_chunk = data.decode("utf-8", errors="ignore")
-                chunks.append(text_chunk)
+                hit_limit = _append_chunk(data, chunks)
+                text_chunk = chunks[-1] if chunks else ""
                 got_payload = True
                 timeout_streak = 0
                 if is_status_cmd:
                     end_probe = (end_probe + text_chunk)[-256:]
                     if re.search(r"(^|\n)END(\n|$)", end_probe):
                         break
+                if hit_limit:
+                    break
 
             try:
                 sock_conn.sendall(b"quit\n")
@@ -1550,7 +1746,8 @@ def _query_openvpn_management_socket(socket_path, command):
                     tail = sock_conn.recv(65536)
                     if not tail:
                         break
-                    chunks.append(tail.decode("utf-8", errors="ignore"))
+                    if _append_chunk(tail, chunks):
+                        break
             except Exception:
                 pass
     except Exception:
@@ -1645,7 +1842,11 @@ def _read_event_source(profile_key, fallback_path):
     _ = fallback_path
     socket_path = _openvpn_socket_path(profile_key)
     log_cmd = "log all" if OPENVPN_LOG_TAIL_LINES == 0 else f"log {OPENVPN_LOG_TAIL_LINES}"
-    raw_mgmt = _query_openvpn_management_socket(socket_path, log_cmd)
+    raw_mgmt = _query_openvpn_management_socket(
+        socket_path,
+        log_cmd,
+        max_response_bytes=OPENVPN_EVENT_MAX_RESPONSE_BYTES,
+    )
     payload = _extract_event_payload_from_management(raw_mgmt)
     if payload:
         return {
@@ -1741,10 +1942,10 @@ def _persist_peer_info_cache(event_rows):
         db.session.commit()
 
 
-def _load_peer_info_cache_map():
+def _load_peer_info_cache_map(include_stale=False):
     """Возвращает map (profile, client_name, ip) -> последняя версия/платформа из БД."""
     query = OpenVPNPeerInfoCache.query
-    if OPENVPN_PEER_INFO_CACHE_TTL_SECONDS > 0:
+    if OPENVPN_PEER_INFO_CACHE_TTL_SECONDS > 0 and not include_stale:
         cutoff = datetime.utcnow() - timedelta(seconds=OPENVPN_PEER_INFO_CACHE_TTL_SECONDS)
         query = query.filter(OpenVPNPeerInfoCache.last_seen_at >= cutoff)
 
@@ -1846,6 +2047,46 @@ def _format_dt(dt_obj):
         return "-"
 
 
+def _collect_existing_openvpn_client_names():
+    """Собирает имена клиентов, для которых сейчас есть .ovpn-конфиги."""
+    names = set()
+    for base_dir in OPENVPN_FOLDERS:
+        if not os.path.exists(base_dir):
+            continue
+
+        for root, _, files in os.walk(base_dir):
+            for filename in files:
+                if not filename.lower().endswith(".ovpn"):
+                    continue
+                client_name = config_file_handler._extract_client_name_from_ovpn(filename)
+                if client_name:
+                    names.add(client_name.strip())
+
+    return names
+
+
+def _split_persisted_traffic_rows_by_config(persisted_rows):
+    existing_client_names = _collect_existing_openvpn_client_names()
+    existing_client_names_lower = {name.lower() for name in existing_client_names if name}
+
+    regular_rows = []
+    deleted_rows = []
+    for row in persisted_rows:
+        common_name = (row.get("common_name") or "").strip()
+        if common_name and common_name.lower() in existing_client_names_lower:
+            regular_rows.append(row)
+        else:
+            deleted_rows.append(row)
+
+    deleted_total_bytes = sum(int(item.get("total_bytes") or 0) for item in deleted_rows)
+    deleted_summary = {
+        "users_count": len(deleted_rows),
+        "total_bytes": deleted_total_bytes,
+        "total_bytes_human": _human_bytes(deleted_total_bytes),
+    }
+    return regular_rows, deleted_rows, deleted_summary
+
+
 def _build_session_key(profile, client):
     common_name = (client.get("common_name") or "-").strip()
     real_address = (client.get("real_address") or "-").strip()
@@ -1854,7 +2095,16 @@ def _build_session_key(profile, client):
     return f"{profile}|{common_name}|{real_address}|{virtual_address}|{connected_since_ts}"
 
 
-def _persist_traffic_snapshot(status_rows):
+def _is_retryable_snapshot_integrity_error(exc):
+    error_text = str(getattr(exc, "orig", exc) or exc).lower()
+    retryable_markers = (
+        "unique constraint failed: traffic_session_state.session_key",
+        "unique constraint failed: user_traffic_stat.common_name",
+    )
+    return any(marker in error_text for marker in retryable_markers)
+
+
+def _persist_traffic_snapshot(status_rows, _retry_on_integrity=True):
     """Сохраняет дельту трафика из текущего снимка *-status.log в БД."""
     now = datetime.utcnow()
 
@@ -1876,6 +2126,8 @@ def _persist_traffic_snapshot(status_rows):
         profile = status_row.get("profile", "unknown")
         for client in status_row.get("clients", []):
             session_key = _build_session_key(profile, client)
+            if session_key in seen_keys:
+                continue
             seen_keys.add(session_key)
 
             current_rx = int(client.get("bytes_received") or 0)
@@ -1968,7 +2220,15 @@ def _persist_traffic_snapshot(status_rows):
             session_state.is_active = False
             session_state.ended_at = now
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        db.session.rollback()
+        if _retry_on_integrity and _is_retryable_snapshot_integrity_error(exc):
+            app.logger.warning("Повтор сохранения traffic snapshot после конкурентного UNIQUE-конфликта: %s", exc)
+            _persist_traffic_snapshot(status_rows, _retry_on_integrity=False)
+            return
+        raise
 
 
 def _collect_persisted_traffic_data(active_names):
@@ -1978,27 +2238,36 @@ def _collect_persisted_traffic_data(active_names):
     day_7_since = now - timedelta(days=7)
     day_30_since = now - timedelta(days=30)
 
-    recent_samples = UserTrafficSample.query.filter(
+    delta_total_expr = UserTrafficSample.delta_received + UserTrafficSample.delta_sent
+    recent_usage_rows = db.session.query(
+        UserTrafficSample.common_name.label("common_name"),
+        db.func.sum(
+            case(
+                (UserTrafficSample.created_at >= day_1_since, delta_total_expr),
+                else_=0,
+            )
+        ).label("days_1"),
+        db.func.sum(
+            case(
+                (UserTrafficSample.created_at >= day_7_since, delta_total_expr),
+                else_=0,
+            )
+        ).label("days_7"),
+        db.func.sum(delta_total_expr).label("days_30"),
+    ).filter(
         UserTrafficSample.created_at >= day_30_since
+    ).group_by(
+        UserTrafficSample.common_name
     ).all()
 
-    recent_usage = defaultdict(
-        lambda: {"days_1": 0, "days_7": 0, "days_30": 0}
-    )
-    for sample in recent_samples:
-        sample_time = sample.created_at
-        if not sample_time:
-            continue
-        delta_total = int(sample.delta_received or 0) + int(sample.delta_sent or 0)
-        if delta_total <= 0:
-            continue
-
-        user_bucket = recent_usage[sample.common_name]
-        user_bucket["days_30"] += delta_total
-        if sample_time >= day_7_since:
-            user_bucket["days_7"] += delta_total
-        if sample_time >= day_1_since:
-            user_bucket["days_1"] += delta_total
+    recent_usage = {
+        row.common_name: {
+            "days_1": int(row.days_1 or 0),
+            "days_7": int(row.days_7 or 0),
+            "days_30": int(row.days_30 or 0),
+        }
+        for row in recent_usage_rows
+    }
 
     users_sorted = sorted(
         users,
@@ -2106,6 +2375,41 @@ def _collect_persisted_traffic_data(active_names):
         "db_is_stale": False if db_age_seconds is None else (db_age_seconds > TRAFFIC_DB_STALE_SECONDS),
     }
     return rows, summary
+
+
+def _delete_client_traffic_stats(common_name):
+    """Удаляет накопленную статистику трафика для одного клиента."""
+    target_name = (common_name or "").strip()
+    if not target_name:
+        return False, "Не указано имя клиента."
+
+    try:
+        deleted_samples = UserTrafficSample.query.filter(
+            UserTrafficSample.common_name == target_name
+        ).delete(synchronize_session=False)
+        deleted_sessions = TrafficSessionState.query.filter(
+            TrafficSessionState.common_name == target_name
+        ).delete(synchronize_session=False)
+        deleted_stats = UserTrafficStat.query.filter(
+            UserTrafficStat.common_name == target_name
+        ).delete(synchronize_session=False)
+        deleted_peer_cache = OpenVPNPeerInfoCache.query.filter(
+            OpenVPNPeerInfoCache.client_name == target_name
+        ).delete(synchronize_session=False)
+
+        db.session.commit()
+
+        deleted_total = int(deleted_samples or 0) + int(deleted_sessions or 0) + int(deleted_stats or 0)
+        if deleted_total == 0 and int(deleted_peer_cache or 0) == 0:
+            return False, f"Для клиента '{target_name}' статистика не найдена."
+
+        return True, (
+            f"Статистика клиента '{target_name}' удалена "
+            f"(stat={int(deleted_stats or 0)}, sessions={int(deleted_sessions or 0)}, samples={int(deleted_samples or 0)})."
+        )
+    except Exception as exc:
+        db.session.rollback()
+        return False, f"Ошибка удаления статистики клиента '{target_name}': {exc}"
 
 
 def _parse_status_log(profile_key, filename):
@@ -2261,7 +2565,8 @@ def _parse_event_log(profile_key, filename):
     updated_at_ts = int(source.get("updated_at_ts") or 0)
     updated_at = datetime.fromtimestamp(updated_at_ts).strftime("%Y-%m-%d %H:%M:%S") if updated_at_ts > 0 else "-"
 
-    line_count = len(raw.splitlines())
+    raw_lines = raw.splitlines()
+    line_count = len(raw_lines)
     event_patterns = {
         "peer_connection": r"Peer Connection Initiated",
         "push_request": r"PUSH_REQUEST",
@@ -2280,7 +2585,7 @@ def _parse_event_log(profile_key, filename):
     # Извлекаем сведения о клиенте: endpoint/IP, версия (IV_VER), платформа (IV_PLAT)
     endpoint_info = {}
 
-    for line_no, raw_line in enumerate(raw.splitlines()):
+    for line_no, raw_line in enumerate(raw_lines):
         raw_line = raw_line.strip()
         if not raw_line:
             continue
@@ -2396,7 +2701,7 @@ def _parse_event_log(profile_key, filename):
             }
         )
 
-    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    lines = [line.strip() for line in raw_lines if line.strip()]
     recent_lines = [line[:220] for line in lines[-8:]]
 
     return {
@@ -2432,6 +2737,28 @@ def _collect_logs_dashboard_data():
     except Exception:
         db.session.rollback()
     peer_info_cache = _load_peer_info_cache_map()
+    peer_info_cache_stale = _load_peer_info_cache_map(include_stale=True)
+    peer_info_cache_by_client_ip = {}
+    peer_info_cache_by_client = defaultdict(list)
+    for (profile_key, client_name, ip), cached in peer_info_cache.items():
+        if not client_name or not ip:
+            continue
+        key = (client_name, ip)
+        prev = peer_info_cache_by_client_ip.get(key)
+        if prev is None or int(cached.get("rank", -1)) > int(prev.get("rank", -1)):
+            peer_info_cache_by_client_ip[key] = cached
+        peer_info_cache_by_client[client_name].append(cached)
+
+    peer_info_cache_stale_by_client_ip = {}
+    peer_info_cache_stale_by_client = defaultdict(list)
+    for (profile_key, client_name, ip), cached in peer_info_cache_stale.items():
+        if not client_name or not ip:
+            continue
+        key = (client_name, ip)
+        prev = peer_info_cache_stale_by_client_ip.get(key)
+        if prev is None or int(cached.get("rank", -1)) > int(prev.get("rank", -1)):
+            peer_info_cache_stale_by_client_ip[key] = cached
+        peer_info_cache_stale_by_client[client_name].append(cached)
 
     total_active_clients = sum(item["client_count"] for item in status_rows)
     total_received = sum(item["total_received"] for item in status_rows)
@@ -2521,6 +2848,51 @@ def _collect_logs_dashboard_data():
                 if best_cached is None or int(cached.get("rank", -1)) > int(best_cached.get("rank", -1)):
                     best_cached = cached
 
+            # Если по текущему профилю не нашли, берём наиболее свежий кэш по client+ip.
+            if not best_cached:
+                best_cached = peer_info_cache_by_client_ip.get((client_name, ip))
+
+            # Если IP сменился, но у клиента метаданные консистентны, берём их по имени.
+            if not best_cached:
+                cached_candidates = peer_info_cache_by_client.get(client_name, [])
+                if cached_candidates:
+                    unique_meta = {
+                        ((item.get("version") or "").strip() or None, (item.get("platform") or "").strip() or None)
+                        for item in cached_candidates
+                        if (item.get("version") or item.get("platform"))
+                    }
+                    if len(unique_meta) == 1:
+                        best_cached = max(
+                            cached_candidates,
+                            key=lambda item: int(item.get("rank", -1)),
+                        )
+
+            # Последний fallback: используем устаревший кэш, если свежих данных нет.
+            if not best_cached:
+                for profile_key in profile_candidates:
+                    cached = peer_info_cache_stale.get((profile_key, client_name, ip))
+                    if not cached:
+                        continue
+                    if best_cached is None or int(cached.get("rank", -1)) > int(best_cached.get("rank", -1)):
+                        best_cached = cached
+
+            if not best_cached:
+                best_cached = peer_info_cache_stale_by_client_ip.get((client_name, ip))
+
+            if not best_cached:
+                cached_candidates = peer_info_cache_stale_by_client.get(client_name, [])
+                if cached_candidates:
+                    unique_meta = {
+                        ((item.get("version") or "").strip() or None, (item.get("platform") or "").strip() or None)
+                        for item in cached_candidates
+                        if (item.get("version") or item.get("platform"))
+                    }
+                    if len(unique_meta) == 1:
+                        best_cached = max(
+                            cached_candidates,
+                            key=lambda item: int(item.get("rank", -1)),
+                        )
+
             if not best_cached:
                 continue
             details = stats["ip_details"].setdefault(
@@ -2576,6 +2948,9 @@ def _collect_logs_dashboard_data():
 
     persisted_traffic_rows, persisted_traffic_summary = _collect_persisted_traffic_data(
         active_names=unique_client_names
+    )
+    persisted_traffic_rows, deleted_persisted_traffic_rows, deleted_persisted_traffic_summary = _split_persisted_traffic_rows_by_config(
+        persisted_traffic_rows
     )
 
     total_event_lines = sum(item["line_count"] for item in event_rows)
@@ -2749,7 +3124,9 @@ def _collect_logs_dashboard_data():
         },
         "connected_clients": connected_clients,
         "persisted_traffic_rows": persisted_traffic_rows,
+        "deleted_persisted_traffic_rows": deleted_persisted_traffic_rows,
         "persisted_traffic_summary": persisted_traffic_summary,
+        "deleted_persisted_traffic_summary": deleted_persisted_traffic_summary,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
@@ -2915,7 +3292,14 @@ def login():
         if user and user.check_password(password):
             session["username"] = user.username
             session["user_role"] = user.role
+            session["auth_sid"] = secrets.token_hex(16)
+            session.pop("_active_session_touch_ts", None)
             session["attempts"] = 0
+            try:
+                _touch_active_web_session(user.username, force=True)
+            except Exception as e:
+                db.session.rollback()
+                app.logger.warning(f"Не удалось обновить активную сессию при логине: {e}")
             return redirect(url_for("index"))
         flash("Неверные учетные данные. Попробуйте снова.", "error")
         return redirect(url_for("login"))
@@ -2925,8 +3309,30 @@ def login():
 # Страница выхода
 @app.route("/logout")
 def logout():
+    try:
+        _remove_active_web_session()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Не удалось удалить активную сессию при logout: {e}")
+
+    session.pop("auth_sid", None)
+    session.pop("_active_session_touch_ts", None)
     session.pop("username", None)
     return redirect(url_for("login"))
+
+
+@app.route("/api/session-heartbeat", methods=["GET"])
+@auth_manager.login_required
+def api_session_heartbeat():
+    try:
+        username = session.get("username")
+        if username:
+            _touch_active_web_session(username, force=True)
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Ошибка heartbeat активной сессии: {e}")
+        return jsonify({"success": False}), 500
 
 
 # Роут обновления капчи
@@ -3345,7 +3751,9 @@ def logs_dashboard():
         summary=dashboard_data["summary"],
         connected_clients=dashboard_data["connected_clients"],
         persisted_traffic_rows=dashboard_data["persisted_traffic_rows"],
+        deleted_persisted_traffic_rows=dashboard_data["deleted_persisted_traffic_rows"],
         persisted_traffic_summary=dashboard_data["persisted_traffic_summary"],
+        deleted_persisted_traffic_summary=dashboard_data["deleted_persisted_traffic_summary"],
         generated_at=dashboard_data["generated_at"],
         cleanup_notice=cleanup_notice,
         cleanup_notice_kind=cleanup_notice_kind,
@@ -3395,9 +3803,47 @@ def logs_reset_persisted_traffic():
     )
 
 
+@app.route("/logs_dashboard/delete_deleted_client_traffic", methods=["POST"])
+@auth_manager.admin_required
+def logs_delete_deleted_client_traffic():
+    client_name = (request.form.get("client_name") or "").strip()
+    if not client_name:
+        return redirect(
+            url_for(
+                "logs_dashboard",
+                cleanup_notice="Не указано имя клиента для удаления статистики.",
+                cleanup_notice_kind="error",
+            )
+        )
+
+    existing_clients = {name.lower() for name in _collect_existing_openvpn_client_names() if name}
+    if client_name.lower() in existing_clients:
+        return redirect(
+            url_for(
+                "logs_dashboard",
+                cleanup_notice=f"У клиента '{client_name}' есть актуальный конфиг. Удаление статистики отменено.",
+                cleanup_notice_kind="error",
+            )
+        )
+
+    ok, message = _delete_client_traffic_stats(client_name)
+    return redirect(
+        url_for(
+            "logs_dashboard",
+            cleanup_notice=message,
+            cleanup_notice_kind="success" if ok else "error",
+        )
+    )
+
+
 @app.route("/settings", methods=["GET", "POST"])
 @auth_manager.admin_required
 def settings():
+    global NIGHTLY_IDLE_RESTART_ENABLED
+    global NIGHTLY_IDLE_RESTART_CRON_EXPR
+    global ACTIVE_WEB_SESSION_TTL_SECONDS
+    global ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS
+
     if request.method == "POST":
         new_port = request.form.get("port")
         if new_port and new_port.isdigit():
@@ -3454,6 +3900,61 @@ def settings():
                 flash("PIN для QR-ссылок обновлен", "success")
             else:
                 flash("PIN должен содержать только цифры и иметь длину от 4 до 12", "error")
+
+        if request.form.get("nightly_settings_action") == "save":
+            nightly_enabled_raw = (request.form.get("nightly_idle_restart_enabled") or "true").strip().lower()
+            nightly_enabled = _to_bool(nightly_enabled_raw, default=True)
+
+            cron_expr = (request.form.get("nightly_idle_restart_cron") or "").strip()
+            if not cron_expr:
+                cron_expr = "0 4 * * *"
+
+            ttl_raw = (request.form.get("active_web_session_ttl_seconds") or "").strip()
+            touch_raw = (request.form.get("active_web_session_touch_interval_seconds") or "").strip()
+
+            has_error = False
+            if not _is_valid_cron_expression(cron_expr):
+                flash("Cron-выражение должно состоять из 5 полей и содержать только цифры и символы */,-", "error")
+                has_error = True
+
+            ttl_value = ACTIVE_WEB_SESSION_TTL_SECONDS
+            if ttl_raw:
+                if ttl_raw.isdigit() and 30 <= int(ttl_raw) <= 86400:
+                    ttl_value = int(ttl_raw)
+                else:
+                    flash("TTL активной сессии должен быть целым числом в диапазоне 30..86400 секунд", "error")
+                    has_error = True
+
+            touch_value = ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS
+            if touch_raw:
+                if touch_raw.isdigit() and 1 <= int(touch_raw) <= 3600:
+                    touch_value = int(touch_raw)
+                else:
+                    flash("Интервал heartbeat должен быть целым числом в диапазоне 1..3600 секунд", "error")
+                    has_error = True
+
+            if not has_error:
+                NIGHTLY_IDLE_RESTART_ENABLED = nightly_enabled
+                NIGHTLY_IDLE_RESTART_CRON_EXPR = cron_expr
+                ACTIVE_WEB_SESSION_TTL_SECONDS = ttl_value
+                ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS = touch_value
+
+                env_enabled = "true" if nightly_enabled else "false"
+                _set_env_value("NIGHTLY_IDLE_RESTART_ENABLED", env_enabled)
+                _set_env_value("NIGHTLY_IDLE_RESTART_CRON", cron_expr)
+                _set_env_value("ACTIVE_WEB_SESSION_TTL_SECONDS", str(ttl_value))
+                _set_env_value("ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS", str(touch_value))
+
+                os.environ["NIGHTLY_IDLE_RESTART_ENABLED"] = env_enabled
+                os.environ["NIGHTLY_IDLE_RESTART_CRON"] = cron_expr
+                os.environ["ACTIVE_WEB_SESSION_TTL_SECONDS"] = str(ttl_value)
+                os.environ["ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS"] = str(touch_value)
+
+                cron_ok, cron_msg = _ensure_nightly_idle_restart_cron()
+                if cron_ok:
+                    flash("Настройки ночного рестарта сохранены", "success")
+                else:
+                    flash(cron_msg, "error")
 
         # --- Добавить пользователя ---
         username = request.form.get("username")
@@ -3624,6 +4125,13 @@ def settings():
     qr_download_token_ttl_seconds = _get_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600")
     qr_download_token_max_downloads = _get_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", "1")
     qr_download_pin_set = bool((_get_env_value("QR_DOWNLOAD_PIN", "") or "").strip())
+    nightly_idle_restart_enabled = NIGHTLY_IDLE_RESTART_ENABLED
+    nightly_idle_restart_cron = NIGHTLY_IDLE_RESTART_CRON_EXPR
+    active_web_session_ttl_seconds = ACTIVE_WEB_SESSION_TTL_SECONDS
+    active_web_session_touch_interval_seconds = ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS
+    active_web_sessions_count = ActiveWebSession.query.filter(
+        ActiveWebSession.last_seen_at >= datetime.utcnow() - timedelta(seconds=ACTIVE_WEB_SESSION_TTL_SECONDS)
+    ).count()
     qr_download_audit_logs = QrDownloadAuditLog.query.order_by(QrDownloadAuditLog.created_at.desc()).limit(100).all()
     users = User.query.all()
     viewer_users = User.query.filter_by(role='viewer').all()
@@ -3675,6 +4183,11 @@ def settings():
         qr_download_token_ttl_seconds=qr_download_token_ttl_seconds,
         qr_download_token_max_downloads=qr_download_token_max_downloads,
         qr_download_pin_set=qr_download_pin_set,
+        nightly_idle_restart_enabled=nightly_idle_restart_enabled,
+        nightly_idle_restart_cron=nightly_idle_restart_cron,
+        active_web_session_ttl_seconds=active_web_session_ttl_seconds,
+        active_web_session_touch_interval_seconds=active_web_session_touch_interval_seconds,
+        active_web_sessions_count=active_web_sessions_count,
         qr_download_audit_logs=qr_download_audit_logs,
     )
 
@@ -4075,6 +4588,22 @@ def check_ip_access():
 
         # Для всех остальных запросов перенаправляем на страницу блокировки
         return redirect(url_for("ip_blocked"))
+
+
+@app.before_request
+def track_active_web_session():
+    if request.endpoint == "static":
+        return
+
+    username = (session.get("username") or "").strip()
+    if not username:
+        return
+
+    try:
+        _touch_active_web_session(username, force=False)
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning(f"Не удалось обновить активную сессию: {e}")
 
 
 @app.route("/ip-blocked")
