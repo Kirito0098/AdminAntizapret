@@ -40,6 +40,49 @@
   margin-bottom: 1rem;
 }
 
+.logs-tabs-shell {
+  padding: 0.7rem;
+}
+
+.logs-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.logs-tab-btn {
+  border: 1px solid rgba(121, 184, 163, 0.45);
+  background: rgba(14, 36, 30, 0.75);
+  color: #d8fff2;
+  border-radius: 9px;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.logs-tab-btn:hover {
+  background: rgba(19, 58, 48, 0.85);
+}
+
+.logs-tab-btn.is-active {
+  background: rgba(41, 128, 98, 0.88);
+  border-color: rgba(126, 220, 184, 0.7);
+  color: #f1fff9;
+}
+
+.logs-tab-content {
+  margin-top: 0.35rem;
+}
+
+.logs-tab-pane {
+  display: none;
+}
+
+.logs-tab-pane.is-active {
+  display: block;
+}
+
 .section-title-wrap {
   display: flex;
   justify-content: space-between;
@@ -688,15 +731,23 @@
   .cleanup-label,
   .cleanup-select,
   .cleanup-btn,
-  .charts-toggle-btn {
+  .charts-toggle-btn,
+  .logs-tab-btn {
     width: 100%;
   }
 
   .cleanup-btn,
-  .charts-toggle-btn {
+  .charts-toggle-btn,
+  .logs-tab-btn {
     min-height: 36px;
     padding: 0.45rem 0.7rem;
     font-size: 0.8rem;
+  }
+
+  .logs-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
   }
 
   .cleanup-state,
