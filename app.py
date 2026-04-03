@@ -513,6 +513,7 @@ class UserTrafficSample(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     common_name = db.Column(db.String(255), nullable=False, index=True)
     network_type = db.Column(db.String(20), nullable=False, index=True)  # vpn | antizapret
+    protocol_type = db.Column(db.String(20), nullable=False, default='openvpn', index=True)  # openvpn | wireguard
     delta_received = db.Column(db.BigInteger, nullable=False, default=0)
     delta_sent = db.Column(db.BigInteger, nullable=False, default=0)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
@@ -554,6 +555,22 @@ class OpenVPNPeerInfoHistory(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint('profile', 'client_name', 'ip', 'event_rank', name='uq_openvpn_peer_info_history_event'),
+    )
+
+
+class WireGuardPeerCache(db.Model):
+    """Кэш соответствия WireGuard peer public key -> имя клиента (из /etc/wireguard/*.conf)."""
+    __tablename__ = 'wireguard_peer_cache'
+
+    id = db.Column(db.Integer, primary_key=True)
+    interface_name = db.Column(db.String(32), nullable=False, index=True)
+    peer_public_key = db.Column(db.String(128), nullable=False, index=True)
+    client_name = db.Column(db.String(255), nullable=False, index=True)
+    allowed_ips = db.Column(db.String(255), nullable=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('interface_name', 'peer_public_key', name='uq_wireguard_peer_iface_key'),
     )
 
 
@@ -1323,6 +1340,11 @@ def _run_checked_command(args, cwd=None, timeout=120):
 
 def _task_run_doall():
     stdout, stderr = _run_checked_command(["/root/antizapret/doall.sh"], timeout=900)
+    try:
+        _sync_wireguard_peer_cache_from_configs(force=True)
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning("Не удалось синхронизировать wireguard_peer_cache после doall: %s", e)
     combined = "\n".join(part for part in [stdout, stderr] if part).strip()
     return {
         "message": "Скрипт doall выполнен успешно",
@@ -1607,6 +1629,17 @@ def _run_db_migrations():
                             conn.execute(text(alter_sql))
                     conn.commit()
 
+            if insp.has_table('user_traffic_sample'):
+                sample_cols = {c['name'] for c in insp.get_columns('user_traffic_sample')}
+                sample_missing = {
+                    'protocol_type': "ALTER TABLE user_traffic_sample ADD COLUMN protocol_type VARCHAR(20) NOT NULL DEFAULT 'openvpn'",
+                }
+                with db.engine.connect() as conn:
+                    for col_name, alter_sql in sample_missing.items():
+                        if col_name not in sample_cols:
+                            conn.execute(text(alter_sql))
+                    conn.commit()
+
             if insp.has_table('qr_download_token'):
                 qr_cols = {c['name'] for c in insp.get_columns('qr_download_token')}
                 qr_missing = {
@@ -1729,6 +1762,31 @@ EVENT_LOG_FILES = {
     "vpn-tcp": os.path.join(LOGS_DIR, "vpn-tcp.log"),
     "vpn-udp": os.path.join(LOGS_DIR, "vpn-udp.log"),
 }
+
+WIREGUARD_CONFIG_FILES = {
+    "antizapret": "/etc/wireguard/antizapret.conf",
+    "vpn": "/etc/wireguard/vpn.conf",
+}
+
+try:
+    WIREGUARD_ACTIVE_HANDSHAKE_SECONDS = int(
+        _get_env_value("WIREGUARD_ACTIVE_HANDSHAKE_SECONDS", "180")
+    )
+except (TypeError, ValueError):
+    WIREGUARD_ACTIVE_HANDSHAKE_SECONDS = 180
+if WIREGUARD_ACTIVE_HANDSHAKE_SECONDS < 0:
+    WIREGUARD_ACTIVE_HANDSHAKE_SECONDS = 0
+
+try:
+    WIREGUARD_PEER_CACHE_SYNC_MIN_INTERVAL_SECONDS = int(
+        _get_env_value("WIREGUARD_PEER_CACHE_SYNC_MIN_INTERVAL_SECONDS", "300")
+    )
+except (TypeError, ValueError):
+    WIREGUARD_PEER_CACHE_SYNC_MIN_INTERVAL_SECONDS = 300
+if WIREGUARD_PEER_CACHE_SYNC_MIN_INTERVAL_SECONDS < 0:
+    WIREGUARD_PEER_CACHE_SYNC_MIN_INTERVAL_SECONDS = 0
+
+_wireguard_peer_cache_last_sync_ts = 0
 
 STATUS_LOG_CLEANUP_MARKER = "# adminantizapret-status-cleanup"
 STATUS_LOG_CLEANUP_PERIODS = {
@@ -2021,10 +2079,7 @@ def _reset_persisted_traffic_data():
         TrafficSessionState.query.delete()
         UserTrafficStat.query.delete()
 
-        status_rows = [
-            _parse_status_log(profile_key, filename)
-            for profile_key, filename in STATUS_LOG_FILES.items()
-        ]
+        status_rows = _collect_status_rows_for_snapshot()
 
         now = datetime.utcnow()
         seeded_sessions = 0
@@ -2033,7 +2088,7 @@ def _reset_persisted_traffic_data():
 
         for status_row in status_rows:
             profile = status_row.get("profile", "unknown")
-            for client in status_row.get("clients", []):
+            for client in status_row.get("traffic_clients", status_row.get("clients", [])):
                 common_name = (client.get("common_name") or "-").strip()
                 if not common_name or common_name == "-":
                     continue
@@ -2088,6 +2143,97 @@ def _reset_persisted_traffic_data():
     except Exception as e:
         db.session.rollback()
         return False, f"Ошибка сброса статистики трафика: {e}"
+
+
+def _rebase_wireguard_session_baseline():
+    """Перебазирует baseline активных WG-сессий без сброса накопленной статистики."""
+    try:
+        status_rows = _collect_status_rows_for_snapshot()
+        wg_rows = [
+            row for row in status_rows
+            if str(row.get("profile") or "").endswith("-wg")
+        ]
+
+        now = datetime.utcnow()
+        sessions_by_key = {
+            row.session_key: row
+            for row in TrafficSessionState.query.filter(
+                TrafficSessionState.profile.like("%-wg")
+            ).all()
+        }
+        previously_active_keys = {
+            key for key, row in sessions_by_key.items()
+            if bool(row.is_active)
+        }
+
+        seen_keys = set()
+        inserted = 0
+        updated = 0
+        deactivated = 0
+
+        for status_row in wg_rows:
+            profile = status_row.get("profile", "unknown")
+            for client in status_row.get("traffic_clients", status_row.get("clients", [])):
+                common_name = (client.get("common_name") or "-").strip()
+                if not common_name or common_name == "-":
+                    continue
+
+                session_key = _build_session_key(profile, client)
+                if session_key in seen_keys:
+                    continue
+                seen_keys.add(session_key)
+
+                current_rx = int(client.get("bytes_received") or 0)
+                current_tx = int(client.get("bytes_sent") or 0)
+
+                session_state = sessions_by_key.get(session_key)
+                if session_state is None:
+                    session_state = TrafficSessionState(
+                        session_key=session_key,
+                        profile=profile,
+                        common_name=common_name,
+                        real_address=(client.get("real_address") or "").strip() or None,
+                        virtual_address=(client.get("virtual_address") or "").strip() or None,
+                        connected_since_ts=int(client.get("connected_since_ts") or 0),
+                        last_bytes_received=current_rx,
+                        last_bytes_sent=current_tx,
+                        is_active=True,
+                        last_seen_at=now,
+                        ended_at=None,
+                    )
+                    db.session.add(session_state)
+                    sessions_by_key[session_key] = session_state
+                    inserted += 1
+                else:
+                    session_state.profile = profile
+                    session_state.common_name = common_name
+                    session_state.real_address = (client.get("real_address") or "").strip() or None
+                    session_state.virtual_address = (client.get("virtual_address") or "").strip() or None
+                    session_state.connected_since_ts = int(client.get("connected_since_ts") or 0)
+                    session_state.last_bytes_received = current_rx
+                    session_state.last_bytes_sent = current_tx
+                    session_state.is_active = True
+                    session_state.last_seen_at = now
+                    session_state.ended_at = None
+                    updated += 1
+
+        for session_key, session_state in sessions_by_key.items():
+            if session_key in seen_keys or session_key not in previously_active_keys:
+                continue
+            if session_state.is_active:
+                session_state.is_active = False
+                session_state.ended_at = now
+                deactivated += 1
+
+        db.session.commit()
+        return True, (
+            "WG baseline обновлен: "
+            f"active={len(seen_keys)}, inserted={inserted}, updated={updated}, deactivated={deactivated}. "
+            "Накопленная статистика (БД) не сбрасывалась."
+        )
+    except Exception as e:
+        db.session.rollback()
+        return False, f"Ошибка перебазирования WG baseline: {e}"
 
 
 def _read_log_file(path):
@@ -2539,9 +2685,11 @@ def _extract_ip_from_openvpn_address(address):
 def _profile_meta(profile_key):
     is_antizapret = profile_key.startswith("antizapret")
     is_tcp = "-tcp" in profile_key
+    is_wireguard = profile_key.endswith("-wg")
     return {
         "network": "Antizapret" if is_antizapret else "VPN",
         "transport": "TCP" if is_tcp else "UDP",
+        "protocol": "WireGuard" if is_wireguard else "OpenVPN",
     }
 
 
@@ -2554,9 +2702,19 @@ def _format_dt(dt_obj):
         return "-"
 
 
-def _collect_existing_openvpn_client_names():
-    """Собирает имена клиентов, для которых сейчас есть .ovpn-конфиги."""
+def _extract_client_name_from_config_file(file_path):
+    filename = os.path.basename(file_path or "")
+    stem = filename.rsplit('.', 1)[0]
+    raw_name = re.sub(r"^(?:antizapret-|vpn-)", "", stem, flags=re.IGNORECASE)
+    raw_name = re.sub(r"-(?:udp|tcp|wg|am)$", "", raw_name, flags=re.IGNORECASE)
+    raw_name = re.sub(r"-\([^)]+\)$", "", raw_name)
+    return (raw_name or "").strip()
+
+
+def _collect_existing_config_client_names():
+    """Собирает имена клиентов, для которых сейчас есть OpenVPN/WG/AmneziaWG-конфиги."""
     names = set()
+
     for base_dir in OPENVPN_FOLDERS:
         if not os.path.exists(base_dir):
             continue
@@ -2565,15 +2723,57 @@ def _collect_existing_openvpn_client_names():
             for filename in files:
                 if not filename.lower().endswith(".ovpn"):
                     continue
-                client_name = config_file_handler._extract_client_name_from_ovpn(filename)
+                client_name = _extract_client_name_from_config_file(filename)
                 if client_name:
                     names.add(client_name.strip())
+
+    for config_type in ("wg", "amneziawg"):
+        for base_dir in CONFIG_PATHS.get(config_type, []):
+            if not os.path.exists(base_dir):
+                continue
+            for root, _, files in os.walk(base_dir):
+                for filename in files:
+                    if not filename.lower().endswith(".conf"):
+                        continue
+                    client_name = _extract_client_name_from_config_file(filename)
+                    if client_name:
+                        names.add(client_name.strip())
 
     return names
 
 
+def _collect_config_protocols_by_client():
+    """Возвращает map client_name(lower) -> set(protocol labels from existing config files)."""
+    protocols_by_client = defaultdict(set)
+
+    for base_dir in OPENVPN_FOLDERS:
+        if not os.path.exists(base_dir):
+            continue
+        for root, _, files in os.walk(base_dir):
+            for filename in files:
+                if not filename.lower().endswith(".ovpn"):
+                    continue
+                client_name = _extract_client_name_from_config_file(filename)
+                if client_name:
+                    protocols_by_client[client_name.strip().lower()].add("OpenVPN")
+
+    for config_type in ("wg", "amneziawg"):
+        for base_dir in CONFIG_PATHS.get(config_type, []):
+            if not os.path.exists(base_dir):
+                continue
+            for root, _, files in os.walk(base_dir):
+                for filename in files:
+                    if not filename.lower().endswith(".conf"):
+                        continue
+                    client_name = _extract_client_name_from_config_file(filename)
+                    if client_name:
+                        protocols_by_client[client_name.strip().lower()].add("WireGuard")
+
+    return protocols_by_client
+
+
 def _split_persisted_traffic_rows_by_config(persisted_rows):
-    existing_client_names = _collect_existing_openvpn_client_names()
+    existing_client_names = _collect_existing_config_client_names()
     existing_client_names_lower = {name.lower() for name in existing_client_names if name}
 
     regular_rows = []
@@ -2595,6 +2795,14 @@ def _split_persisted_traffic_rows_by_config(persisted_rows):
 
 
 def _build_session_key(profile, client):
+    session_kind = (client.get("session_kind") or "").strip().lower()
+    if session_kind == "wireguard" or str(profile or "").endswith("-wg"):
+        common_name = (client.get("common_name") or "-").strip()
+        peer_public_key = (client.get("peer_public_key") or "-").strip()
+        virtual_address = (client.get("virtual_address") or "-").strip()
+        # Для WG ключ сессии должен быть стабильным между handshake, иначе дельта удваивается.
+        return f"{profile}|wg|{common_name}|{peer_public_key}|{virtual_address}"
+
     common_name = (client.get("common_name") or "-").strip()
     real_address = (client.get("real_address") or "-").strip()
     virtual_address = (client.get("virtual_address") or "-").strip()
@@ -2631,7 +2839,7 @@ def _persist_traffic_snapshot(status_rows, _retry_on_integrity=True):
 
     for status_row in status_rows:
         profile = status_row.get("profile", "unknown")
-        for client in status_row.get("clients", []):
+        for client in status_row.get("traffic_clients", status_row.get("clients", [])):
             session_key = _build_session_key(profile, client)
             if session_key in seen_keys:
                 continue
@@ -2641,6 +2849,7 @@ def _persist_traffic_snapshot(status_rows, _retry_on_integrity=True):
             current_tx = int(client.get("bytes_sent") or 0)
             common_name = (client.get("common_name") or "-").strip()
             is_antizapret_profile = str(profile).startswith("antizapret")
+            is_wireguard_profile = str(profile).endswith("-wg")
 
             session_state = sessions_by_key.get(session_key)
             is_new_session = session_state is None
@@ -2661,8 +2870,14 @@ def _persist_traffic_snapshot(status_rows, _retry_on_integrity=True):
                 )
                 db.session.add(session_state)
                 sessions_by_key[session_key] = session_state
-                delta_rx = max(current_rx, 0)
-                delta_tx = max(current_tx, 0)
+                if is_wireguard_profile:
+                    # Для нового WG-ключа считаем текущие байты baseline, чтобы не учитывать
+                    # накопленные счетчики интерфейса как новый трафик клиента.
+                    delta_rx = 0
+                    delta_tx = 0
+                else:
+                    delta_rx = max(current_rx, 0)
+                    delta_tx = max(current_tx, 0)
             else:
                 delta_rx = current_rx - int(session_state.last_bytes_received or 0)
                 delta_tx = current_tx - int(session_state.last_bytes_sent or 0)
@@ -2704,6 +2919,7 @@ def _persist_traffic_snapshot(status_rows, _retry_on_integrity=True):
                     UserTrafficSample(
                         common_name=common_name,
                         network_type="antizapret" if is_antizapret_profile else "vpn",
+                        protocol_type="wireguard" if is_wireguard_profile else "openvpn",
                         delta_received=max(delta_rx, 0),
                         delta_sent=max(delta_tx, 0),
                         created_at=now,
@@ -2922,6 +3138,430 @@ def _delete_client_traffic_stats(common_name):
         return False, f"Ошибка удаления статистики клиента '{target_name}': {exc}"
 
 
+def _normalize_wireguard_allowed_ip(token):
+    value = (token or "").strip()
+    if not value or value.lower() == "(none)":
+        return ""
+    return value.split("/", 1)[0].strip()
+
+
+def _split_wireguard_allowed_ips(value):
+    out = []
+    for token in (value or "").split(","):
+        ip = _normalize_wireguard_allowed_ip(token)
+        if ip:
+            out.append(ip)
+    return out
+
+
+def _extract_ip_from_wireguard_endpoint(endpoint):
+    endpoint_value = (endpoint or "").strip()
+    if not endpoint_value or endpoint_value == "(none)":
+        return ""
+
+    if endpoint_value.startswith("["):
+        m_v6 = re.match(r"^\[([^\]]+)\](?::\d+)?$", endpoint_value)
+        if m_v6:
+            return m_v6.group(1)
+
+    if ":" in endpoint_value:
+        host_part, maybe_port = endpoint_value.rsplit(":", 1)
+        if maybe_port.isdigit():
+            return host_part
+
+    return endpoint_value
+
+
+def _parse_wireguard_config_peer_rows(config_path, interface_name):
+    rows = []
+    try:
+        with open(config_path, "r", encoding="utf-8", errors="ignore") as f:
+            raw_lines = f.readlines()
+    except FileNotFoundError:
+        return []
+    except Exception:
+        return []
+
+    pending_client_name = ""
+    current_peer = None
+
+    def _flush_peer(peer_state):
+        if not peer_state:
+            return
+
+        peer_key = (peer_state.get("peer_public_key") or "").strip()
+        client_name = (peer_state.get("client_name") or "").strip()
+        if not peer_key or not client_name:
+            return
+
+        rows.append(
+            {
+                "interface_name": interface_name,
+                "peer_public_key": peer_key,
+                "client_name": client_name,
+                "allowed_ips": (peer_state.get("allowed_ips") or "").strip() or None,
+            }
+        )
+
+    for raw_line in raw_lines:
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        m_client = re.match(r"^#\s*Client\s*=\s*(.+)$", line, flags=re.IGNORECASE)
+        if m_client:
+            pending_client_name = (m_client.group(1) or "").strip()
+            continue
+
+        if re.match(r"^\[Peer\]$", line, flags=re.IGNORECASE):
+            _flush_peer(current_peer)
+            current_peer = {
+                "client_name": pending_client_name,
+                "peer_public_key": "",
+                "allowed_ips": "",
+            }
+            pending_client_name = ""
+            continue
+
+        if line.startswith("[") and line.endswith("]"):
+            _flush_peer(current_peer)
+            current_peer = None
+            continue
+
+        if current_peer is None:
+            continue
+
+        m_pub = re.match(r"^PublicKey\s*=\s*(.+)$", line, flags=re.IGNORECASE)
+        if m_pub:
+            current_peer["peer_public_key"] = (m_pub.group(1) or "").strip()
+            continue
+
+        m_allowed = re.match(r"^AllowedIPs\s*=\s*(.+)$", line, flags=re.IGNORECASE)
+        if m_allowed:
+            current_peer["allowed_ips"] = (m_allowed.group(1) or "").strip()
+
+    _flush_peer(current_peer)
+    return rows
+
+
+def _sync_wireguard_peer_cache_from_configs(force=False):
+    global _wireguard_peer_cache_last_sync_ts
+
+    now_ts = int(time.time())
+    if (
+        not force
+        and WIREGUARD_PEER_CACHE_SYNC_MIN_INTERVAL_SECONDS > 0
+        and (now_ts - int(_wireguard_peer_cache_last_sync_ts or 0)) < WIREGUARD_PEER_CACHE_SYNC_MIN_INTERVAL_SECONDS
+    ):
+        return 0
+
+    parsed_rows = []
+    for interface_name, config_path in WIREGUARD_CONFIG_FILES.items():
+        parsed_rows.extend(_parse_wireguard_config_peer_rows(config_path, interface_name))
+
+    by_key = {}
+    for row in parsed_rows:
+        key = ((row.get("interface_name") or "").strip(), (row.get("peer_public_key") or "").strip())
+        if not key[0] or not key[1]:
+            continue
+        by_key[key] = row
+
+    existing_rows = WireGuardPeerCache.query.all()
+    existing_by_key = {
+        ((row.interface_name or "").strip(), (row.peer_public_key or "").strip()): row
+        for row in existing_rows
+    }
+
+    changed = False
+    for key, parsed in by_key.items():
+        existing = existing_by_key.pop(key, None)
+        parsed_name = (parsed.get("client_name") or "").strip()
+        parsed_allowed = (parsed.get("allowed_ips") or "").strip() or None
+
+        if existing is None:
+            db.session.add(
+                WireGuardPeerCache(
+                    interface_name=key[0],
+                    peer_public_key=key[1],
+                    client_name=parsed_name,
+                    allowed_ips=parsed_allowed,
+                )
+            )
+            changed = True
+            continue
+
+        if (existing.client_name or "").strip() != parsed_name:
+            existing.client_name = parsed_name
+            changed = True
+        if ((existing.allowed_ips or "").strip() or None) != parsed_allowed:
+            existing.allowed_ips = parsed_allowed
+            changed = True
+
+    for stale_row in existing_by_key.values():
+        db.session.delete(stale_row)
+        changed = True
+
+    if changed:
+        db.session.commit()
+
+    _wireguard_peer_cache_last_sync_ts = now_ts
+    return len(by_key)
+
+
+def _load_wireguard_peer_cache_maps():
+    by_public_key = {}
+    by_allowed_ip = {}
+
+    for row in WireGuardPeerCache.query.all():
+        interface_name = (row.interface_name or "").strip()
+        peer_public_key = (row.peer_public_key or "").strip()
+        client_name = (row.client_name or "").strip()
+        if not interface_name or not client_name:
+            continue
+
+        if peer_public_key:
+            by_public_key[(interface_name, peer_public_key)] = client_name
+
+        for ip in _split_wireguard_allowed_ips(row.allowed_ips):
+            by_allowed_ip[(interface_name, ip)] = client_name
+
+    return by_public_key, by_allowed_ip
+
+
+def _is_wireguard_peer_active(latest_handshake_ts):
+    handshake_ts = int(latest_handshake_ts or 0)
+    if handshake_ts <= 0:
+        return False
+    if WIREGUARD_ACTIVE_HANDSHAKE_SECONDS <= 0:
+        return True
+    return max(int(time.time()) - handshake_ts, 0) <= WIREGUARD_ACTIVE_HANDSHAKE_SECONDS
+
+
+def _collect_wireguard_status_rows():
+    status_rows = {
+        "antizapret": {
+            "profile": "antizapret-wg",
+            "label": "Antizapret WG",
+            "protocol": "WireGuard",
+            "filename": "wg:antizapret",
+            "exists": False,
+            "snapshot_time": "-",
+            "updated_at": "-",
+            "clients": [],
+            "traffic_clients": [],
+        },
+        "vpn": {
+            "profile": "vpn-wg",
+            "label": "VPN WG",
+            "protocol": "WireGuard",
+            "filename": "wg:vpn",
+            "exists": False,
+            "snapshot_time": "-",
+            "updated_at": "-",
+            "clients": [],
+            "traffic_clients": [],
+        },
+    }
+
+    try:
+        result = subprocess.run(
+            ["wg", "show", "all", "dump"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=3,
+        )
+    except Exception:
+        result = None
+
+    if result is None or result.returncode != 0:
+        out_rows = []
+        for interface_name in ("antizapret", "vpn"):
+            row = status_rows[interface_name]
+            row.update(
+                {
+                    "client_count": 0,
+                    "unique_real_ips": 0,
+                    "total_received": 0,
+                    "total_sent": 0,
+                    "total_received_human": _human_bytes(0),
+                    "total_sent_human": _human_bytes(0),
+                    "total_traffic_human": _human_bytes(0),
+                }
+            )
+            out_rows.append(row)
+        return out_rows
+
+    now_dt = datetime.utcnow()
+    snapshot_time = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    parsed_peers = []
+    for raw_line in (result.stdout or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        parts = line.split("\t")
+        if len(parts) == 5:
+            interface_name = (parts[0] or "").strip()
+            if interface_name in status_rows:
+                status_rows[interface_name]["exists"] = True
+                status_rows[interface_name]["snapshot_time"] = snapshot_time
+                status_rows[interface_name]["updated_at"] = snapshot_time
+            continue
+
+        if len(parts) < 8:
+            continue
+
+        interface_name = (parts[0] or "").strip()
+        if interface_name not in status_rows:
+            continue
+
+        status_rows[interface_name]["exists"] = True
+        status_rows[interface_name]["snapshot_time"] = snapshot_time
+        status_rows[interface_name]["updated_at"] = snapshot_time
+
+        latest_handshake_ts = 0
+        bytes_received = 0
+        bytes_sent = 0
+        try:
+            latest_handshake_ts = int(parts[5] or 0)
+        except (TypeError, ValueError):
+            latest_handshake_ts = 0
+        try:
+            bytes_received = int(parts[6] or 0)
+        except (TypeError, ValueError):
+            bytes_received = 0
+        try:
+            bytes_sent = int(parts[7] or 0)
+        except (TypeError, ValueError):
+            bytes_sent = 0
+
+        parsed_peers.append(
+            {
+                "interface": interface_name,
+                "peer_public_key": (parts[1] or "").strip(),
+                "endpoint": (parts[3] or "").strip(),
+                "allowed_ips": (parts[4] or "").strip(),
+                "latest_handshake_ts": latest_handshake_ts,
+                "bytes_received": max(bytes_received, 0),
+                "bytes_sent": max(bytes_sent, 0),
+            }
+        )
+
+    by_public_key, by_allowed_ip = _load_wireguard_peer_cache_maps()
+    missing_mapping = False
+    for peer in parsed_peers:
+        iface = peer.get("interface")
+        key = (iface, (peer.get("peer_public_key") or "").strip())
+        allowed_candidates = _split_wireguard_allowed_ips(peer.get("allowed_ips") or "")
+        fallback_ip = allowed_candidates[0] if allowed_candidates else ""
+        if key in by_public_key:
+            continue
+        if fallback_ip and (iface, fallback_ip) in by_allowed_ip:
+            continue
+        missing_mapping = True
+        break
+
+    if missing_mapping:
+        try:
+            _sync_wireguard_peer_cache_from_configs(force=False)
+            by_public_key, by_allowed_ip = _load_wireguard_peer_cache_maps()
+        except Exception as exc:
+            db.session.rollback()
+            app.logger.warning("Не удалось обновить wireguard_peer_cache из конфигов: %s", exc)
+
+    for peer in parsed_peers:
+        interface_name = peer.get("interface")
+        row = status_rows[interface_name]
+
+        allowed_ips = _split_wireguard_allowed_ips(peer.get("allowed_ips") or "")
+        preferred_allowed_ip = allowed_ips[0] if allowed_ips else ""
+        peer_public_key = (peer.get("peer_public_key") or "").strip()
+
+        common_name = by_public_key.get((interface_name, peer_public_key))
+        if not common_name and preferred_allowed_ip:
+            common_name = by_allowed_ip.get((interface_name, preferred_allowed_ip))
+        if not common_name:
+            if preferred_allowed_ip:
+                common_name = f"{interface_name}-{preferred_allowed_ip}"
+            elif peer_public_key:
+                common_name = f"{interface_name}-{peer_public_key[:10]}"
+            else:
+                common_name = f"{interface_name}-peer"
+
+        endpoint = (peer.get("endpoint") or "").strip()
+        real_ip = _extract_ip_from_wireguard_endpoint(endpoint)
+        latest_handshake_ts = int(peer.get("latest_handshake_ts") or 0)
+        connected_since = "-"
+        if latest_handshake_ts > 0:
+            try:
+                connected_since = datetime.fromtimestamp(latest_handshake_ts).strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                connected_since = "-"
+
+        client_payload = {
+            "common_name": common_name,
+            "real_address": endpoint if endpoint and endpoint != "(none)" else "-",
+            "real_ip": real_ip,
+            "virtual_address": preferred_allowed_ip or "-",
+            "peer_public_key": peer_public_key,
+            "session_kind": "wireguard",
+            "bytes_received": int(peer.get("bytes_received") or 0),
+            "bytes_sent": int(peer.get("bytes_sent") or 0),
+            "total_bytes": int(peer.get("bytes_received") or 0) + int(peer.get("bytes_sent") or 0),
+            "bytes_received_human": _human_bytes(peer.get("bytes_received") or 0),
+            "bytes_sent_human": _human_bytes(peer.get("bytes_sent") or 0),
+            "total_bytes_human": _human_bytes((peer.get("bytes_received") or 0) + (peer.get("bytes_sent") or 0)),
+            "connected_since": connected_since,
+            "connected_since_ts": latest_handshake_ts,
+            "cipher": "WireGuard",
+        }
+
+        row["traffic_clients"].append(client_payload)
+        if _is_wireguard_peer_active(latest_handshake_ts):
+            row["clients"].append(client_payload)
+
+    out_rows = []
+    for interface_name in ("antizapret", "vpn"):
+        row = status_rows[interface_name]
+        row["clients"].sort(key=lambda item: int(item.get("total_bytes") or 0), reverse=True)
+
+        total_received = sum(int(item.get("bytes_received") or 0) for item in row["clients"])
+        total_sent = sum(int(item.get("bytes_sent") or 0) for item in row["clients"])
+        unique_real_ips = len(
+            {
+                (item.get("real_ip") or "").strip()
+                for item in row["clients"]
+                if (item.get("real_ip") or "").strip()
+            }
+        )
+
+        row.update(
+            {
+                "client_count": len(row["clients"]),
+                "unique_real_ips": unique_real_ips,
+                "total_received": total_received,
+                "total_sent": total_sent,
+                "total_received_human": _human_bytes(total_received),
+                "total_sent_human": _human_bytes(total_sent),
+                "total_traffic_human": _human_bytes(total_received + total_sent),
+            }
+        )
+        out_rows.append(row)
+
+    return out_rows
+
+
+def _collect_status_rows_for_snapshot():
+    rows = [
+        _parse_status_log(profile_key, filename)
+        for profile_key, filename in STATUS_LOG_FILES.items()
+    ]
+    rows.extend(_collect_wireguard_status_rows())
+    return rows
+
+
 def _parse_status_log(profile_key, filename):
     source = _read_status_source(profile_key, filename)
     raw = source.get("raw", "")
@@ -2931,6 +3571,7 @@ def _parse_status_log(profile_key, filename):
         return {
             "profile": profile_key,
             "label": f"{meta['network']} {meta['transport']}",
+            "protocol": meta["protocol"],
             "filename": source.get("source_name", os.path.basename(filename)),
             "exists": False,
             "snapshot_time": "-",
@@ -2978,6 +3619,7 @@ def _parse_status_log(profile_key, filename):
                 "real_address": real_address,
                 "real_ip": ip_only,
                 "virtual_address": virtual_address,
+                "session_kind": "openvpn",
                 "bytes_received": bytes_received,
                 "bytes_sent": bytes_sent,
                 "total_bytes": bytes_received + bytes_sent,
@@ -3016,6 +3658,7 @@ def _parse_status_log(profile_key, filename):
                     "real_address": real_address,
                     "real_ip": ip_only,
                     "virtual_address": virtual_address,
+                    "session_kind": "openvpn",
                     "bytes_received": bytes_received,
                     "bytes_sent": bytes_sent,
                     "total_bytes": bytes_received + bytes_sent,
@@ -3037,6 +3680,7 @@ def _parse_status_log(profile_key, filename):
     return {
         "profile": profile_key,
         "label": f"{meta['network']} {meta['transport']}",
+        "protocol": meta["protocol"],
         "filename": source.get("source_name", os.path.basename(filename)),
         "exists": True,
         "snapshot_time": snapshot_time,
@@ -3246,10 +3890,7 @@ def _parse_event_log(profile_key, filename):
 
 
 def _collect_logs_dashboard_data():
-    status_rows = [
-        _parse_status_log(profile_key, filename)
-        for profile_key, filename in STATUS_LOG_FILES.items()
-    ]
+    status_rows = _collect_status_rows_for_snapshot()
 
     _persist_traffic_snapshot(status_rows)
 
@@ -3305,6 +3946,16 @@ def _collect_logs_dashboard_data():
     total_active_clients = sum(item["client_count"] for item in status_rows)
     total_received = sum(item["total_received"] for item in status_rows)
     total_sent = sum(item["total_sent"] for item in status_rows)
+    total_openvpn_sessions = sum(
+        int(item.get("client_count") or 0)
+        for item in status_rows
+        if ((item.get("protocol") or "OpenVPN").strip() or "OpenVPN") == "OpenVPN"
+    )
+    total_wireguard_sessions = sum(
+        int(item.get("client_count") or 0)
+        for item in status_rows
+        if ((item.get("protocol") or "OpenVPN").strip() or "OpenVPN") == "WireGuard"
+    )
 
     unique_client_names = set()
     unique_ips = set()
@@ -3314,6 +3965,7 @@ def _collect_logs_dashboard_data():
             "bytes_sent": 0,
             "sessions": 0,
             "profiles": set(),
+            "protocols": set(),
             "ips": set(),
             "versions": set(),
             "platforms": set(),
@@ -3334,6 +3986,7 @@ def _collect_logs_dashboard_data():
             client_aggregate[name]["bytes_sent"] += client["bytes_sent"]
             client_aggregate[name]["sessions"] += 1
             client_aggregate[name]["profiles"].add(item["label"])
+            client_aggregate[name]["protocols"].add((item.get("protocol") or "OpenVPN").strip() or "OpenVPN")
             if client.get("real_ip"):
                 client_aggregate[name]["ips"].add(client["real_ip"])
                 client_aggregate[name]["ip_profiles"].setdefault(client["real_ip"], set()).add(item["profile"])
@@ -3345,6 +3998,7 @@ def _collect_logs_dashboard_data():
                         "connected_since_ts": int(client.get("connected_since_ts") or 0),
                         "profile_key": (item.get("profile") or "").strip(),
                         "profile_label": (item.get("label") or "-").strip() or "-",
+                        "protocol": (item.get("protocol") or "OpenVPN").strip() or "OpenVPN",
                     }
                 )
                 if client["real_ip"] not in client_aggregate[name]["ip_details"]:
@@ -3500,11 +4154,17 @@ def _collect_logs_dashboard_data():
                 if not ip:
                     continue
                 details = stats["ip_details"].get(ip, {"version": None, "platform": None})
-                platform_str = _human_device_type(details.get("platform")) if details.get("platform") else "Не определено"
-                version_str = details.get("version") or "Не определено"
                 real_address = (conn.get("real_address") or "").strip() or ip
                 profile_key = (conn.get("profile_key") or "").strip()
                 profile_label = (conn.get("profile_label") or "-").strip() or "-"
+                protocol_label = (conn.get("protocol") or "OpenVPN").strip() or "OpenVPN"
+                is_openvpn_protocol = protocol_label == "OpenVPN"
+                if is_openvpn_protocol:
+                    platform_str = _human_device_type(details.get("platform")) if details.get("platform") else "Не определено"
+                    version_str = details.get("version") or "Не определено"
+                else:
+                    platform_str = None
+                    version_str = None
                 is_stale_candidate = False
 
                 if profile_key:
@@ -3517,9 +4177,9 @@ def _collect_logs_dashboard_data():
                         if real_address != latest_addr or current_ts < latest_ts:
                             is_stale_candidate = True
 
-                if version_str != "Не определено":
+                if is_openvpn_protocol and version_str != "Не определено":
                     client_versions_set.add(version_str)
-                if platform_str != "Не определено":
+                if is_openvpn_protocol and platform_str != "Не определено":
                     client_platforms_set.add(platform_str)
 
                 ip_device_map.append(
@@ -3528,20 +4188,27 @@ def _collect_logs_dashboard_data():
                         "real_address": real_address,
                         "show_real_address": real_address != ip,
                         "profile_label": profile_label,
+                        "protocol": protocol_label,
                         "platform": platform_str,
                         "version": version_str,
+                        "show_client_meta": is_openvpn_protocol,
                         "stale_candidate": is_stale_candidate,
                     }
                 )
         else:
+            has_openvpn_protocol = "OpenVPN" in (stats.get("protocols") or set())
             for ip in sorted(stats["ips"]):
                 details = stats["ip_details"].get(ip, {"version": None, "platform": None})
-                platform_str = _human_device_type(details.get("platform")) if details.get("platform") else "Не определено"
-                version_str = details.get("version") or "Не определено"
+                if has_openvpn_protocol:
+                    platform_str = _human_device_type(details.get("platform")) if details.get("platform") else "Не определено"
+                    version_str = details.get("version") or "Не определено"
+                else:
+                    platform_str = None
+                    version_str = None
 
-                if version_str != "Не определено":
+                if has_openvpn_protocol and version_str != "Не определено":
                     client_versions_set.add(version_str)
-                if platform_str != "Не определено":
+                if has_openvpn_protocol and platform_str != "Не определено":
                     client_platforms_set.add(platform_str)
 
                 ip_device_map.append({
@@ -3549,10 +4216,15 @@ def _collect_logs_dashboard_data():
                     "real_address": ip,
                     "show_real_address": False,
                     "profile_label": "-",
+                    "protocol": ", ".join(sorted(stats.get("protocols") or [])) if stats.get("protocols") else "-",
                     "platform": platform_str,
                     "version": version_str,
+                    "show_client_meta": has_openvpn_protocol,
                     "stale_candidate": False,
                 })
+
+        protocols_sorted = sorted(stats.get("protocols") or [])
+        is_wireguard_only = bool(protocols_sorted) and all(proto == "WireGuard" for proto in protocols_sorted)
 
         connected_clients.append(
             {
@@ -3565,9 +4237,14 @@ def _collect_logs_dashboard_data():
                 "total_bytes_human": _human_bytes(total_bytes),
                 "sessions": stats["sessions"],
                 "profiles": ", ".join(sorted(stats["profiles"])),
+                "protocols": ", ".join(sorted(stats["protocols"])) if stats.get("protocols") else "-",
                 "ips": ", ".join(sorted(stats["ips"])) if stats["ips"] else "-",
                 "client_versions": ", ".join(sorted(client_versions_set)) if client_versions_set else "-",
-                "device_types": ", ".join(sorted(client_platforms_set)) if client_platforms_set else "Не определено",
+                "device_types": (
+                    ", ".join(sorted(client_platforms_set))
+                    if client_platforms_set
+                    else ("WireGuard (без данных устройства)" if is_wireguard_only else "Не определено")
+                ),
                 "ip_device_map": ip_device_map,
             }
         )
@@ -3581,6 +4258,18 @@ def _collect_logs_dashboard_data():
         persisted_traffic_rows
     )
 
+    config_protocols_map = _collect_config_protocols_by_client()
+
+    for row in persisted_traffic_rows:
+        common_name = (row.get("common_name") or "").strip().lower()
+        row_protocols = sorted(config_protocols_map.get(common_name, set()))
+        row["protocols"] = ", ".join(row_protocols) if row_protocols else "-"
+
+    for row in deleted_persisted_traffic_rows:
+        common_name = (row.get("common_name") or "").strip().lower()
+        row_protocols = sorted(config_protocols_map.get(common_name, set()))
+        row["protocols"] = ", ".join(row_protocols) if row_protocols else "-"
+
     total_event_lines = sum(item["line_count"] for item in event_rows)
     total_event_counts = Counter()
     for item in event_rows:
@@ -3589,10 +4278,9 @@ def _collect_logs_dashboard_data():
     status_exists_map = {item.get("profile"): bool(item.get("exists")) for item in status_rows}
     event_exists_map = {item.get("profile"): bool(item.get("exists")) for item in event_rows}
 
-    openvpn_logging_enabled = any(
-        status_exists_map.get(profile_key, False) or event_exists_map.get(profile_key, False)
-        for profile_key in EVENT_LOG_FILES.keys()
-    )
+    status_data_available = any(bool(item.get("exists")) for item in status_rows)
+    event_data_available = any(bool(item.get("exists")) for item in event_rows)
+    openvpn_logging_enabled = status_data_available or event_data_available
 
     missing_event_log_files = []
     if not openvpn_logging_enabled:
@@ -3621,6 +4309,7 @@ def _collect_logs_dashboard_data():
             "total_sent": 0,
             "real_ips": set(),
             "transport_clients": {"TCP": 0, "UDP": 0},
+            "protocol_clients": Counter(),
         },
         "VPN": {
             "network": "VPN",
@@ -3632,6 +4321,7 @@ def _collect_logs_dashboard_data():
             "total_sent": 0,
             "real_ips": set(),
             "transport_clients": {"TCP": 0, "UDP": 0},
+            "protocol_clients": Counter(),
         },
     }
 
@@ -3651,6 +4341,8 @@ def _collect_logs_dashboard_data():
         group["total_received"] += row.get("total_received", 0)
         group["total_sent"] += row.get("total_sent", 0)
         group["transport_clients"][transport] += row.get("client_count", 0)
+        protocol = ((row.get("protocol") or "OpenVPN").strip() or "OpenVPN")
+        group["protocol_clients"][protocol] += row.get("client_count", 0)
 
         for client in row.get("clients", []):
             if client.get("real_ip"):
@@ -3660,6 +4352,10 @@ def _collect_logs_dashboard_data():
     for network in ("Antizapret", "VPN"):
         group = grouped_status_map[network]
         total_traffic = group["total_received"] + group["total_sent"]
+        protocol_split = (
+            f"OpenVPN: {int(group['protocol_clients'].get('OpenVPN', 0))}, "
+            f"WireGuard: {int(group['protocol_clients'].get('WireGuard', 0))}"
+        )
         grouped_status_rows.append(
             {
                 "network": network,
@@ -3668,6 +4364,7 @@ def _collect_logs_dashboard_data():
                 "updated_at": max(group["updated_values"]) if group["updated_values"] else "-",
                 "client_count": group["client_count"],
                 "unique_real_ips": len(group["real_ips"]),
+                "protocol_split": protocol_split,
                 "transport_split": f"TCP: {group['transport_clients']['TCP']}, UDP: {group['transport_clients']['UDP']}",
                 "total_received": group["total_received"],
                 "total_sent": group["total_sent"],
@@ -3747,6 +4444,8 @@ def _collect_logs_dashboard_data():
             "total_received_human": _human_bytes(total_received),
             "total_sent_human": _human_bytes(total_sent),
             "total_traffic_human": _human_bytes(total_received + total_sent),
+            "total_openvpn_sessions": total_openvpn_sessions,
+            "total_wireguard_sessions": total_wireguard_sessions,
             "total_event_lines": total_event_lines,
             "total_event_counts": dict(total_event_counts),
         },
@@ -3764,18 +4463,6 @@ def _collect_logs_dashboard_data():
 @auth_manager.login_required
 def index():
     if request.method == "GET":
-        def _extract_client_name_from_config_file(file_path):
-            filename = os.path.basename(file_path or "")
-            stem = filename.rsplit('.', 1)[0]
-            stem_lc = stem.lower()
-            if stem_lc.startswith('antizapret-'):
-                raw_name = stem[11:]
-            elif stem_lc.startswith('vpn-'):
-                raw_name = stem[4:]
-            else:
-                raw_name = stem
-            return (raw_name.split('-(')[0] or '').strip()
-
         _idx_user = User.query.filter_by(username=session["username"]).first()
         group = session.get("openvpn_group", "GROUP_UDP\\TCP")
         if group not in GROUP_FOLDERS:
@@ -3889,6 +4576,18 @@ def index():
             stdout, stderr = script_executor.run_bash_script(
                 option, client_name, cert_expire
             )
+
+            if option in {"4", "5", "7"}:
+                try:
+                    _sync_wireguard_peer_cache_from_configs(force=True)
+                except Exception as e:
+                    db.session.rollback()
+                    app.logger.warning(
+                        "Не удалось синхронизировать wireguard_peer_cache после client.sh option=%s: %s",
+                        option,
+                        e,
+                    )
+
             return jsonify(
                 {
                     "success": True,
@@ -4469,6 +5168,19 @@ def logs_reset_persisted_traffic():
     )
 
 
+@app.route("/logs_dashboard/rebase_wireguard_baseline", methods=["POST"])
+@auth_manager.admin_required
+def logs_rebase_wireguard_baseline():
+    ok, message = _rebase_wireguard_session_baseline()
+    return redirect(
+        url_for(
+            "logs_dashboard",
+            cleanup_notice=message,
+            cleanup_notice_kind="success" if ok else "error",
+        )
+    )
+
+
 @app.route("/logs_dashboard/delete_deleted_client_traffic", methods=["POST"])
 @auth_manager.admin_required
 def logs_delete_deleted_client_traffic():
@@ -4482,7 +5194,7 @@ def logs_delete_deleted_client_traffic():
             )
         )
 
-    existing_clients = {name.lower() for name in _collect_existing_openvpn_client_names() if name}
+    existing_clients = {name.lower() for name in _collect_existing_config_client_names() if name}
     if client_name.lower() in existing_clients:
         return redirect(
             url_for(
@@ -5014,12 +5726,21 @@ def api_bw():
 def api_user_traffic_chart():
     client = (request.args.get("client") or "").strip()
     range_key = (request.args.get("range") or "7d").strip().lower()
+    protocol_filter = (request.args.get("protocol") or "all").strip().lower()
 
     if not client:
         return jsonify({"error": "Параметр client обязателен"}), 400
 
     if range_key not in ("1h", "24h", "7d", "30d", "all"):
         range_key = "7d"
+    if protocol_filter not in ("all", "openvpn", "wireguard"):
+        protocol_filter = "all"
+
+    # Legacy fix: historical rows created before protocol split may have protocol_type='openvpn' by default.
+    # If client currently has only WG/AWG configs, treat such rows as WireGuard for chart accuracy.
+    client_protocols_map = _collect_config_protocols_by_client()
+    client_protocols = set(client_protocols_map.get(client.lower(), set()))
+    is_wireguard_only_client = bool(client_protocols) and "WireGuard" in client_protocols and "OpenVPN" not in client_protocols
 
     now = datetime.utcnow()
     since_dt = None
@@ -5046,7 +5767,7 @@ def api_user_traffic_chart():
 
     samples = query.order_by(UserTrafficSample.created_at.asc()).all()
 
-    grouped = defaultdict(lambda: {"vpn": 0, "antizapret": 0})
+    grouped = defaultdict(lambda: {"vpn": 0, "antizapret": 0, "openvpn": 0, "wireguard": 0})
 
     for item in samples:
         dt = item.created_at
@@ -5069,31 +5790,51 @@ def api_user_traffic_chart():
 
         total_delta = int(item.delta_received or 0) + int(item.delta_sent or 0)
         net = "antizapret" if item.network_type == "antizapret" else "vpn"
+        protocol = (item.protocol_type or "openvpn").strip().lower()
+        if protocol not in ("openvpn", "wireguard"):
+            protocol = "openvpn"
+        if is_wireguard_only_client and protocol == "openvpn":
+            protocol = "wireguard"
+
+        if protocol_filter != "all" and protocol != protocol_filter:
+            continue
 
         grouped[bucket_key]["label"] = label
         grouped[bucket_key][net] += total_delta
+        grouped[bucket_key][protocol] += total_delta
 
     ordered_keys = sorted(grouped.keys())
     labels = [grouped[key].get("label", key) for key in ordered_keys]
     vpn_bytes = [int(grouped[key].get("vpn", 0)) for key in ordered_keys]
     antizapret_bytes = [int(grouped[key].get("antizapret", 0)) for key in ordered_keys]
+    openvpn_bytes = [int(grouped[key].get("openvpn", 0)) for key in ordered_keys]
+    wireguard_bytes = [int(grouped[key].get("wireguard", 0)) for key in ordered_keys]
 
     total_vpn = sum(vpn_bytes)
     total_antizapret = sum(antizapret_bytes)
+    total_openvpn = sum(openvpn_bytes)
+    total_wireguard = sum(wireguard_bytes)
 
     return jsonify(
         {
             "client": client,
             "range": range_key,
             "bucket": bucket,
+            "protocol_filter": protocol_filter,
             "labels": labels,
             "vpn_bytes": vpn_bytes,
             "antizapret_bytes": antizapret_bytes,
+            "openvpn_bytes": openvpn_bytes,
+            "wireguard_bytes": wireguard_bytes,
             "total_vpn": total_vpn,
             "total_antizapret": total_antizapret,
+            "total_openvpn": total_openvpn,
+            "total_wireguard": total_wireguard,
             "total": total_vpn + total_antizapret,
             "total_vpn_human": _human_bytes(total_vpn),
             "total_antizapret_human": _human_bytes(total_antizapret),
+            "total_openvpn_human": _human_bytes(total_openvpn),
+            "total_wireguard_human": _human_bytes(total_wireguard),
             "total_human": _human_bytes(total_vpn + total_antizapret),
         }
     )

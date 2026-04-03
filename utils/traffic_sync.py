@@ -12,15 +12,12 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from app import app, STATUS_LOG_FILES, _parse_status_log, _persist_traffic_snapshot
+from app import app, _collect_status_rows_for_snapshot, _persist_traffic_snapshot
 
 
 def run_sync() -> int:
     with app.app_context():
-        status_rows = [
-            _parse_status_log(profile_key, filename)
-            for profile_key, filename in STATUS_LOG_FILES.items()
-        ]
+        status_rows = _collect_status_rows_for_snapshot()
         _persist_traffic_snapshot(status_rows)
     return 0
 

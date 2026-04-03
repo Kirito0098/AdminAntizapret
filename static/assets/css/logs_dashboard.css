@@ -6,7 +6,7 @@
 
 .logs-summary-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.8rem;
   margin-bottom: 1.4rem;
 }
@@ -249,7 +249,7 @@
 
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 0.9rem;
 }
 
@@ -415,11 +415,14 @@
 
 .status-table th:nth-child(2),
 .status-table td:nth-child(2) {
-  min-width: 140px;
+  min-width: 170px;
 }
 
 .status-table th:nth-child(3),
-.status-table td:nth-child(3),
+.status-table td:nth-child(3) {
+  min-width: 140px;
+}
+
 .status-table th:nth-child(4),
 .status-table td:nth-child(4) {
   min-width: 70px;
@@ -432,7 +435,9 @@
 .status-table th:nth-child(7),
 .status-table td:nth-child(7),
 .status-table th:nth-child(8),
-.status-table td:nth-child(8) {
+.status-table td:nth-child(8),
+.status-table th:nth-child(9),
+.status-table td:nth-child(9) {
   min-width: 120px;
   white-space: nowrap;
 }
@@ -581,6 +586,42 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.protocol-badges-line {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+  flex-wrap: wrap;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.protocol-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(171, 219, 202, 0.45);
+  padding: 0.1rem 0.48rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #effff8;
+  background: rgba(80, 120, 105, 0.28);
+}
+
+.protocol-badge--ovpn {
+  background: rgba(50, 95, 165, 0.36);
+  border-color: rgba(108, 168, 255, 0.68);
+  color: #deedff;
+}
+
+.protocol-badge--wg {
+  background: rgba(26, 123, 72, 0.34);
+  border-color: rgba(103, 223, 160, 0.64);
+  color: #d9ffe9;
 }
 
 .client-card-stats {

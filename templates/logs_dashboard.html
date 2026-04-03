@@ -47,6 +47,14 @@
             <p class="summary-value">{{ summary.unique_ips }}</p>
         </article>
         <article class="summary-card">
+            <h3>OpenVPN Сессии</h3>
+            <p class="summary-value">{{ summary.total_openvpn_sessions }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>WireGuard Сессии</h3>
+            <p class="summary-value">{{ summary.total_wireguard_sessions }}</p>
+        </article>
+        <article class="summary-card">
             <h3>Текущий Rx (сессии)</h3>
             <p class="summary-value">{{ summary.total_received_human }}</p>
         </article>
@@ -74,13 +82,12 @@
             {% if not openvpn_logging_enabled %}
             <section class="logs-section">
                 <div class="logs-alert">
-                    Некоторые модули недоступны: нет доступа к UNIX-сокетам OpenVPN management.
+                    Данные подключений временно недоступны.
                     <div class="logs-alert-files">Отсутствуют/недоступны сокеты: {{ missing_event_log_files | join(', ')
                         }}
                     </div>
-                    <div class="logs-alert-note">Для полного функционала проверьте сокеты в /run/openvpn-server и права
-                        доступа
-                        процесса веб-панели.
+                    <div class="logs-alert-note">Проверьте доступ к OpenVPN management в /run/openvpn-server и
+                        доступность команды wg.
                     </div>
                 </div>
             </section>
@@ -107,6 +114,13 @@
                             <canvas id="devicesChart"></canvas>
                         </div>
                     </article>
+
+                    <article class="chart-card">
+                        <h3>Сессии по протоколам</h3>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="protocolsChart"></canvas>
+                        </div>
+                    </article>
                 </div>
             </section>
             {% endif %}
@@ -120,7 +134,8 @@
                         <thead>
                             <tr>
                                 <th>Сеть</th>
-                                <th>Разбивка сессий</th>
+                                <th>Разбивка (протоколы)</th>
+                                <th>Разбивка (транспорт)</th>
                                 <th>Клиентов</th>
                                 <th>Уник. IP</th>
                                 <th>Входящий трафик (Rx)</th>
@@ -133,6 +148,7 @@
                             {% for row in grouped_status_rows %}
                             <tr>
                                 <td>{{ row.network }}</td>
+                                <td>{{ row.protocol_split }}</td>
                                 <td>{{ row.transport_split }}</td>
                                 <td>{{ row.client_count }}</td>
                                 <td>{{ row.unique_real_ips }}</td>
@@ -172,6 +188,15 @@
                     <input type="checkbox" id="hideStaleSessionsToggle" />
                     Скрыть неактивные/возможно зависшие сессии
                 </label>
+                <label class="traffic-table-hint" style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                    Протокол:
+                    <select id="clientsProtocolFilter" class="traffic-client-select"
+                        style="max-width:220px;min-width:180px;">
+                        <option value="all">Все</option>
+                        <option value="openvpn">Только OpenVPN</option>
+                        <option value="wireguard">Только WireGuard</option>
+                    </select>
+                </label>
                 <p class="traffic-table-hint" style="margin-top:4px;opacity:0.9;">
                     Как определяется "возможно зависшая": если у одного пользователя есть несколько сессий
                     с одним и тем же IP в одном профиле, более старая сессия помечается как "возможно зависшая",
@@ -181,6 +206,7 @@
                 <div class="client-cards-list" id="clientCardsList">
                     {% for client in connected_clients %}
                     <article class="client-card" data-client-card data-client-name="{{ client.common_name }}"
+                        data-client-protocols="{{ (client.protocols or '-') | lower }}"
                         data-client-sessions="{{ client.sessions }}" data-client-profiles="{{ client.profiles }}"
                         data-client-rx="{{ client.bytes_received_human }}"
                         data-client-tx="{{ client.bytes_sent_human }}"
@@ -191,6 +217,22 @@
                                 <div class="client-card-name">{{ client.common_name }}</div>
                                 <div class="client-card-subline">Сессий: {{ client.sessions }} | Профили: {{
                                     client.profiles }}</div>
+                                <div class="client-card-subline protocol-badges-line">
+                                    <span class="ip-device-key">Протоколы:</span>
+                                    {% set protocol_items = (client.protocols or '').split(',') %}
+                                    {% set protocol_ns = namespace(has_items=false) %}
+                                    {% for protocol_raw in protocol_items %}
+                                    {% set protocol_name = protocol_raw.strip() %}
+                                    {% if protocol_name %}
+                                    {% set protocol_ns.has_items = true %}
+                                    <span
+                                        class="protocol-badge {% if protocol_name == 'OpenVPN' %}protocol-badge--ovpn{% elif protocol_name == 'WireGuard' %}protocol-badge--wg{% endif %}">
+                                        {{ protocol_name }}
+                                    </span>
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% if not protocol_ns.has_items %}-{% endif %}
+                                </div>
                             </div>
                             <div class="client-card-stats" aria-hidden="true">
                                 <div class="client-stat-pill">
@@ -219,6 +261,13 @@
                                 {% for item in client.ip_device_map %}
                                 <div class="ip-device-item"
                                     data-stale-candidate="{% if item.stale_candidate %}1{% else %}0{% endif %}">
+                                    <div>
+                                        <span class="ip-device-key">Протокол:</span>
+                                        <span
+                                            class="protocol-badge {% if item.protocol == 'OpenVPN' %}protocol-badge--ovpn{% elif item.protocol == 'WireGuard' %}protocol-badge--wg{% endif %}">
+                                            {{ item.protocol or '-' }}
+                                        </span>
+                                    </div>
                                     <div><span class="ip-device-key">IP:</span> {{ item.ip }}</div>
                                     <div><span class="ip-device-key">Профиль:</span> {{ item.profile_label or '-' }}
                                     </div>
@@ -229,10 +278,12 @@
                                     <div><span class="ip-device-key">Статус:</span> возможно зависшая (есть более
                                         новая сессия с тем же IP и профилем)</div>
                                     {% endif %}
+                                    {% if item.show_client_meta %}
                                     <div><span class="ip-device-key">Устройство:</span> {{ item.platform or 'Не
                                         определено' }}</div>
                                     <div><span class="ip-device-key">Версия:</span> {{ item.version or 'Не
                                         определено' }}</div>
+                                    {% endif %}
                                 </div>
                                 {% endfor %}
                                 <div class="ip-device-empty-state" style="display:none;opacity:0.85;">Сессии
@@ -296,8 +347,17 @@
                     <label for="trafficClientSelect" class="cleanup-label">Клиент:</label>
                     <select id="trafficClientSelect" class="traffic-client-select">
                         {% for client in persisted_traffic_rows %}
-                        <option value="{{ client.common_name }}">{{ client.common_name }}</option>
+                        <option value="{{ client.common_name }}"
+                            data-client-protocols="{{ (client.protocols or '-') | lower }}">{{ client.common_name }}
+                        </option>
                         {% endfor %}
+                    </select>
+                    <label for="trafficProtocolFilter" class="cleanup-label">Протокол:</label>
+                    <select id="trafficProtocolFilter" class="traffic-client-select"
+                        style="max-width:220px;min-width:180px;">
+                        <option value="all">Все</option>
+                        <option value="openvpn">Только OpenVPN</option>
+                        <option value="wireguard">Только WireGuard</option>
                     </select>
 
                     <div class="bw-range" role="tablist" aria-label="Диапазон графика клиента">
@@ -318,6 +378,12 @@
                 <div class="section-title-wrap">
                     <h2>Накопленный трафик пользователей (БД)</h2>
                     {% if current_user and current_user.is_admin() %}
+                    <form method="post" action="{{ url_for('logs_rebase_wireguard_baseline') }}"
+                        class="cleanup-form-inline"
+                        onsubmit="return confirm('Перебазировать baseline WireGuard-сессий? Накопленная статистика не будет сброшена.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit" class="cleanup-btn">Перебазировать WG baseline</button>
+                    </form>
                     <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
                         class="cleanup-form-inline"
                         onsubmit="return confirm('Очистить всю накопленную статистику трафика и начать сбор с нуля?');">
@@ -330,7 +396,8 @@
                 <p class="traffic-table-hint">
                     Простая сводка: сколько интернета использовал каждый пользователь и где именно (обычный VPN или
                     Antizapret).
-                    В этой таблице показываются только клиенты с актуальными .ovpn-конфигами.
+                    В этой таблице показываются только клиенты с актуальными VPN-конфигами
+                    (OpenVPN/WireGuard/AmneziaWG).
                 </p>
                 <div class="table-scroll">
                     <table class="logs-table clients-table traffic-usage-table" id="persistedTrafficTable">
@@ -356,7 +423,8 @@
                         <tbody>
                             {% if persisted_traffic_rows %}
                             {% for client in persisted_traffic_rows %}
-                            <tr data-total-bytes="{{ client.total_bytes }}">
+                            <tr data-total-bytes="{{ client.total_bytes }}"
+                                data-client-protocols="{{ (client.protocols or '-') | lower }}">
                                 <td class="traffic-user-cell">{{ client.common_name }}</td>
                                 <td>
                                     {% if client.is_active %}
@@ -388,7 +456,7 @@
                     <h3>Удалённые клиенты (статистика в БД)</h3>
                 </div>
                 <p class="traffic-table-hint">
-                    Здесь отображаются клиенты, чьи .ovpn-конфиги уже удалены, но историческая статистика ещё осталась в
+                    Здесь отображаются клиенты, чьи VPN-конфиги уже удалены, но историческая статистика ещё осталась в
                     БД.
                     Таких клиентов: <strong>{{ deleted_persisted_traffic_summary.users_count }}</strong>,
                     суммарный трафик: <strong>{{ deleted_persisted_traffic_summary.total_bytes_human }}</strong>.
@@ -410,7 +478,8 @@
                         <tbody>
                             {% if deleted_persisted_traffic_rows %}
                             {% for client in deleted_persisted_traffic_rows %}
-                            <tr data-total-bytes="{{ client.total_bytes }}">
+                            <tr data-total-bytes="{{ client.total_bytes }}"
+                                data-client-protocols="{{ (client.protocols or '-') | lower }}">
                                 <td class="traffic-user-cell">{{ client.common_name }}</td>
                                 <td>{{ client.total_bytes_vpn_human }}</td>
                                 <td>{{ client.total_bytes_antizapret_human }}</td>
@@ -490,7 +559,15 @@
         const groupedStatusRows = {{ grouped_status_rows | tojson
     }};
     const connectedClients = {{ connected_clients | tojson }};
+    const overviewSummary = {{ summary | tojson }};
     const overviewPane = document.querySelector('.logs-tab-pane[data-tab-pane="overview"]');
+
+    const protocolPalette = {
+        openvpnBg: 'rgba(79, 140, 255, 0.82)',
+        openvpnBorder: 'rgba(79, 140, 255, 1)',
+        wireguardBg: 'rgba(47, 194, 125, 0.82)',
+        wireguardBorder: 'rgba(47, 194, 125, 1)',
+    };
 
     const networkLabels = groupedStatusRows.map(item => item.network);
     const sessionsSeries = groupedStatusRows.map(item => Number(item.client_count || 0));
@@ -509,6 +586,60 @@
 
     const deviceLabels = Object.keys(deviceCount);
     const deviceValues = Object.values(deviceCount);
+
+    function deviceColor(label) {
+        const key = String(label || '').toLowerCase();
+        if (key.includes('wireguard')) {
+            return protocolPalette.wireguardBg;
+        }
+        if (key.includes('android')) {
+            return 'rgba(201, 83, 112, 0.82)';
+        }
+        if (key.includes('ios') || key.includes('iphone') || key.includes('ipad')) {
+            return 'rgba(201, 167, 74, 0.82)';
+        }
+        if (key.includes('windows')) {
+            return 'rgba(87, 190, 189, 0.82)';
+        }
+        if (key.includes('mac')) {
+            return 'rgba(149, 125, 235, 0.82)';
+        }
+        if (key.includes('linux')) {
+            return 'rgba(86, 144, 228, 0.82)';
+        }
+        return 'rgba(201, 203, 207, 0.82)';
+    }
+
+    function deviceBorderColor(label) {
+        const key = String(label || '').toLowerCase();
+        if (key.includes('wireguard')) {
+            return protocolPalette.wireguardBorder;
+        }
+        if (key.includes('android')) {
+            return 'rgba(201, 83, 112, 1)';
+        }
+        if (key.includes('ios') || key.includes('iphone') || key.includes('ipad')) {
+            return 'rgba(201, 167, 74, 1)';
+        }
+        if (key.includes('windows')) {
+            return 'rgba(87, 190, 189, 1)';
+        }
+        if (key.includes('mac')) {
+            return 'rgba(149, 125, 235, 1)';
+        }
+        if (key.includes('linux')) {
+            return 'rgba(86, 144, 228, 1)';
+        }
+        return 'rgba(201, 203, 207, 1)';
+    }
+
+    const deviceBackgroundColors = deviceLabels.map(deviceColor);
+    const deviceBorderColors = deviceLabels.map(deviceBorderColor);
+    const protocolLabels = ['OpenVPN', 'WireGuard'];
+    const protocolValues = [
+        Number(overviewSummary?.total_openvpn_sessions || 0),
+        Number(overviewSummary?.total_wireguard_sessions || 0)
+    ];
     let overviewChartsReady = false;
 
     function initOverviewCharts() {
@@ -562,19 +693,52 @@
                     labels: deviceLabels,
                     datasets: [{
                         data: deviceValues,
-                        backgroundColor: [
-                            'rgba(255, 99, 132, 0.78)',
-                            'rgba(255, 205, 86, 0.78)',
-                            'rgba(54, 162, 235, 0.78)',
-                            'rgba(75, 192, 192, 0.78)',
-                            'rgba(201, 203, 207, 0.78)'
-                        ],
+                        backgroundColor: deviceBackgroundColors,
+                        borderColor: deviceBorderColors,
                         borderWidth: 1,
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
+                    layout: { padding: { top: 4, right: 4, bottom: 4, left: 4 } },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#e7fff7',
+                                boxWidth: 18,
+                                padding: 12,
+                                font: {
+                                    family: 'Poppins, sans-serif',
+                                    size: 12,
+                                    weight: '600'
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        const protocolsCtx = document.getElementById('protocolsChart');
+        if (protocolsCtx) {
+            new Chart(protocolsCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: protocolLabels,
+                    datasets: [{
+                        data: protocolValues,
+                        backgroundColor: [protocolPalette.openvpnBg, protocolPalette.wireguardBg],
+                        borderColor: [protocolPalette.openvpnBorder, protocolPalette.wireguardBorder],
+                        borderWidth: 1,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '52%',
                     animation: false,
                     layout: { padding: { top: 4, right: 4, bottom: 4, left: 4 } },
                     plugins: {
@@ -710,15 +874,37 @@
 <script>
     (function () {
         const hideStaleToggle = document.getElementById('hideStaleSessionsToggle');
+        const clientsProtocolFilter = document.getElementById('clientsProtocolFilter');
         const hideStaleStorageKey = 'logs_dashboard_hide_stale_sessions';
+        const clientsProtocolStorageKey = 'logs_dashboard_clients_protocol_filter';
 
-        function applyStaleSessionsFilter() {
-            if (!hideStaleToggle) {
+        function parseProtocolTokens(rawValue) {
+            return String(rawValue || '')
+                .toLowerCase()
+                .split(',')
+                .map(item => item.trim())
+                .filter(Boolean);
+        }
+
+        function protocolMatches(rawValue, selectedProtocol) {
+            const selected = String(selectedProtocol || 'all').toLowerCase();
+            if (selected === 'all') {
+                return true;
+            }
+            const tokens = parseProtocolTokens(rawValue);
+            return tokens.includes(selected);
+        }
+
+        function applyClientCardsFilters() {
+            if (!hideStaleToggle && !clientsProtocolFilter) {
                 return;
             }
 
-            const hideStale = !!hideStaleToggle.checked;
+            const hideStale = hideStaleToggle ? !!hideStaleToggle.checked : false;
+            const selectedProtocol = clientsProtocolFilter ? String(clientsProtocolFilter.value || 'all').toLowerCase() : 'all';
+
             localStorage.setItem(hideStaleStorageKey, hideStale ? '1' : '0');
+            localStorage.setItem(clientsProtocolStorageKey, selectedProtocol);
 
             document.querySelectorAll('.ip-device-list').forEach(function (list) {
                 const items = Array.from(list.querySelectorAll('.ip-device-item[data-stale-candidate]'));
@@ -740,16 +926,28 @@
 
                 const clientCard = list.closest('[data-client-card]');
                 if (clientCard) {
-                    clientCard.classList.toggle('is-filtered-out', hideStale && visibleCount === 0);
+                    const cardProtocols = clientCard.getAttribute('data-client-protocols') || '';
+                    const protocolVisible = protocolMatches(cardProtocols, selectedProtocol);
+                    const staleVisible = !(hideStale && visibleCount === 0);
+                    clientCard.classList.toggle('is-filtered-out', !(protocolVisible && staleVisible));
                 }
             });
         }
 
         if (hideStaleToggle) {
             hideStaleToggle.checked = localStorage.getItem(hideStaleStorageKey) === '1';
-            hideStaleToggle.addEventListener('change', applyStaleSessionsFilter);
-            applyStaleSessionsFilter();
+            hideStaleToggle.addEventListener('change', applyClientCardsFilters);
         }
+
+        if (clientsProtocolFilter) {
+            const savedClientsProtocol = localStorage.getItem(clientsProtocolStorageKey) || 'all';
+            if (Array.from(clientsProtocolFilter.options).some(opt => opt.value === savedClientsProtocol)) {
+                clientsProtocolFilter.value = savedClientsProtocol;
+            }
+            clientsProtocolFilter.addEventListener('change', applyClientCardsFilters);
+        }
+
+        applyClientCardsFilters();
 
         function parseServerDateTime(rawValue) {
             const raw = String(rawValue || '').trim();
@@ -804,12 +1002,16 @@
         }
 
         const clientSelect = document.getElementById('trafficClientSelect');
+        const trafficProtocolFilter = document.getElementById('trafficProtocolFilter');
         const rangeButtons = Array.from(document.querySelectorAll('.bw-range-btn'));
         const chartCanvas = document.getElementById('userTrafficRangeChart');
         const chartMeta = document.getElementById('trafficChartMeta');
         const storageClientKey = 'logs_dashboard_selected_client';
         const storageRangeKey = 'logs_dashboard_selected_range';
+        const storageTrafficProtocolKey = 'logs_dashboard_traffic_protocol_filter';
         const chartPane = chartCanvas ? chartCanvas.closest('.logs-tab-pane') : null;
+        const persistedTrafficTable = document.getElementById('persistedTrafficTable');
+        const deletedPersistedTrafficTable = document.getElementById('deletedPersistedTrafficTable');
 
         if (!clientSelect || !rangeButtons.length || !chartCanvas || !chartMeta || typeof Chart === 'undefined') {
             return;
@@ -822,11 +1024,18 @@
 
         const savedClient = localStorage.getItem(storageClientKey);
         let currentRange = localStorage.getItem(storageRangeKey) || '7d';
+        let currentTrafficProtocol = localStorage.getItem(storageTrafficProtocolKey) || 'all';
         if (savedClient && Array.from(clientSelect.options).some(opt => opt.value === savedClient)) {
             clientSelect.value = savedClient;
         }
         if (!rangeButtons.some(btn => btn.dataset.range === currentRange)) {
             currentRange = '7d';
+        }
+        if (currentTrafficProtocol !== 'all' && currentTrafficProtocol !== 'openvpn' && currentTrafficProtocol !== 'wireguard') {
+            currentTrafficProtocol = 'all';
+        }
+        if (trafficProtocolFilter && Array.from(trafficProtocolFilter.options).some(opt => opt.value === currentTrafficProtocol)) {
+            trafficProtocolFilter.value = currentTrafficProtocol;
         }
 
         function setActiveRangeButtons() {
@@ -843,14 +1052,73 @@
             return !chartPane || chartPane.classList.contains('is-active');
         }
 
+        function optionMatchesTrafficProtocol(option, selectedProtocol) {
+            if (!option) {
+                return false;
+            }
+            const selected = String(selectedProtocol || 'all').toLowerCase();
+            if (selected === 'all') {
+                return true;
+            }
+            return protocolMatches(option.getAttribute('data-client-protocols') || '', selected);
+        }
+
+        function applyTrafficProtocolFilter() {
+            localStorage.setItem(storageTrafficProtocolKey, currentTrafficProtocol);
+
+            const options = Array.from(clientSelect.options);
+            let firstVisibleOption = null;
+
+            options.forEach(function (option) {
+                const visible = optionMatchesTrafficProtocol(option, currentTrafficProtocol);
+                option.hidden = !visible;
+                if (visible && !firstVisibleOption) {
+                    firstVisibleOption = option;
+                }
+            });
+
+            if (persistedTrafficTable) {
+                persistedTrafficTable.querySelectorAll('tbody tr[data-total-bytes]').forEach(function (row) {
+                    const visible = protocolMatches(row.getAttribute('data-client-protocols') || '', currentTrafficProtocol);
+                    row.style.display = visible ? '' : 'none';
+                });
+            }
+
+            if (deletedPersistedTrafficTable) {
+                deletedPersistedTrafficTable.querySelectorAll('tbody tr[data-total-bytes]').forEach(function (row) {
+                    const visible = protocolMatches(row.getAttribute('data-client-protocols') || '', currentTrafficProtocol);
+                    row.style.display = visible ? '' : 'none';
+                });
+            }
+
+            if (!firstVisibleOption) {
+                if (clientTrafficChart) {
+                    clientTrafficChart.destroy();
+                    clientTrafficChart = null;
+                }
+                chartMeta.textContent = 'Нет клиентов для выбранного протокола';
+                return false;
+            }
+
+            if (!optionMatchesTrafficProtocol(clientSelect.selectedOptions[0], currentTrafficProtocol)) {
+                clientSelect.value = firstVisibleOption.value;
+            }
+
+            return true;
+        }
+
         async function loadClientChart() {
+            if (!applyTrafficProtocolFilter()) {
+                return;
+            }
+
             const client = clientSelect.value;
             localStorage.setItem(storageClientKey, client);
             localStorage.setItem(storageRangeKey, currentRange);
             setActiveRangeButtons();
 
             try {
-                const url = `/api/user-traffic-chart?client=${encodeURIComponent(client)}&range=${encodeURIComponent(currentRange)}`;
+                const url = `/api/user-traffic-chart?client=${encodeURIComponent(client)}&range=${encodeURIComponent(currentRange)}&protocol=${encodeURIComponent(currentTrafficProtocol)}`;
                 const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -858,13 +1126,13 @@
                 const data = await response.json();
 
                 const labels = (data.labels || []).slice();
-                const vpnData = (data.vpn_bytes || []).map(v => Number(v || 0));
-                const antData = (data.antizapret_bytes || []).map(v => Number(v || 0));
+                const openvpnData = (data.openvpn_bytes || data.vpn_bytes || []).map(v => Number(v || 0));
+                const wireguardData = (data.wireguard_bytes || []).map(v => Number(v || 0));
 
                 if (!labels.length) {
                     labels.push('Нет данных');
-                    vpnData.push(0);
-                    antData.push(0);
+                    openvpnData.push(0);
+                    wireguardData.push(0);
                 }
 
                 if (clientTrafficChart) {
@@ -877,19 +1145,19 @@
                         labels,
                         datasets: [
                             {
-                                label: 'VPN',
-                                data: vpnData,
-                                borderColor: '#4caf50',
-                                backgroundColor: 'rgba(76,175,80,0.12)',
+                                label: 'OpenVPN',
+                                data: openvpnData,
+                                borderColor: '#4f8cff',
+                                backgroundColor: 'rgba(79,140,255,0.14)',
                                 borderWidth: 2,
                                 fill: false,
                                 tension: 0.2,
                             },
                             {
-                                label: 'Antizapret',
-                                data: antData,
-                                borderColor: '#f44336',
-                                backgroundColor: 'rgba(244,67,54,0.12)',
+                                label: 'WireGuard',
+                                data: wireguardData,
+                                borderColor: '#2fc27d',
+                                backgroundColor: 'rgba(47,194,125,0.14)',
                                 borderWidth: 2,
                                 fill: false,
                                 tension: 0.2,
@@ -938,8 +1206,8 @@
                 });
 
                 chartMeta.textContent =
-                    `VPN: ${data.total_vpn_human || humanBytes(data.total_vpn)} | ` +
-                    `Antizapret: ${data.total_antizapret_human || humanBytes(data.total_antizapret)} | ` +
+                    `OpenVPN: ${data.total_openvpn_human || humanBytes(data.total_openvpn)} | ` +
+                    `WireGuard: ${data.total_wireguard_human || humanBytes(data.total_wireguard)} | ` +
                     `Итого: ${data.total_human || humanBytes(data.total)}`;
             } catch (err) {
                 chartMeta.textContent = `Не удалось загрузить график: ${err.message}`;
@@ -947,6 +1215,12 @@
         }
 
         clientSelect.addEventListener('change', loadClientChart);
+        if (trafficProtocolFilter) {
+            trafficProtocolFilter.addEventListener('change', function () {
+                currentTrafficProtocol = String(trafficProtocolFilter.value || 'all').toLowerCase();
+                loadClientChart();
+            });
+        }
         rangeButtons.forEach(btn => {
             btn.addEventListener('click', function () {
                 currentRange = btn.dataset.range || '7d';
@@ -961,6 +1235,7 @@
         });
 
         setActiveRangeButtons();
+        applyTrafficProtocolFilter();
         if (isChartPaneVisible()) {
             loadClientChart();
         } else {
@@ -1045,7 +1320,7 @@
             modalTrafficMeta.textContent = 'Загрузка...';
 
             try {
-                const url = `/api/user-traffic-chart?client=${encodeURIComponent(currentClientName)}&range=${encodeURIComponent(currentModalRange)}`;
+                const url = `/api/user-traffic-chart?client=${encodeURIComponent(currentClientName)}&range=${encodeURIComponent(currentModalRange)}&protocol=all`;
                 const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -1053,13 +1328,13 @@
                 const data = await response.json();
 
                 const labels = (data.labels || []).slice();
-                const vpnData = (data.vpn_bytes || []).map(v => Number(v || 0));
-                const antData = (data.antizapret_bytes || []).map(v => Number(v || 0));
+                const openvpnData = (data.openvpn_bytes || data.vpn_bytes || []).map(v => Number(v || 0));
+                const wireguardData = (data.wireguard_bytes || []).map(v => Number(v || 0));
 
                 if (!labels.length) {
                     labels.push('Нет данных');
-                    vpnData.push(0);
-                    antData.push(0);
+                    openvpnData.push(0);
+                    wireguardData.push(0);
                 }
 
                 if (modalChart) {
@@ -1072,19 +1347,19 @@
                         labels,
                         datasets: [
                             {
-                                label: 'VPN',
-                                data: vpnData,
-                                borderColor: '#4caf50',
-                                backgroundColor: 'rgba(76,175,80,0.12)',
+                                label: 'OpenVPN',
+                                data: openvpnData,
+                                borderColor: '#4f8cff',
+                                backgroundColor: 'rgba(79,140,255,0.14)',
                                 borderWidth: 2,
                                 fill: false,
                                 tension: 0.2,
                             },
                             {
-                                label: 'Antizapret',
-                                data: antData,
-                                borderColor: '#f44336',
-                                backgroundColor: 'rgba(244,67,54,0.12)',
+                                label: 'WireGuard',
+                                data: wireguardData,
+                                borderColor: '#2fc27d',
+                                backgroundColor: 'rgba(47,194,125,0.14)',
                                 borderWidth: 2,
                                 fill: false,
                                 tension: 0.2,
@@ -1133,8 +1408,8 @@
                 });
 
                 modalTrafficMeta.textContent =
-                    `VPN: ${data.total_vpn_human || humanBytes(data.total_vpn)} | ` +
-                    `Antizapret: ${data.total_antizapret_human || humanBytes(data.total_antizapret)} | ` +
+                    `OpenVPN: ${data.total_openvpn_human || humanBytes(data.total_openvpn)} | ` +
+                    `WireGuard: ${data.total_wireguard_human || humanBytes(data.total_wireguard)} | ` +
                     `Итого: ${data.total_human || humanBytes(data.total)}`;
             } catch (err) {
                 modalTrafficMeta.textContent = `Не удалось загрузить график: ${err.message}`;
