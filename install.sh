@@ -15,6 +15,7 @@ MAIN_SCRIPT="$SCRIPT_SH_DIR/adminpanel.sh"
 BOOTSTRAP_LOG_FILE="/var/log/adminantizapret-bootstrap-$(date '+%Y%m%d-%H%M%S').log"
 BOOTSTRAP_LOG_KEEP_COUNT=30
 DEBIAN_FRONTEND=noninteractive
+export DEBIAN_FRONTEND
 
 require_command() {
   local cmd="$1"
@@ -49,7 +50,7 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-for cmd in apt-get dpkg-query git systemctl tee find; do
+for cmd in apt-get dpkg-query systemctl tee find; do
   require_command "$cmd"
 done
 
@@ -65,31 +66,46 @@ exec > >(tee -a "$BOOTSTRAP_LOG_FILE") 2>&1
 log "Запуск install.sh"
 echo -e "${YELLOW}Лог bootstrap-установки: ${BOOTSTRAP_LOG_FILE}${NC}"
 
-# Установка компонентов, необходимых для работы скрипта
-packages=(apt-utils whiptail iproute2 dnsutils net-tools git vnstat)
-# Обновление репозитория только если чего-то не хватает
+# Установка компонентов, необходимых до запуска adminpanel.sh
+packages=(
+  apt-utils
+  whiptail
+  iproute2
+  dnsutils
+  net-tools
+  git
+  vnstat
+  openssl
+  python3
+  python3-pip
+  python3-venv
+  wget
+  cron
+  ca-certificates
+)
+
+missing_packages=()
 for package in "${packages[@]}"; do
-    status=$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null)
-    if [[ "$status" != *"ok installed"* ]]; then
-        echo -e "${YELLOW}Установка необходимых для работы скрипта компонентов...${NC}"
-      if ! apt-get update; then
-        echo -e "${RED}Ошибка: не удалось обновить индексы пакетов (apt-get update).${NC}" >&2
-        exit 1
-      fi
-        break
-    fi
+  status=$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null)
+  if [[ "$status" != *"ok installed"* ]]; then
+    missing_packages+=("$package")
+  fi
 done
-#Установка недостающих компонентов
-for package in "${packages[@]}"; do
-    status=$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null)
-    if [[ "$status" != *"ok installed"* ]]; then
-        echo "Установка $package"
-      if ! apt-get install -y "$package"; then
-        echo -e "${RED}Ошибка: не удалось установить пакет '$package'.${NC}" >&2
-        exit 1
-      fi
-    fi
-done
+
+if [ "${#missing_packages[@]}" -gt 0 ]; then
+  echo -e "${YELLOW}Установка необходимых компонентов...${NC}"
+  if ! apt-get update; then
+    echo -e "${RED}Ошибка: не удалось обновить индексы пакетов (apt-get update).${NC}" >&2
+    exit 1
+  fi
+
+  if ! apt-get install -y "${missing_packages[@]}"; then
+    echo -e "${RED}Ошибка: не удалось установить один или несколько пакетов: ${missing_packages[*]}${NC}" >&2
+    exit 1
+  fi
+fi
+
+require_command git
 # Включение и запуск vnstat
 echo -e "${YELLOW}Настройка vnStat...${NC}"
 if systemctl list-unit-files | grep -q "^vnstat.service"; then
