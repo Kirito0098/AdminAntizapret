@@ -211,47 +211,64 @@
 
     <!-- Ночной рестарт -->
     <div id="nightly-restart-settings" class="content-tab">
-      <h2>Ночной рестарт сайта</h2>
+      <h2>Авто-перезапуск сайта ночью</h2>
       <form method="POST" class="settings-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <input type="hidden" name="nightly_settings_action" value="save" />
 
+        <div class="info-box" style="margin-bottom: 1rem;">
+          <p style="margin: 0;">
+            Сайт перезапускается только если в панели нет активных пользователей.
+            Если кто-то работает в это время, перезапуск пропускается до следующей проверки.
+          </p>
+        </div>
+
         <div class="form-group">
-          <label for="nightly_idle_restart_enabled">Режим</label>
+          <label for="nightly_idle_restart_enabled">Включить ночной авто-перезапуск</label>
           <select id="nightly_idle_restart_enabled" name="nightly_idle_restart_enabled" class="form-control">
-            <option value="true" {% if nightly_idle_restart_enabled %}selected{% endif %}>Включен</option>
-            <option value="false" {% if not nightly_idle_restart_enabled %}selected{% endif %}>Выключен</option>
+            <option value="true" {% if nightly_idle_restart_enabled %}selected{% endif %}>Да</option>
+            <option value="false" {% if not nightly_idle_restart_enabled %}selected{% endif %}>Нет</option>
           </select>
-          <small class="help-text">Если включено, проверка выполняется по cron и рестарт делается только когда нет
-            активных сессий.</small>
+          <small class="help-text">Рекомендуется держать включенным.</small>
         </div>
 
         <div class="form-group">
-          <label for="nightly_idle_restart_cron">Cron-выражение запуска проверки</label>
-          <input type="text" id="nightly_idle_restart_cron" name="nightly_idle_restart_cron"
-            value="{{ nightly_idle_restart_cron }}" placeholder="0 4 * * *" />
-          <small class="help-text">По умолчанию: 0 4 * * *. Поддерживаются 5 полей cron.</small>
+          <label for="nightly_idle_restart_time">Во сколько выполнять проверку</label>
+          <input type="time" id="nightly_idle_restart_time" name="nightly_idle_restart_time"
+            value="{{ nightly_idle_restart_time }}" />
+          <small class="help-text">Пример: 04:00. В это время система проверит активность и перезапустит сайт только
+            при отсутствии пользователей в панели.</small>
         </div>
 
         <div class="form-group">
-          <label for="active_web_session_ttl_seconds">TTL активной сессии (секунд)</label>
+          <label for="active_web_session_ttl_seconds">Через сколько секунд без действий считать пользователя
+            неактивным</label>
           <input type="number" id="active_web_session_ttl_seconds" name="active_web_session_ttl_seconds" min="30"
             max="86400" step="1" value="{{ active_web_session_ttl_seconds }}" />
-          <small class="help-text">Если пользователь не проявляет активность дольше этого времени, сессия считается
-            неактивной.</small>
+          <small class="help-text">Обычно достаточно 180 секунд.</small>
         </div>
 
         <div class="form-group">
-          <label for="active_web_session_touch_interval_seconds">Интервал обновления активности (секунд)</label>
+          <label for="active_web_session_touch_interval_seconds">Как часто обновлять отметку активности (секунд)</label>
           <input type="number" id="active_web_session_touch_interval_seconds"
             name="active_web_session_touch_interval_seconds" min="1" max="3600" step="1"
             value="{{ active_web_session_touch_interval_seconds }}" />
-          <small class="help-text">Как часто backend обновляет last_seen для активной сессии.</small>
+          <small class="help-text">Чем меньше значение, тем точнее статус активности. Обычно 30 секунд.</small>
         </div>
+
+        <details class="info-box" style="margin-bottom: 1rem;">
+          <summary style="cursor: pointer;">Расширенная настройка (cron)</summary>
+          <div class="form-group" style="margin-top: 0.8rem;">
+            <label for="nightly_idle_restart_cron">Cron-выражение запуска проверки</label>
+            <input type="text" id="nightly_idle_restart_cron" name="nightly_idle_restart_cron"
+              value="{{ nightly_idle_restart_cron }}" placeholder="0 4 * * *" />
+            <small class="help-text">Используется только если не задано время выше. Формат: 5 полей cron.</small>
+          </div>
+        </details>
 
         <div class="info-box" style="margin-bottom: 1rem;">
           <p style="margin: 0;">
-            Активные сессии сейчас: <strong>{{ active_web_sessions_count }}</strong>
+            Активных пользователей в панели сейчас: <strong>{{ active_web_sessions_count }}</strong>
           </p>
         </div>
 

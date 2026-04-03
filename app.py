@@ -538,6 +538,25 @@ class OpenVPNPeerInfoCache(db.Model):
     )
 
 
+class OpenVPNPeerInfoHistory(db.Model):
+    """История версии/платформы OpenVPN-клиента для fallback за последние дни."""
+    __tablename__ = 'openvpn_peer_info_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    profile = db.Column(db.String(64), nullable=False, index=True)
+    client_name = db.Column(db.String(255), nullable=False, index=True)
+    ip = db.Column(db.String(64), nullable=False, index=True)
+    endpoint = db.Column(db.String(255), nullable=True)
+    version = db.Column(db.String(128), nullable=True)
+    platform = db.Column(db.String(64), nullable=True)
+    event_rank = db.Column(db.BigInteger, nullable=False, default=0, index=True)
+    observed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('profile', 'client_name', 'ip', 'event_rank', name='uq_openvpn_peer_info_history_event'),
+    )
+
+
 class ActiveWebSession(db.Model):
     """Активные веб-сессии для безопасного ночного рестарта."""
     __tablename__ = 'active_web_session'
@@ -1458,12 +1477,17 @@ def _build_empty_logs_dashboard_payload(reason_message=None):
 
 
 def _is_logs_dashboard_refresh_in_progress():
+    return _get_logs_dashboard_refresh_task() is not None
+
+
+def _get_logs_dashboard_refresh_task():
     return (
         BackgroundTask.query.filter(
             BackgroundTask.task_type == "logs_dashboard_refresh",
             BackgroundTask.status.in_(["queued", "running"]),
-        ).first()
-        is not None
+        )
+        .order_by(BackgroundTask.created_at.desc())
+        .first()
     )
 
 
@@ -1485,8 +1509,8 @@ def _task_refresh_logs_dashboard_cache():
 
 
 def _queue_logs_dashboard_refresh_if_needed(created_by_username=None):
-    existing = _is_logs_dashboard_refresh_in_progress()
-    if existing:
+    existing_task = _get_logs_dashboard_refresh_task()
+    if existing_task is not None:
         return False
 
     _enqueue_background_task(
@@ -1505,15 +1529,19 @@ def _get_logs_dashboard_data_cached(created_by_username=None):
     if payload is not None and row is not None and row.generated_at is not None:
         age_seconds = max(int((now - row.generated_at).total_seconds()), 0)
         is_stale = age_seconds > LOGS_DASHBOARD_CACHE_TTL_SECONDS
+        refresh_task = _get_logs_dashboard_refresh_task()
 
         if is_stale:
-            _queue_logs_dashboard_refresh_if_needed(created_by_username=created_by_username)
+            if refresh_task is None:
+                _queue_logs_dashboard_refresh_if_needed(created_by_username=created_by_username)
+                refresh_task = _get_logs_dashboard_refresh_task()
 
         payload["cache_meta"] = {
             "from_cache": True,
             "is_stale": is_stale,
             "age_seconds": age_seconds,
-            "refresh_in_progress": _is_logs_dashboard_refresh_in_progress(),
+            "refresh_in_progress": refresh_task is not None,
+            "refresh_task_id": refresh_task.id if refresh_task is not None else None,
             "ttl_seconds": LOGS_DASHBOARD_CACHE_TTL_SECONDS,
             "last_error": (row.last_error or "").strip() or None,
         }
@@ -1527,6 +1555,7 @@ def _get_logs_dashboard_data_cached(created_by_username=None):
             "is_stale": False,
             "age_seconds": 0,
             "refresh_in_progress": False,
+            "refresh_task_id": None,
             "ttl_seconds": LOGS_DASHBOARD_CACHE_TTL_SECONDS,
             "last_error": None,
         }
@@ -1534,12 +1563,14 @@ def _get_logs_dashboard_data_cached(created_by_username=None):
     except Exception as exc:
         db.session.rollback()
         _queue_logs_dashboard_refresh_if_needed(created_by_username=created_by_username)
+        refresh_task = _get_logs_dashboard_refresh_task()
         fallback_payload = _build_empty_logs_dashboard_payload(str(exc))
         fallback_payload["cache_meta"] = {
             "from_cache": False,
             "is_stale": True,
             "age_seconds": None,
-            "refresh_in_progress": _is_logs_dashboard_refresh_in_progress(),
+            "refresh_in_progress": refresh_task is not None,
+            "refresh_task_id": refresh_task.id if refresh_task is not None else None,
             "ttl_seconds": LOGS_DASHBOARD_CACHE_TTL_SECONDS,
             "last_error": str(exc),
         }
@@ -1624,11 +1655,20 @@ if OPENVPN_EVENT_MAX_RESPONSE_BYTES < 0:
     OPENVPN_EVENT_MAX_RESPONSE_BYTES = 0
 
 try:
-    OPENVPN_PEER_INFO_CACHE_TTL_SECONDS = int(_get_env_value("OPENVPN_PEER_INFO_CACHE_TTL_SECONDS", "172800"))
+    OPENVPN_PEER_INFO_CACHE_TTL_SECONDS = int(_get_env_value("OPENVPN_PEER_INFO_CACHE_TTL_SECONDS", "604800"))
 except (TypeError, ValueError):
-    OPENVPN_PEER_INFO_CACHE_TTL_SECONDS = 43200
+    OPENVPN_PEER_INFO_CACHE_TTL_SECONDS = 604800
 if OPENVPN_PEER_INFO_CACHE_TTL_SECONDS < 0:
     OPENVPN_PEER_INFO_CACHE_TTL_SECONDS = 0
+
+try:
+    OPENVPN_PEER_INFO_HISTORY_RETENTION_SECONDS = int(
+        _get_env_value("OPENVPN_PEER_INFO_HISTORY_RETENTION_SECONDS", "604800")
+    )
+except (TypeError, ValueError):
+    OPENVPN_PEER_INFO_HISTORY_RETENTION_SECONDS = 604800
+if OPENVPN_PEER_INFO_HISTORY_RETENTION_SECONDS < 0:
+    OPENVPN_PEER_INFO_HISTORY_RETENTION_SECONDS = 0
 
 try:
     TRAFFIC_DB_STALE_SECONDS = int(_get_env_value("TRAFFIC_DB_STALE_SECONDS", "600"))
@@ -2279,7 +2319,6 @@ def _persist_peer_info_cache(event_rows):
 
     for event in event_rows:
         profile = event.get("profile") or ""
-        base_rank = int(event.get("updated_at_ts", 0)) * 1000000
 
         for sess in event.get("client_sessions", []):
             client_name = (sess.get("client") or "").strip()
@@ -2292,8 +2331,12 @@ def _persist_peer_info_cache(event_rows):
             if not version and not platform:
                 continue
 
+            event_ts = int(sess.get("event_ts") or 0)
+            if event_ts <= 0:
+                event_ts = int(event.get("updated_at_ts", 0))
+
             endpoint = (sess.get("endpoint") or "").strip() or None
-            rank = base_rank + int(sess.get("last_order", -1))
+            rank = int(event_ts) * 1000000 + int(sess.get("last_order", -1))
             key = (profile, client_name, ip)
             prev = best_rows.get(key)
             if prev is None or rank >= int(prev.get("rank", -1)):
@@ -2305,9 +2348,13 @@ def _persist_peer_info_cache(event_rows):
                 }
 
     if not best_rows:
+        deleted_history = _prune_peer_info_history()
+        if deleted_history > 0:
+            db.session.commit()
         return
 
-    changed = False
+    cache_changed = False
+    history_changed = False
     for (profile, client_name, ip), data in best_rows.items():
         row = OpenVPNPeerInfoCache.query.filter_by(
             profile=profile,
@@ -2328,24 +2375,57 @@ def _persist_peer_info_cache(event_rows):
                     last_seen_at=now,
                 )
             )
-            changed = True
-            continue
+            cache_changed = True
+        else:
+            incoming_rank = int(data.get("rank", 0))
+            current_rank = int(row.last_event_rank or 0)
+            if incoming_rank >= current_rank:
+                row.last_event_rank = incoming_rank
+                row.last_seen_at = now
+                if data.get("endpoint"):
+                    row.endpoint = data.get("endpoint")
+                if data.get("version"):
+                    row.version = data.get("version")
+                if data.get("platform"):
+                    row.platform = data.get("platform")
+                cache_changed = True
 
         incoming_rank = int(data.get("rank", 0))
-        current_rank = int(row.last_event_rank or 0)
-        if incoming_rank >= current_rank:
-            row.last_event_rank = incoming_rank
-            row.last_seen_at = now
-            if data.get("endpoint"):
-                row.endpoint = data.get("endpoint")
-            if data.get("version"):
-                row.version = data.get("version")
-            if data.get("platform"):
-                row.platform = data.get("platform")
-            changed = True
+        existing_history = OpenVPNPeerInfoHistory.query.filter_by(
+            profile=profile,
+            client_name=client_name,
+            ip=ip,
+            event_rank=incoming_rank,
+        ).first()
+        if existing_history is None:
+            db.session.add(
+                OpenVPNPeerInfoHistory(
+                    profile=profile,
+                    client_name=client_name,
+                    ip=ip,
+                    endpoint=data.get("endpoint"),
+                    version=data.get("version"),
+                    platform=data.get("platform"),
+                    event_rank=incoming_rank,
+                    observed_at=now,
+                )
+            )
+            history_changed = True
 
-    if changed:
+    deleted_history = _prune_peer_info_history()
+    if cache_changed or history_changed or deleted_history > 0:
         db.session.commit()
+
+
+def _prune_peer_info_history():
+    if OPENVPN_PEER_INFO_HISTORY_RETENTION_SECONDS <= 0:
+        return 0
+
+    cutoff = datetime.utcnow() - timedelta(seconds=OPENVPN_PEER_INFO_HISTORY_RETENTION_SECONDS)
+    deleted = OpenVPNPeerInfoHistory.query.filter(
+        OpenVPNPeerInfoHistory.observed_at < cutoff
+    ).delete(synchronize_session=False)
+    return int(deleted or 0)
 
 
 def _load_peer_info_cache_map(include_stale=False):
@@ -2365,6 +2445,27 @@ def _load_peer_info_cache_map(include_stale=False):
             "version": (row.version or "").strip() or None,
             "platform": (row.platform or "").strip() or None,
             "rank": int(row.last_event_rank or 0),
+        }
+    return out
+
+
+def _load_peer_info_history_map(include_stale=False):
+    """Возвращает map (profile, client_name, ip) -> последнее значение из истории peer info."""
+    query = OpenVPNPeerInfoHistory.query
+    if OPENVPN_PEER_INFO_HISTORY_RETENTION_SECONDS > 0 and not include_stale:
+        cutoff = datetime.utcnow() - timedelta(seconds=OPENVPN_PEER_INFO_HISTORY_RETENTION_SECONDS)
+        query = query.filter(OpenVPNPeerInfoHistory.observed_at >= cutoff)
+
+    rows = query.order_by(OpenVPNPeerInfoHistory.event_rank.desc(), OpenVPNPeerInfoHistory.observed_at.desc()).all()
+    out = {}
+    for row in rows:
+        key = ((row.profile or "").strip(), (row.client_name or "").strip(), (row.ip or "").strip())
+        if not key[0] or not key[1] or not key[2] or key in out:
+            continue
+        out[key] = {
+            "version": (row.version or "").strip() or None,
+            "platform": (row.platform or "").strip() or None,
+            "rank": int(row.event_rank or 0),
         }
     return out
 
@@ -2802,11 +2903,14 @@ def _delete_client_traffic_stats(common_name):
         deleted_peer_cache = OpenVPNPeerInfoCache.query.filter(
             OpenVPNPeerInfoCache.client_name == target_name
         ).delete(synchronize_session=False)
+        deleted_peer_history = OpenVPNPeerInfoHistory.query.filter(
+            OpenVPNPeerInfoHistory.client_name == target_name
+        ).delete(synchronize_session=False)
 
         db.session.commit()
 
         deleted_total = int(deleted_samples or 0) + int(deleted_sessions or 0) + int(deleted_stats or 0)
-        if deleted_total == 0 and int(deleted_peer_cache or 0) == 0:
+        if deleted_total == 0 and int(deleted_peer_cache or 0) == 0 and int(deleted_peer_history or 0) == 0:
             return False, f"Для клиента '{target_name}' статистика не найдена."
 
         return True, (
@@ -2996,9 +3100,15 @@ def _parse_event_log(profile_key, filename):
         if not raw_line:
             continue
 
+        line_ts = 0
         # Строки management часто приходят в формате: "<ts>,<level>,<message>".
         # Для регулярных выражений ниже используем message-часть.
-        line = re.sub(r"^\d+,[A-Z]?,", "", raw_line, count=1).strip()
+        ts_match = re.match(r"^(\d+),[A-Z]?,(.*)$", raw_line)
+        if ts_match:
+            line_ts = int(ts_match.group(1) or 0)
+            line = (ts_match.group(2) or "").strip()
+        else:
+            line = re.sub(r"^\d+,[A-Z]?,", "", raw_line, count=1).strip()
         if not line:
             continue
 
@@ -3015,6 +3125,7 @@ def _parse_event_log(profile_key, filename):
                     "version": None,
                     "platform": None,
                     "last_order": -1,
+                    "last_ts": 0,
                 },
             )
             endpoint_info[endpoint]["client"] = client_name
@@ -3032,6 +3143,7 @@ def _parse_event_log(profile_key, filename):
                     "version": None,
                     "platform": None,
                     "last_order": -1,
+                    "last_ts": 0,
                 },
             )
             endpoint_info[endpoint]["client"] = client_name
@@ -3049,6 +3161,7 @@ def _parse_event_log(profile_key, filename):
                     "version": None,
                     "platform": None,
                     "last_order": -1,
+                    "last_ts": 0,
                 },
             )
             endpoint_info[endpoint]["client"] = client_name
@@ -3066,6 +3179,7 @@ def _parse_event_log(profile_key, filename):
                     "version": None,
                     "platform": None,
                     "last_order": -1,
+                    "last_ts": 0,
                 },
             )
             if endpoint_info[endpoint]["client"] == "-":
@@ -3085,14 +3199,19 @@ def _parse_event_log(profile_key, filename):
                     "version": None,
                     "platform": None,
                     "last_order": -1,
+                    "last_ts": 0,
                 },
             )
             if key == "IV_VER":
                 endpoint_info[endpoint]["version"] = val
                 endpoint_info[endpoint]["last_order"] = line_no
+                if line_ts > 0:
+                    endpoint_info[endpoint]["last_ts"] = line_ts
             elif key == "IV_PLAT":
                 endpoint_info[endpoint]["platform"] = val
                 endpoint_info[endpoint]["last_order"] = line_no
+                if line_ts > 0:
+                    endpoint_info[endpoint]["last_ts"] = line_ts
 
     client_sessions = []
     for endpoint, info in endpoint_info.items():
@@ -3104,6 +3223,7 @@ def _parse_event_log(profile_key, filename):
                 "version": info.get("version"),
                 "platform": info.get("platform"),
                 "last_order": info.get("last_order", -1),
+                "event_ts": int(info.get("last_ts") or 0),
             }
         )
 
@@ -3140,10 +3260,26 @@ def _collect_logs_dashboard_data():
 
     try:
         _persist_peer_info_cache(event_rows)
-    except Exception:
+    except Exception as e:
         db.session.rollback()
-    peer_info_cache = _load_peer_info_cache_map()
-    peer_info_cache_stale = _load_peer_info_cache_map(include_stale=True)
+        app.logger.warning("Не удалось сохранить peer info cache/history: %s", e)
+    peer_info_cache = _load_peer_info_history_map()
+    peer_info_cache_stale = _load_peer_info_history_map(include_stale=True)
+
+    # Мягкая миграция: пока history набирает данные, дополняем её legacy-кэшем,
+    # чтобы не терять уже известные version/platform для активных клиентов.
+    legacy_peer_info_cache = _load_peer_info_cache_map()
+    legacy_peer_info_cache_stale = _load_peer_info_cache_map(include_stale=True)
+
+    for key, cached in legacy_peer_info_cache.items():
+        existing = peer_info_cache.get(key)
+        if existing is None or int(cached.get("rank", -1)) > int(existing.get("rank", -1)):
+            peer_info_cache[key] = cached
+
+    for key, cached in legacy_peer_info_cache_stale.items():
+        existing = peer_info_cache_stale.get(key)
+        if existing is None or int(cached.get("rank", -1)) > int(existing.get("rank", -1)):
+            peer_info_cache_stale[key] = cached
     peer_info_cache_by_client_ip = {}
     peer_info_cache_by_client = defaultdict(list)
     for (profile_key, client_name, ip), cached in peer_info_cache.items():
@@ -3183,6 +3319,7 @@ def _collect_logs_dashboard_data():
             "platforms": set(),
             "ip_details": {},
             "ip_profiles": {},
+            "session_connections": [],
         }
     )
 
@@ -3200,6 +3337,16 @@ def _collect_logs_dashboard_data():
             if client.get("real_ip"):
                 client_aggregate[name]["ips"].add(client["real_ip"])
                 client_aggregate[name]["ip_profiles"].setdefault(client["real_ip"], set()).add(item["profile"])
+                normalized_real_address = _normalize_openvpn_endpoint(client.get("real_address") or "")
+                client_aggregate[name]["session_connections"].append(
+                    {
+                        "ip": client["real_ip"],
+                        "real_address": (normalized_real_address or client["real_ip"]),
+                        "connected_since_ts": int(client.get("connected_since_ts") or 0),
+                        "profile_key": (item.get("profile") or "").strip(),
+                        "profile_label": (item.get("label") or "-").strip() or "-",
+                    }
+                )
                 if client["real_ip"] not in client_aggregate[name]["ip_details"]:
                     client_aggregate[name]["ip_details"][client["real_ip"]] = {
                         "version": None,
@@ -3316,21 +3463,96 @@ def _collect_logs_dashboard_data():
         ip_device_map = []
         client_versions_set = set()
         client_platforms_set = set()
-        for ip in sorted(stats["ips"]):
-            details = stats["ip_details"].get(ip, {"version": None, "platform": None})
-            platform_str = _human_device_type(details.get("platform")) if details.get("platform") else "Не определено"
-            version_str = details.get("version") or "Не определено"
+        session_connections = sorted(
+            stats.get("session_connections", []),
+            key=lambda item: (
+                int(item.get("connected_since_ts") or 0),
+                (item.get("profile_label") or ""),
+                (item.get("real_address") or item.get("ip") or ""),
+            ),
+        )
 
-            if version_str != "Не определено":
-                client_versions_set.add(version_str)
-            if platform_str != "Не определено":
-                client_platforms_set.add(platform_str)
+        session_key_counts = Counter()
+        session_key_latest = {}
+        for conn in session_connections:
+            ip = (conn.get("ip") or "").strip()
+            profile_key = (conn.get("profile_key") or "").strip()
+            if not ip or not profile_key:
+                continue
 
-            ip_device_map.append({
-                "ip": ip,
-                "platform": platform_str,
-                "version": version_str,
-            })
+            key = (profile_key, ip)
+            session_key_counts[key] += 1
+
+            current_ts = int(conn.get("connected_since_ts") or 0)
+            current_addr = (conn.get("real_address") or "").strip() or ip
+            prev = session_key_latest.get(key)
+            prev_ts = int(prev.get("connected_since_ts") or 0) if prev else -1
+            prev_addr = (prev.get("real_address") or "").strip() if prev else ""
+            if prev is None or current_ts > prev_ts or (current_ts == prev_ts and current_addr > prev_addr):
+                session_key_latest[key] = {
+                    "connected_since_ts": current_ts,
+                    "real_address": current_addr,
+                }
+
+        if session_connections:
+            for conn in session_connections:
+                ip = (conn.get("ip") or "").strip()
+                if not ip:
+                    continue
+                details = stats["ip_details"].get(ip, {"version": None, "platform": None})
+                platform_str = _human_device_type(details.get("platform")) if details.get("platform") else "Не определено"
+                version_str = details.get("version") or "Не определено"
+                real_address = (conn.get("real_address") or "").strip() or ip
+                profile_key = (conn.get("profile_key") or "").strip()
+                profile_label = (conn.get("profile_label") or "-").strip() or "-"
+                is_stale_candidate = False
+
+                if profile_key:
+                    key = (profile_key, ip)
+                    if int(session_key_counts.get(key, 0)) > 1:
+                        latest = session_key_latest.get(key) or {}
+                        latest_ts = int(latest.get("connected_since_ts") or 0)
+                        latest_addr = (latest.get("real_address") or "").strip() or ip
+                        current_ts = int(conn.get("connected_since_ts") or 0)
+                        if real_address != latest_addr or current_ts < latest_ts:
+                            is_stale_candidate = True
+
+                if version_str != "Не определено":
+                    client_versions_set.add(version_str)
+                if platform_str != "Не определено":
+                    client_platforms_set.add(platform_str)
+
+                ip_device_map.append(
+                    {
+                        "ip": ip,
+                        "real_address": real_address,
+                        "show_real_address": real_address != ip,
+                        "profile_label": profile_label,
+                        "platform": platform_str,
+                        "version": version_str,
+                        "stale_candidate": is_stale_candidate,
+                    }
+                )
+        else:
+            for ip in sorted(stats["ips"]):
+                details = stats["ip_details"].get(ip, {"version": None, "platform": None})
+                platform_str = _human_device_type(details.get("platform")) if details.get("platform") else "Не определено"
+                version_str = details.get("version") or "Не определено"
+
+                if version_str != "Не определено":
+                    client_versions_set.add(version_str)
+                if platform_str != "Не определено":
+                    client_platforms_set.add(platform_str)
+
+                ip_device_map.append({
+                    "ip": ip,
+                    "real_address": ip,
+                    "show_real_address": False,
+                    "profile_label": "-",
+                    "platform": platform_str,
+                    "version": version_str,
+                    "stale_candidate": False,
+                })
 
         connected_clients.append(
             {
@@ -4131,6 +4353,7 @@ def logs_dashboard():
         deleted_persisted_traffic_summary=dashboard_data["deleted_persisted_traffic_summary"],
         generated_at=dashboard_data["generated_at"],
         cache_meta=dashboard_data.get("cache_meta", {}),
+        openvpn_log_tail_lines=OPENVPN_LOG_TAIL_LINES,
         cleanup_notice=cleanup_notice,
         cleanup_notice_kind=cleanup_notice_kind,
     )
@@ -4281,14 +4504,27 @@ def settings():
             nightly_enabled_raw = (request.form.get("nightly_idle_restart_enabled") or "true").strip().lower()
             nightly_enabled = _to_bool(nightly_enabled_raw, default=True)
 
-            cron_expr = (request.form.get("nightly_idle_restart_cron") or "").strip()
-            if not cron_expr:
-                cron_expr = "0 4 * * *"
-
             ttl_raw = (request.form.get("active_web_session_ttl_seconds") or "").strip()
             touch_raw = (request.form.get("active_web_session_touch_interval_seconds") or "").strip()
+            nightly_time_raw = (request.form.get("nightly_idle_restart_time") or "").strip()
+            cron_expr_raw = (request.form.get("nightly_idle_restart_cron") or "").strip()
 
             has_error = False
+
+            cron_expr = ""
+            if nightly_time_raw:
+                time_match = re.fullmatch(r"^([01]\d|2[0-3]):([0-5]\d)$", nightly_time_raw)
+                if time_match:
+                    hour_value = int(time_match.group(1))
+                    minute_value = int(time_match.group(2))
+                    cron_expr = f"{minute_value} {hour_value} * * *"
+                else:
+                    flash("Укажите время в формате ЧЧ:ММ (например, 04:00)", "error")
+                    has_error = True
+
+            if not cron_expr:
+                cron_expr = cron_expr_raw or "0 4 * * *"
+
             if not _is_valid_cron_expression(cron_expr):
                 flash("Cron-выражение должно состоять из 5 полей и содержать только цифры и символы */,-", "error")
                 has_error = True
@@ -4492,6 +4728,14 @@ def settings():
     qr_download_pin_set = bool((_get_env_value("QR_DOWNLOAD_PIN", "") or "").strip())
     nightly_idle_restart_enabled = NIGHTLY_IDLE_RESTART_ENABLED
     nightly_idle_restart_cron = NIGHTLY_IDLE_RESTART_CRON_EXPR
+    nightly_idle_restart_time = "04:00"
+    cron_parts = (nightly_idle_restart_cron or "").split()
+    if len(cron_parts) == 5 and cron_parts[0].isdigit() and cron_parts[1].isdigit():
+        minute_value = int(cron_parts[0])
+        hour_value = int(cron_parts[1])
+        if 0 <= minute_value <= 59 and 0 <= hour_value <= 23:
+            nightly_idle_restart_time = f"{hour_value:02d}:{minute_value:02d}"
+
     active_web_session_ttl_seconds = ACTIVE_WEB_SESSION_TTL_SECONDS
     active_web_session_touch_interval_seconds = ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS
     active_web_sessions_count = ActiveWebSession.query.filter(
@@ -4550,6 +4794,7 @@ def settings():
         qr_download_pin_set=qr_download_pin_set,
         nightly_idle_restart_enabled=nightly_idle_restart_enabled,
         nightly_idle_restart_cron=nightly_idle_restart_cron,
+        nightly_idle_restart_time=nightly_idle_restart_time,
         active_web_session_ttl_seconds=active_web_session_ttl_seconds,
         active_web_session_touch_interval_seconds=active_web_session_touch_interval_seconds,
         active_web_sessions_count=active_web_sessions_count,
@@ -4909,6 +5154,25 @@ def api_task_status(task_id):
     payload = _serialize_background_task(task)
     payload["success"] = True
     return jsonify(payload)
+
+
+@app.route("/api/logs_dashboard_refresh_status/<task_id>", methods=["GET"])
+@auth_manager.login_required
+def api_logs_dashboard_refresh_status(task_id):
+    task = db.session.get(BackgroundTask, task_id)
+    if not task or task.task_type != "logs_dashboard_refresh":
+        return jsonify({"success": False, "message": "Задача обновления dashboard не найдена"}), 404
+
+    return jsonify(
+        {
+            "success": True,
+            "task_id": task.id,
+            "status": task.status,
+            "message": task.message,
+            "error": task.error,
+            "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+        }
+    )
 
 
 @app.before_request

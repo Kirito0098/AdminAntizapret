@@ -22,9 +22,9 @@
         <div class="logs-alert">
             Показаны данные из кэша (возраст: {{ cache_meta.age_seconds }} сек).
             {% if cache_meta.refresh_in_progress %}
-            Фоновое обновление выполняется.
+            Фоновое обновление выполняется. Страница обновится автоматически после завершения.
             {% else %}
-            Обновление запущено в фоне.
+            Обновление кэша запущено в фоне.
             {% endif %}
             {% if cache_meta.last_error %}
             <div class="logs-alert-note">Последняя ошибка обновления: {{ cache_meta.last_error }}</div>
@@ -154,6 +154,29 @@
                 <div class="section-title-wrap">
                     <h2>Подключенные клиенты</h2>
                 </div>
+                <p class="traffic-table-hint">
+                    Иногда у подключения видно "Устройство: Не определено" и "Версия: Не определено".
+                    Это нормально: эти данные приходят только от самого клиентского приложения во время подключения.
+                    Если клиент не передал их или давно не переподключался, панель покажет "Не определено".
+                    {% if openvpn_log_tail_lines == 0 %}
+                    Сначала панель читает текущие данные OpenVPN management (без лимита по строкам).
+                    Если свежих данных нет, используются записи из БД за последние 7 дней
+                    при совпадении имени клиента и IP.
+                    {% else %}
+                    Сначала панель читает хвост OpenVPN management: последние {{ openvpn_log_tail_lines }} строк.
+                    Если свежих данных нет, используются записи из БД за последние 7 дней
+                    при совпадении имени клиента и IP.
+                    {% endif %}
+                </p>
+                <label class="traffic-table-hint" style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                    <input type="checkbox" id="hideStaleSessionsToggle" />
+                    Скрыть неактивные/возможно зависшие сессии
+                </label>
+                <p class="traffic-table-hint" style="margin-top:4px;opacity:0.9;">
+                    Как определяется "возможно зависшая": если у одного пользователя есть несколько сессий
+                    с одним и тем же IP в одном профиле, более старая сессия помечается как "возможно зависшая",
+                    а самая новая считается активной.
+                </p>
                 <div class="table-scroll">
                     <table class="logs-table clients-table">
                         <thead>
@@ -177,13 +200,28 @@
                                     {% if client.ip_device_map %}
                                     <div class="ip-device-list">
                                         {% for item in client.ip_device_map %}
-                                        <div class="ip-device-item">
+                                        <div class="ip-device-item"
+                                            data-stale-candidate="{% if item.stale_candidate %}1{% else %}0{% endif %}">
                                             <div><span class="ip-device-key">IP:</span> {{ item.ip }}</div>
-                                            <div><span class="ip-device-key">Устройство:</span> {{ item.platform }}
+                                            <div><span class="ip-device-key">Профиль:</span> {{ item.profile_label or
+                                                '-' }}</div>
+                                            {% if item.show_real_address %}
+                                            <div><span class="ip-device-key">Сессия:</span> {{ item.real_address }}
                                             </div>
-                                            <div><span class="ip-device-key">Версия:</span> {{ item.version }}</div>
+                                            {% endif %}
+                                            {% if item.stale_candidate %}
+                                            <div><span class="ip-device-key">Статус:</span> возможно зависшая (есть
+                                                более новая сессия с тем же IP и профилем)</div>
+                                            {% endif %}
+                                            <div><span class="ip-device-key">Устройство:</span> {{ item.platform or 'Не
+                                                определено' }}
+                                            </div>
+                                            <div><span class="ip-device-key">Версия:</span> {{ item.version or 'Не
+                                                определено' }}</div>
                                         </div>
                                         {% endfor %}
+                                        <div class="ip-device-empty-state" style="display:none;opacity:0.85;">Сессии
+                                            скрыты фильтром</div>
                                     </div>
                                     {% else %}
                                     Не определено
@@ -575,8 +613,97 @@
 </script>
 {% endif %}
 
+{% if cache_meta and cache_meta.is_stale and cache_meta.refresh_in_progress and cache_meta.refresh_task_id %}
 <script>
     (function () {
+        const taskId = {{ cache_meta.refresh_task_id | tojson
+    }};
+    if (!taskId) {
+        return;
+    }
+
+    const statusUrl = `/api/logs_dashboard_refresh_status/${encodeURIComponent(taskId)}`;
+    const pollIntervalMs = 3000;
+    let stopPolling = false;
+
+    async function pollRefreshStatus() {
+        if (stopPolling) {
+            return;
+        }
+
+        try {
+            const response = await fetch(statusUrl, {
+                cache: 'no-store',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const payload = await response.json();
+            const status = String(payload.status || '').toLowerCase();
+
+            if (status === 'completed') {
+                window.location.reload();
+                return;
+            }
+
+            if (status === 'failed') {
+                stopPolling = true;
+                return;
+            }
+        } catch (err) {
+            // Оставляем штатный периодический reload как fallback.
+        }
+
+        window.setTimeout(pollRefreshStatus, pollIntervalMs);
+    }
+
+    pollRefreshStatus();
+    }) ();
+</script>
+{% endif %}
+
+<script>
+    (function () {
+        const hideStaleToggle = document.getElementById('hideStaleSessionsToggle');
+        const hideStaleStorageKey = 'logs_dashboard_hide_stale_sessions';
+
+        function applyStaleSessionsFilter() {
+            if (!hideStaleToggle) {
+                return;
+            }
+
+            const hideStale = !!hideStaleToggle.checked;
+            localStorage.setItem(hideStaleStorageKey, hideStale ? '1' : '0');
+
+            document.querySelectorAll('.ip-device-list').forEach(function (list) {
+                const items = Array.from(list.querySelectorAll('.ip-device-item[data-stale-candidate]'));
+                let visibleCount = 0;
+
+                items.forEach(function (item) {
+                    const isStale = item.getAttribute('data-stale-candidate') === '1';
+                    const shouldHide = hideStale && isStale;
+                    item.style.display = shouldHide ? 'none' : '';
+                    if (!shouldHide) {
+                        visibleCount += 1;
+                    }
+                });
+
+                const emptyState = list.querySelector('.ip-device-empty-state');
+                if (emptyState) {
+                    emptyState.style.display = visibleCount === 0 ? '' : 'none';
+                }
+            });
+        }
+
+        if (hideStaleToggle) {
+            hideStaleToggle.checked = localStorage.getItem(hideStaleStorageKey) === '1';
+            hideStaleToggle.addEventListener('change', applyStaleSessionsFilter);
+            applyStaleSessionsFilter();
+        }
+
         function parseServerDateTime(rawValue) {
             const raw = String(rawValue || '').trim();
             if (!raw || raw === '-') {
