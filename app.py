@@ -3764,6 +3764,18 @@ def _collect_logs_dashboard_data():
 @auth_manager.login_required
 def index():
     if request.method == "GET":
+        def _extract_client_name_from_config_file(file_path):
+            filename = os.path.basename(file_path or "")
+            stem = filename.rsplit('.', 1)[0]
+            stem_lc = stem.lower()
+            if stem_lc.startswith('antizapret-'):
+                raw_name = stem[11:]
+            elif stem_lc.startswith('vpn-'):
+                raw_name = stem[4:]
+            else:
+                raw_name = stem
+            return (raw_name.split('-(')[0] or '').strip()
+
         _idx_user = User.query.filter_by(username=session["username"]).first()
         group = session.get("openvpn_group", "GROUP_UDP\\TCP")
         if group not in GROUP_FOLDERS:
@@ -3788,6 +3800,60 @@ def index():
             wg_files = [f for f in wg_files if os.path.basename(f) in _allowed]
             amneziawg_files = [f for f in amneziawg_files if os.path.basename(f) in _allowed]
 
+        visible_client_names = set()
+        for _file_list in (openvpn_files, wg_files, amneziawg_files):
+            for _path in _file_list:
+                _name = _extract_client_name_from_config_file(_path)
+                if _name:
+                    visible_client_names.add(_name)
+
+        client_details_payload = {"connected": {}, "traffic": {}}
+        try:
+            dashboard_data = _get_logs_dashboard_data_cached(created_by_username=session.get("username"))
+            connected_clients = dashboard_data.get("connected_clients", []) or []
+            persisted_traffic_rows = dashboard_data.get("persisted_traffic_rows", []) or []
+
+            if visible_client_names:
+                connected_clients = [
+                    item for item in connected_clients
+                    if (item.get("common_name") or "") in visible_client_names
+                ]
+                persisted_traffic_rows = [
+                    row for row in persisted_traffic_rows
+                    if (row.get("common_name") or "") in visible_client_names
+                ]
+
+            for item in connected_clients:
+                name = (item.get("common_name") or "").strip()
+                if not name:
+                    continue
+                client_details_payload["connected"][name] = {
+                    "common_name": name,
+                    "sessions": int(item.get("sessions") or 0),
+                    "profiles": item.get("profiles") or "-",
+                    "bytes_received_human": item.get("bytes_received_human") or "0 B",
+                    "bytes_sent_human": item.get("bytes_sent_human") or "0 B",
+                    "total_bytes_human": item.get("total_bytes_human") or "0 B",
+                    "ip_device_map": item.get("ip_device_map") or [],
+                }
+
+            for row in persisted_traffic_rows:
+                name = (row.get("common_name") or "").strip()
+                if not name:
+                    continue
+                client_details_payload["traffic"][name] = {
+                    "traffic_1d_human": row.get("traffic_1d_human") or "0 B",
+                    "traffic_7d_human": row.get("traffic_7d_human") or "0 B",
+                    "traffic_30d_human": row.get("traffic_30d_human") or "0 B",
+                    "total_bytes_vpn_human": row.get("total_bytes_vpn_human") or "0 B",
+                    "total_bytes_antizapret_human": row.get("total_bytes_antizapret_human") or "0 B",
+                    "total_bytes_human": row.get("total_bytes_human") or "0 B",
+                    "last_seen_at": row.get("last_seen_at") or "-",
+                    "is_active": bool(row.get("is_active")),
+                }
+        except Exception as e:
+            app.logger.warning("Не удалось подготовить client_details_payload для index: %s", e)
+
         return render_template(
             "index.html",
             openvpn_files=openvpn_files,
@@ -3797,6 +3863,7 @@ def index():
             banned_clients=banned_clients,
             current_openvpn_group=group,
             current_openvpn_folders=folders,
+            client_details_payload=client_details_payload,
         )
 
     if request.method == "POST":

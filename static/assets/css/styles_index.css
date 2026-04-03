@@ -2445,6 +2445,23 @@ body {
   color: #ef9a9a;
 }
 
+.client-details-button {
+  margin-top: 0.38rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgba(76, 175, 80, 0.35);
+  background: rgba(76, 175, 80, 0.08);
+  color: var(--primary-light);
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.client-details-button:hover {
+  background: rgba(76, 175, 80, 0.18);
+  border-color: rgba(76, 175, 80, 0.6);
+}
+
 .client-status {
   min-width: 120px;
 }
@@ -2621,6 +2638,169 @@ body {
   white-space: normal;
   line-height: 1.35;
   padding: 0.65rem 1rem;
+}
+
+body.client-details-modal-open {
+  overflow: hidden;
+}
+
+.client-details-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.client-details-modal[hidden] {
+  display: none !important;
+}
+
+.client-details-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(3px);
+}
+
+.client-details-dialog {
+  position: relative;
+  width: min(980px, 96vw);
+  max-height: min(90vh, 920px);
+  overflow: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
+  background: rgba(10, 19, 16, 0.97);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  padding: 1rem;
+}
+
+.client-details-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.55rem;
+  width: 34px;
+  height: 34px;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(76, 175, 80, 0.45);
+  background: rgba(76, 175, 80, 0.12);
+  color: #e7fff0;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.client-details-header {
+  padding-right: 2.6rem;
+  margin-bottom: 0.7rem;
+}
+
+.client-details-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.client-details-summary {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  color: rgba(230, 247, 238, 0.9);
+  line-height: 1.35;
+}
+
+.client-details-section {
+  margin-top: 0.7rem;
+  border: 1px solid rgba(76, 175, 80, 0.24);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.7rem;
+}
+
+.client-details-section-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: #e6fff3;
+}
+
+.client-details-quick {
+  margin-bottom: 0.5rem;
+  color: rgba(214, 238, 229, 0.92);
+  font-size: 0.84rem;
+}
+
+.client-details-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+}
+
+.client-details-range-btn {
+  border: 1px solid rgba(76, 175, 80, 0.42);
+  background: rgba(76, 175, 80, 0.08);
+  color: #dcfff0;
+  border-radius: 0.45rem;
+  padding: 0.28rem 0.58rem;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.client-details-range-btn.active {
+  background: rgba(76, 175, 80, 0.32);
+  border-color: rgba(138, 230, 166, 0.7);
+}
+
+.client-details-range-btn:disabled {
+  opacity: 0.9;
+  cursor: default;
+}
+
+.client-details-meta {
+  color: #b2ffb2;
+  font-size: 0.85rem;
+  margin-bottom: 0.55rem;
+}
+
+.client-details-chart-wrap {
+  position: relative;
+  width: 100%;
+  height: 290px;
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.client-details-chart-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.client-details-connections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.client-details-ip-item {
+  padding: 0.42rem 0.5rem;
+  border: 1px solid rgba(76, 175, 80, 0.22);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  line-height: 1.3;
+}
+
+.client-details-key {
+  color: rgba(184, 235, 213, 0.95);
+  font-weight: 600;
+  margin-right: 0.28rem;
+}
+
+.client-details-note {
+  color: rgba(210, 233, 224, 0.86);
+  font-size: 0.86rem;
 }
 
 /*=============== NOTIFICATIONS ===============*/
@@ -2820,6 +3000,20 @@ body {
 
   .client-cert-meta {
     font-size: 0.7rem;
+  }
+
+  .client-details-dialog {
+    width: 100%;
+    max-height: 92vh;
+    padding: 0.75rem;
+  }
+
+  .client-details-chart-wrap {
+    height: 240px;
+  }
+
+  .client-details-summary {
+    font-size: 0.8rem;
   }
 }
 

@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeQRButtons();
     initializeOneTimeLinkButtons();
     initializeClientBanToggles();
+    initializeClientDetailsModal();
 });
 
 // ============ STATE MANAGEMENT ============
@@ -160,12 +161,19 @@ async function refreshMainContent() {
         currentProtocolTabs.innerHTML = newProtocolTabs.innerHTML;
     }
 
+    const newClientDetailsData = doc.querySelector('#index-client-details-data');
+    const currentClientDetailsData = document.querySelector('#index-client-details-data');
+    if (newClientDetailsData && currentClientDetailsData) {
+        currentClientDetailsData.textContent = newClientDetailsData.textContent;
+    }
+
     initializeTabSwitching();
     initializeTableSorting();
     initializeOpenVpnGroupSwitching();
     initializeQRButtons();
     initializeOneTimeLinkButtons();
     initializeClientBanToggles();
+    initializeClientDetailsModal();
 
     switchTab(currentTab);
 
@@ -409,6 +417,8 @@ function initializeOpenVpnGroupSwitching() {
                 const doc = parser.parseFromString(html, 'text/html');
                 const newOpenVpnTab = doc.getElementById('openvpn-tab');
                 const currentOpenVpnTab = document.getElementById('openvpn-tab');
+                const newClientDetailsData = doc.querySelector('#index-client-details-data');
+                const currentClientDetailsData = document.querySelector('#index-client-details-data');
 
                 if (!newOpenVpnTab || !currentOpenVpnTab) {
                     throw new Error('OpenVPN tab content not found');
@@ -425,6 +435,11 @@ function initializeOpenVpnGroupSwitching() {
                 initializeQRButtons();
                 initializeOneTimeLinkButtons();
                 initializeClientBanToggles();
+                initializeClientDetailsModal();
+
+                if (newClientDetailsData && currentClientDetailsData) {
+                    currentClientDetailsData.textContent = newClientDetailsData.textContent;
+                }
 
                 if (currentTab === 'openvpn') {
                     filterTable();
@@ -705,6 +720,313 @@ async function copyTextToClipboard(text) {
     if (!copied) {
         throw new Error('Не удалось скопировать ссылку');
     }
+}
+
+// ============ CLIENT DETAILS MODAL ============
+function getIndexClientDetailsPayload() {
+    const dataNode = document.getElementById('index-client-details-data');
+    if (!dataNode) {
+        return { connected: {}, traffic: {} };
+    }
+
+    try {
+        const parsed = JSON.parse(dataNode.textContent || '{}');
+        return {
+            connected: parsed && parsed.connected ? parsed.connected : {},
+            traffic: parsed && parsed.traffic ? parsed.traffic : {},
+        };
+    } catch (error) {
+        console.warn('Failed to parse index client details payload:', error);
+        return { connected: {}, traffic: {} };
+    }
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function initializeClientDetailsModal() {
+    const modal = document.getElementById('clientDetailsModalMain');
+    if (!modal || modal.dataset.bound === '1') {
+        return;
+    }
+    modal.dataset.bound = '1';
+
+    const modalTitle = document.getElementById('clientDetailsTitleMain');
+    const modalSummary = document.getElementById('clientDetailsSummaryMain');
+    const modalTrafficQuick = document.getElementById('clientDetailsTrafficQuickMain');
+    const modalTrafficMeta = document.getElementById('clientDetailsTrafficMetaMain');
+    const modalConnections = document.getElementById('clientDetailsConnectionsMain');
+    const modalChartCanvas = document.getElementById('clientDetailsTrafficChartMain');
+    const rangeButtons = Array.from(document.querySelectorAll('.client-details-range-btn[data-range]'));
+
+    const modalRangeStorageKey = 'index_client_details_selected_range';
+    let currentClientName = '';
+    let currentRange = localStorage.getItem(modalRangeStorageKey) || '7d';
+    let detailsChart = null;
+
+    if (!rangeButtons.some(btn => btn.dataset.range === currentRange)) {
+        currentRange = '7d';
+    }
+
+    function humanBytes(value) {
+        let size = Number(value || 0);
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let idx = 0;
+        while (size >= 1024 && idx < units.length - 1) {
+            size /= 1024;
+            idx += 1;
+        }
+        const precision = idx === 0 ? 0 : (size < 10 ? 2 : 1);
+        return `${size.toFixed(precision)} ${units[idx]}`;
+    }
+
+    function setModalOpen(isOpen) {
+        modal.hidden = !isOpen;
+        document.body.classList.toggle('client-details-modal-open', isOpen);
+    }
+
+    function closeModal() {
+        setModalOpen(false);
+    }
+
+    function setActiveRangeButtons() {
+        rangeButtons.forEach(btn => {
+            const isActive = btn.dataset.range === currentRange;
+            btn.classList.toggle('active', isActive);
+            btn.disabled = isActive;
+        });
+    }
+
+    function renderConnections(clientName) {
+        if (!modalConnections) {
+            return;
+        }
+
+        const payload = getIndexClientDetailsPayload();
+        const connectedItem = payload.connected[clientName];
+        const ipDeviceMap = connectedItem && Array.isArray(connectedItem.ip_device_map)
+            ? connectedItem.ip_device_map
+            : [];
+
+        if (!ipDeviceMap.length) {
+            modalConnections.innerHTML = '<div class="client-details-note">Сейчас нет активных подключений по этому клиенту.</div>';
+            return;
+        }
+
+        const rendered = ipDeviceMap.map(item => {
+            const ip = escapeHtml(item.ip || '-');
+            const profile = escapeHtml(item.profile_label || '-');
+            const realAddress = escapeHtml(item.real_address || '');
+            const showSession = !!item.show_real_address;
+            const platform = escapeHtml(item.platform || 'Не определено');
+            const version = escapeHtml(item.version || 'Не определено');
+            const staleLine = item.stale_candidate
+                ? '<div><span class="client-details-key">Статус:</span> возможно зависшая (есть более новая сессия с тем же IP и профилем)</div>'
+                : '';
+
+            return `
+                <div class="client-details-ip-item">
+                    <div><span class="client-details-key">IP:</span>${ip}</div>
+                    <div><span class="client-details-key">Профиль:</span>${profile}</div>
+                    ${showSession ? `<div><span class="client-details-key">Сессия:</span>${realAddress}</div>` : ''}
+                    ${staleLine}
+                    <div><span class="client-details-key">Устройство:</span>${platform}</div>
+                    <div><span class="client-details-key">Версия:</span>${version}</div>
+                </div>
+            `;
+        }).join('');
+
+        modalConnections.innerHTML = rendered;
+    }
+
+    async function loadTrafficChart() {
+        if (!currentClientName || !modalTrafficMeta || !modalChartCanvas) {
+            return;
+        }
+
+        if (typeof Chart === 'undefined') {
+            modalTrafficMeta.textContent = 'График недоступен: библиотека Chart.js не загружена';
+            return;
+        }
+
+        modalTrafficMeta.textContent = 'Загрузка...';
+
+        try {
+            const url = `/api/user-traffic-chart?client=${encodeURIComponent(currentClientName)}&range=${encodeURIComponent(currentRange)}`;
+            const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const labels = (data.labels || []).slice();
+            const vpnData = (data.vpn_bytes || []).map(v => Number(v || 0));
+            const antData = (data.antizapret_bytes || []).map(v => Number(v || 0));
+
+            if (!labels.length) {
+                labels.push('Нет данных');
+                vpnData.push(0);
+                antData.push(0);
+            }
+
+            if (detailsChart) {
+                detailsChart.destroy();
+            }
+
+            detailsChart = new Chart(modalChartCanvas, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'VPN',
+                            data: vpnData,
+                            borderColor: '#4caf50',
+                            backgroundColor: 'rgba(76,175,80,0.12)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.2,
+                        },
+                        {
+                            label: 'Antizapret',
+                            data: antData,
+                            borderColor: '#f44336',
+                            backgroundColor: 'rgba(244,67,54,0.12)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.2,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#bbb',
+                                autoSkip: true,
+                                maxTicksLimit: currentRange === '1h' ? 12 : (currentRange === '24h' ? 24 : 10)
+                            },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#ddd',
+                                callback: function (value) {
+                                    return humanBytes(value);
+                                }
+                            },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#fff' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    return `${ctx.dataset.label}: ${humanBytes(ctx.parsed.y)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            modalTrafficMeta.textContent =
+                `VPN: ${data.total_vpn_human || humanBytes(data.total_vpn)} | ` +
+                `Antizapret: ${data.total_antizapret_human || humanBytes(data.total_antizapret)} | ` +
+                `Итого: ${data.total_human || humanBytes(data.total)}`;
+        } catch (error) {
+            modalTrafficMeta.textContent = `Не удалось загрузить график: ${error.message}`;
+        }
+    }
+
+    function openModal(clientName) {
+        const name = String(clientName || '').trim();
+        if (!name) {
+            showNotification('Не удалось определить имя клиента', 'error');
+            return;
+        }
+
+        currentClientName = name;
+
+        const payload = getIndexClientDetailsPayload();
+        const connectedItem = payload.connected[name] || {};
+        const trafficItem = payload.traffic[name] || null;
+
+        if (modalTitle) {
+            modalTitle.textContent = name;
+        }
+
+        const sessions = connectedItem.sessions != null ? connectedItem.sessions : '-';
+        const profiles = connectedItem.profiles || '-';
+        const rx = connectedItem.bytes_received_human || '-';
+        const tx = connectedItem.bytes_sent_human || '-';
+        const total = connectedItem.total_bytes_human || '-';
+
+        if (modalSummary) {
+            modalSummary.textContent = `Сессий: ${sessions} | Профили: ${profiles} | Rx: ${rx} | Tx: ${tx} | Итого: ${total}`;
+        }
+
+        if (modalTrafficQuick) {
+            if (trafficItem) {
+                const statusText = trafficItem.is_active ? 'Онлайн' : 'Оффлайн';
+                modalTrafficQuick.textContent =
+                    `Статус: ${statusText} | 1 день: ${trafficItem.traffic_1d_human} | 7 дней: ${trafficItem.traffic_7d_human} | 30 дней: ${trafficItem.traffic_30d_human} | VPN: ${trafficItem.total_bytes_vpn_human} | Antizapret: ${trafficItem.total_bytes_antizapret_human}`;
+            } else {
+                modalTrafficQuick.textContent = 'В БД пока нет накопленной статистики по этому клиенту.';
+            }
+        }
+
+        renderConnections(name);
+        setActiveRangeButtons();
+        setModalOpen(true);
+        loadTrafficChart();
+    }
+
+    rangeButtons.forEach(btn => {
+        btn.addEventListener('click', function () {
+            currentRange = btn.dataset.range || '7d';
+            localStorage.setItem(modalRangeStorageKey, currentRange);
+            setActiveRangeButtons();
+            loadTrafficChart();
+        });
+    });
+
+    document.addEventListener('click', function (event) {
+        const btn = event.target.closest('.client-details-button');
+        if (!btn) {
+            return;
+        }
+
+        event.preventDefault();
+        const clientName = btn.getAttribute('data-client-name') ||
+            btn.closest('.client-row')?.getAttribute('data-client-name') || '';
+        openModal(clientName);
+    });
+
+    modal.querySelectorAll('[data-client-details-close]').forEach(node => {
+        node.addEventListener('click', closeModal);
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.hidden) {
+            closeModal();
+        }
+    });
 }
 
 // ============ NOTIFICATIONS ============
