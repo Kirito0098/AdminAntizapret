@@ -17,6 +17,22 @@
     </section>
     {% endif %}
 
+    {% if cache_meta and cache_meta.is_stale %}
+    <section class="logs-section">
+        <div class="logs-alert">
+            Показаны данные из кэша (возраст: {{ cache_meta.age_seconds }} сек).
+            {% if cache_meta.refresh_in_progress %}
+            Фоновое обновление выполняется.
+            {% else %}
+            Обновление запущено в фоне.
+            {% endif %}
+            {% if cache_meta.last_error %}
+            <div class="logs-alert-note">Последняя ошибка обновления: {{ cache_meta.last_error }}</div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
     <section class="logs-summary-grid">
         <article class="summary-card">
             <h3>Подключенные сессии</h3>

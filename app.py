@@ -18,6 +18,7 @@ import subprocess
 import os
 import re
 import io
+import json
 import glob
 import socket
 import sys
@@ -43,6 +44,7 @@ from dotenv import load_dotenv
 import time
 import platform
 from sqlalchemy.exc import IntegrityError
+from concurrent.futures import ThreadPoolExecutor
 
 #Импорт файла с параметрами
 from utils.ip_restriction import ip_restriction
@@ -82,6 +84,17 @@ RESULT_DIR_FILES = {
 }
 
 PUBLIC_DOWNLOAD_ENABLED = os.getenv("PUBLIC_DOWNLOAD_ENABLED", "false").lower() == "true"
+
+try:
+    BACKGROUND_TASK_WORKERS = max(1, int(os.getenv("BACKGROUND_TASK_WORKERS", "2")))
+except (TypeError, ValueError):
+    BACKGROUND_TASK_WORKERS = 2
+
+BACKGROUND_TASK_MAX_OUTPUT_CHARS = 12000
+background_task_executor = ThreadPoolExecutor(
+    max_workers=BACKGROUND_TASK_WORKERS,
+    thread_name_prefix="adminantizapret-task",
+)
 
 
 def _set_env_value(key, value):
@@ -536,6 +549,34 @@ class ActiveWebSession(db.Model):
     user_agent = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+
+class BackgroundTask(db.Model):
+    """Состояние фоновой административной задачи."""
+    __tablename__ = 'background_task'
+
+    id = db.Column(db.String(32), primary_key=True)
+    task_type = db.Column(db.String(64), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default='queued', index=True)
+    created_by_username = db.Column(db.String(80), nullable=True, index=True)
+    message = db.Column(db.String(255), nullable=True)
+    output = db.Column(db.Text, nullable=True)
+    error = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    started_at = db.Column(db.DateTime, nullable=True)
+    finished_at = db.Column(db.DateTime, nullable=True)
+
+
+class LogsDashboardCache(db.Model):
+    """Кэш последнего снимка logs_dashboard для быстрой отдачи из БД."""
+    __tablename__ = 'logs_dashboard_cache'
+
+    id = db.Column(db.Integer, primary_key=True)
+    cache_key = db.Column(db.String(32), unique=True, nullable=False, index=True)
+    payload_json = db.Column(db.Text, nullable=True)
+    generated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_error = db.Column(db.String(255), nullable=True)
 
 
 class ScriptExecutor:
@@ -1149,6 +1190,362 @@ def _log_qr_event(event_type, token_row=None, details=None):
         app.logger.warning(f"Не удалось записать событие QR-журнала: {e}")
 
 
+def _trim_background_task_text(value):
+    text = (value or "").strip()
+    if len(text) <= BACKGROUND_TASK_MAX_OUTPUT_CHARS:
+        return text
+    return text[:BACKGROUND_TASK_MAX_OUTPUT_CHARS] + "\n...[truncated]"
+
+
+def _serialize_background_task(task):
+    return {
+        "task_id": task.id,
+        "task_type": task.task_type,
+        "status": task.status,
+        "message": task.message,
+        "output": task.output,
+        "error": task.error,
+        "created_at": task.created_at.isoformat() if task.created_at else None,
+        "started_at": task.started_at.isoformat() if task.started_at else None,
+        "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+    }
+
+
+def _update_background_task(task_id, **fields):
+    with app.app_context():
+        task = db.session.get(BackgroundTask, task_id)
+        if not task:
+            return
+
+        for key, value in fields.items():
+            setattr(task, key, value)
+
+        db.session.commit()
+
+
+def _run_background_task(task_id, task_callable):
+    _update_background_task(
+        task_id,
+        status="running",
+        started_at=datetime.utcnow(),
+        message="Задача выполняется",
+    )
+
+    try:
+        with app.app_context():
+            result = task_callable() or {}
+        _update_background_task(
+            task_id,
+            status="completed",
+            finished_at=datetime.utcnow(),
+            message=(result.get("message") or "Задача выполнена")[:255],
+            output=_trim_background_task_text(result.get("output", "")),
+            error=None,
+        )
+    except Exception as e:
+        app.logger.exception(f"Ошибка фоновой задачи {task_id}: {e}")
+        try:
+            with app.app_context():
+                db.session.rollback()
+        except Exception:
+            pass
+        _update_background_task(
+            task_id,
+            status="failed",
+            finished_at=datetime.utcnow(),
+            message="Задача завершилась с ошибкой",
+            error=_trim_background_task_text(str(e)),
+        )
+
+
+def _enqueue_background_task(task_type, task_callable, created_by_username=None, queued_message=None):
+    task = BackgroundTask(
+        id=secrets.token_hex(16),
+        task_type=task_type,
+        status="queued",
+        created_by_username=created_by_username,
+        message=(queued_message or "Задача поставлена в очередь")[:255],
+    )
+    db.session.add(task)
+    db.session.commit()
+
+    background_task_executor.submit(_run_background_task, task.id, task_callable)
+    return task
+
+
+def _task_accepted_response(task, message):
+    payload = _serialize_background_task(task)
+    payload.update(
+        {
+            "success": True,
+            "queued": True,
+            "message": message,
+            "status_url": url_for("api_task_status", task_id=task.id),
+        }
+    )
+    return jsonify(payload), 202
+
+
+def _run_checked_command(args, cwd=None, timeout=120):
+    result = subprocess.run(
+        args,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=timeout,
+    )
+    stdout = (result.stdout or "").strip()
+    stderr = (result.stderr or "").strip()
+    if result.returncode != 0:
+        raise RuntimeError(f"Команда {' '.join(args)} завершилась с кодом {result.returncode}. {stderr or stdout}")
+    return stdout, stderr
+
+
+def _task_run_doall():
+    stdout, stderr = _run_checked_command(["/root/antizapret/doall.sh"], timeout=900)
+    combined = "\n".join(part for part in [stdout, stderr] if part).strip()
+    return {
+        "message": "Скрипт doall выполнен успешно",
+        "output": combined,
+    }
+
+
+def _task_restart_service():
+    stdout, stderr = _run_checked_command(
+        ["/opt/AdminAntizapret/script_sh/adminpanel.sh", "--restart"],
+        timeout=120,
+    )
+    combined = "\n".join(part for part in [stdout, stderr] if part).strip()
+    return {
+        "message": "Служба успешно перезапущена",
+        "output": combined,
+    }
+
+
+def _task_update_system():
+    output_parts = []
+    repo_dir = APP_ROOT
+    pip_path = os.path.join(APP_ROOT, "venv", "bin", "pip")
+    if not os.path.exists(pip_path):
+        pip_path = "pip3"
+
+    commands = [
+        (["git", "fetch", "origin", "main", "--quiet"], 90),
+        (["git", "reset", "--hard", "origin/main", "--quiet"], 90),
+        (["git", "clean", "-fd", "--quiet"], 90),
+        ([pip_path, "install", "-q", "-r", "requirements.txt"], 300),
+    ]
+
+    for cmd, timeout in commands:
+        stdout, stderr = _run_checked_command(cmd, cwd=repo_dir, timeout=timeout)
+        output_parts.extend([part for part in [stdout, stderr] if part])
+
+    return {
+        "message": "Обновление завершено. Выполните перезапуск службы отдельно.",
+        "output": "\n".join(output_parts).strip(),
+    }
+
+
+def _logs_dashboard_cache_row():
+    return LogsDashboardCache.query.filter_by(cache_key="main").first()
+
+
+def _save_logs_dashboard_cache_payload(payload, last_error=None):
+    row = _logs_dashboard_cache_row()
+    if row is None:
+        row = LogsDashboardCache(cache_key="main")
+
+    row.payload_json = json.dumps(payload, ensure_ascii=False)
+    row.generated_at = datetime.utcnow()
+    row.last_error = (last_error or "").strip()[:255] or None
+    db.session.add(row)
+    db.session.commit()
+    return row
+
+
+def _load_logs_dashboard_cache_payload():
+    row = _logs_dashboard_cache_row()
+    if row is None or not row.payload_json:
+        return None, row
+
+    try:
+        payload = json.loads(row.payload_json)
+    except Exception:
+        return None, row
+
+    if not isinstance(payload, dict):
+        return None, row
+
+    return payload, row
+
+
+def _build_empty_logs_dashboard_payload(reason_message=None):
+    reason = (reason_message or "Данные временно недоступны").strip()
+    return {
+        "status_rows": [],
+        "event_rows": [],
+        "grouped_status_rows": [
+            {
+                "network": "Antizapret",
+                "files": "-",
+                "snapshot_times": "-",
+                "updated_at": "-",
+                "client_count": 0,
+                "unique_real_ips": 0,
+                "transport_split": "TCP: 0, UDP: 0",
+                "total_received": 0,
+                "total_sent": 0,
+                "total_traffic": 0,
+                "total_received_human": _human_bytes(0),
+                "total_sent_human": _human_bytes(0),
+                "total_traffic_human": _human_bytes(0),
+            },
+            {
+                "network": "VPN",
+                "files": "-",
+                "snapshot_times": "-",
+                "updated_at": "-",
+                "client_count": 0,
+                "unique_real_ips": 0,
+                "transport_split": "TCP: 0, UDP: 0",
+                "total_received": 0,
+                "total_sent": 0,
+                "total_traffic": 0,
+                "total_received_human": _human_bytes(0),
+                "total_sent_human": _human_bytes(0),
+                "total_traffic_human": _human_bytes(0),
+            },
+        ],
+        "grouped_event_rows": [],
+        "openvpn_logging_enabled": False,
+        "missing_event_log_files": [reason],
+        "summary": {
+            "total_active_clients": 0,
+            "unique_client_names": 0,
+            "unique_ips": 0,
+            "total_received": 0,
+            "total_sent": 0,
+            "total_received_human": _human_bytes(0),
+            "total_sent_human": _human_bytes(0),
+            "total_traffic_human": _human_bytes(0),
+            "total_event_lines": 0,
+            "total_event_counts": {},
+        },
+        "connected_clients": [],
+        "persisted_traffic_rows": [],
+        "deleted_persisted_traffic_rows": [],
+        "persisted_traffic_summary": {
+            "users_count": 0,
+            "active_users_count": 0,
+            "offline_users_count": 0,
+            "total_received_human": _human_bytes(0),
+            "total_sent_human": _human_bytes(0),
+            "total_traffic_human": _human_bytes(0),
+            "latest_sample_at": "-",
+            "latest_stat_seen_at": "-",
+            "db_age_seconds": None,
+            "db_age_human": "-",
+            "db_is_stale": False,
+        },
+        "deleted_persisted_traffic_summary": {
+            "users_count": 0,
+            "total_bytes": 0,
+            "total_bytes_human": _human_bytes(0),
+        },
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+def _is_logs_dashboard_refresh_in_progress():
+    return (
+        BackgroundTask.query.filter(
+            BackgroundTask.task_type == "logs_dashboard_refresh",
+            BackgroundTask.status.in_(["queued", "running"]),
+        ).first()
+        is not None
+    )
+
+
+def _task_refresh_logs_dashboard_cache():
+    try:
+        payload = _collect_logs_dashboard_data()
+        _save_logs_dashboard_cache_payload(payload, last_error=None)
+        return {
+            "message": "Кэш dashboard обновлен",
+            "output": f"generated_at={payload.get('generated_at', '-')}",
+        }
+    except Exception as exc:
+        db.session.rollback()
+        row = _logs_dashboard_cache_row()
+        if row is not None:
+            row.last_error = str(exc)[:255]
+            db.session.commit()
+        raise
+
+
+def _queue_logs_dashboard_refresh_if_needed(created_by_username=None):
+    existing = _is_logs_dashboard_refresh_in_progress()
+    if existing:
+        return False
+
+    _enqueue_background_task(
+        "logs_dashboard_refresh",
+        _task_refresh_logs_dashboard_cache,
+        created_by_username=created_by_username,
+        queued_message="Обновление кэша dashboard поставлено в очередь",
+    )
+    return True
+
+
+def _get_logs_dashboard_data_cached(created_by_username=None):
+    payload, row = _load_logs_dashboard_cache_payload()
+    now = datetime.utcnow()
+
+    if payload is not None and row is not None and row.generated_at is not None:
+        age_seconds = max(int((now - row.generated_at).total_seconds()), 0)
+        is_stale = age_seconds > LOGS_DASHBOARD_CACHE_TTL_SECONDS
+
+        if is_stale:
+            _queue_logs_dashboard_refresh_if_needed(created_by_username=created_by_username)
+
+        payload["cache_meta"] = {
+            "from_cache": True,
+            "is_stale": is_stale,
+            "age_seconds": age_seconds,
+            "refresh_in_progress": _is_logs_dashboard_refresh_in_progress(),
+            "ttl_seconds": LOGS_DASHBOARD_CACHE_TTL_SECONDS,
+            "last_error": (row.last_error or "").strip() or None,
+        }
+        return payload
+
+    try:
+        fresh_payload = _collect_logs_dashboard_data()
+        _save_logs_dashboard_cache_payload(fresh_payload, last_error=None)
+        fresh_payload["cache_meta"] = {
+            "from_cache": False,
+            "is_stale": False,
+            "age_seconds": 0,
+            "refresh_in_progress": False,
+            "ttl_seconds": LOGS_DASHBOARD_CACHE_TTL_SECONDS,
+            "last_error": None,
+        }
+        return fresh_payload
+    except Exception as exc:
+        db.session.rollback()
+        _queue_logs_dashboard_refresh_if_needed(created_by_username=created_by_username)
+        fallback_payload = _build_empty_logs_dashboard_payload(str(exc))
+        fallback_payload["cache_meta"] = {
+            "from_cache": False,
+            "is_stale": True,
+            "age_seconds": None,
+            "refresh_in_progress": _is_logs_dashboard_refresh_in_progress(),
+            "ttl_seconds": LOGS_DASHBOARD_CACHE_TTL_SECONDS,
+            "last_error": str(exc),
+        }
+        return fallback_payload
+
+
 def _run_db_migrations():
     """Apply incremental DB schema migrations."""
     from sqlalchemy import text
@@ -1269,6 +1666,15 @@ except (TypeError, ValueError):
     ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS = 30
 if ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS < 1:
     ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS = 1
+
+try:
+    LOGS_DASHBOARD_CACHE_TTL_SECONDS = int(
+        _get_env_value("LOGS_DASHBOARD_CACHE_TTL_SECONDS", "45")
+    )
+except (TypeError, ValueError):
+    LOGS_DASHBOARD_CACHE_TTL_SECONDS = 45
+if LOGS_DASHBOARD_CACHE_TTL_SECONDS < 5:
+    LOGS_DASHBOARD_CACHE_TTL_SECONDS = 5
 
 STATUS_LOG_FILES = {
     "antizapret-tcp": os.path.join(LOGS_DIR, "antizapret-tcp-status.log"),
@@ -3646,31 +4052,15 @@ def edit_files():
 
         if file_editor.update_file_content(file_type, content):
             try:
-                result = subprocess.run(
-                    ["/root/antizapret/doall.sh"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    check=True,
-                    timeout=290,
+                task = _enqueue_background_task(
+                    "run_doall",
+                    _task_run_doall,
+                    created_by_username=session.get("username"),
+                    queued_message="Применение изменений запущено в фоне",
                 )
-                return jsonify(
-                    {
-                        "success": True,
-                        "message": "Файл успешно обновлен и изменения применены.",
-                        "output": result.stdout,
-                    }
-                )
-            except subprocess.CalledProcessError as e:
-                return (
-                    jsonify(
-                        {
-                            "success": False,
-                            "message": f"Ошибка выполнения скрипта: {e.stderr}",
-                            "output": e.stdout,
-                        }
-                    ),
-                    500,
+                return _task_accepted_response(
+                    task,
+                    "Файл сохранен. Применение изменений выполняется в фоне.",
                 )
             except Exception as e:
                 return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
@@ -3690,30 +4080,15 @@ def edit_files():
 @auth_manager.admin_required
 def run_doall():
     try:
-        result = subprocess.run(
-            ["/root/antizapret/doall.sh"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=True,
+        task = _enqueue_background_task(
+            "run_doall",
+            _task_run_doall,
+            created_by_username=session.get("username"),
+            queued_message="Запуск doall поставлен в очередь",
         )
-        return jsonify(
-            {
-                "success": True,
-                "message": "Скрипт успешно выполнен.",
-                "output": result.stdout,
-            }
-        )
-    except subprocess.CalledProcessError as e:
-        return (
-            jsonify(
-                {
-                    "success": False,
-                    "message": f"Ошибка выполнения скрипта: {e.stderr}",
-                    "output": e.stdout,
-                }
-            ),
-            500,
+        return _task_accepted_response(
+            task,
+            "Скрипт doall запущен в фоне.",
         )
     except Exception as e:
         return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
@@ -3737,7 +4112,7 @@ def server_monitor():
 @app.route("/logs_dashboard", methods=["GET"])
 @auth_manager.login_required
 def logs_dashboard():
-    dashboard_data = _collect_logs_dashboard_data()
+    dashboard_data = _get_logs_dashboard_data_cached(created_by_username=session.get("username"))
     cleanup_notice = request.args.get("cleanup_notice", "")
     cleanup_notice_kind = request.args.get("cleanup_notice_kind", "info")
     return render_template(
@@ -3755,6 +4130,7 @@ def logs_dashboard():
         persisted_traffic_summary=dashboard_data["persisted_traffic_summary"],
         deleted_persisted_traffic_summary=dashboard_data["deleted_persisted_traffic_summary"],
         generated_at=dashboard_data["generated_at"],
+        cache_meta=dashboard_data.get("cache_meta", {}),
         cleanup_notice=cleanup_notice,
         cleanup_notice_kind=cleanup_notice_kind,
     )
@@ -4094,29 +4470,18 @@ def settings():
 
         if restart_action == "restart_service":
             try:
-                # Искусственная задержка 5 секунд для визуального эффекта
-                time.sleep(5)
-
-                # Выполняем команду перезапуска
-                result = subprocess.run(
-                    ["/opt/AdminAntizapret/script_sh/adminpanel.sh", "--restart"],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
+                task = _enqueue_background_task(
+                    "restart_service",
+                    _task_restart_service,
+                    created_by_username=session.get("username"),
+                    queued_message="Перезапуск службы поставлен в очередь",
                 )
-
-                if result.returncode == 0:
-                    flash(
-                        "✅ Служба успешно перезапущена! Изменения IP ограничений применены.",
-                        "success",
-                    )
-                else:
-                    flash(f"❌ Ошибка при перезапуске: {result.stderr[:100]}", "error")
-
-            except subprocess.TimeoutExpired:
-                flash("⏱️ Таймаут при перезапуске службы", "error")
+                flash(
+                    f"Перезапуск службы запущен в фоне (task: {task.id[:8]}). Обновите страницу через 10-20 секунд.",
+                    "info",
+                )
             except Exception as e:
-                flash(f"❌ Ошибка: {str(e)}", "error")
+                flash(f"Ошибка запуска фонового перезапуска: {str(e)}", "error")
 
         return redirect(url_for("settings"))
 
@@ -4498,32 +4863,15 @@ def monitor_websocket(ws):
 @auth_manager.admin_required
 def check_updates():
     try:
-        result = subprocess.run(
-            """
-            cd /opt/AdminAntizapret &&
-            git fetch origin main --quiet &&
-            LOCAL=$(git rev-parse HEAD) &&
-            REMOTE=$(git rev-parse origin/main) &&
-            if [ "$LOCAL" = "$REMOTE" ]; then
-                echo "up_to_date"
-            else
-                echo "update_available"
-            fi
-            """,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            timeout=30,
-        )
+        _run_checked_command(["git", "fetch", "origin", "main", "--quiet"], cwd=APP_ROOT, timeout=30)
+        local_commit, _ = _run_checked_command(["git", "rev-parse", "HEAD"], cwd=APP_ROOT, timeout=10)
+        remote_commit, _ = _run_checked_command(["git", "rev-parse", "origin/main"], cwd=APP_ROOT, timeout=10)
 
-        status = result.stdout.strip()
-        if status == "update_available":
+        if local_commit.strip() != remote_commit.strip():
             return {"update_available": True, "message": "Доступно обновление!"}, 200
-        else:
-            return {"update_available": False, "message": "У вас последняя версия"}, 200
+        return {"update_available": False, "message": "У вас последняя версия"}, 200
 
-    except:
+    except Exception:
         return {
             "update_available": False,
             "message": "Не удалось проверить обновления",
@@ -4534,25 +4882,33 @@ def check_updates():
 @auth_manager.admin_required
 def update_system():
     try:
-        subprocess.run(
-            """
-            cd /opt/AdminAntizapret &&
-            git fetch origin main --quiet &&
-            git reset --hard origin/main --quiet &&
-            git clean -fd --quiet &&
-            /opt/AdminAntizapret/venv/bin/pip install -q -r requirements.txt > /dev/null 2>&1 &&
-            systemctl restart admin-antizapret.service > /dev/null 2>&1 || true
-            """,
-            shell=True,
-            timeout=600,
-            check=False,
+        task = _enqueue_background_task(
+            "update_system",
+            _task_update_system,
+            created_by_username=session.get("username"),
+            queued_message="Обновление системы поставлено в очередь",
         )
-        return {"success": True, "message": "Панель успешно обновлена!"}, 200
-    except Exception as e:
+        return _task_accepted_response(
+            task,
+            "Обновление системы запущено в фоне.",
+        )
+    except Exception:
         return {
-            "success": True,
-            "message": "Панель обновлена (перезагрузите страницу)",
-        }, 200
+            "success": False,
+            "message": "Не удалось запустить фоновое обновление",
+        }, 500
+
+
+@app.route("/api/tasks/<task_id>", methods=["GET"])
+@auth_manager.admin_required
+def api_task_status(task_id):
+    task = db.session.get(BackgroundTask, task_id)
+    if not task:
+        return jsonify({"success": False, "message": "Задача не найдена"}), 404
+
+    payload = _serialize_background_task(task)
+    payload["success"] = True
+    return jsonify(payload)
 
 
 @app.before_request
@@ -4627,44 +4983,16 @@ def ip_blocked():
 def api_restart_service():
     """API для перезапуска службы"""
     try:
-        # Выполняем команду перезапуска
-        result = subprocess.run(
-            ["/opt/AdminAntizapret/script_sh/adminpanel.sh", "--restart"],
-            capture_output=True,
-            text=True,
-            timeout=30,
+        task = _enqueue_background_task(
+            "restart_service",
+            _task_restart_service,
+            created_by_username=session.get("username"),
+            queued_message="Перезапуск службы поставлен в очередь",
         )
-
-        if result.returncode == 0:
-            return jsonify(
-                {
-                    "success": True,
-                    "message": "✅ Служба успешно перезапущена",
-                    "output": result.stdout,
-                }
-            )
-        else:
-            app.logger.error(f"Ошибка перезапуска: {result.stderr}")
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "message": "❌ Ошибка при перезапуске службы",
-                        "output": result.stderr,
-                    }
-                ),
-                500,
-            )
-
-    except subprocess.TimeoutExpired:
-        app.logger.error("Таймаут при перезапуске службы")
-        return (
-            jsonify({"success": False, "message": "⏱️ Таймаут при перезапуске службы"}),
-            500,
-        )
+        return _task_accepted_response(task, "Перезапуск службы запущен в фоне.")
     except Exception as e:
         app.logger.error(f"Ошибка: {str(e)}")
-        return jsonify({"success": False, "message": f"❌ Ошибка: {str(e)}"}), 500
+        return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
 
 @app.route("/api/viewer-access", methods=["POST"])

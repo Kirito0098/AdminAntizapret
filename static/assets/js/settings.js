@@ -1,4 +1,31 @@
 document.addEventListener("DOMContentLoaded", function () {
+  const pollBackgroundTask = async (taskId, options = {}) => {
+    const intervalMs = options.intervalMs || 3000;
+    const timeoutMs = options.timeoutMs || 600000;
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error(`Ошибка запроса статуса задачи (HTTP ${response.status})`);
+      }
+
+      const task = await response.json();
+      if (task.status === "completed") {
+        return task;
+      }
+      if (task.status === "failed") {
+        throw new Error(task.error || task.message || "Фоновая задача завершилась с ошибкой");
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    throw new Error("Превышено время ожидания фоновой задачи");
+  };
+
   // Инициализация меню
   const initMenu = () => {
     const menuItems = document.querySelectorAll(".menu-item");
@@ -160,7 +187,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const applyData = await applyResponse.json();
 
-      if (applyData.success) {
+      if (applyData.queued && applyData.task_id) {
+        statusElement.textContent = "Применение запущено в фоне...";
+        const task = await pollBackgroundTask(applyData.task_id, { timeoutMs: 900000 });
+        statusElement.textContent = task.message || "Настройки успешно сохранены и применены!";
+        statusElement.className = "notification notification-success";
+      } else if (applyData.success) {
         statusElement.textContent = "Настройки успешно сохранены и применены!";
         statusElement.className = "notification notification-success";
       } else {
@@ -232,10 +264,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const data = await response.json();
 
-      if (data.success) {
+      if (data.queued && data.task_id) {
+        statusElement.textContent = data.message || "Обновление запущено в фоне...";
+        const task = await pollBackgroundTask(data.task_id, { timeoutMs: 1200000 });
+        statusElement.textContent = task.message || "Обновление завершено!";
+        statusElement.className = "notification notification-success";
+      } else if (data.success) {
         statusElement.textContent = data.message || "Обновление завершено!";
         statusElement.className = "notification notification-success";
-        setTimeout(() => location.reload(), 3000);
       } else {
         statusElement.textContent = data.message || "Ошибка обновления";
         statusElement.className = "notification notification-error";
