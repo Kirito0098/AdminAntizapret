@@ -1795,6 +1795,128 @@ textarea.full-width {
   }
 }
 
+/*=============== POPUP EFFECTS ===============*/
+:root {
+  --popup-fx-in: 220ms;
+  --popup-fx-out: 170ms;
+  --popup-fx-ease: cubic-bezier(0.2, 0.75, 0.22, 1);
+}
+
+@keyframes popup-toast-in {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, -14px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes popup-toast-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(14px, -10px, 0) scale(0.98);
+  }
+}
+
+.notification {
+  animation: popup-toast-in var(--popup-fx-in) var(--popup-fx-ease);
+  transform-origin: top right;
+}
+
+.notification.notification-exit {
+  animation: popup-toast-out var(--popup-fx-out) ease forwards !important;
+}
+
+.qr-modal-container {
+  opacity: 0;
+  transition: opacity var(--popup-fx-in) var(--popup-fx-ease);
+}
+
+.qr-modal-container .modal-dialog {
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  transition:
+    transform var(--popup-fx-in) var(--popup-fx-ease),
+    opacity var(--popup-fx-in) var(--popup-fx-ease);
+}
+
+.qr-modal-container.is-open {
+  opacity: 1;
+}
+
+.qr-modal-container[style*="display: flex"] {
+  opacity: 1;
+}
+
+.qr-modal-container.is-open .modal-dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.qr-modal-container[style*="display: flex"] .modal-dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.client-details-modal {
+  opacity: 0;
+  transition: opacity var(--popup-fx-in) var(--popup-fx-ease);
+}
+
+.client-details-backdrop {
+  opacity: 0;
+  transition: opacity var(--popup-fx-in) var(--popup-fx-ease);
+}
+
+.client-details-dialog {
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  transition:
+    transform var(--popup-fx-in) var(--popup-fx-ease),
+    opacity var(--popup-fx-in) var(--popup-fx-ease);
+}
+
+.client-details-modal.is-open {
+  opacity: 1;
+}
+
+.client-details-modal.is-open .client-details-backdrop {
+  opacity: 1;
+}
+
+.client-details-modal.is-open .client-details-dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.loading-overlay {
+  opacity: 0;
+  transition: opacity 260ms var(--popup-fx-ease);
+}
+
+.loading-overlay .loading-content {
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+  transition:
+    transform 260ms var(--popup-fx-ease),
+    opacity 260ms var(--popup-fx-ease);
+}
+
+.loading-overlay.is-open {
+  opacity: 1;
+}
+
+.loading-overlay.is-open .loading-content {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
 /* ===== ОЧЕНЬ УЗКИЕ ЭКРАНЫ (320px) ===== */
 @media (max-width: 360px) {
   /* Контейнеры с центрированием */
@@ -1965,8 +2087,8 @@ body {
 
 /*=============== SIDEBAR FORM ===============*/
 .sidebar-form {
-  min-width: 320px;
-  width: 380px;
+  min-width: 280px;
+  width: clamp(280px, 24vw, 340px);
   background: var(--glass-bg);
   backdrop-filter: blur(10px);
   border: 1px solid var(--glass-border);
@@ -2314,7 +2436,7 @@ body {
   backdrop-filter: blur(10px);
   border: 1px solid var(--glass-border);
   border-radius: 1rem;
-  padding: 1.5rem;
+  padding: 1rem;
   box-sizing: border-box;
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
   overflow-x: auto;
@@ -2342,7 +2464,8 @@ body {
   transition: all 0.3s ease;
   position: sticky;
   top: 0;
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.25;
 }
 
 .config-table th:hover {
@@ -2387,12 +2510,33 @@ body {
 }
 
 .config-table td:nth-child(5) {
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .config-table td:nth-child(5) .vpn-qr-button {
   min-width: 72px;
   padding: 0.45rem 0.7rem;
+}
+
+.config-table[data-protocol="openvpn"] td:nth-child(5) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  justify-content: center;
+}
+
+.config-table[data-protocol="openvpn"] td:nth-child(5) .one-time-link-button {
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+.config-table td .download-button,
+.config-table td .vpn-qr-button {
+  min-width: 68px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.82rem;
 }
 
 .config-table tbody tr {
@@ -3040,4 +3184,111 @@ body.client-details-modal-open {
 /*=============== UTILITY CLASSES ===============*/
 .hidden {
   display: none !important;
+}
+
+/*=============== UNIFIED PAGE SHELL (logs_dashboard style) ===============*/
+.page-unified-wrapper {
+  width: min(1320px, 96%);
+  margin: 2rem auto;
+  padding-bottom: 2rem;
+}
+
+.page-unified-grid {
+  gap: 1rem;
+}
+
+.page-unified-card {
+  background: rgba(8, 14, 17, 0.78);
+  border: 1px solid rgba(84, 168, 133, 0.24);
+  border-radius: 14px;
+  padding: 1rem;
+}
+
+.page-unified-card--tight {
+  padding: 0.75rem 0.9rem;
+}
+
+.page-unified-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.page-unified-tab-btn {
+  border: 1px solid rgba(121, 184, 163, 0.45);
+  background: rgba(14, 36, 30, 0.75);
+  color: #d8fff2;
+  border-radius: 9px;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.page-unified-tab-btn:hover {
+  background: rgba(19, 58, 48, 0.85);
+}
+
+.page-unified-tab-btn.active,
+.page-unified-tab-btn.is-active {
+  background: rgba(41, 128, 98, 0.88);
+  border-color: rgba(126, 220, 184, 0.7);
+  color: #f1fff9;
+}
+
+.page-unified-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.page-unified-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.page-unified-note {
+  margin: 0 0 0.7rem;
+  color: rgba(207, 234, 224, 0.92);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 760px) {
+  .page-unified-wrapper {
+    width: 98%;
+    margin: 1rem auto;
+  }
+
+  .page-unified-card {
+    padding: 0.85rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .page-unified-wrapper {
+    width: 100%;
+    margin: 0.85rem auto;
+    padding-right: max(0.45rem, env(safe-area-inset-right));
+    padding-left: max(0.45rem, env(safe-area-inset-left));
+    box-sizing: border-box;
+  }
+
+  .page-unified-card {
+    border-radius: 12px;
+    padding: 0.75rem;
+  }
+
+  .page-unified-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .page-unified-tab-btn {
+    width: 100%;
+    min-height: 36px;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.8rem;
+  }
 }

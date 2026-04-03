@@ -123,6 +123,18 @@
   background: rgba(73, 41, 10, 0.55);
   color: #ffe7c4;
   font-size: 0.9rem;
+  animation: logs-popup-alert-in 220ms cubic-bezier(0.2, 0.75, 0.22, 1);
+}
+
+@keyframes logs-popup-alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .logs-alert-files {
@@ -782,10 +794,16 @@ body.client-modal-open {
   align-items: center;
   justify-content: center;
   padding: 1rem;
+  opacity: 0;
+  transition: opacity 220ms cubic-bezier(0.2, 0.75, 0.22, 1);
 }
 
 .client-modal[hidden] {
   display: none !important;
+}
+
+.client-modal.is-open {
+  opacity: 1;
 }
 
 .client-modal-backdrop {
@@ -793,6 +811,8 @@ body.client-modal-open {
   inset: 0;
   background: rgba(5, 9, 12, 0.72);
   backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 220ms cubic-bezier(0.2, 0.75, 0.22, 1);
 }
 
 .client-modal-dialog {
@@ -805,6 +825,20 @@ body.client-modal-open {
   background: rgba(8, 14, 17, 0.97);
   padding: 1rem;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateY(14px) scale(0.986);
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.75, 0.22, 1),
+    opacity 220ms cubic-bezier(0.2, 0.75, 0.22, 1);
+}
+
+.client-modal.is-open .client-modal-backdrop {
+  opacity: 1;
+}
+
+.client-modal.is-open .client-modal-dialog {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .client-modal-close {

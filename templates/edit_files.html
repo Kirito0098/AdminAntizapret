@@ -1,13 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Редактирование списков АнтиЗапрета{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/edit_file.css') }}">
+{% endblock %}
 
 {% block content %}
 
 <div id="notification" class="notification" hidden aria-live="polite"></div>
 
-<div class="main-layout">
+<div class="main-layout page-unified-wrapper page-unified-grid">
   <!-- Тёмная боковая панель -->
-  <aside class="left-sidebar">
+  <aside class="left-sidebar page-unified-card">
     <div class="sidebar-header">
       <div class="toggle-buttons">
         <button id="btn-lists" class="toggle-btn active">Списки</button>
@@ -108,7 +111,7 @@
 
   <!-- Основная область -->
   <main class="right-content">
-    <div class="editor-card">
+    <div class="editor-card page-unified-card">
       {% for file_type, content in file_contents.items() %}
       <form class="edit-form" id="form-{{ file_type | e }}" method="post" action="/edit-files" {% if not loop.first
         %}hidden{% endif %}>
@@ -154,6 +157,5 @@
 {% endblock %}
 
 {% block scripts %}
-<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/edit_file.css') }}">
 <script src="{{ url_for('static', filename='assets/js/edit_files.js') }}"></script>
 {% endblock %}

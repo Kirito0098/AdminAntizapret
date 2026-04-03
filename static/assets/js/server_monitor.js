@@ -4,9 +4,24 @@ document.addEventListener("DOMContentLoaded", () => {
   let bwChart = null;
   let pollInterval = null;
 
-  const ifaceGroups = {
+  const defaultIfaceGroups = {
     vpn: ["vpn", "vpn-udp", "vpn-tcp"],
     antizapret: ["antizapret", "antizapret-udp", "antizapret-tcp"],
+    openvpn: ["vpn-udp", "vpn-tcp", "antizapret-udp", "antizapret-tcp"],
+    wireguard: ["vpn", "antizapret"],
+  };
+
+  const runtimeIfaceGroups = window.__bwIfaceGroups || {};
+  const pickIfaceGroup = (groupName) =>
+    Array.isArray(runtimeIfaceGroups[groupName]) && runtimeIfaceGroups[groupName].length
+      ? runtimeIfaceGroups[groupName]
+      : defaultIfaceGroups[groupName] || [];
+
+  const ifaceGroups = {
+    vpn: pickIfaceGroup("vpn"),
+    antizapret: pickIfaceGroup("antizapret"),
+    openvpn: pickIfaceGroup("openvpn"),
+    wireguard: pickIfaceGroup("wireguard"),
   };
 
   let currentIfaceGroup = localStorage.getItem("bw_iface_group") || "vpn";
@@ -264,7 +279,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function sumInterfaceData(datasets) {
     if (!datasets.length) return { labels: [], rx_mbps: [], tx_mbps: [], totals: {} };
 
-    const labels = datasets[0].labels || [];
+    const labelsSource = datasets.find((d) => Array.isArray(d?.labels) && d.labels.length) || datasets[0] || {};
+    const labels = Array.isArray(labelsSource.labels) ? labelsSource.labels : [];
     const rx = new Array(labels.length).fill(0);
     const tx = new Array(labels.length).fill(0);
     const totals = {
@@ -274,8 +290,16 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     datasets.forEach((d) => {
-      (d.rx_mbps || []).forEach((v, i) => { rx[i] += Number(v) || 0; });
-      (d.tx_mbps || []).forEach((v, i) => { tx[i] += Number(v) || 0; });
+      (d.rx_mbps || []).forEach((v, i) => {
+        if (i < rx.length) {
+          rx[i] += Number(v) || 0;
+        }
+      });
+      (d.tx_mbps || []).forEach((v, i) => {
+        if (i < tx.length) {
+          tx[i] += Number(v) || 0;
+        }
+      });
       ["1d", "7d", "30d"].forEach((p) => {
         totals[p].rx_bytes += Number(d?.totals?.[p]?.rx_bytes || 0);
         totals[p].tx_bytes += Number(d?.totals?.[p]?.tx_bytes || 0);
@@ -329,6 +353,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (elLoad) elLoad.textContent = "Загрузка...";
 
       const interfaces = ifaceGroups[currentIfaceGroup] || [currentIfaceGroup];
+      if (!interfaces.length) {
+        if (elLoad) {
+          elLoad.textContent = `Нет интерфейсов для группы ${currentIfaceGroup}`;
+        }
+        return;
+      }
       const responses = await Promise.all(
         interfaces.map((iface) =>
           fetch(`/api/bw?iface=${encodeURIComponent(iface)}&range=${encodeURIComponent(currentRange)}`, { cache: "no-store" }).then((r) => r.json())

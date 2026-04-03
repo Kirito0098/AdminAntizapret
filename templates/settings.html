@@ -68,11 +68,11 @@
 </style>
 {% endblock %}
 {% block content %}
-<div class="settings-layout">
+<div class="settings-layout page-unified-wrapper">
   <!-- Гамбургер виден только на мобильных -->
   <button class="hamburger" id="openSidebar">☰</button>
   <!-- Боковое меню -->
-  <div class="settings-page-wrapper" id="sidebar">
+  <div class="settings-page-wrapper page-unified-card" id="sidebar">
     <div class="settings-layout">
       <h3>Настройки</h3>
     </div>
@@ -116,7 +116,7 @@
   </div>
 
   <!-- Основное содержимое -->
-  <div class="settings-content">
+  <div class="settings-content page-unified-card">
     <!-- Настройки порта -->
     <div id="port-settings" class="content-tab active">
       <h2>Настройки порта</h2>
@@ -1177,6 +1177,6 @@
         });
       });
     </script>
-    {% endblock %}
   </div>
 </div>
+{% endblock %}

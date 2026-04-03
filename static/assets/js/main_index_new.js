@@ -539,8 +539,22 @@ function showQRModal(configUrl) {
     const qrInfo = document.getElementById('qrInfoMessage');
     const qrCopyLinkButton = document.getElementById('qrCopyLinkButton');
 
-    if (modal && img && configUrl) {
+    const openQrModal = () => {
         modal.style.display = 'flex';
+        requestAnimationFrame(() => {
+            modal.classList.add('is-open');
+        });
+    };
+
+    const closeQrModal = () => {
+        modal.classList.remove('is-open');
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 180);
+    };
+
+    if (modal && img && configUrl) {
+        openQrModal();
         img.removeAttribute('src');
 
         if (qrContainer) {
@@ -623,19 +637,23 @@ function showQRModal(configUrl) {
                 showNotification(error.message || 'Не удалось загрузить QR', 'error');
             });
 
-        // Close on backdrop click
-        modal.addEventListener('click', function (e) {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
+        if (!modal.dataset.popupBound) {
+            modal.dataset.popupBound = '1';
 
-        // Close on escape key
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && modal.style.display === 'flex') {
-                modal.style.display = 'none';
-            }
-        });
+            // Close on backdrop click
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) {
+                    closeQrModal();
+                }
+            });
+
+            // Close on escape key
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && modal.style.display === 'flex') {
+                    closeQrModal();
+                }
+            });
+        }
     }
 }
 
@@ -787,7 +805,17 @@ function initializeClientDetailsModal() {
     }
 
     function setModalOpen(isOpen) {
-        modal.hidden = !isOpen;
+        if (isOpen) {
+            modal.hidden = false;
+            requestAnimationFrame(() => {
+                modal.classList.add('is-open');
+            });
+        } else {
+            modal.classList.remove('is-open');
+            setTimeout(() => {
+                modal.hidden = true;
+            }, 180);
+        }
         document.body.classList.toggle('client-details-modal-open', isOpen);
     }
 
@@ -1036,11 +1064,16 @@ function showNotification(message, type = 'success') {
     if (notification) {
         notification.textContent = message;
         notification.className = `notification notification-${type}`;
+        notification.classList.remove('notification-exit');
         notification.style.display = 'block';
 
         setTimeout(() => {
-            notification.style.display = 'none';
-        }, 3000);
+            notification.classList.add('notification-exit');
+            setTimeout(() => {
+                notification.classList.remove('notification-exit');
+                notification.style.display = 'none';
+            }, 180);
+        }, 2800);
     }
 }
 
@@ -1118,7 +1151,10 @@ document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
         const modal = document.getElementById('modalQRContainer');
         if (modal) {
-            modal.style.display = 'none';
+            modal.classList.remove('is-open');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 180);
         }
     }
 });

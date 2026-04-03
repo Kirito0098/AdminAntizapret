@@ -1,6 +1,7 @@
 // === Уведомления ===
 const notifyEl = document.getElementById('notification');
 let notifyTimeout;
+let notifyExitTimeout;
 
 async function pollBackgroundTask(taskId, options = {}) {
     const intervalMs = options.intervalMs || 3000;
@@ -32,9 +33,19 @@ async function pollBackgroundTask(taskId, options = {}) {
 function showNotify(msg, type = 'success') {
     notifyEl.textContent = msg;
     notifyEl.className = `notification notification-${type}`;
+    notifyEl.classList.remove('notification-exit');
     notifyEl.hidden = false;
+
     clearTimeout(notifyTimeout);
-    notifyTimeout = setTimeout(() => { notifyEl.hidden = true; }, 5000);
+    clearTimeout(notifyExitTimeout);
+
+    notifyTimeout = setTimeout(() => {
+        notifyEl.classList.add('notification-exit');
+        notifyExitTimeout = setTimeout(() => {
+            notifyEl.classList.remove('notification-exit');
+            notifyEl.hidden = true;
+        }, 180);
+    }, 4700);
 }
 
 // === Навигация форм ===

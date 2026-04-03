@@ -443,7 +443,15 @@
                             {% for client in persisted_traffic_rows %}
                             <tr data-total-bytes="{{ client.total_bytes }}"
                                 data-client-protocols="{{ (client.protocols or '-') | lower }}">
-                                <td class="traffic-user-cell">{{ client.common_name }}</td>
+                                <td class="traffic-user-cell">
+                                    {{ client.common_name }}
+                                    {% if client.protocol_label %}
+                                    <span
+                                        class="protocol-badge {% if client.protocol_type == 'openvpn' %}protocol-badge--ovpn{% elif client.protocol_type == 'wireguard' %}protocol-badge--wg{% endif %}">
+                                        {{ client.protocol_label }}
+                                    </span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if client.is_active %}
                                     <span class="traffic-status-badge is-online">Онлайн</span>
@@ -498,7 +506,15 @@
                             {% for client in deleted_persisted_traffic_rows %}
                             <tr data-total-bytes="{{ client.total_bytes }}"
                                 data-client-protocols="{{ (client.protocols or '-') | lower }}">
-                                <td class="traffic-user-cell">{{ client.common_name }}</td>
+                                <td class="traffic-user-cell">
+                                    {{ client.common_name }}
+                                    {% if client.protocol_label %}
+                                    <span
+                                        class="protocol-badge {% if client.protocol_type == 'openvpn' %}protocol-badge--ovpn{% elif client.protocol_type == 'wireguard' %}protocol-badge--wg{% endif %}">
+                                        {{ client.protocol_label }}
+                                    </span>
+                                    {% endif %}
+                                </td>
                                 <td>{{ client.total_bytes_vpn_human }}</td>
                                 <td>{{ client.total_bytes_antizapret_human }}</td>
                                 <td class="traffic-total-cell">{{ client.total_bytes_human }}</td>
@@ -1042,10 +1058,30 @@
             return;
         }
 
-        const allClientOptions = Array.from(clientList.options).map(option => ({
-            value: String(option.value || '').trim(),
-            protocols: String(option.getAttribute('data-client-protocols') || '').trim().toLowerCase(),
-        })).filter(option => option.value);
+        const allClientOptionsMap = new Map();
+        Array.from(clientList.options).forEach(option => {
+            const value = String(option.value || '').trim();
+            if (!value) {
+                return;
+            }
+
+            const protocolTokens = String(option.getAttribute('data-client-protocols') || '')
+                .toLowerCase()
+                .split(',')
+                .map(item => item.trim())
+                .filter(Boolean);
+
+            if (!allClientOptionsMap.has(value)) {
+                allClientOptionsMap.set(value, new Set());
+            }
+            const merged = allClientOptionsMap.get(value);
+            protocolTokens.forEach(token => merged.add(token));
+        });
+
+        const allClientOptions = Array.from(allClientOptionsMap.entries()).map(([value, tokens]) => ({
+            value,
+            protocols: Array.from(tokens).join(','),
+        }));
 
         if (!allClientOptions.length) {
             chartMeta.textContent = 'Нет клиентов для построения графика';
@@ -1518,7 +1554,17 @@
         }
 
         function setModalOpen(isOpen) {
-            modal.hidden = !isOpen;
+            if (isOpen) {
+                modal.hidden = false;
+                requestAnimationFrame(() => {
+                    modal.classList.add('is-open');
+                });
+            } else {
+                modal.classList.remove('is-open');
+                setTimeout(() => {
+                    modal.hidden = true;
+                }, 180);
+            }
             document.body.classList.toggle('client-modal-open', isOpen);
         }
 

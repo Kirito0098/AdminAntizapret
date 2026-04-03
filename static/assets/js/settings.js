@@ -1,4 +1,15 @@
 document.addEventListener("DOMContentLoaded", function () {
+  const hideNotificationWithFx = (element, delayMs = 0) => {
+    if (!element) return;
+    setTimeout(() => {
+      element.classList.add("notification-exit");
+      setTimeout(() => {
+        element.classList.remove("notification-exit");
+        element.style.display = "none";
+      }, 180);
+    }, delayMs);
+  };
+
   const pollBackgroundTask = async (taskId, options = {}) => {
     const intervalMs = options.intervalMs || 3000;
     const timeoutMs = options.timeoutMs || 600000;
@@ -205,9 +216,7 @@ document.addEventListener("DOMContentLoaded", function () {
       statusElement.className = "notification notification-error";
       console.error("Error:", error);
     } finally {
-      setTimeout(() => {
-        statusElement.style.display = "none";
-      }, 5000);
+      hideNotificationWithFx(statusElement, 5000);
     }
   };
 
@@ -217,6 +226,10 @@ document.addEventListener("DOMContentLoaded", function () {
     notification.className = `notification notification-${type}`;
     notification.textContent = message;
     document.body.appendChild(notification);
+
+    setTimeout(() => {
+      notification.classList.add("notification-exit");
+    }, 2800);
 
     setTimeout(() => {
       notification.remove();
@@ -280,7 +293,7 @@ document.addEventListener("DOMContentLoaded", function () {
       statusElement.textContent = "Ошибка соединения";
       statusElement.className = "notification notification-error";
     } finally {
-      setTimeout(() => (statusElement.style.display = "none"), 10000);
+      hideNotificationWithFx(statusElement, 10000);
     }
   };
 
@@ -358,6 +371,9 @@ function startRestartProcess() {
 
   // Показываем оверлей
   overlay.style.display = "flex";
+  requestAnimationFrame(() => {
+    overlay.classList.add("is-open");
+  });
 
   let countdown = 5;
 

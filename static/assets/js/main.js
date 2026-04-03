@@ -28,6 +28,8 @@ showHiddenPass('login-pass', 'login-eye');
 document.addEventListener('DOMContentLoaded', function () {
   const notification = document.getElementById('notification');
   const flashContainer = document.getElementById('flash-container'); // Контейнер для flash-сообщений
+  let notificationTimeout = null;
+  let notificationExitTimeout = null;
 
   // Включение капчи после 2 неудачных авторизаций
   const loginForm = document.querySelector('.login__form');
@@ -54,10 +56,25 @@ document.addEventListener('DOMContentLoaded', function () {
   function showNotification(message, type = 'info') {
     notification.textContent = message;
     notification.className = `notification notification-${type}`;
+    notification.classList.remove('notification-exit');
+    if (notificationExitTimeout) {
+      clearTimeout(notificationExitTimeout);
+      notificationExitTimeout = null;
+    }
+    if (notificationTimeout) {
+      clearTimeout(notificationTimeout);
+      notificationTimeout = null;
+    }
     notification.style.display = 'block';
-    setTimeout(() => {
-      notification.style.display = 'none';
-    }, 3000);
+
+    notificationTimeout = setTimeout(() => {
+      notification.classList.add('notification-exit');
+      notificationExitTimeout = setTimeout(() => {
+        notification.classList.remove('notification-exit');
+        notification.style.display = 'none';
+      }, 180);
+    }, 2800);
+
   }
 
   // Проверяем наличие сообщений flash
