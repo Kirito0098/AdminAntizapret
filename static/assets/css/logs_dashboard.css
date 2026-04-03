@@ -296,13 +296,100 @@
 .traffic-client-select {
   min-width: 240px;
   max-width: 360px;
-  width: 100%;
+  width: 77%;
   margin-right: 6px;
   padding: 6px 10px;
   background: #2b2b2b;
   color: #ddd;
   border: 1px solid #555;
   border-radius: 6px;
+}
+
+.traffic-client-combobox {
+  position: relative;
+  min-width: 220px;
+  max-width: 300px;
+  width: 300px;
+  flex: 0 0 300px;
+}
+
+.traffic-client-combobox .traffic-client-select {
+  min-width: 0;
+  max-width: none;
+  margin-right: 0;
+  padding-right: 58px;
+}
+
+.traffic-client-clear {
+  position: absolute;
+  top: 50%;
+  right: 30px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: #bcbcbc;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 1px 3px;
+}
+
+.traffic-client-clear:hover {
+  color: #ffffff;
+}
+
+.traffic-client-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: #d6d6d6;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px;
+}
+
+.traffic-client-combobox.is-open .traffic-client-toggle {
+  color: #ffffff;
+}
+
+.traffic-client-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid #555;
+  border-radius: 8px;
+  background: #1b1b1b;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  z-index: 40;
+}
+
+.traffic-client-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: #e2e2e2;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.traffic-client-option:hover {
+  background: rgba(79, 140, 255, 0.18);
+}
+
+.traffic-client-option-empty {
+  color: #a0a0a0;
+  padding: 8px 10px;
+  font-size: 0.88rem;
 }
 
 .bw-range {

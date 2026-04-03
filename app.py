@@ -2072,168 +2072,297 @@ except Exception as e:
     app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
 
 
-def _reset_persisted_traffic_data():
-    """Полностью сбрасывает накопленную статистику трафика и ставит baseline по активным сессиям."""
-    try:
-        UserTrafficSample.query.delete()
-        TrafficSessionState.query.delete()
-        UserTrafficStat.query.delete()
+def _normalize_traffic_protocol_scope(protocol_scope):
+    scope = (protocol_scope or "all").strip().lower()
+    if scope not in ("all", "openvpn", "wireguard"):
+        return "all"
+    return scope
 
+
+def _profile_matches_protocol_scope(profile, protocol_scope):
+    scope = _normalize_traffic_protocol_scope(protocol_scope)
+    is_wireguard_profile = str(profile or "").strip().lower().endswith("-wg")
+    if scope == "wireguard":
+        return is_wireguard_profile
+    if scope == "openvpn":
+        return not is_wireguard_profile
+    return True
+
+
+def _collect_wireguard_only_client_names_lower():
+    protocols_by_client = _collect_config_protocols_by_client()
+    result = set()
+    for client_name, protocols in protocols_by_client.items():
+        normalized = {
+            str(protocol or "").strip()
+            for protocol in (protocols or set())
+            if str(protocol or "").strip()
+        }
+        if normalized == {"WireGuard"}:
+            name = (client_name or "").strip().lower()
+            if name:
+                result.add(name)
+    return result
+
+
+def _delete_persisted_traffic_rows_by_scope(protocol_scope):
+    scope = _normalize_traffic_protocol_scope(protocol_scope)
+
+    if scope == "all":
+        deleted_samples = UserTrafficSample.query.delete(synchronize_session=False)
+        deleted_sessions = TrafficSessionState.query.delete(synchronize_session=False)
+        return {
+            "scope": scope,
+            "deleted_samples": int(deleted_samples or 0),
+            "deleted_sessions": int(deleted_sessions or 0),
+        }
+
+    if scope == "openvpn":
+        deleted_samples = UserTrafficSample.query.filter(
+            UserTrafficSample.protocol_type != "wireguard"
+        ).delete(synchronize_session=False)
+        deleted_sessions = TrafficSessionState.query.filter(
+            TrafficSessionState.profile.notlike("%-wg")
+        ).delete(synchronize_session=False)
+        return {
+            "scope": scope,
+            "deleted_samples": int(deleted_samples or 0),
+            "deleted_sessions": int(deleted_sessions or 0),
+        }
+
+    wireguard_only_clients = _collect_wireguard_only_client_names_lower()
+    sample_query = UserTrafficSample.query.filter(UserTrafficSample.protocol_type == "wireguard")
+    if wireguard_only_clients:
+        sample_query = UserTrafficSample.query.filter(
+            (UserTrafficSample.protocol_type == "wireguard")
+            | (
+                (UserTrafficSample.protocol_type != "wireguard")
+                & db.func.lower(UserTrafficSample.common_name).in_(sorted(wireguard_only_clients))
+            )
+        )
+
+    deleted_samples = sample_query.delete(synchronize_session=False)
+    deleted_sessions = TrafficSessionState.query.filter(
+        TrafficSessionState.profile.like("%-wg")
+    ).delete(synchronize_session=False)
+
+    return {
+        "scope": scope,
+        "deleted_samples": int(deleted_samples or 0),
+        "deleted_sessions": int(deleted_sessions or 0),
+    }
+
+
+def _seed_traffic_session_baseline_for_scope(status_rows, protocol_scope, now=None):
+    scope = _normalize_traffic_protocol_scope(protocol_scope)
+    now = now or datetime.utcnow()
+
+    sessions_by_key = {
+        row.session_key: row
+        for row in TrafficSessionState.query.all()
+    }
+
+    seen_scope_keys = set()
+    seeded_users = set()
+    inserted_sessions = 0
+    updated_sessions = 0
+    deactivated_sessions = 0
+
+    for status_row in (status_rows or []):
+        profile = status_row.get("profile", "unknown")
+        if not _profile_matches_protocol_scope(profile, scope):
+            continue
+
+        for client in status_row.get("traffic_clients", status_row.get("clients", [])):
+            common_name = (client.get("common_name") or "-").strip()
+            if not common_name or common_name == "-":
+                continue
+
+            session_key = _build_session_key(profile, client)
+            if session_key in seen_scope_keys:
+                continue
+            seen_scope_keys.add(session_key)
+
+            current_rx = int(client.get("bytes_received") or 0)
+            current_tx = int(client.get("bytes_sent") or 0)
+
+            session_state = sessions_by_key.get(session_key)
+            if session_state is None:
+                session_state = TrafficSessionState(
+                    session_key=session_key,
+                    profile=profile,
+                    common_name=common_name,
+                    real_address=(client.get("real_address") or "").strip() or None,
+                    virtual_address=(client.get("virtual_address") or "").strip() or None,
+                    connected_since_ts=int(client.get("connected_since_ts") or 0),
+                    last_bytes_received=current_rx,
+                    last_bytes_sent=current_tx,
+                    is_active=True,
+                    last_seen_at=now,
+                    ended_at=None,
+                )
+                db.session.add(session_state)
+                sessions_by_key[session_key] = session_state
+                inserted_sessions += 1
+            else:
+                session_state.profile = profile
+                session_state.common_name = common_name
+                session_state.real_address = (client.get("real_address") or "").strip() or None
+                session_state.virtual_address = (client.get("virtual_address") or "").strip() or None
+                session_state.connected_since_ts = int(client.get("connected_since_ts") or 0)
+                session_state.last_bytes_received = current_rx
+                session_state.last_bytes_sent = current_tx
+                session_state.is_active = True
+                session_state.last_seen_at = now
+                session_state.ended_at = None
+                updated_sessions += 1
+
+            seeded_users.add(common_name)
+
+    for session_key, session_state in sessions_by_key.items():
+        if not _profile_matches_protocol_scope(session_state.profile, scope):
+            continue
+        if session_key in seen_scope_keys:
+            continue
+        if session_state.is_active:
+            session_state.is_active = False
+            session_state.ended_at = now
+            deactivated_sessions += 1
+
+    return {
+        "scope": scope,
+        "seeded_users": seeded_users,
+        "active_sessions": len(seen_scope_keys),
+        "inserted_sessions": inserted_sessions,
+        "updated_sessions": updated_sessions,
+        "deactivated_sessions": deactivated_sessions,
+    }
+
+
+def _rebuild_user_traffic_stats_from_samples(seed_users=None, now=None):
+    now = now or datetime.utcnow()
+    UserTrafficStat.query.delete(synchronize_session=False)
+
+    stats_map = {}
+    for sample in UserTrafficSample.query.order_by(UserTrafficSample.created_at.asc()).all():
+        common_name = (sample.common_name or "").strip()
+        if not common_name:
+            continue
+
+        stat = stats_map.get(common_name)
+        sample_dt = sample.created_at or now
+        if stat is None:
+            stat = {
+                "total_received": 0,
+                "total_sent": 0,
+                "total_received_vpn": 0,
+                "total_sent_vpn": 0,
+                "total_received_antizapret": 0,
+                "total_sent_antizapret": 0,
+                "first_seen_at": sample_dt,
+                "last_seen_at": sample_dt,
+            }
+            stats_map[common_name] = stat
+
+        delta_rx = max(int(sample.delta_received or 0), 0)
+        delta_tx = max(int(sample.delta_sent or 0), 0)
+        network_type = (sample.network_type or "vpn").strip().lower()
+
+        stat["total_received"] += delta_rx
+        stat["total_sent"] += delta_tx
+        if network_type == "antizapret":
+            stat["total_received_antizapret"] += delta_rx
+            stat["total_sent_antizapret"] += delta_tx
+        else:
+            stat["total_received_vpn"] += delta_rx
+            stat["total_sent_vpn"] += delta_tx
+
+        if sample_dt < stat["first_seen_at"]:
+            stat["first_seen_at"] = sample_dt
+        if sample_dt > stat["last_seen_at"]:
+            stat["last_seen_at"] = sample_dt
+
+    for common_name, stat in stats_map.items():
+        db.session.add(
+            UserTrafficStat(
+                common_name=common_name,
+                total_received=stat["total_received"],
+                total_sent=stat["total_sent"],
+                total_received_vpn=stat["total_received_vpn"],
+                total_sent_vpn=stat["total_sent_vpn"],
+                total_received_antizapret=stat["total_received_antizapret"],
+                total_sent_antizapret=stat["total_sent_antizapret"],
+                total_sessions=0,
+                first_seen_at=stat["first_seen_at"] or now,
+                last_seen_at=stat["last_seen_at"] or now,
+            )
+        )
+
+    seeded_only = 0
+    for common_name in sorted({(name or "").strip() for name in (seed_users or set()) if (name or "").strip()}):
+        if common_name in stats_map:
+            continue
+        db.session.add(
+            UserTrafficStat(
+                common_name=common_name,
+                total_received=0,
+                total_sent=0,
+                total_received_vpn=0,
+                total_sent_vpn=0,
+                total_received_antizapret=0,
+                total_sent_antizapret=0,
+                total_sessions=0,
+                first_seen_at=now,
+                last_seen_at=now,
+            )
+        )
+        seeded_only += 1
+
+    return {
+        "rebuilt_users": len(stats_map),
+        "seeded_only_users": seeded_only,
+    }
+
+
+def _reset_persisted_traffic_data(protocol_scope="all"):
+    """Сбрасывает накопленную статистику трафика полностью или по протоколу (openvpn/wireguard)."""
+    scope = _normalize_traffic_protocol_scope(protocol_scope)
+    scope_human = {
+        "all": "вся статистика",
+        "openvpn": "OpenVPN",
+        "wireguard": "WireGuard/AWG",
+    }
+
+    try:
+        now = datetime.utcnow()
         status_rows = _collect_status_rows_for_snapshot()
 
-        now = datetime.utcnow()
-        seeded_sessions = 0
-        seeded_users = set()
-        seen_session_keys = set()
-
-        for status_row in status_rows:
-            profile = status_row.get("profile", "unknown")
-            for client in status_row.get("traffic_clients", status_row.get("clients", [])):
-                common_name = (client.get("common_name") or "-").strip()
-                if not common_name or common_name == "-":
-                    continue
-
-                session_key = _build_session_key(profile, client)
-                if session_key in seen_session_keys:
-                    continue
-                seen_session_keys.add(session_key)
-
-                current_rx = int(client.get("bytes_received") or 0)
-                current_tx = int(client.get("bytes_sent") or 0)
-
-                db.session.add(
-                    TrafficSessionState(
-                        session_key=session_key,
-                        profile=profile,
-                        common_name=common_name,
-                        real_address=(client.get("real_address") or "").strip() or None,
-                        virtual_address=(client.get("virtual_address") or "").strip() or None,
-                        connected_since_ts=int(client.get("connected_since_ts") or 0),
-                        last_bytes_received=current_rx,
-                        last_bytes_sent=current_tx,
-                        is_active=True,
-                        last_seen_at=now,
-                        ended_at=None,
-                    )
-                )
-                seeded_sessions += 1
-
-                if common_name not in seeded_users:
-                    db.session.add(
-                        UserTrafficStat(
-                            common_name=common_name,
-                            total_received=0,
-                            total_sent=0,
-                            total_received_vpn=0,
-                            total_sent_vpn=0,
-                            total_received_antizapret=0,
-                            total_sent_antizapret=0,
-                            total_sessions=0,
-                            first_seen_at=now,
-                            last_seen_at=now,
-                        )
-                    )
-                    seeded_users.add(common_name)
+        deleted_info = _delete_persisted_traffic_rows_by_scope(scope)
+        baseline_info = _seed_traffic_session_baseline_for_scope(status_rows, scope, now=now)
+        rebuilt_info = _rebuild_user_traffic_stats_from_samples(
+            seed_users=baseline_info.get("seeded_users", set()),
+            now=now,
+        )
 
         db.session.commit()
+
+        if scope == "all":
+            return True, (
+                "Накопленная статистика трафика очищена. "
+                f"Точка отсчета установлена: пользователей {len(baseline_info.get('seeded_users', set()))}, "
+                f"активных сессий {baseline_info.get('active_sessions', 0)}."
+            )
+
         return True, (
-            "Накопленная статистика трафика очищена. "
-            f"Точка отсчета установлена: пользователей {len(seeded_users)}, активных сессий {seeded_sessions}."
+            f"Статистика {scope_human.get(scope, scope)} очищена. "
+            f"Удалено записей: samples={deleted_info.get('deleted_samples', 0)}, "
+            f"sessions={deleted_info.get('deleted_sessions', 0)}. "
+            f"Обновлен baseline активных сессий: {baseline_info.get('active_sessions', 0)}. "
+            f"Пользователей в БД: {int(rebuilt_info.get('rebuilt_users', 0)) + int(rebuilt_info.get('seeded_only_users', 0))}."
         )
     except Exception as e:
         db.session.rollback()
         return False, f"Ошибка сброса статистики трафика: {e}"
-
-
-def _rebase_wireguard_session_baseline():
-    """Перебазирует baseline активных WG-сессий без сброса накопленной статистики."""
-    try:
-        status_rows = _collect_status_rows_for_snapshot()
-        wg_rows = [
-            row for row in status_rows
-            if str(row.get("profile") or "").endswith("-wg")
-        ]
-
-        now = datetime.utcnow()
-        sessions_by_key = {
-            row.session_key: row
-            for row in TrafficSessionState.query.filter(
-                TrafficSessionState.profile.like("%-wg")
-            ).all()
-        }
-        previously_active_keys = {
-            key for key, row in sessions_by_key.items()
-            if bool(row.is_active)
-        }
-
-        seen_keys = set()
-        inserted = 0
-        updated = 0
-        deactivated = 0
-
-        for status_row in wg_rows:
-            profile = status_row.get("profile", "unknown")
-            for client in status_row.get("traffic_clients", status_row.get("clients", [])):
-                common_name = (client.get("common_name") or "-").strip()
-                if not common_name or common_name == "-":
-                    continue
-
-                session_key = _build_session_key(profile, client)
-                if session_key in seen_keys:
-                    continue
-                seen_keys.add(session_key)
-
-                current_rx = int(client.get("bytes_received") or 0)
-                current_tx = int(client.get("bytes_sent") or 0)
-
-                session_state = sessions_by_key.get(session_key)
-                if session_state is None:
-                    session_state = TrafficSessionState(
-                        session_key=session_key,
-                        profile=profile,
-                        common_name=common_name,
-                        real_address=(client.get("real_address") or "").strip() or None,
-                        virtual_address=(client.get("virtual_address") or "").strip() or None,
-                        connected_since_ts=int(client.get("connected_since_ts") or 0),
-                        last_bytes_received=current_rx,
-                        last_bytes_sent=current_tx,
-                        is_active=True,
-                        last_seen_at=now,
-                        ended_at=None,
-                    )
-                    db.session.add(session_state)
-                    sessions_by_key[session_key] = session_state
-                    inserted += 1
-                else:
-                    session_state.profile = profile
-                    session_state.common_name = common_name
-                    session_state.real_address = (client.get("real_address") or "").strip() or None
-                    session_state.virtual_address = (client.get("virtual_address") or "").strip() or None
-                    session_state.connected_since_ts = int(client.get("connected_since_ts") or 0)
-                    session_state.last_bytes_received = current_rx
-                    session_state.last_bytes_sent = current_tx
-                    session_state.is_active = True
-                    session_state.last_seen_at = now
-                    session_state.ended_at = None
-                    updated += 1
-
-        for session_key, session_state in sessions_by_key.items():
-            if session_key in seen_keys or session_key not in previously_active_keys:
-                continue
-            if session_state.is_active:
-                session_state.is_active = False
-                session_state.ended_at = now
-                deactivated += 1
-
-        db.session.commit()
-        return True, (
-            "WG baseline обновлен: "
-            f"active={len(seen_keys)}, inserted={inserted}, updated={updated}, deactivated={deactivated}. "
-            "Накопленная статистика (БД) не сбрасывалась."
-        )
-    except Exception as e:
-        db.session.rollback()
-        return False, f"Ошибка перебазирования WG baseline: {e}"
 
 
 def _read_log_file(path):
@@ -5158,20 +5287,10 @@ def logs_cleanup_status_schedule():
 @app.route("/logs_dashboard/reset_persisted_traffic", methods=["POST"])
 @auth_manager.admin_required
 def logs_reset_persisted_traffic():
-    ok, message = _reset_persisted_traffic_data()
-    return redirect(
-        url_for(
-            "logs_dashboard",
-            cleanup_notice=message,
-            cleanup_notice_kind="success" if ok else "error",
-        )
+    protocol_scope = _normalize_traffic_protocol_scope(
+        request.form.get("protocol_scope") or request.form.get("traffic_scope") or "all"
     )
-
-
-@app.route("/logs_dashboard/rebase_wireguard_baseline", methods=["POST"])
-@auth_manager.admin_required
-def logs_rebase_wireguard_baseline():
-    ok, message = _rebase_wireguard_session_baseline()
+    ok, message = _reset_persisted_traffic_data(protocol_scope=protocol_scope)
     return redirect(
         url_for(
             "logs_dashboard",
