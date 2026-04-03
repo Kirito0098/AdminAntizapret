@@ -177,69 +177,111 @@
                     с одним и тем же IP в одном профиле, более старая сессия помечается как "возможно зависшая",
                     а самая новая считается активной.
                 </p>
-                <div class="table-scroll">
-                    <table class="logs-table clients-table">
-                        <thead>
-                            <tr>
-                                <th>Клиент</th>
-                                <th>Сессий</th>
-                                <th>Подключения (IP, устройство, версия)</th>
-                                <th>Профили</th>
-                                <th>Входящий трафик (Rx)</th>
-                                <th>Исходящий трафик (Tx)</th>
-                                <th>Общий трафик</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% if connected_clients %}
-                            {% for client in connected_clients %}
-                            <tr>
-                                <td>{{ client.common_name }}</td>
-                                <td>{{ client.sessions }}</td>
-                                <td>
-                                    {% if client.ip_device_map %}
-                                    <div class="ip-device-list">
-                                        {% for item in client.ip_device_map %}
-                                        <div class="ip-device-item"
-                                            data-stale-candidate="{% if item.stale_candidate %}1{% else %}0{% endif %}">
-                                            <div><span class="ip-device-key">IP:</span> {{ item.ip }}</div>
-                                            <div><span class="ip-device-key">Профиль:</span> {{ item.profile_label or
-                                                '-' }}</div>
-                                            {% if item.show_real_address %}
-                                            <div><span class="ip-device-key">Сессия:</span> {{ item.real_address }}
-                                            </div>
-                                            {% endif %}
-                                            {% if item.stale_candidate %}
-                                            <div><span class="ip-device-key">Статус:</span> возможно зависшая (есть
-                                                более новая сессия с тем же IP и профилем)</div>
-                                            {% endif %}
-                                            <div><span class="ip-device-key">Устройство:</span> {{ item.platform or 'Не
-                                                определено' }}
-                                            </div>
-                                            <div><span class="ip-device-key">Версия:</span> {{ item.version or 'Не
-                                                определено' }}</div>
-                                        </div>
-                                        {% endfor %}
-                                        <div class="ip-device-empty-state" style="display:none;opacity:0.85;">Сессии
-                                            скрыты фильтром</div>
+                {% if connected_clients %}
+                <div class="client-cards-list" id="clientCardsList">
+                    {% for client in connected_clients %}
+                    <article class="client-card" data-client-card data-client-name="{{ client.common_name }}"
+                        data-client-sessions="{{ client.sessions }}" data-client-profiles="{{ client.profiles }}"
+                        data-client-rx="{{ client.bytes_received_human }}"
+                        data-client-tx="{{ client.bytes_sent_human }}"
+                        data-client-total="{{ client.total_bytes_human }}">
+                        <button type="button" class="client-card-toggle" data-client-toggle
+                            aria-label="Открыть подробности клиента {{ client.common_name }}">
+                            <div class="client-card-main">
+                                <div class="client-card-name">{{ client.common_name }}</div>
+                                <div class="client-card-subline">Сессий: {{ client.sessions }} | Профили: {{
+                                    client.profiles }}</div>
+                            </div>
+                            <div class="client-card-stats" aria-hidden="true">
+                                <div class="client-stat-pill">
+                                    <span>Rx</span>
+                                    <strong>{{ client.bytes_received_human }}</strong>
+                                </div>
+                                <div class="client-stat-pill">
+                                    <span>Tx</span>
+                                    <strong>{{ client.bytes_sent_human }}</strong>
+                                </div>
+                                <div class="client-stat-pill">
+                                    <span>Итого</span>
+                                    <strong>{{ client.total_bytes_human }}</strong>
+                                </div>
+                            </div>
+                            <span class="client-card-chevron" aria-hidden="true">▼</span>
+                        </button>
+
+                        <div class="client-card-body" data-client-body hidden>
+                            <div class="client-card-meta">
+                                <span class="ip-device-key">Профили:</span> {{ client.profiles }}
+                            </div>
+
+                            {% if client.ip_device_map %}
+                            <div class="ip-device-list">
+                                {% for item in client.ip_device_map %}
+                                <div class="ip-device-item"
+                                    data-stale-candidate="{% if item.stale_candidate %}1{% else %}0{% endif %}">
+                                    <div><span class="ip-device-key">IP:</span> {{ item.ip }}</div>
+                                    <div><span class="ip-device-key">Профиль:</span> {{ item.profile_label or '-' }}
                                     </div>
-                                    {% else %}
-                                    Не определено
+                                    {% if item.show_real_address %}
+                                    <div><span class="ip-device-key">Сессия:</span> {{ item.real_address }}</div>
                                     {% endif %}
-                                </td>
-                                <td>{{ client.profiles }}</td>
-                                <td>{{ client.bytes_received_human }}</td>
-                                <td>{{ client.bytes_sent_human }}</td>
-                                <td>{{ client.total_bytes_human }}</td>
-                            </tr>
-                            {% endfor %}
+                                    {% if item.stale_candidate %}
+                                    <div><span class="ip-device-key">Статус:</span> возможно зависшая (есть более
+                                        новая сессия с тем же IP и профилем)</div>
+                                    {% endif %}
+                                    <div><span class="ip-device-key">Устройство:</span> {{ item.platform or 'Не
+                                        определено' }}</div>
+                                    <div><span class="ip-device-key">Версия:</span> {{ item.version or 'Не
+                                        определено' }}</div>
+                                </div>
+                                {% endfor %}
+                                <div class="ip-device-empty-state" style="display:none;opacity:0.85;">Сессии
+                                    скрыты фильтром</div>
+                            </div>
                             {% else %}
-                            <tr>
-                                <td colspan="7">Нет подключенных клиентов</td>
-                            </tr>
+                            <div class="client-card-empty">Нет данных по подключениям</div>
                             {% endif %}
-                        </tbody>
-                    </table>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="client-card-empty">Нет подключенных клиентов</div>
+                {% endif %}
+
+                <div class="client-modal" id="clientDetailsModal" hidden>
+                    <div class="client-modal-backdrop" data-client-modal-close></div>
+                    <div class="client-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="clientModalTitle">
+                        <button type="button" class="client-modal-close" data-client-modal-close aria-label="Закрыть">
+                            ×
+                        </button>
+
+                        <div class="client-modal-header">
+                            <h3 id="clientModalTitle">Клиент</h3>
+                            <p id="clientModalSummary" class="client-modal-summary">Загрузка...</p>
+                        </div>
+
+                        <section class="client-modal-section">
+                            <div class="client-modal-section-title">Трафик клиента (БД)</div>
+                            <div class="client-modal-range" role="tablist" aria-label="Диапазон графика клиента">
+                                <button type="button" class="client-modal-range-btn" data-range="1h">1 час</button>
+                                <button type="button" class="client-modal-range-btn" data-range="24h">24 часа</button>
+                                <button type="button" class="client-modal-range-btn" data-range="7d">7 дней</button>
+                                <button type="button" class="client-modal-range-btn" data-range="30d">30 дней</button>
+                                <button type="button" class="client-modal-range-btn" data-range="all">За все
+                                    время</button>
+                            </div>
+                            <div id="clientModalTrafficMeta" class="traffic-chart-meta">Загрузка...</div>
+                            <div class="client-modal-chart-wrap">
+                                <canvas id="clientModalTrafficChart"></canvas>
+                            </div>
+                        </section>
+
+                        <section class="client-modal-section">
+                            <div class="client-modal-section-title">Подключения (IP, устройство, версия)</div>
+                            <div id="clientModalConnections" class="client-modal-connections"></div>
+                        </section>
+                    </div>
                 </div>
             </section>
 
@@ -695,6 +737,11 @@
                 if (emptyState) {
                     emptyState.style.display = visibleCount === 0 ? '' : 'none';
                 }
+
+                const clientCard = list.closest('[data-client-card]');
+                if (clientCard) {
+                    clientCard.classList.toggle('is-filtered-out', hideStale && visibleCount === 0);
+                }
             });
         }
 
@@ -919,6 +966,243 @@
         } else {
             chartMeta.textContent = 'Откройте вкладку "Трафик (БД)", чтобы загрузить график.';
         }
+    })();
+</script>
+
+<script>
+    (function () {
+        const modal = document.getElementById('clientDetailsModal');
+        if (!modal) {
+            return;
+        }
+
+        const modalTitle = document.getElementById('clientModalTitle');
+        const modalSummary = document.getElementById('clientModalSummary');
+        const modalConnections = document.getElementById('clientModalConnections');
+        const modalTrafficMeta = document.getElementById('clientModalTrafficMeta');
+        const modalChartCanvas = document.getElementById('clientModalTrafficChart');
+        const modalRangeButtons = Array.from(document.querySelectorAll('.client-modal-range-btn[data-range]'));
+        const cardButtons = Array.from(document.querySelectorAll('[data-client-card] [data-client-toggle]'));
+        const hideStaleToggle = document.getElementById('hideStaleSessionsToggle');
+
+        const modalRangeStorageKey = 'logs_dashboard_modal_selected_range';
+        let currentClientName = '';
+        let currentCard = null;
+        let currentModalRange = localStorage.getItem(modalRangeStorageKey) || '7d';
+        let modalChart = null;
+
+        if (!modalRangeButtons.some(btn => btn.dataset.range === currentModalRange)) {
+            currentModalRange = '7d';
+        }
+
+        function humanBytes(value) {
+            let size = Number(value || 0);
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let idx = 0;
+            while (size >= 1024 && idx < units.length - 1) {
+                size /= 1024;
+                idx += 1;
+            }
+            const precision = idx === 0 ? 0 : (size < 10 ? 2 : 1);
+            return `${size.toFixed(precision)} ${units[idx]}`;
+        }
+
+        function setModalOpen(isOpen) {
+            modal.hidden = !isOpen;
+            document.body.classList.toggle('client-modal-open', isOpen);
+        }
+
+        function closeModal() {
+            setModalOpen(false);
+        }
+
+        function syncModalConnectionsFromCurrentCard() {
+            if (!modalConnections) {
+                return;
+            }
+            const body = currentCard ? currentCard.querySelector('[data-client-body]') : null;
+            modalConnections.innerHTML = body ? body.innerHTML : '<div class="client-card-empty">Нет данных по подключениям</div>';
+        }
+
+        function setActiveModalRangeButtons() {
+            modalRangeButtons.forEach(btn => {
+                const active = btn.dataset.range === currentModalRange;
+                btn.classList.toggle('active', active);
+                btn.disabled = active;
+            });
+        }
+
+        async function loadClientModalChart() {
+            if (!currentClientName || !modalChartCanvas || !modalTrafficMeta) {
+                return;
+            }
+
+            if (typeof Chart === 'undefined') {
+                modalTrafficMeta.textContent = 'График недоступен: Chart.js не загружен';
+                return;
+            }
+
+            modalTrafficMeta.textContent = 'Загрузка...';
+
+            try {
+                const url = `/api/user-traffic-chart?client=${encodeURIComponent(currentClientName)}&range=${encodeURIComponent(currentModalRange)}`;
+                const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+
+                const labels = (data.labels || []).slice();
+                const vpnData = (data.vpn_bytes || []).map(v => Number(v || 0));
+                const antData = (data.antizapret_bytes || []).map(v => Number(v || 0));
+
+                if (!labels.length) {
+                    labels.push('Нет данных');
+                    vpnData.push(0);
+                    antData.push(0);
+                }
+
+                if (modalChart) {
+                    modalChart.destroy();
+                }
+
+                modalChart = new Chart(modalChartCanvas, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'VPN',
+                                data: vpnData,
+                                borderColor: '#4caf50',
+                                backgroundColor: 'rgba(76,175,80,0.12)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.2,
+                            },
+                            {
+                                label: 'Antizapret',
+                                data: antData,
+                                borderColor: '#f44336',
+                                backgroundColor: 'rgba(244,67,54,0.12)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.2,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: false,
+                        interaction: { mode: 'index', intersect: false },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: '#bbb',
+                                    autoSkip: true,
+                                    maxTicksLimit: currentModalRange === '1h' ? 12 : (currentModalRange === '24h' ? 24 : 10)
+                                },
+                                grid: { color: 'rgba(255,255,255,0.05)' }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    color: '#ddd',
+                                    callback: function (value) {
+                                        return humanBytes(value);
+                                    }
+                                },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: '#fff' }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (ctx) {
+                                        return `${ctx.dataset.label}: ${humanBytes(ctx.parsed.y)}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                modalTrafficMeta.textContent =
+                    `VPN: ${data.total_vpn_human || humanBytes(data.total_vpn)} | ` +
+                    `Antizapret: ${data.total_antizapret_human || humanBytes(data.total_antizapret)} | ` +
+                    `Итого: ${data.total_human || humanBytes(data.total)}`;
+            } catch (err) {
+                modalTrafficMeta.textContent = `Не удалось загрузить график: ${err.message}`;
+            }
+        }
+
+        function openClientModal(card) {
+            if (!card) {
+                return;
+            }
+
+            currentCard = card;
+
+            currentClientName = String(card.getAttribute('data-client-name') || '').trim();
+            const sessions = String(card.getAttribute('data-client-sessions') || '-').trim();
+            const profiles = String(card.getAttribute('data-client-profiles') || '-').trim();
+            const rx = String(card.getAttribute('data-client-rx') || '-').trim();
+            const tx = String(card.getAttribute('data-client-tx') || '-').trim();
+            const total = String(card.getAttribute('data-client-total') || '-').trim();
+
+            if (modalTitle) {
+                modalTitle.textContent = currentClientName || 'Клиент';
+            }
+            if (modalSummary) {
+                modalSummary.textContent = `Сессий: ${sessions} | Профили: ${profiles} | Rx: ${rx} | Tx: ${tx} | Итого: ${total}`;
+            }
+
+            syncModalConnectionsFromCurrentCard();
+
+            setActiveModalRangeButtons();
+            setModalOpen(true);
+            loadClientModalChart();
+        }
+
+        modalRangeButtons.forEach(btn => {
+            btn.addEventListener('click', function () {
+                currentModalRange = btn.dataset.range || '7d';
+                localStorage.setItem(modalRangeStorageKey, currentModalRange);
+                setActiveModalRangeButtons();
+                loadClientModalChart();
+            });
+        });
+
+        cardButtons.forEach(btn => {
+            btn.addEventListener('click', function () {
+                const card = btn.closest('[data-client-card]');
+                openClientModal(card);
+            });
+        });
+
+        modal.querySelectorAll('[data-client-modal-close]').forEach(node => {
+            node.addEventListener('click', closeModal);
+        });
+
+        if (hideStaleToggle) {
+            hideStaleToggle.addEventListener('change', function () {
+                if (modal.hidden) {
+                    return;
+                }
+                window.setTimeout(syncModalConnectionsFromCurrentCard, 0);
+            });
+        }
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && !modal.hidden) {
+                closeModal();
+            }
+        });
     })();
 </script>
 
