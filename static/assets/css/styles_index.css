@@ -274,15 +274,14 @@ td {
   display: flex;
   gap: 1.5rem;
   flex: 1 1 auto;
-  justify-content: center;
-  margin: 0;
+  margin-left: 3.1%;
 }
 
 .user-info-block {
   display: flex;
   align-items: center;
   position: absolute;
-  right: 0;
+  right: 3%;
   top: 50%;
   transform: translateY(-50%);
   gap: 1rem;
@@ -291,7 +290,6 @@ td {
 .nav-group {
   display: flex;
   gap: 1.5rem;
-  margin-inline: auto;
 }
 
 .nav-link {
