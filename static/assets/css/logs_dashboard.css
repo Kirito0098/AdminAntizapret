@@ -562,56 +562,134 @@
 }
 
 .traffic-usage-table {
-  min-width: 0;
+  min-width: 960px;
   width: 100%;
   table-layout: fixed;
 }
 
 .traffic-usage-table th,
 .traffic-usage-table td {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  line-height: 1.28;
-}
-
-.traffic-usage-table th:nth-child(1),
-.traffic-usage-table td:nth-child(1) {
-  width: 16%;
-}
-
-.traffic-usage-table th:nth-child(2),
-.traffic-usage-table td:nth-child(2) {
-  width: 10%;
-}
-
-.traffic-usage-table th:nth-child(3),
-.traffic-usage-table td:nth-child(3),
-.traffic-usage-table th:nth-child(4),
-.traffic-usage-table td:nth-child(4),
-.traffic-usage-table th:nth-child(5),
-.traffic-usage-table td:nth-child(5) {
-  width: 9%;
-}
-
-.traffic-usage-table th:nth-child(6),
-.traffic-usage-table td:nth-child(6),
-.traffic-usage-table th:nth-child(7),
-.traffic-usage-table td:nth-child(7),
-.traffic-usage-table th:nth-child(8),
-.traffic-usage-table td:nth-child(8) {
-  width: 12%;
-}
-
-.traffic-usage-table th:nth-child(9),
-.traffic-usage-table td:nth-child(9) {
-  width: 10%;
+  line-height: 1.22;
+  font-size: 0.82rem;
+  padding: 0.42rem 0.5rem;
+  vertical-align: middle;
 }
 
 .traffic-usage-table .table-sort-btn {
   display: block;
   margin-left: 0;
   margin-top: 0.3rem;
+}
+
+#persistedTrafficTable th,
+#persistedTrafficTable td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#persistedTrafficTable th:nth-child(1),
+#persistedTrafficTable td:nth-child(1) {
+  width: 220px;
+  min-width: 220px;
+  white-space: normal;
+}
+
+#persistedTrafficTable th:nth-child(2),
+#persistedTrafficTable td:nth-child(2) {
+  width: 96px;
+  min-width: 96px;
+  text-align: center;
+}
+
+#persistedTrafficTable th:nth-child(3),
+#persistedTrafficTable td:nth-child(3),
+#persistedTrafficTable th:nth-child(4),
+#persistedTrafficTable td:nth-child(4),
+#persistedTrafficTable th:nth-child(5),
+#persistedTrafficTable td:nth-child(5) {
+  width: 95px;
+  min-width: 95px;
+  text-align: right;
+}
+
+#persistedTrafficTable th:nth-child(6),
+#persistedTrafficTable td:nth-child(6),
+#persistedTrafficTable th:nth-child(7),
+#persistedTrafficTable td:nth-child(7),
+#persistedTrafficTable th:nth-child(8),
+#persistedTrafficTable td:nth-child(8) {
+  width: 110px;
+  min-width: 110px;
+  text-align: right;
+}
+
+#persistedTrafficTable th:nth-child(9),
+#persistedTrafficTable td:nth-child(9) {
+  width: 156px;
+  min-width: 156px;
+}
+
+#deletedPersistedTrafficTable {
+  min-width: 760px;
+}
+
+#deletedPersistedTrafficTable th,
+#deletedPersistedTrafficTable td {
+  white-space: nowrap;
+}
+
+#deletedPersistedTrafficTable th:nth-child(1),
+#deletedPersistedTrafficTable td:nth-child(1) {
+  min-width: 220px;
+  white-space: normal;
+}
+
+#deletedPersistedTrafficTable th:nth-child(2),
+#deletedPersistedTrafficTable td:nth-child(2),
+#deletedPersistedTrafficTable th:nth-child(3),
+#deletedPersistedTrafficTable td:nth-child(3),
+#deletedPersistedTrafficTable th:nth-child(4),
+#deletedPersistedTrafficTable td:nth-child(4) {
+  min-width: 120px;
+  text-align: right;
+}
+
+#deletedPersistedTrafficTable th:nth-child(5),
+#deletedPersistedTrafficTable td:nth-child(5) {
+  min-width: 156px;
+}
+
+.traffic-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.traffic-user-cell .protocol-badge {
+  flex: 0 0 auto;
+}
+
+.traffic-total-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+#persistedTrafficTable .table-sort-btn {
+  display: inline-flex;
+  margin: 0;
+  padding: 0.16rem 0.4rem;
+  font-size: 0.68rem;
+  line-height: 1.1;
+}
+
+#persistedTrafficTable .local-datetime,
+#deletedPersistedTrafficTable .local-datetime {
+  font-size: 0.78rem;
+  color: rgba(206, 236, 225, 0.95);
 }
 
 .ip-device-list {
@@ -1258,7 +1336,7 @@ body.client-modal-open {
   .status-table,
   .clients-table,
   .traffic-usage-table {
-    min-width: 860px;
+    min-width: 760px;
   }
 
   .traffic-usage-table .table-sort-btn {
