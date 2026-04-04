@@ -141,7 +141,6 @@
                                 <th>Входящий трафик (Rx)</th>
                                 <th>Исходящий трафик (Tx)</th>
                                 <th>Общий трафик</th>
-                                <th>Обновлен</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -155,7 +154,6 @@
                                 <td>{{ row.total_received_human }}</td>
                                 <td>{{ row.total_sent_human }}</td>
                                 <td>{{ row.total_traffic_human }}</td>
-                                <td>{{ row.updated_at }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -184,20 +182,21 @@
                     при совпадении имени клиента и IP.
                     {% endif %}
                 </p>
-                <label class="traffic-table-hint" style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-                    <input type="checkbox" id="hideStaleSessionsToggle" />
-                    Скрыть неактивные/возможно зависшие сессии
-                </label>
-                <label class="traffic-table-hint" style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-                    Протокол:
-                    <select id="clientsProtocolFilter" class="traffic-client-select"
-                        style="max-width:220px;min-width:180px;">
-                        <option value="all">Все</option>
-                        <option value="openvpn">Только OpenVPN</option>
-                        <option value="wireguard">Только WireGuard</option>
-                    </select>
-                </label>
-                <p class="traffic-table-hint" style="margin-top:4px;opacity:0.9;">
+                <div class="logs-inline-filters">
+                    <label class="logs-inline-control">
+                        <input type="checkbox" id="hideStaleSessionsToggle" />
+                        <span>Скрыть неактивные/возможно зависшие сессии</span>
+                    </label>
+                    <label class="logs-inline-control">
+                        <span>Протокол:</span>
+                        <select id="clientsProtocolFilter" class="traffic-client-select traffic-client-select--compact">
+                            <option value="all">Все</option>
+                            <option value="openvpn">Только OpenVPN</option>
+                            <option value="wireguard">Только WireGuard</option>
+                        </select>
+                    </label>
+                </div>
+                <p class="traffic-table-hint traffic-table-hint-muted">
                     Как определяется "возможно зависшая": если у одного пользователя есть несколько сессий
                     с одним и тем же IP в одном профиле, более старая сессия помечается как "возможно зависшая",
                     а самая новая считается активной.
@@ -286,7 +285,7 @@
                                     {% endif %}
                                 </div>
                                 {% endfor %}
-                                <div class="ip-device-empty-state" style="display:none;opacity:0.85;">Сессии
+                                <div class="ip-device-empty-state">Сессии
                                     скрыты фильтром</div>
                             </div>
                             {% else %}
@@ -362,8 +361,7 @@
                         {% endfor %}
                     </datalist>
                     <label for="trafficProtocolFilter" class="cleanup-label">Протокол:</label>
-                    <select id="trafficProtocolFilter" class="traffic-client-select"
-                        style="max-width:220px;min-width:180px;">
+                    <select id="trafficProtocolFilter" class="traffic-client-select traffic-client-select--compact">
                         <option value="all">Все</option>
                         <option value="openvpn">Только OpenVPN</option>
                         <option value="wireguard">Только WireGuard</option>
@@ -384,31 +382,33 @@
             </section>
 
             <section class="logs-section">
-                <div class="section-title-wrap">
+                <div class="section-title-wrap section-title-wrap--split">
                     <h2>Накопленный трафик пользователей (БД)</h2>
                     {% if current_user and current_user.is_admin() %}
-                    <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
-                        class="cleanup-form-inline"
-                        onsubmit="return confirm('Очистить накопленную статистику только WireGuard/AmneziaWG и начать сбор с нуля для WG/AWG?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                        <input type="hidden" name="protocol_scope" value="wireguard" />
-                        <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить WG/AWG</button>
-                    </form>
-                    <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
-                        class="cleanup-form-inline"
-                        onsubmit="return confirm('Очистить накопленную статистику только OpenVPN и начать сбор с нуля для OpenVPN?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                        <input type="hidden" name="protocol_scope" value="openvpn" />
-                        <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить OpenVPN</button>
-                    </form>
-                    <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
-                        class="cleanup-form-inline"
-                        onsubmit="return confirm('Очистить всю накопленную статистику трафика и начать сбор с нуля?');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                        <input type="hidden" name="protocol_scope" value="all" />
-                        <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить всё и начать с
-                            нуля</button>
-                    </form>
+                    <div class="section-actions">
+                        <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
+                            class="cleanup-form-inline"
+                            onsubmit="return confirm('Очистить накопленную статистику только WireGuard/AmneziaWG и начать сбор с нуля для WG/AWG?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <input type="hidden" name="protocol_scope" value="wireguard" />
+                            <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить WG/AWG</button>
+                        </form>
+                        <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
+                            class="cleanup-form-inline"
+                            onsubmit="return confirm('Очистить накопленную статистику только OpenVPN и начать сбор с нуля для OpenVPN?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <input type="hidden" name="protocol_scope" value="openvpn" />
+                            <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить OpenVPN</button>
+                        </form>
+                        <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
+                            class="cleanup-form-inline"
+                            onsubmit="return confirm('Очистить всю накопленную статистику трафика и начать сбор с нуля?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <input type="hidden" name="protocol_scope" value="all" />
+                            <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить всё и начать с
+                                нуля</button>
+                        </form>
+                    </div>
                     {% endif %}
                 </div>
                 <p class="traffic-table-hint">
@@ -480,7 +480,7 @@
                     </table>
                 </div>
 
-                <div class="section-title-wrap" style="margin-top: 18px;">
+                <div class="section-title-wrap section-title-wrap--spaced">
                     <h3>Удалённые клиенты (статистика в БД)</h3>
                 </div>
                 <p class="traffic-table-hint">
