@@ -55,34 +55,11 @@ document.addEventListener("DOMContentLoaded", function () {
         this.classList.add("active");
         const tabId = this.getAttribute("data-tab");
 
-        if (tabId === "port-settings") {
-          const userTabs = document.querySelectorAll(".subtab-content");
-          userTabs.forEach((tab) => tab.classList.remove("active"));
-        }
-
         if (tabId) {
           activateTab(tabId);
         }
 
-        if (tabId === "user-management") {
-          const subtabButtons = document.querySelectorAll(".tab-button");
-          subtabButtons.forEach((button) => {
-            button.classList.remove("active");
-          });
-
-          const defaultUserTab = document.querySelector(
-            ".tab-button[data-subtab='add-user']"
-          );
-          if (defaultUserTab) {
-            defaultUserTab.classList.add("active");
-            const addUserTabContent = document.querySelector("#add-user");
-            if (addUserTabContent) {
-              addUserTabContent.classList.add("active");
-            }
-          }
-        }
-
-        if (tabId === "antizapret-config") {
+        if (tabId === "antizapret-config" || tabId === "vpn-network" || tabId === "security") {
           loadAntizapretSettings();
         }
       });
@@ -98,27 +75,119 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 
-  // Инициализация вкладок пользователей
-  const initUserTabs = () => {
-    const tabButtons = document.querySelectorAll(".tab-button");
-    const subtabContents = document.querySelectorAll(".subtab-content");
+  const createUserActionConfirm = () => {
+    const modal = document.getElementById("userActionModal");
+    const titleEl = document.getElementById("userActionModalTitle");
+    const textEl = document.getElementById("userActionModalText");
+    const confirmBtn = document.getElementById("userActionModalConfirm");
 
-    tabButtons.forEach((button) => {
-      button.addEventListener("click", function () {
-        tabButtons.forEach((btn) => btn.classList.remove("active"));
-        this.classList.add("active");
+    if (!modal || !titleEl || !textEl || !confirmBtn) {
+      return async ({ message = "Подтвердить действие?" } = {}) => window.confirm(message);
+    }
 
-        const subtabId = this.getAttribute("data-subtab");
-        subtabContents.forEach((content) => {
-          content.classList.remove("active");
-          if (content.id === subtabId) content.classList.add("active");
+    const closeTargets = modal.querySelectorAll("[data-user-action-close]");
+    const closeModal = () => {
+      modal.classList.remove("is-open");
+      document.body.classList.remove("user-action-modal-open");
+      setTimeout(() => {
+        modal.setAttribute("hidden", "");
+      }, 180);
+    };
+
+    return ({
+      title = "Подтвердите действие",
+      message = "Изменение будет применено сразу.",
+      confirmText = "Подтвердить",
+      confirmVariant = "danger",
+    } = {}) => {
+      titleEl.textContent = title;
+      textEl.textContent = message;
+      confirmBtn.textContent = confirmText;
+      confirmBtn.classList.toggle("is-danger", confirmVariant === "danger");
+
+      modal.removeAttribute("hidden");
+      requestAnimationFrame(() => {
+        modal.classList.add("is-open");
+      });
+      document.body.classList.add("user-action-modal-open");
+
+      return new Promise((resolve) => {
+        let done = false;
+
+        const cleanup = (result) => {
+          if (done) return;
+          done = true;
+          closeModal();
+          confirmBtn.removeEventListener("click", onConfirm);
+          closeTargets.forEach((target) => {
+            target.removeEventListener("click", onCancel);
+          });
+          document.removeEventListener("keydown", onEsc);
+          resolve(result);
+        };
+
+        const onConfirm = () => cleanup(true);
+        const onCancel = () => cleanup(false);
+        const onEsc = (event) => {
+          if (event.key === "Escape") {
+            cleanup(false);
+          }
+        };
+
+        confirmBtn.addEventListener("click", onConfirm);
+        closeTargets.forEach((target) => {
+          target.addEventListener("click", onCancel);
+        });
+        document.addEventListener("keydown", onEsc);
+      });
+    };
+  };
+
+  const initUserActionPopups = () => {
+    const askConfirm = createUserActionConfirm();
+
+    const bindConfirm = (selector, getOptions) => {
+      document.querySelectorAll(selector).forEach((form) => {
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const confirmed = await askConfirm(getOptions(form));
+          if (confirmed) {
+            form.submit();
+          }
         });
       });
+    };
+
+    bindConfirm("form[data-user-action='delete-user']", (form) => {
+      const username = form.querySelector("input[name='delete_username']")?.value.trim() || "этого пользователя";
+      return {
+        title: "Удалить пользователя?",
+        message: `Пользователь «${username}» будет удален без возможности восстановления.`,
+        confirmText: "Удалить",
+        confirmVariant: "danger",
+      };
     });
 
-    if (tabButtons.length > 0) {
-      tabButtons[0].click();
-    }
+    bindConfirm("form[data-user-action='change-role']", (form) => {
+      const username = form.querySelector("input[name='change_role_username']")?.value || "пользователя";
+      const role = form.querySelector("select[name='new_role']")?.value || "новую роль";
+      return {
+        title: "Изменить роль?",
+        message: `Для «${username}» будет установлена роль «${role}».`,
+        confirmText: "Изменить",
+        confirmVariant: "primary",
+      };
+    });
+
+    bindConfirm("form[data-user-action='change-password']", (form) => {
+      const username = form.querySelector("input[name='change_password_username']")?.value || "пользователя";
+      return {
+        title: "Сменить пароль?",
+        message: `Пароль пользователя «${username}» будет обновлен сразу после подтверждения.`,
+        confirmText: "Сменить пароль",
+        confirmVariant: "danger",
+      };
+    });
   };
 
   // Загрузка текущих настроек Antizapret
@@ -333,10 +402,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Запуск
   initMenu();
-  initUserTabs();
+  initUserActionPopups();
   document
     .getElementById("save-config")
     ?.addEventListener("click", saveAntizapretSettings);
+  document.querySelectorAll(".save-config-btn").forEach(btn => {
+    btn.addEventListener("click", saveAntizapretSettings);
+  });
   window.addEventListener("resize", handleResize);
   window.addEventListener("orientationchange", handleOrientationChange);
 

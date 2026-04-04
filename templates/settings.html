@@ -65,6 +65,628 @@
     cursor: pointer;
     accent-color: #2196f3;
   }
+
+  #user-management {
+    --um-accent: #3f8cff;
+    --um-surface: rgba(13, 20, 36, 0.56);
+    --um-border: rgba(255, 255, 255, 0.12);
+  }
+
+  .user-management-layout {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .user-management-intro {
+    color: rgba(236, 243, 255, 0.76);
+    margin: 0;
+  }
+
+  .user-add-card {
+    background: linear-gradient(160deg, var(--um-surface), rgba(9, 14, 26, 0.3));
+    border: 1px solid var(--um-border);
+    border-radius: 14px;
+    padding: 1rem 1rem 1.2rem;
+    box-shadow: 0 16px 32px rgba(6, 10, 18, 0.36);
+  }
+
+  .user-cards-list {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .user-card {
+    background: linear-gradient(160deg, var(--um-surface), rgba(9, 14, 26, 0.3));
+    border: 1px solid var(--um-border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .user-card[open] {
+    border-color: rgba(141, 193, 255, 0.45);
+    box-shadow: 0 16px 30px rgba(6, 15, 29, 0.42);
+  }
+
+  .user-card__summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.95rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    transition: background 0.2s ease;
+  }
+
+  .user-card__summary:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .user-card__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .user-card__identity {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .user-card__name {
+    font-size: 1.02rem;
+    font-weight: 600;
+    color: #f3f8ff;
+  }
+
+  .user-card__self {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    color: #d7e7ff;
+    border: 1px solid rgba(155, 199, 255, 0.35);
+    background: rgba(92, 156, 255, 0.14);
+  }
+
+  .user-card__toggle {
+    font-size: 0.88rem;
+    color: rgba(223, 235, 255, 0.76);
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .user-card__toggle::before {
+    content: "▸";
+    transition: transform 0.2s ease;
+  }
+
+  .user-card[open] .user-card__toggle::before {
+    transform: rotate(90deg);
+  }
+
+  .user-card__body {
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+    padding: 0.95rem 1rem 1rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+  }
+
+  .user-card__section {
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.8rem;
+  }
+
+  .user-card__section h4 {
+    margin: 0 0 0.65rem;
+    font-size: 0.95rem;
+    color: #e9f2ff;
+  }
+
+  .user-card__section-danger {
+    grid-column: 1 / -1;
+    border-color: rgba(231, 101, 101, 0.36);
+    background: rgba(143, 25, 25, 0.14);
+  }
+
+  .user-card__section-note {
+    margin: 0;
+    color: rgba(220, 235, 255, 0.84);
+    font-size: 0.9rem;
+  }
+
+  .user-card__section-danger .user-card__section-note {
+    color: rgba(255, 230, 230, 0.92);
+  }
+
+  #user-management .settings-form input,
+  #user-management .settings-form select {
+    background: rgba(8, 14, 28, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  }
+
+  #user-management .settings-form input:focus,
+  #user-management .settings-form select:focus {
+    outline: none;
+    border-color: rgba(123, 185, 255, 0.78);
+    background: rgba(8, 16, 34, 0.88);
+    box-shadow: 0 0 0 3px rgba(63, 140, 255, 0.22);
+  }
+
+  #user-management .users-list {
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  #user-management .users-list th,
+  #user-management .users-list td {
+    border-color: rgba(255, 255, 255, 0.12);
+    text-align: left;
+  }
+
+  #user-management .users-list th {
+    background: rgba(6, 12, 24, 0.64);
+  }
+
+  #viewer-access-section .card {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    background: linear-gradient(165deg, rgba(16, 23, 42, 0.62), rgba(9, 15, 30, 0.4));
+    box-shadow: 0 12px 26px rgba(8, 13, 24, 0.26);
+  }
+
+  .viewer-profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.8rem;
+  }
+
+  .viewer-profile-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    background: linear-gradient(140deg, rgba(14, 25, 44, 0.75), rgba(9, 15, 30, 0.65));
+    color: #eff6ff;
+    padding: 0.85rem 0.9rem;
+    cursor: pointer;
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    text-align: left;
+  }
+
+  .viewer-profile-tile:hover {
+    transform: translateY(-2px);
+    border-color: rgba(167, 209, 255, 0.56);
+    box-shadow: 0 14px 24px rgba(6, 13, 28, 0.35);
+  }
+
+  .viewer-profile-tile__name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #f5f9ff;
+  }
+
+  .viewer-profile-tile__meta {
+    font-size: 0.85rem;
+    color: rgba(219, 233, 255, 0.78);
+  }
+
+  #sidebar .menu-item {
+    gap: 0.45rem;
+    align-items: center;
+  }
+
+  #sidebar .menu-item .icon {
+    width: 1.05rem;
+    flex: 0 0 1.05rem;
+    margin-right: 0;
+    text-align: center;
+  }
+
+  #sidebar .menu-item span {
+    line-height: 1.25;
+  }
+
+  #qr-settings .qr-links-log-list {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #qr-settings .qr-links-log-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+    table-layout: auto;
+  }
+
+  #qr-settings .qr-links-log-table th,
+  #qr-settings .qr-links-log-table td {
+    white-space: nowrap;
+  }
+
+  #qr-settings .qr-links-log-table th:last-child,
+  #qr-settings .qr-links-log-table td:last-child {
+    min-width: 420px;
+  }
+
+  .viewer-profile-modal[hidden] {
+    display: none !important;
+  }
+
+  .viewer-profile-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1250;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+
+  .viewer-profile-modal.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .viewer-profile-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 18%, rgba(99, 171, 255, 0.23), rgba(3, 7, 18, 0.9));
+    backdrop-filter: blur(5px);
+  }
+
+  .viewer-profile-modal__dialog {
+    position: relative;
+    width: min(980px, 100%);
+    max-height: calc(100vh - 2rem);
+    overflow: auto;
+    border-radius: 16px;
+    border: 1px solid rgba(140, 190, 255, 0.26);
+    background: linear-gradient(165deg, rgba(14, 24, 44, 0.96), rgba(8, 13, 26, 0.92));
+    box-shadow: 0 24px 52px rgba(0, 0, 0, 0.55);
+    transform: translateY(16px) scale(0.98);
+    opacity: 0;
+    transition: transform 0.24s cubic-bezier(0.2, 0.75, 0.22, 1), opacity 0.24s cubic-bezier(0.2, 0.75, 0.22, 1);
+  }
+
+  .viewer-profile-modal.is-open .viewer-profile-modal__dialog {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  .viewer-profile-modal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 0.95rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .viewer-profile-modal__title {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: #eef5ff;
+    font-size: 1.15rem;
+  }
+
+  .viewer-profile-modal__close {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.06);
+    color: #e1eeff;
+    font-size: 1.25rem;
+    cursor: pointer;
+  }
+
+  .viewer-profile-modal__content {
+    padding: 1rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+
+  .viewer-profile-modal__block {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.85rem;
+  }
+
+  .viewer-profile-modal__block h4 {
+    margin: 0 0 0.65rem;
+    color: #e7f2ff;
+    font-size: 0.96rem;
+  }
+
+  .viewer-profile-modal__block-danger {
+    border-color: rgba(231, 101, 101, 0.42);
+    background: rgba(143, 25, 25, 0.14);
+  }
+
+  .viewer-profile-modal__configs {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .viewer-config-panels {
+    display: grid;
+    gap: 0.65rem;
+  }
+
+  .viewer-config-group {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+  }
+
+  .viewer-config-group__summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.72rem 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    color: #edf5ff;
+    font-weight: 600;
+    font-size: 0.94rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .viewer-config-group__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .viewer-config-group__summary::before {
+    content: "▸";
+    color: rgba(191, 218, 255, 0.9);
+    margin-right: 0.25rem;
+    transition: transform 0.18s ease;
+  }
+
+  .viewer-config-group[open] .viewer-config-group__summary::before {
+    transform: rotate(90deg);
+  }
+
+  .viewer-config-group__meta {
+    font-size: 0.8rem;
+    color: rgba(202, 220, 244, 0.78);
+    font-weight: 500;
+  }
+
+  .viewer-config-group__body {
+    padding: 0.7rem;
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .viewer-config-group__tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    align-items: center;
+  }
+
+  .viewer-config-search {
+    flex: 1;
+    min-width: 170px;
+    background: rgba(8, 14, 28, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    color: #f4f8ff;
+    padding: 0.5rem 0.62rem;
+    font-size: 0.86rem;
+  }
+
+  .viewer-config-only {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    color: rgba(218, 232, 252, 0.86);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .viewer-config-list.viewer-config-list-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+    gap: 0.45rem;
+    max-height: 180px;
+    overflow: auto;
+    padding-right: 0.15rem;
+  }
+
+  .viewer-config-item.viewer-config-item-compact {
+    min-height: 30px;
+    padding: 0.38rem 0.52rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    line-height: 1.2;
+  }
+
+  .viewer-config-item.viewer-config-item-compact.is-hidden {
+    display: none;
+  }
+
+  .viewer-profile-modal-open {
+    overflow: hidden;
+  }
+
+  .viewer-access-notice {
+    margin-top: 1rem;
+    border-radius: 10px;
+  }
+
+  .user-action-modal[hidden] {
+    display: none !important;
+  }
+
+  .user-action-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+
+  .user-action-modal.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .user-action-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 18%, rgba(97, 165, 255, 0.2), rgba(2, 6, 14, 0.86));
+    backdrop-filter: blur(4px);
+  }
+
+  .user-action-modal__dialog {
+    position: relative;
+    width: min(520px, 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(140, 190, 255, 0.26);
+    background: linear-gradient(165deg, rgba(14, 24, 44, 0.95), rgba(8, 13, 26, 0.9));
+    box-shadow: 0 24px 50px rgba(0, 0, 0, 0.5);
+    padding: 1.1rem 1.1rem 1rem;
+    transform: translateY(16px) scale(0.97);
+    opacity: 0;
+    transition: transform 0.24s cubic-bezier(0.2, 0.75, 0.22, 1), opacity 0.24s cubic-bezier(0.2, 0.75, 0.22, 1);
+  }
+
+  .user-action-modal.is-open .user-action-modal__dialog {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  .user-action-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .user-action-modal__title {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #f4f8ff;
+  }
+
+  .user-action-modal__close {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: #dce9ff;
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+
+  .user-action-modal__text {
+    margin: 0;
+    color: rgba(236, 244, 255, 0.88);
+    line-height: 1.45;
+  }
+
+  .user-action-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 1rem;
+  }
+
+  .user-action-modal__btn {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 0.58rem 0.95rem;
+    cursor: pointer;
+    color: #fff;
+    font-weight: 500;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+  }
+
+  .user-action-modal__btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
+  }
+
+  .user-action-modal__btn-cancel {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .user-action-modal__btn-confirm {
+    background: linear-gradient(135deg, #2f7efe, #2368de);
+  }
+
+  .user-action-modal__btn-confirm.is-danger {
+    background: linear-gradient(135deg, #e25353, #d03a3a);
+  }
+
+  .user-action-modal-open {
+    overflow: hidden;
+  }
+
+  @media (max-width: 768px) {
+    .user-add-card {
+      padding: 0.85rem;
+    }
+
+    .user-card__summary {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.55rem;
+    }
+
+    .user-card__body {
+      grid-template-columns: 1fr;
+      padding: 0.85rem;
+    }
+
+    .viewer-profile-modal__content {
+      grid-template-columns: 1fr;
+      padding: 0.85rem;
+    }
+
+    #sidebar .menu-item {
+      padding: 0.72rem 0.82rem;
+    }
+
+    .user-action-modal__actions {
+      flex-direction: column-reverse;
+    }
+
+    .user-action-modal__btn {
+      width: 100%;
+    }
+  }
 </style>
 {% endblock %}
 {% block content %}
@@ -77,659 +699,44 @@
       <h3>Настройки</h3>
     </div>
     <ul class="sidebar-menu">
-      <li class="menu-item" data-tab="antizapret-config">
-        <i class="icon">⚙️</i>
-        <span>Конфигурирование Antizapret</span>
+      <li class="menu-item active" data-tab="antizapret-config">
+        <i class="icon">🌐</i>
+        <span>Маршрутизация Antizapret</span>
       </li>
-      <li class="menu-item active" data-tab="port-settings">
-        <i class="icon">⚙️</i>
-        <span>Настройки порта</span>
+      <li class="menu-item" data-tab="vpn-network">
+        <i class="icon">🔌</i>
+        <span>VPN и сеть</span>
       </li>
-      <li class="menu-item" data-tab="qr-settings">
-        <i class="icon">🔗</i>
-        <span>Настройки QR</span>
-      </li>
-      <li class="menu-item" data-tab="nightly-restart-settings">
-        <i class="icon">🌙</i>
-        <span>Ночной рестарт</span>
+      <li class="menu-item" data-tab="security">
+        <i class="icon">🛡️</i>
+        <span>Безопасность</span>
       </li>
       <li class="menu-item" data-tab="user-management">
         <i class="icon">👥</i>
-        <span>Управление пользователями</span>
+        <span>Пользователи и доступ</span>
       </li>
-      <li class="menu-item" data-tab="viewer-access">
-        <i class="icon">🔐</i>
-        <span>Доступ к конфигам</span>
+      <li class="menu-item" data-tab="qr-settings">
+        <i class="icon">🔗</i>
+        <span>Одноразовые ссылки</span>
       </li>
-      <li class="menu-item" data-tab="ip-restrictions">
-        <i class="icon">🛡️</i>
-        <span>Ограничения по IP</span>
+      <li class="menu-item" data-tab="maintenance">
+        <i class="icon">🔧</i>
+        <span>Обслуживание</span>
       </li>
-      <div id="update-button-container">
-        <button id="update-system" class="button update-button">
-          Проверка обновлений...
-        </button>
-      </div>
-      <!-- Уведомление о статусе обновления -->
-      <div id="update-status" class="notification" style="display: none"></div>
     </ul>
+    <div id="update-button-container" style="padding: 0.5rem;">
+      <button id="update-system" class="button update-button">
+        Проверка обновлений...
+      </button>
+    </div>
+    <div id="update-status" class="notification" style="display: none"></div>
   </div>
 
   <!-- Основное содержимое -->
   <div class="settings-content page-unified-card">
-    <!-- Настройки порта -->
-    <div id="port-settings" class="content-tab active">
-      <h2>Настройки порта</h2>
-      <form method="POST" class="settings-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <div class="form-group">
-          <label for="port">Текущий порт: {{ port }}</label>
-          <input type="text" id="port" name="port" placeholder="Введите новый порт" />
-        </div>
-        <button type="submit" class="button save-button">Сохранить</button>
-      </form>
-    </div>
-
-    <!-- Настройки QR -->
-    <div id="qr-settings" class="content-tab">
-      <h2>Настройки QR</h2>
-      <form method="POST" class="settings-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <div class="form-group">
-          <label for="qr_download_token_ttl_seconds">TTL одноразовой QR-ссылки (секунд)</label>
-          <input type="number" id="qr_download_token_ttl_seconds" name="qr_download_token_ttl_seconds" min="60"
-            max="3600" step="1" value="{{ qr_download_token_ttl_seconds }}" placeholder="60..3600" />
-          <small class="help-text">Используется для ссылок вида /qr_download/&lt;token&gt;. Диапазон: 60..3600
-            сек.</small>
-        </div>
-        <div class="form-group">
-          <label for="qr_download_token_max_downloads">Лимит скачиваний по одноразовой ссылке</label>
-          <select id="qr_download_token_max_downloads" name="qr_download_token_max_downloads" class="form-control">
-            <option value="1" {% if qr_download_token_max_downloads|string=='1' %}selected{% endif %}>1</option>
-            <option value="3" {% if qr_download_token_max_downloads|string=='3' %}selected{% endif %}>3</option>
-            <option value="5" {% if qr_download_token_max_downloads|string=='5' %}selected{% endif %}>5</option>
-          </select>
-          <small class="help-text">Применяется к новым ссылкам. Уже созданные ссылки сохраняют свой текущий
-            лимит.</small>
-        </div>
-        <div class="form-group">
-          <label for="qr_download_pin">PIN для защиты одноразовых ссылок (опционально)</label>
-          <input type="password" id="qr_download_pin" name="qr_download_pin" inputmode="numeric" pattern="[0-9]*"
-            minlength="4" maxlength="12" placeholder="Оставьте пустым, чтобы не менять" />
-          <small class="help-text">
-            Если PIN задан, при открытии QR-ссылки потребуется ввод PIN. Разрешены только цифры, 4..12 символов.
-            Текущий статус: <strong>{% if qr_download_pin_set %}PIN установлен{% else %}PIN не установлен{% endif
-              %}</strong>.
-          </small>
-          <div class="help-text"
-            style="margin-top:6px; font-weight:600; color:{% if qr_download_pin_set %}#2ecc71{% else %}#b0b7c3{% endif %};">
-            {% if qr_download_pin_set %}● Защита PIN активна{% else %}● Защита PIN выключена{% endif %}
-          </div>
-          <div class="form-group" style="margin-top:10px; margin-bottom:0;">
-            <button type="submit" name="clear_qr_download_pin" value="on" class="button delete-button"
-              onclick="return confirm('Очистить текущий PIN?');">
-              Очистить текущий PIN
-            </button>
-          </div>
-        </div>
-        <button type="submit" class="button save-button">Сохранить</button>
-      </form>
-
-      <div class="card" style="margin-top:1.5rem;">
-        <h3>Журнал QR-ссылок</h3>
-        <p class="help-text">Показываются последние 100 событий генерации и скачивания.</p>
-        {% if qr_download_audit_logs %}
-        <div class="users-list">
-          <table style="width:100%; border-collapse:collapse;">
-            <thead>
-              <tr>
-                <th style="text-align:left;padding:6px 8px;">Время (UTC)</th>
-                <th style="text-align:left;padding:6px 8px;">Событие</th>
-                <th style="text-align:left;padding:6px 8px;">Пользователь</th>
-                <th style="text-align:left;padding:6px 8px;">IP</th>
-                <th style="text-align:left;padding:6px 8px;">Детали</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in qr_download_audit_logs %}
-              <tr>
-                <td style="padding:6px 8px;white-space:nowrap;">{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                <td style="padding:6px 8px;">{{ row.event_type }}</td>
-                <td style="padding:6px 8px;">{{ row.actor_username or 'anonymous' }}</td>
-                <td style="padding:6px 8px;">{{ row.remote_addr or '-' }}</td>
-                <td style="padding:6px 8px;">{{ row.details or '-' }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <p class="no-data">Событий пока нет</p>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Ночной рестарт -->
-    <div id="nightly-restart-settings" class="content-tab">
-      <h2>Авто-перезапуск сайта ночью</h2>
-      <form method="POST" class="settings-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <input type="hidden" name="nightly_settings_action" value="save" />
-
-        <div class="info-box" style="margin-bottom: 1rem;">
-          <p style="margin: 0;">
-            Сайт перезапускается только если в панели нет активных пользователей.
-            Если кто-то работает в это время, перезапуск пропускается до следующей проверки.
-          </p>
-        </div>
-
-        <div class="form-group">
-          <label for="nightly_idle_restart_enabled">Включить ночной авто-перезапуск</label>
-          <select id="nightly_idle_restart_enabled" name="nightly_idle_restart_enabled" class="form-control">
-            <option value="true" {% if nightly_idle_restart_enabled %}selected{% endif %}>Да</option>
-            <option value="false" {% if not nightly_idle_restart_enabled %}selected{% endif %}>Нет</option>
-          </select>
-          <small class="help-text">Рекомендуется держать включенным.</small>
-        </div>
-
-        <div class="form-group">
-          <label for="nightly_idle_restart_time">Во сколько выполнять проверку</label>
-          <input type="time" id="nightly_idle_restart_time" name="nightly_idle_restart_time"
-            value="{{ nightly_idle_restart_time }}" />
-          <small class="help-text">Пример: 04:00. В это время система проверит активность и перезапустит сайт только
-            при отсутствии пользователей в панели.</small>
-        </div>
-
-        <div class="form-group">
-          <label for="active_web_session_ttl_seconds">Через сколько секунд без действий считать пользователя
-            неактивным</label>
-          <input type="number" id="active_web_session_ttl_seconds" name="active_web_session_ttl_seconds" min="30"
-            max="86400" step="1" value="{{ active_web_session_ttl_seconds }}" />
-          <small class="help-text">Обычно достаточно 180 секунд.</small>
-        </div>
-
-        <div class="form-group">
-          <label for="active_web_session_touch_interval_seconds">Как часто обновлять отметку активности (секунд)</label>
-          <input type="number" id="active_web_session_touch_interval_seconds"
-            name="active_web_session_touch_interval_seconds" min="1" max="3600" step="1"
-            value="{{ active_web_session_touch_interval_seconds }}" />
-          <small class="help-text">Чем меньше значение, тем точнее статус активности. Обычно 30 секунд.</small>
-        </div>
-
-        <details class="info-box" style="margin-bottom: 1rem;">
-          <summary style="cursor: pointer;">Расширенная настройка (cron)</summary>
-          <div class="form-group" style="margin-top: 0.8rem;">
-            <label for="nightly_idle_restart_cron">Cron-выражение запуска проверки</label>
-            <input type="text" id="nightly_idle_restart_cron" name="nightly_idle_restart_cron"
-              value="{{ nightly_idle_restart_cron }}" placeholder="0 4 * * *" />
-            <small class="help-text">Используется только если не задано время выше. Формат: 5 полей cron.</small>
-          </div>
-        </details>
-
-        <div class="info-box" style="margin-bottom: 1rem;">
-          <p style="margin: 0;">
-            Активных пользователей в панели сейчас: <strong>{{ active_web_sessions_count }}</strong>
-          </p>
-        </div>
-
-        <button type="submit" class="button save-button">Сохранить</button>
-      </form>
-    </div>
-
-    <!-- Управление пользователями -->
-    <div id="user-management" class="content-tab">
-      <div class="user-management-tabs">
-        <button class="tab-button active" data-subtab="add-user">
-          Добавить
-        </button>
-        <button class="tab-button" data-subtab="delete-user">Удалить</button>
-        <button class="tab-button" data-subtab="change-role">Роль</button>
-        <button class="tab-button" data-subtab="change-password">Пароль</button>
-      </div>
-
-      <div id="add-user" class="subtab-content active">
-        <h3>Добавить пользователя</h3>
-        <form method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <div class="form-group">
-            <input type="text" name="username" placeholder="Логин" required />
-          </div>
-          <div class="form-group">
-            <input type="password" name="password" placeholder="Пароль" required />
-          </div>
-          <div class="form-group">
-            <label for="role-select">Роль:</label>
-            <select name="role" id="role-select" class="form-control">
-              <option value="admin">admin (полный доступ)</option>
-              <option value="viewer">viewer (только просмотр)</option>
-            </select>
-          </div>
-          <button type="submit" class="button add-button">
-            Добавить пользователя
-          </button>
-          <h3>Список пользователей</h3>
-          <div class="users-list">
-            {% if users %}
-            <table style="width:100%; border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;padding:4px 8px;">Логин</th>
-                  <th style="text-align:left;padding:4px 8px;">Роль</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for user in users %}
-                <tr>
-                  <td style="padding:4px 8px;">{{ user.username }}</td>
-                  <td style="padding:4px 8px;">
-                    <span class="badge {% if user.role == 'admin' %}badge-admin{% else %}badge-viewer{% endif %}">{{
-                      user.role }}</span>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            {% else %}
-            <p class="no-users">Нет зарегистрированных пользователей</p>
-            {% endif %}
-          </div>
-        </form>
-      </div>
-
-      <div id="delete-user" class="subtab-content">
-        <h3>Удалить пользователя</h3>
-        <form method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <div class="form-group">
-            <input type="text" name="delete_username" placeholder="Логин пользователя" required />
-          </div>
-          <button type="submit" class="button delete-button">
-            Удалить пользователя
-          </button>
-          <h3>Список пользователей</h3>
-          <div class="users-list">
-            {% if users %}
-            <table style="width:100%; border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align:left;padding:4px 8px;">Логин</th>
-                  <th style="text-align:left;padding:4px 8px;">Роль</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for user in users %}
-                <tr>
-                  <td style="padding:4px 8px;">{{ user.username }}</td>
-                  <td style="padding:4px 8px;">
-                    <span class="badge {% if user.role == 'admin' %}badge-admin{% else %}badge-viewer{% endif %}">{{
-                      user.role }}</span>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            {% else %}
-            <p class="no-users">Нет зарегистрированных пользователей</p>
-            {% endif %}
-          </div>
-        </form>
-      </div>
-
-      <div id="change-role" class="subtab-content">
-        <h3>Изменить роль пользователя</h3>
-        <form method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <div class="form-group">
-            <select name="change_role_username" class="form-control" required>
-              <option value="" disabled selected>Выберите пользователя</option>
-              {% for user in users %}
-              {% if user.username != current_user.username %}
-              <option value="{{ user.username }}">{{ user.username }} [{{ user.role }}]</option>
-              {% endif %}
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Новая роль:</label>
-            <select name="new_role" class="form-control" required>
-              <option value="admin">admin</option>
-              <option value="viewer">viewer</option>
-            </select>
-          </div>
-          <button type="submit" class="button save-button">Изменить роль</button>
-        </form>
-      </div>
-
-      <div id="change-password" class="subtab-content">
-        <h3>Изменить пароль пользователя</h3>
-        <form method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <div class="form-group">
-            <select name="change_password_username" class="form-control" required>
-              <option value="" disabled selected>Выберите пользователя</option>
-              {% for user in users %}
-              <option value="{{ user.username }}">{{ user.username }} [{{ user.role }}]</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="form-group">
-            <input type="password" name="new_password" placeholder="Новый пароль (мин. 8 символов)" required />
-          </div>
-          <button type="submit" class="button save-button">Изменить пароль</button>
-        </form>
-      </div>
-    </div>
-
-    <!-- Доступ к конфигам (для viewer) -->
-    <div id="viewer-access" class="content-tab">
-      <h2>Управление доступом к конфигам</h2>
-
-      <div class="card" style="margin-bottom:1.5rem;">
-        <h3>Публичный доступ к файлам маршрутов</h3>
-        <p class="help-text">
-          Текущее состояние:
-          <strong>{% if public_download_enabled %}включен{% else %}выключен{% endif %}</strong>
-        </p>
-        <form action="{{ url_for('toggle_public_download') }}" method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <input type="hidden" name="enabled" value="{{ 'false' if public_download_enabled else 'true' }}" />
-          <input type="hidden" name="return_to" value="settings" />
-          <button type="submit"
-            class="button {% if public_download_enabled %}delete-button{% else %}save-button{% endif %}">
-            {% if public_download_enabled %}
-            Выключить публичный доступ
-            {% else %}
-            Включить публичный доступ
-            {% endif %}
-          </button>
-        </form>
-      </div>
-
-      {% if viewer_users %}
-      {% for vu in viewer_users %}
-      <div class="card" style="margin-bottom:1.5rem;">
-        <h3>👤 {{ vu.username }} <span class="badge badge-viewer">viewer</span></h3>
-        {% set va = viewer_access.get(vu.id, []) %}
-
-        {% if openvpn_access_groups %}
-        <p class="config-description" style="margin-top:1rem;">OpenVPN</p>
-        <div class="viewer-config-list">
-          {% for group in openvpn_access_groups %}
-          {% set ns = namespace(has_access=false) %}
-          {% for fname in group.files %}
-          {% if fname in va %}
-          {% set ns.has_access = true %}
-          {% endif %}
-          {% endfor %}
-          <label class="viewer-config-item">
-            <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}"
-              data-config-name="{{ group.group_key }}" data-config-label="{{ group.display_name }}"
-              data-config-type="openvpn" {% if ns.has_access %}checked{% endif %} />
-            {{ group.display_name }}
-          </label>
-          {% endfor %}
-        </div>
-        {% endif %}
-
-        {% if amneziawg_access_groups %}
-        <p class="config-description" style="margin-top:1rem;">AmneziaWG</p>
-        <div class="viewer-config-list">
-          {% for group in amneziawg_access_groups %}
-          {% set ns = namespace(has_access=false) %}
-          {% for fname in group.files %}
-          {% if fname in va %}
-          {% set ns.has_access = true %}
-          {% endif %}
-          {% endfor %}
-          <label class="viewer-config-item">
-            <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}"
-              data-config-name="{{ group.group_key }}" data-config-label="{{ group.display_name }}"
-              data-config-type="amneziawg" {% if ns.has_access %}checked{% endif %} />
-            {{ group.display_name }}
-          </label>
-          {% endfor %}
-        </div>
-        {% endif %}
-
-        {% if wg_access_groups %}
-        <p class="config-description" style="margin-top:1rem;">WireGuard</p>
-        <div class="viewer-config-list">
-          {% for group in wg_access_groups %}
-          {% set ns = namespace(has_access=false) %}
-          {% for fname in group.files %}
-          {% if fname in va %}
-          {% set ns.has_access = true %}
-          {% endif %}
-          {% endfor %}
-          <label class="viewer-config-item">
-            <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}"
-              data-config-name="{{ group.group_key }}" data-config-label="{{ group.display_name }}"
-              data-config-type="wg" {% if ns.has_access %}checked{% endif %} />
-            {{ group.display_name }}
-          </label>
-          {% endfor %}
-        </div>
-        {% endif %}
-
-        {% if not all_openvpn and not all_wg and not all_amneziawg %}
-        <p class="no-data">Нет доступных конфигов</p>
-        {% endif %}
-      </div>
-      {% endfor %}
-      {% else %}
-      <p class="no-data">Нет пользователей с ролью viewer. Создайте viewer-пользователя во вкладке «Управление
-        пользователями».</p>
-      {% endif %}
-
-      <div id="viewer-access-status" class="notification" style="display:none;margin-top:1rem;"></div>
-    </div>
-
-    <!-- Ограничения по IP -->
-    <div id="ip-restrictions" class="content-tab">
-      <h2>Управление IP ограничениями</h2>
-
-      <div class="status-card">
-        <h3>Текущий статус</h3>
-        <div class="status-indicator {% if ip_enabled %}status-enabled{% else %}status-disabled{% endif %}">
-          {% if ip_enabled %} 🔒 IP ограничения ВКЛЮЧЕНЫ {% else %} 🔓 IP
-          ограничения ВЫКЛЮЧЕНЫ (доступ всем) {% endif %}
-        </div>
-        <p>Ваш текущий IP: <strong>{{ current_ip }}</strong></p>
-        <p class="help-text">
-          {% if ip_enabled %} Доступ к панели разрешен только с указанных
-          IP-адресов. {% else %} Доступ к панели разрешен со всех IP-адресов. {%
-          endif %}
-        </p>
-      </div>
-
-      <!-- Список разрешенных IP -->
-      <div class="card">
-        <h3>Разрешенные IP-адреса</h3>
-        {% if allowed_ips %}
-        <div class="ip-list">
-          <table class="ip-table">
-            <thead>
-              <tr>
-                <th>IP-адрес/подсеть</th>
-                <th>Тип</th>
-                <th>Действие</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for ip in allowed_ips %}
-              <tr>
-                <td><code>{{ ip }}</code></td>
-                <td>
-                  {% if '/' in ip %}
-                  <span class="badge subnet">Подсеть</span>
-                  {% else %}
-                  <span class="badge single">Один IP</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <form method="POST" onsubmit="return confirm('Удалить IP {{ ip }}?')" style="display: inline">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                    <input type="hidden" name="ip_to_remove" value="{{ ip }}" />
-                    <button type="submit" name="ip_action" value="remove_ip" class="button small delete-button">
-                      Удалить
-                    </button>
-                  </form>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <p class="no-data">Нет разрешенных IP-адресов</p>
-        {% endif %}
-      </div>
-
-      <!-- Добавить IP -->
-      <div class="card">
-        <h3>Добавить IP-адрес</h3>
-        <form method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <div class="form-group">
-            <label for="new_ip">IP-адрес или подсеть</label>
-            <input type="text" id="new_ip" name="new_ip" placeholder="192.168.1.100 или 192.168.1.0/24"
-              class="full-width" />
-            <small class="help-text">
-              Примеры: <code>192.168.1.100</code> (один IP),
-              <code>192.168.1.0/24</code> (вся подсеть)
-            </small>
-          </div>
-          <button type="submit" name="ip_action" value="add_ip" class="button add-button">
-            Добавить IP
-          </button>
-        </form>
-      </div>
-
-      <!-- Быстрая настройка -->
-      <div class="card">
-        <h3>Быстрая настройка</h3>
-        <form method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <div class="form-group">
-            <label for="ips_text">Включить ограничения с IP (через запятую)</label>
-            <textarea id="ips_text" name="ips_text" rows="3" placeholder="127.0.0.1,::1,192.168.1.0/24,10.0.0.1"
-              class="full-width"></textarea>
-            <small class="help-text">
-              Укажите IP-адреса через запятую. Существующий список будет
-              заменен.
-            </small>
-          </div>
-          <button type="submit" name="ip_action" value="enable_ips" class="button save-button">
-            Включить ограничения
-          </button>
-        </form>
-
-        <form method="POST" class="settings-form" style="margin-top: 20px">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <button type="submit" name="ip_action" value="clear_all_ips" class="button delete-button full-width"
-            onclick="return confirm('Вы уверены? Это удалит все IP-адреса и разрешит доступ всем.')">
-            🗑️ Выключить все ограничения (разрешить всем)
-          </button>
-        </form>
-      </div>
-
-      <!-- Примеры -->
-      <div class="card">
-        <h3>Примеры использования</h3>
-        <div class="examples">
-          <div class="example">
-            <h4>✅ Разрешить доступ только с офиса:</h4>
-            <pre><code>192.168.1.0/24,10.0.0.100</code></pre>
-          </div>
-          <div class="example">
-            <h4>✅ Разрешить доступ только с вашего IP:</h4>
-            <pre><code>{{ current_ip }}</code></pre>
-          </div>
-          <div class="example">
-            <h4>✅ Разрешить несколько доверенных IP:</h4>
-            <pre><code>192.168.1.100,192.168.1.101,10.0.0.0/24</code></pre>
-          </div>
-          <div class="example">
-            <h4>❌ Ошибка (неправильный формат):</h4>
-            <pre><code>192.168.1  # неполный адрес</code></pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- Перезапуск службы -->
-      <div class="card">
-        <h3>Применение изменений</h3>
-
-        <div class="info-box" style="
-            background: rgba(33, 150, 243, 0.1);
-            border-color: rgba(33, 150, 243, 0.3);
-            margin-bottom: 1.5rem;
-          ">
-          <p style="margin: 0; color: #2196f3; font-weight: 500">
-            ⚠️ Важно: после изменения списка IP-адресов необходимо перезапустить
-            службу!
-          </p>
-          <p style="
-              margin: 0.5rem 0 0 0;
-              color: rgba(255, 255, 255, 0.7);
-              font-size: 0.9rem;
-            ">
-            Изменения вступят в силу только после перезапуска службы
-            admin-antizapret.
-          </p>
-        </div>
-
-        <!-- Кнопка перезапуска -->
-        <button id="restartServiceBtn" class="button save-button" style="width: 100%; font-size: 1.1rem; padding: 1rem">
-          🔄 Перезапустить службу
-        </button>
-
-        <!-- Скрытая форма для отправки -->
-        <form id="restartForm" method="POST" style="display: none">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <input type="hidden" name="restart_action" value="restart_service" />
-        </form>
-
-        <p style="
-            margin-top: 1rem;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.9rem;
-            text-align: center;
-          ">
-          ⏱️ Перезапуск занимает 5-10 секунд. Страница будет заблокирована на
-          время перезапуска.
-        </p>
-      </div>
-
-      <!-- Оверлей блокировки -->
-      <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-content">
-          <div class="loading-spinner-large"></div>
-          <h2 class="loading-title">🔄 Перезапуск службы</h2>
-          <p class="loading-message">
-            Служба admin-antizapret перезапускается. Пожалуйста, подождите...
-          </p>
-
-          <div class="countdown-timer" id="countdownTimer">5</div>
-
-          <div class="loading-details">
-            <p>🛡️ Применяются новые настройки IP-ограничений</p>
-            <p>⚡ Остановка и запуск службы</p>
-            <p>✅ Проверка состояния системы</p>
-          </div>
-
-          <p style="
-              margin-top: 20px;
-              color: rgba(255, 255, 255, 0.5);
-              font-size: 0.9rem;
-            ">
-            Страница автоматически обновится после завершения
-          </p>
-        </div>
-      </div>
-    </div>
-    <div id="antizapret-config" class="content-tab">
-      <h2>Конфигурирование Antizapret</h2>
+    <!-- ═══════════════ 1. Маршрутизация Antizapret ═══════════════ -->
+    <div id="antizapret-config" class="content-tab active">
+      <h2>Маршрутизация Antizapret</h2>
       <p class="config-description">
         Включить маршрутизацию через Antizapret для:
       </p>
@@ -917,11 +924,33 @@
         </div>
       </div>
 
-      <!--------------------------OPENVPN/WireGuard/AmneziaWG_FALLBACK----------------------------->
+      <button id="save-config" class="button save-button">
+        Сохранить настройки
+      </button>
+      <div id="config-status" class="notification" style="display: none"></div>
+    </div>
+
+    <!-- ═══════════════ 2. VPN и сеть ═══════════════ -->
+    <div id="vpn-network" class="content-tab">
+      <h2>VPN и сеть</h2>
+
+      <!-- Порт панели -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3>Порт панели администрирования</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <label for="port">Текущий порт: {{ port }}</label>
+            <input type="text" id="port" name="port" placeholder="Введите новый порт" />
+          </div>
+          <button type="submit" class="button save-button">Сохранить порт</button>
+        </form>
+      </div>
+
+      <!-- Резервные порты -->
       <p class="config-description">
-        Резервные OpenVPN/WireGuard/AmneziaWG-порты :
+        Резервные OpenVPN/WireGuard/AmneziaWG-порты:
       </p>
-      <!-- OPENVPN_BACKUP_TCP  -->
       <div class="config-grid">
         <div class="config-column">
           <div class="config-item ov-item">
@@ -941,7 +970,6 @@
             </div>
           </div>
         </div>
-        <!-- OPENVPN_BACKUP_UDP  -->
         <div class="config-column">
           <div class="config-item ov-item">
             <label class="toggle-wrapper">
@@ -960,7 +988,6 @@
             </div>
           </div>
         </div>
-        <!-- WireGuard/AmneziaWG_port -->
         <div class="config-column">
           <div class="config-item wg-item">
             <label class="toggle-wrapper">
@@ -981,111 +1008,7 @@
         </div>
       </div>
 
-      <!--------------------------Firewall & Protection----------------------------->
-      <p class="config-description">Сетевые защиты</p>
-      <div class="config-grid">
-        <div class="config-column">
-          <!-- Первая колонка  -->
-          <!-- WARP_OUTBOUND  -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Cloudflare WARP for all VPN
-                  <span class="tag-server">Server</span>
-                </span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="WARP_OUTBOUND-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(WARP_OUTBOUND)</span> Включающая отправку всего исходящего впн трафика
-              не напрямую с VPN сервера а через Cloudflare WARP
-            </div>
-          </div>
-          <!-- SSH_PROTECTION  -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Защита от брутфорса SSH
-                  <span class="tag-server">Server</span>
-                </span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="ssh_protection-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(SSH_PROTECTION)</span> Включить защиту
-              от перебора паролей SSH (не более 3 новых подключений в час с
-              одного IP)
-            </div>
-          </div>
-          <!-- TORRENT_GUARD  -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Torrent Guard <span class="tag-server">Server</span></span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="torrent_guard-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(TORRENT_GUARD)</span> Torrent Guard —
-              если хостер запрещает торренты или присылает жалобы, эта опция
-              поможет: при обнаружении торрент-трафика VPN будет блокироваться
-              на 1 минуту
-            </div>
-          </div>
-        </div>
-        <!-- ATTACK_PROTECTION  -->
-        <div class="config-column">
-          <!-- Вторая колонка  -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Антискан и защита от атак
-                  <span class="tag-server">Server</span>
-                </span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="attack_protection-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(ATTACK_PROTECTION)</span> Внимание!!!
-              Защита от сетевых атак и сканирования может блокировать VPN или
-              сторонние приложения!
-            </div>
-          </div>
-          <!-- RESTRICT_FORWARD  -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Ограничение форвардинга
-                  <span class="tag-server">Server</span></span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="restrict_forward-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(restrict_forward)</span> Включить
-              ограничение форвардинга — через AntiZapret VPN будет
-              маршрутизироваться только трафик к IP-адресам, которые явно
-              указаны в файлах config/forward-ips.txt и result/route-ips.txt
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!--------------------------OpenVPN & WireGuard Host----------------------------->
+      <!-- Хосты -->
       <p class="config-description">
         Настройки хостов для OpenVPN и WireGuard:
       </p>
@@ -1126,10 +1049,892 @@
         </div>
       </div>
 
-      <button id="save-config" class="button save-button">
+      <!-- WARP -->
+      <p class="config-description">Исходящий трафик VPN:</p>
+      <div class="config-grid">
+        <div class="config-item server-item">
+          <label class="toggle-wrapper">
+            <span class="toggle-label">
+              <span class="config-item-title">Cloudflare WARP for all VPN
+                <span class="tag-server">Server</span>
+              </span>
+            </span>
+            <div class="toggle-switch">
+              <input type="checkbox" id="WARP_OUTBOUND-toggle" class="toggle-input" />
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+          <div class="config-item-tooltip">
+            <span class="config-param">(WARP_OUTBOUND)</span> Включающая отправку всего исходящего впн трафика
+            не напрямую с VPN сервера а через Cloudflare WARP
+          </div>
+        </div>
+      </div>
+
+      <button class="button save-button save-config-btn">
         Сохранить настройки
       </button>
-      <div id="config-status" class="notification" style="display: none"></div>
+      <div class="config-status-msg notification" style="display: none"></div>
+    </div>
+
+    <!-- Настройки одноразовых ссылок -->
+    <div id="qr-settings" class="content-tab">
+      <h2>Одноразовые ссылки</h2>
+      <form method="POST" class="settings-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="form-group">
+          <label for="qr_download_token_ttl_seconds">TTL одноразовой ссылки (секунд)</label>
+          <input type="number" id="qr_download_token_ttl_seconds" name="qr_download_token_ttl_seconds" min="60"
+            max="3600" step="1" value="{{ qr_download_token_ttl_seconds }}" placeholder="60..3600" />
+          <small class="help-text">Используется для ссылок вида /qr_download/&lt;token&gt;. Диапазон: 60..3600
+            сек.</small>
+        </div>
+        <div class="form-group">
+          <label for="qr_download_token_max_downloads">Лимит скачиваний по одноразовой ссылке</label>
+          <select id="qr_download_token_max_downloads" name="qr_download_token_max_downloads" class="form-control">
+            <option value="1" {% if qr_download_token_max_downloads|string=='1' %}selected{% endif %}>1</option>
+            <option value="3" {% if qr_download_token_max_downloads|string=='3' %}selected{% endif %}>3</option>
+            <option value="5" {% if qr_download_token_max_downloads|string=='5' %}selected{% endif %}>5</option>
+          </select>
+          <small class="help-text">Применяется к новым ссылкам. Уже созданные ссылки сохраняют свой текущий
+            лимит.</small>
+        </div>
+        <div class="form-group">
+          <label for="qr_download_pin">PIN для защиты одноразовых ссылок (опционально)</label>
+          <input type="password" id="qr_download_pin" name="qr_download_pin" inputmode="numeric" pattern="[0-9]*"
+            minlength="4" maxlength="12" placeholder="Оставьте пустым, чтобы не менять" />
+          <small class="help-text">
+            Если PIN задан, при открытии одноразовой ссылки потребуется ввод PIN. Разрешены только цифры, 4..12
+            символов.
+            Текущий статус: <strong>{% if qr_download_pin_set %}PIN установлен{% else %}PIN не установлен{% endif
+              %}</strong>.
+          </small>
+          <div class="help-text"
+            style="margin-top:6px; font-weight:600; color:{% if qr_download_pin_set %}#2ecc71{% else %}#b0b7c3{% endif %};">
+            {% if qr_download_pin_set %}● Защита PIN активна{% else %}● Защита PIN выключена{% endif %}
+          </div>
+          <div class="form-group" style="margin-top:10px; margin-bottom:0;">
+            <button type="submit" name="clear_qr_download_pin" value="on" class="button delete-button"
+              onclick="return confirm('Очистить текущий PIN?');">
+              Очистить текущий PIN
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="button save-button">Сохранить</button>
+      </form>
+
+      <div class="card" style="margin-top:1.5rem;">
+        <h3>Журнал одноразовых ссылок</h3>
+        <p class="help-text">Показываются последние 100 событий генерации и скачивания.</p>
+        {% if qr_download_audit_logs %}
+        <div class="users-list qr-links-log-list">
+          <table class="qr-links-log-table">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:6px 8px;">Время (UTC)</th>
+                <th style="text-align:left;padding:6px 8px;">Событие</th>
+                <th style="text-align:left;padding:6px 8px;">Пользователь</th>
+                <th style="text-align:left;padding:6px 8px;">IP</th>
+                <th style="text-align:left;padding:6px 8px;">Детали</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in qr_download_audit_logs %}
+              <tr>
+                <td style="padding:6px 8px;white-space:nowrap;">{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td style="padding:6px 8px;">{{ row.event_type }}</td>
+                <td style="padding:6px 8px;">{{ row.actor_username or 'anonymous' }}</td>
+                <td style="padding:6px 8px;">{{ row.remote_addr or '-' }}</td>
+                <td style="padding:6px 8px;">{{ row.details or '-' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="no-data">Событий пока нет</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ═══════════════ 6. Обслуживание ═══════════════ -->
+    <div id="maintenance" class="content-tab">
+      <h2>Обслуживание системы</h2>
+
+      <!-- Ночной рестарт -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3>🌙 Авто-перезапуск сайта ночью</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <input type="hidden" name="nightly_settings_action" value="save" />
+
+          <div class="info-box" style="margin-bottom: 1rem;">
+            <p style="margin: 0;">
+              Сайт перезапускается только если в панели нет активных пользователей.
+              Если кто-то работает в это время, перезапуск пропускается до следующей проверки.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label for="nightly_idle_restart_enabled">Включить ночной авто-перезапуск</label>
+            <select id="nightly_idle_restart_enabled" name="nightly_idle_restart_enabled" class="form-control">
+              <option value="true" {% if nightly_idle_restart_enabled %}selected{% endif %}>Да</option>
+              <option value="false" {% if not nightly_idle_restart_enabled %}selected{% endif %}>Нет</option>
+            </select>
+            <small class="help-text">Рекомендуется держать включенным.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="nightly_idle_restart_time">Во сколько выполнять проверку</label>
+            <input type="time" id="nightly_idle_restart_time" name="nightly_idle_restart_time"
+              value="{{ nightly_idle_restart_time }}" />
+            <small class="help-text">Пример: 04:00. В это время система проверит активность и перезапустит сайт только
+              при отсутствии пользователей в панели.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="active_web_session_ttl_seconds">Через сколько секунд без действий считать пользователя
+              неактивным</label>
+            <input type="number" id="active_web_session_ttl_seconds" name="active_web_session_ttl_seconds" min="30"
+              max="86400" step="1" value="{{ active_web_session_ttl_seconds }}" />
+            <small class="help-text">Обычно достаточно 180 секунд.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="active_web_session_touch_interval_seconds">Как часто обновлять отметку активности
+              (секунд)</label>
+            <input type="number" id="active_web_session_touch_interval_seconds"
+              name="active_web_session_touch_interval_seconds" min="1" max="3600" step="1"
+              value="{{ active_web_session_touch_interval_seconds }}" />
+            <small class="help-text">Чем меньше значение, тем точнее статус активности. Обычно 30 секунд.</small>
+          </div>
+
+          <details class="info-box" style="margin-bottom: 1rem;">
+            <summary style="cursor: pointer;">Расширенная настройка (cron)</summary>
+            <div class="form-group" style="margin-top: 0.8rem;">
+              <label for="nightly_idle_restart_cron">Cron-выражение запуска проверки</label>
+              <input type="text" id="nightly_idle_restart_cron" name="nightly_idle_restart_cron"
+                value="{{ nightly_idle_restart_cron }}" placeholder="0 4 * * *" />
+              <small class="help-text">Используется только если не задано время выше. Формат: 5 полей cron.</small>
+            </div>
+          </details>
+
+          <div class="info-box" style="margin-bottom: 1rem;">
+            <p style="margin: 0;">
+              Активных пользователей в панели сейчас: <strong>{{ active_web_sessions_count }}</strong>
+            </p>
+          </div>
+
+          <button type="submit" class="button save-button">Сохранить</button>
+        </form>
+      </div>
+
+      <!-- Перезапуск службы -->
+      <div class="card">
+        <h3>🔄 Перезапуск службы admin-antizapret</h3>
+        <div class="info-box" style="
+            background: rgba(33, 150, 243, 0.1);
+            border-color: rgba(33, 150, 243, 0.3);
+            margin-bottom: 1.5rem;
+          ">
+          <p style="margin: 0; color: #2196f3; font-weight: 500">
+            Перезапуск может потребоваться после изменения IP-ограничений или других системных настроек.
+          </p>
+          <p style="
+              margin: 0.5rem 0 0 0;
+              color: rgba(255, 255, 255, 0.7);
+              font-size: 0.9rem;
+            ">
+            Изменения вступят в силу только после перезапуска службы admin-antizapret.
+          </p>
+        </div>
+
+        <button id="restartServiceBtn" class="button save-button" style="width: 100%; font-size: 1.1rem; padding: 1rem">
+          🔄 Перезапустить службу
+        </button>
+
+        <form id="restartForm" method="POST" style="display: none">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <input type="hidden" name="restart_action" value="restart_service" />
+        </form>
+
+        <p style="
+            margin-top: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            text-align: center;
+          ">
+          ⏱️ Перезапуск занимает 5-10 секунд. Страница будет заблокирована на время перезапуска.
+        </p>
+      </div>
+
+      <!-- Оверлей блокировки -->
+      <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+          <div class="loading-spinner-large"></div>
+          <h2 class="loading-title">🔄 Перезапуск службы</h2>
+          <p class="loading-message">
+            Служба admin-antizapret перезапускается. Пожалуйста, подождите...
+          </p>
+          <div class="countdown-timer" id="countdownTimer">5</div>
+          <div class="loading-details">
+            <p>🛡️ Применяются новые настройки</p>
+            <p>⚡ Остановка и запуск службы</p>
+            <p>✅ Проверка состояния системы</p>
+          </div>
+          <p style="
+              margin-top: 20px;
+              color: rgba(255, 255, 255, 0.5);
+              font-size: 0.9rem;
+            ">
+            Страница автоматически обновится после завершения
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ 4. Пользователи и доступ ═══════════════ -->
+    <div id="user-management" class="content-tab">
+      <div class="user-management-layout">
+        <p class="user-management-intro">
+          Создание и управление доступом в одном месте: раскройте карточку пользователя, чтобы сменить роль,
+          обновить пароль или удалить аккаунт.
+        </p>
+
+        <div class="user-add-card">
+          <h3>Добавить пользователя</h3>
+          <form method="POST" class="settings-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <div class="form-group">
+              <input type="text" name="username" placeholder="Логин" required />
+            </div>
+            <div class="form-group">
+              <input type="password" name="password" placeholder="Пароль" required />
+            </div>
+            <div class="form-group">
+              <label for="role-select">Роль:</label>
+              <select name="role" id="role-select" class="form-control">
+                <option value="admin">admin (полный доступ)</option>
+                <option value="viewer">viewer (только просмотр)</option>
+              </select>
+            </div>
+            <button type="submit" class="button add-button">Добавить пользователя</button>
+          </form>
+        </div>
+
+        <div class="user-cards-list">
+          {% if users %}
+          {% set users_ns = namespace(non_viewer_count=0) %}
+          {% for user in users %}
+          {% if user.role != 'viewer' %}
+          {% set users_ns.non_viewer_count = users_ns.non_viewer_count + 1 %}
+          <details class="user-card">
+            <summary class="user-card__summary">
+              <div class="user-card__identity">
+                <span class="user-card__name">{{ user.username }}</span>
+                <span class="badge {% if user.role == 'admin' %}badge-admin{% else %}badge-viewer{% endif %}">{{
+                  user.role }}</span>
+                {% if user.username == current_user.username %}
+                <span class="user-card__self">Это вы</span>
+                {% endif %}
+              </div>
+              <span class="user-card__toggle">Открыть управление</span>
+            </summary>
+
+            <div class="user-card__body">
+              <section class="user-card__section">
+                <h4>Изменить роль</h4>
+                {% if user.username != current_user.username %}
+                <form method="POST" class="settings-form" data-user-action="change-role">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_role_username" value="{{ user.username }}" />
+                  <div class="form-group">
+                    <select name="new_role" class="form-control" required>
+                      <option value="admin" {% if user.role=='admin' %}selected{% endif %}>admin</option>
+                      <option value="viewer" {% if user.role=='viewer' %}selected{% endif %}>viewer</option>
+                    </select>
+                  </div>
+                  <button type="submit" class="button save-button">Сохранить роль</button>
+                </form>
+                {% else %}
+                <p class="user-card__section-note">Роль текущего пользователя изменить нельзя.</p>
+                {% endif %}
+              </section>
+
+              <section class="user-card__section">
+                <h4>Изменить пароль</h4>
+                <form method="POST" class="settings-form" data-user-action="change-password">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_password_username" value="{{ user.username }}" />
+                  <div class="form-group">
+                    <input type="password" name="new_password" placeholder="Новый пароль (мин. 8 символов)" required />
+                  </div>
+                  <button type="submit" class="button save-button">Обновить пароль</button>
+                </form>
+              </section>
+
+              <section class="user-card__section user-card__section-danger">
+                <h4>Удалить пользователя</h4>
+                {% if user.username != current_user.username %}
+                <form method="POST" class="settings-form" data-user-action="delete-user">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="delete_username" value="{{ user.username }}" />
+                  <button type="submit" class="button delete-button">Удалить пользователя</button>
+                </form>
+                {% else %}
+                <p class="user-card__section-note">Текущий аккаунт удалить нельзя.</p>
+                {% endif %}
+              </section>
+            </div>
+          </details>
+          {% endif %}
+          {% endfor %}
+          {% if users_ns.non_viewer_count == 0 %}
+          <p class="no-users">Здесь отображаются admin-пользователи. Viewer-профили управляются ниже в блоке доступа к
+            конфигам.</p>
+          {% endif %}
+          {% else %}
+          <p class="no-users">Нет зарегистрированных пользователей</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Доступ к конфигам -->
+      <div id="viewer-access-section" style="margin-top: 2rem;">
+        <h2>Управление доступом к конфигам</h2>
+
+        {% if viewer_users %}
+        <p class="help-text" style="margin-top:0;">Нажмите на профиль viewer, чтобы открыть полноэкранное управление
+          доступом.</p>
+        <div class="viewer-profile-grid" style="margin-bottom: 1rem;">
+          {% for vu in viewer_users %}
+          {% set va = viewer_access.get(vu.id, []) %}
+          {% set counts = namespace(openvpn_granted=0, amneziawg_granted=0, wg_granted=0) %}
+          {% if openvpn_access_groups %}
+          {% for group in openvpn_access_groups %}
+          {% set ns = namespace(has_access=false) %}
+          {% for fname in group.files %}
+          {% if fname in va %}
+          {% set ns.has_access = true %}
+          {% endif %}
+          {% endfor %}
+          {% if ns.has_access %}
+          {% set counts.openvpn_granted = counts.openvpn_granted + 1 %}
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+          {% if amneziawg_access_groups %}
+          {% for group in amneziawg_access_groups %}
+          {% set ns = namespace(has_access=false) %}
+          {% for fname in group.files %}
+          {% if fname in va %}
+          {% set ns.has_access = true %}
+          {% endif %}
+          {% endfor %}
+          {% if ns.has_access %}
+          {% set counts.amneziawg_granted = counts.amneziawg_granted + 1 %}
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+          {% if wg_access_groups %}
+          {% for group in wg_access_groups %}
+          {% set ns = namespace(has_access=false) %}
+          {% for fname in group.files %}
+          {% if fname in va %}
+          {% set ns.has_access = true %}
+          {% endif %}
+          {% endfor %}
+          {% if ns.has_access %}
+          {% set counts.wg_granted = counts.wg_granted + 1 %}
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+          {% set total_groups = (openvpn_access_groups | length if openvpn_access_groups else 0) +
+          (amneziawg_access_groups | length if amneziawg_access_groups else 0) + (wg_access_groups | length if
+          wg_access_groups else 0) %}
+          {% set total_granted = counts.openvpn_granted + counts.amneziawg_granted + counts.wg_granted %}
+          <button type="button" class="viewer-profile-tile" data-viewer-modal-open="viewerProfileModal-{{ vu.id }}">
+            <span class="viewer-profile-tile__name">👤 {{ vu.username }}</span>
+            <span class="badge badge-viewer">viewer</span>
+            <span class="viewer-profile-tile__meta">Выдано групп: {{ total_granted }} из {{ total_groups }}</span>
+          </button>
+          {% endfor %}
+        </div>
+
+        {% for vu in viewer_users %}
+        {% set va = viewer_access.get(vu.id, []) %}
+        {% set counts = namespace(openvpn_granted=0, amneziawg_granted=0, wg_granted=0) %}
+        {% if openvpn_access_groups %}
+        {% for group in openvpn_access_groups %}
+        {% set ns = namespace(has_access=false) %}
+        {% for fname in group.files %}
+        {% if fname in va %}
+        {% set ns.has_access = true %}
+        {% endif %}
+        {% endfor %}
+        {% if ns.has_access %}
+        {% set counts.openvpn_granted = counts.openvpn_granted + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% if amneziawg_access_groups %}
+        {% for group in amneziawg_access_groups %}
+        {% set ns = namespace(has_access=false) %}
+        {% for fname in group.files %}
+        {% if fname in va %}
+        {% set ns.has_access = true %}
+        {% endif %}
+        {% endfor %}
+        {% if ns.has_access %}
+        {% set counts.amneziawg_granted = counts.amneziawg_granted + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% if wg_access_groups %}
+        {% for group in wg_access_groups %}
+        {% set ns = namespace(has_access=false) %}
+        {% for fname in group.files %}
+        {% if fname in va %}
+        {% set ns.has_access = true %}
+        {% endif %}
+        {% endfor %}
+        {% if ns.has_access %}
+        {% set counts.wg_granted = counts.wg_granted + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        <div id="viewerProfileModal-{{ vu.id }}" class="viewer-profile-modal" hidden>
+          <div class="viewer-profile-modal__backdrop" data-viewer-modal-close></div>
+          <div class="viewer-profile-modal__dialog" role="dialog" aria-modal="true"
+            aria-labelledby="viewerProfileModalTitle-{{ vu.id }}">
+            <div class="viewer-profile-modal__head">
+              <h3 id="viewerProfileModalTitle-{{ vu.id }}" class="viewer-profile-modal__title">
+                👤 {{ vu.username }}
+                <span class="badge badge-viewer">viewer</span>
+              </h3>
+              <button type="button" class="viewer-profile-modal__close" data-viewer-modal-close
+                aria-label="Закрыть">×</button>
+            </div>
+
+            <div class="viewer-profile-modal__content">
+              <section class="viewer-profile-modal__block">
+                <h4>Изменить роль</h4>
+                {% if vu.username != current_user.username %}
+                <form method="POST" class="settings-form" data-user-action="change-role">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_role_username" value="{{ vu.username }}" />
+                  <div class="form-group">
+                    <select name="new_role" class="form-control" required>
+                      <option value="admin">admin</option>
+                      <option value="viewer" selected>viewer</option>
+                    </select>
+                  </div>
+                  <button type="submit" class="button save-button">Сохранить роль</button>
+                </form>
+                {% else %}
+                <p class="user-card__section-note">Роль текущего пользователя изменить нельзя.</p>
+                {% endif %}
+              </section>
+
+              <section class="viewer-profile-modal__block">
+                <h4>Изменить пароль</h4>
+                <form method="POST" class="settings-form" data-user-action="change-password">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_password_username" value="{{ vu.username }}" />
+                  <div class="form-group">
+                    <input type="password" name="new_password" placeholder="Новый пароль (мин. 8 символов)" required />
+                  </div>
+                  <button type="submit" class="button save-button">Обновить пароль</button>
+                </form>
+              </section>
+
+              <section class="viewer-profile-modal__block viewer-profile-modal__block-danger">
+                <h4>Удалить пользователя</h4>
+                {% if vu.username != current_user.username %}
+                <form method="POST" class="settings-form" data-user-action="delete-user">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="delete_username" value="{{ vu.username }}" />
+                  <button type="submit" class="button delete-button">Удалить пользователя</button>
+                </form>
+                {% else %}
+                <p class="user-card__section-note">Текущий аккаунт удалить нельзя.</p>
+                {% endif %}
+              </section>
+
+              <section class="viewer-profile-modal__configs viewer-profile-modal__block">
+                <h4>Доступ к конфигам</h4>
+
+                <div class="viewer-config-panels">
+                  {% if openvpn_access_groups %}
+                  <details class="viewer-config-group" data-config-group>
+                    <summary class="viewer-config-group__summary">
+                      <span>OpenVPN</span>
+                      <span class="viewer-config-group__meta">выдано {{ counts.openvpn_granted }} из {{
+                        openvpn_access_groups | length }}</span>
+                    </summary>
+                    <div class="viewer-config-group__body">
+                      <div class="viewer-config-group__tools">
+                        <input type="search" class="viewer-config-search" data-config-filter
+                          placeholder="Поиск по OpenVPN" />
+                        <label class="viewer-config-only">
+                          <input type="checkbox" data-config-only-granted />
+                          Только выданные
+                        </label>
+                      </div>
+                      <div class="viewer-config-list viewer-config-list-compact" data-config-list>
+                        {% for group in openvpn_access_groups %}
+                        {% set ns = namespace(has_access=false) %}
+                        {% for fname in group.files %}
+                        {% if fname in va %}
+                        {% set ns.has_access = true %}
+                        {% endif %}
+                        {% endfor %}
+                        <label class="viewer-config-item viewer-config-item-compact">
+                          <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}"
+                            data-config-name="{{ group.group_key }}" data-config-label="{{ group.display_name }}"
+                            data-config-type="openvpn" {% if ns.has_access %}checked{% endif %} />
+                          {{ group.display_name }}
+                        </label>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </details>
+                  {% endif %}
+
+                  {% if amneziawg_access_groups %}
+                  <details class="viewer-config-group" data-config-group>
+                    <summary class="viewer-config-group__summary">
+                      <span>AmneziaWG</span>
+                      <span class="viewer-config-group__meta">выдано {{ counts.amneziawg_granted }} из {{
+                        amneziawg_access_groups | length }}</span>
+                    </summary>
+                    <div class="viewer-config-group__body">
+                      <div class="viewer-config-group__tools">
+                        <input type="search" class="viewer-config-search" data-config-filter
+                          placeholder="Поиск по AmneziaWG" />
+                        <label class="viewer-config-only">
+                          <input type="checkbox" data-config-only-granted />
+                          Только выданные
+                        </label>
+                      </div>
+                      <div class="viewer-config-list viewer-config-list-compact" data-config-list>
+                        {% for group in amneziawg_access_groups %}
+                        {% set ns = namespace(has_access=false) %}
+                        {% for fname in group.files %}
+                        {% if fname in va %}
+                        {% set ns.has_access = true %}
+                        {% endif %}
+                        {% endfor %}
+                        <label class="viewer-config-item viewer-config-item-compact">
+                          <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}"
+                            data-config-name="{{ group.group_key }}" data-config-label="{{ group.display_name }}"
+                            data-config-type="amneziawg" {% if ns.has_access %}checked{% endif %} />
+                          {{ group.display_name }}
+                        </label>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </details>
+                  {% endif %}
+
+                  {% if wg_access_groups %}
+                  <details class="viewer-config-group" data-config-group>
+                    <summary class="viewer-config-group__summary">
+                      <span>WireGuard</span>
+                      <span class="viewer-config-group__meta">выдано {{ counts.wg_granted }} из {{ wg_access_groups |
+                        length }}</span>
+                    </summary>
+                    <div class="viewer-config-group__body">
+                      <div class="viewer-config-group__tools">
+                        <input type="search" class="viewer-config-search" data-config-filter
+                          placeholder="Поиск по WireGuard" />
+                        <label class="viewer-config-only">
+                          <input type="checkbox" data-config-only-granted />
+                          Только выданные
+                        </label>
+                      </div>
+                      <div class="viewer-config-list viewer-config-list-compact" data-config-list>
+                        {% for group in wg_access_groups %}
+                        {% set ns = namespace(has_access=false) %}
+                        {% for fname in group.files %}
+                        {% if fname in va %}
+                        {% set ns.has_access = true %}
+                        {% endif %}
+                        {% endfor %}
+                        <label class="viewer-config-item viewer-config-item-compact">
+                          <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}"
+                            data-config-name="{{ group.group_key }}" data-config-label="{{ group.display_name }}"
+                            data-config-type="wg" {% if ns.has_access %}checked{% endif %} />
+                          {{ group.display_name }}
+                        </label>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </details>
+                  {% endif %}
+                </div>
+
+                {% if not all_openvpn and not all_wg and not all_amneziawg %}
+                <p class="no-data">Нет доступных конфигов</p>
+                {% endif %}
+              </section>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="no-data">Нет пользователей с ролью viewer. Создайте viewer-пользователя во вкладке «Управление
+          пользователями».</p>
+        {% endif %}
+
+        <div id="viewer-access-status" class="notification" style="display:none;margin-top:1rem;"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ 3. Безопасность ═══════════════ -->
+    <div id="security" class="content-tab">
+      <h2>Безопасность</h2>
+
+      <!-- Сетевые защиты -->
+      <p class="config-description">Защита сервера:</p>
+      <div class="config-grid">
+        <div class="config-column">
+          <!-- SSH_PROTECTION -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Защита от брутфорса SSH
+                  <span class="tag-server">Server</span>
+                </span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="ssh_protection-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(SSH_PROTECTION)</span> Включить защиту
+              от перебора паролей SSH (не более 3 новых подключений в час с
+              одного IP)
+            </div>
+          </div>
+          <!-- TORRENT_GUARD -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Torrent Guard <span class="tag-server">Server</span></span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="torrent_guard-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(TORRENT_GUARD)</span> Torrent Guard —
+              если хостер запрещает торренты или присылает жалобы, эта опция
+              поможет: при обнаружении торрент-трафика VPN будет блокироваться
+              на 1 минуту
+            </div>
+          </div>
+        </div>
+        <div class="config-column">
+          <!-- ATTACK_PROTECTION -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Антискан и защита от атак
+                  <span class="tag-server">Server</span>
+                </span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="attack_protection-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(ATTACK_PROTECTION)</span> Внимание!!!
+              Защита от сетевых атак и сканирования может блокировать VPN или
+              сторонние приложения!
+            </div>
+          </div>
+          <!-- RESTRICT_FORWARD -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Ограничение форвардинга
+                  <span class="tag-server">Server</span></span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="restrict_forward-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(restrict_forward)</span> Включить
+              ограничение форвардинга — через AntiZapret VPN будет
+              маршрутизироваться только трафик к IP-адресам, которые явно
+              указаны в файлах config/forward-ips.txt и result/route-ips.txt
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="button save-button save-config-btn" style="margin-bottom: 2rem;">
+        Сохранить настройки защиты
+      </button>
+      <div class="config-status-msg notification" style="display: none"></div>
+
+      <!-- IP ограничения -->
+      <h2 style="margin-top: 1rem;">Управление IP ограничениями</h2>
+
+      <div class="status-card">
+        <h3>Текущий статус</h3>
+        <div class="status-indicator {% if ip_enabled %}status-enabled{% else %}status-disabled{% endif %}">
+          {% if ip_enabled %} 🔒 IP ограничения ВКЛЮЧЕНЫ {% else %} 🔓 IP
+          ограничения ВЫКЛЮЧЕНЫ (доступ всем) {% endif %}
+        </div>
+        <p>Ваш текущий IP: <strong>{{ current_ip }}</strong></p>
+        <p class="help-text">
+          {% if ip_enabled %} Доступ к панели разрешен только с указанных
+          IP-адресов. {% else %} Доступ к панели разрешен со всех IP-адресов. {%
+          endif %}
+        </p>
+      </div>
+
+      <!-- Список разрешенных IP -->
+      <div class="card">
+        <h3>Разрешенные IP-адреса</h3>
+        {% if allowed_ips %}
+        <div class="ip-list">
+          <table class="ip-table">
+            <thead>
+              <tr>
+                <th>IP-адрес/подсеть</th>
+                <th>Тип</th>
+                <th>Действие</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ip in allowed_ips %}
+              <tr>
+                <td><code>{{ ip }}</code></td>
+                <td>
+                  {% if '/' in ip %}
+                  <span class="badge subnet">Подсеть</span>
+                  {% else %}
+                  <span class="badge single">Один IP</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="POST" onsubmit="return confirm('Удалить IP {{ ip }}?')" style="display: inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <input type="hidden" name="ip_to_remove" value="{{ ip }}" />
+                    <button type="submit" name="ip_action" value="remove_ip" class="button small delete-button">
+                      Удалить
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="no-data">Нет разрешенных IP-адресов</p>
+        {% endif %}
+      </div>
+
+      <!-- Добавить IP -->
+      <div class="card">
+        <h3>Добавить IP-адрес</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <label for="new_ip">IP-адрес или подсеть</label>
+            <input type="text" id="new_ip" name="new_ip" placeholder="192.168.1.100 или 192.168.1.0/24"
+              class="full-width" />
+            <small class="help-text">
+              Примеры: <code>192.168.1.100</code> (один IP),
+              <code>192.168.1.0/24</code> (вся подсеть)
+            </small>
+          </div>
+          <button type="submit" name="ip_action" value="add_ip" class="button add-button">
+            Добавить IP
+          </button>
+        </form>
+      </div>
+
+      <!-- Быстрая настройка -->
+      <div class="card">
+        <h3>Быстрая настройка</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <label for="ips_text">Включить ограничения с IP (через запятую)</label>
+            <textarea id="ips_text" name="ips_text" rows="3" placeholder="127.0.0.1,::1,192.168.1.0/24,10.0.0.1"
+              class="full-width"></textarea>
+            <small class="help-text">
+              Укажите IP-адреса через запятую. Существующий список будет
+              заменен.
+            </small>
+          </div>
+          <button type="submit" name="ip_action" value="enable_ips" class="button save-button">
+            Включить ограничения
+          </button>
+        </form>
+
+        <form method="POST" class="settings-form" style="margin-top: 20px">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit" name="ip_action" value="clear_all_ips" class="button delete-button full-width"
+            onclick="return confirm('Вы уверены? Это удалит все IP-адреса и разрешит доступ всем.')">
+            🗑️ Выключить все ограничения (разрешить всем)
+          </button>
+        </form>
+      </div>
+
+      <!-- Примеры -->
+      <div class="card">
+        <h3>Примеры использования</h3>
+        <div class="examples">
+          <div class="example">
+            <h4>✅ Разрешить доступ только с офиса:</h4>
+            <pre><code>192.168.1.0/24,10.0.0.100</code></pre>
+          </div>
+          <div class="example">
+            <h4>✅ Разрешить доступ только с вашего IP:</h4>
+            <pre><code>{{ current_ip }}</code></pre>
+          </div>
+          <div class="example">
+            <h4>✅ Разрешить несколько доверенных IP:</h4>
+            <pre><code>192.168.1.100,192.168.1.101,10.0.0.0/24</code></pre>
+          </div>
+          <div class="example">
+            <h4>❌ Ошибка (неправильный формат):</h4>
+            <pre><code>192.168.1  # неполный адрес</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="userActionModal" class="user-action-modal" hidden>
+      <div class="user-action-modal__backdrop" data-user-action-close></div>
+      <div class="user-action-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="userActionModalTitle">
+        <div class="user-action-modal__header">
+          <h3 id="userActionModalTitle" class="user-action-modal__title">Подтвердите действие</h3>
+          <button type="button" class="user-action-modal__close" data-user-action-close aria-label="Закрыть">×</button>
+        </div>
+        <p id="userActionModalText" class="user-action-modal__text">Изменение будет применено сразу после подтверждения.
+        </p>
+        <div class="user-action-modal__actions">
+          <button type="button" class="user-action-modal__btn user-action-modal__btn-cancel" data-user-action-close>
+            Отмена
+          </button>
+          <button type="button" id="userActionModalConfirm"
+            class="user-action-modal__btn user-action-modal__btn-confirm is-danger">
+            Подтвердить
+          </button>
+        </div>
+      </div>
     </div>
 
     <script src="{{ url_for('static', filename='assets/js/settings.js') }}"></script>
@@ -1162,19 +1967,103 @@
               const statusEl = document.getElementById('viewer-access-status');
               if (data.success) {
                 statusEl.textContent = (action === 'grant' ? '✅ Доступ выдан: ' : '🚫 Доступ отозван: ') + configLabel;
-                statusEl.className = 'notification success';
+                statusEl.className = 'notification notification-success viewer-access-notice';
               } else {
                 statusEl.textContent = '❌ Ошибка: ' + (data.message || 'unknown');
-                statusEl.className = 'notification error';
+                statusEl.className = 'notification notification-error viewer-access-notice';
                 this.checked = !this.checked; // откат
               }
               statusEl.style.display = 'block';
-              setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+              setTimeout(() => {
+                statusEl.classList.add('notification-exit');
+                setTimeout(() => {
+                  statusEl.classList.remove('notification-exit');
+                  statusEl.style.display = 'none';
+                }, 180);
+              }, 3000);
             })
             .catch(() => {
               this.checked = !this.checked; // откат при сетевой ошибке
             });
         });
+      });
+
+      const openViewerProfileModal = (modal) => {
+        if (!modal) return;
+        modal.removeAttribute('hidden');
+        requestAnimationFrame(() => {
+          modal.classList.add('is-open');
+        });
+        document.body.classList.add('viewer-profile-modal-open');
+      };
+
+      const closeViewerProfileModal = (modal) => {
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        setTimeout(() => {
+          modal.setAttribute('hidden', '');
+        }, 180);
+        if (!document.querySelector('.viewer-profile-modal.is-open')) {
+          document.body.classList.remove('viewer-profile-modal-open');
+        }
+      };
+
+      document.querySelectorAll('[data-viewer-modal-open]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const modalId = btn.getAttribute('data-viewer-modal-open');
+          const modal = document.getElementById(modalId);
+          openViewerProfileModal(modal);
+        });
+      });
+
+      document.querySelectorAll('.viewer-profile-modal').forEach((modal) => {
+        modal.querySelectorAll('[data-viewer-modal-close]').forEach((closer) => {
+          closer.addEventListener('click', () => closeViewerProfileModal(modal));
+        });
+      });
+
+      const initViewerConfigPanels = () => {
+        document.querySelectorAll('[data-config-group]').forEach((group) => {
+          const list = group.querySelector('[data-config-list]');
+          if (!list) return;
+
+          const items = Array.from(list.querySelectorAll('.viewer-config-item-compact'));
+          const searchInput = group.querySelector('[data-config-filter]');
+          const onlyGrantedInput = group.querySelector('[data-config-only-granted]');
+
+          const applyFilter = () => {
+            const query = (searchInput?.value || '').trim().toLowerCase();
+            const onlyGranted = Boolean(onlyGrantedInput?.checked);
+
+            items.forEach((item) => {
+              const checkbox = item.querySelector('input[type="checkbox"]');
+              const itemText = item.textContent.toLowerCase();
+              const matchesQuery = !query || itemText.includes(query);
+              const matchesGranted = !onlyGranted || Boolean(checkbox?.checked);
+              const shouldShow = matchesQuery && matchesGranted;
+
+              item.classList.toggle('is-hidden', !shouldShow);
+            });
+          };
+
+          searchInput?.addEventListener('input', applyFilter);
+          onlyGrantedInput?.addEventListener('change', applyFilter);
+          list.querySelectorAll('.viewer-access-cb').forEach((cb) => {
+            cb.addEventListener('change', applyFilter);
+          });
+
+          applyFilter();
+        });
+      };
+
+      initViewerConfigPanels();
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        const openedModal = document.querySelector('.viewer-profile-modal.is-open');
+        if (openedModal) {
+          closeViewerProfileModal(openedModal);
+        }
       });
     </script>
   </div>

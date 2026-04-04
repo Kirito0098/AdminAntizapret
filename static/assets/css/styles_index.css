@@ -654,10 +654,6 @@ td {
   transition: all 0.2s ease;
 }
 
-.menu-item:last-child {
-  margin-right: 0;
-}
-
 .menu-item .icon {
   margin-right: 0.5rem;
   font-size: 1rem;
@@ -671,11 +667,6 @@ td {
 .menu-item:first-child {
   border-top-left-radius: 0.3rem;
   border-top-right-radius: 0.3rem;
-}
-
-.menu-item:last-child {
-  border-bottom-left-radius: 0.3rem;
-  border-bottom-right-radius: 0.3rem;
 }
 
 /* Основной контент */
@@ -761,7 +752,7 @@ td {
 
 .settings-form input {
   width: 100%;
-  padding: 0.8rem;
+  padding: 5px 10px;
   background: hsla(0, 0%, 20%, 0.7);
   border: 1px solid hsl(0, 0%, 50%);
   border-radius: 0.5rem;
