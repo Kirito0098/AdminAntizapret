@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Мониторинг сервера{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/server_monitor_styles.css') }}">
+{% endblock %}
 {% block content %}
-<div class="server-monitor-wrapper">
+<div class="server-monitor-wrapper page-unified-wrapper">
 
   <!-- Кнопка обновления -->
-  <div class="refresh-control">
+  <div class="refresh-control page-unified-card page-unified-card--tight">
     <button id="refreshBtn" class="refresh-btn" title="Обновить данные">
       <span class="refresh-icon">⟳</span>
       <span id="refreshText">Обновить сейчас</span>
@@ -13,7 +16,7 @@
   </div>
 
   <!-- Системная информация -->
-  <div class="system-info-section">
+  <div class="system-info-section page-unified-card">
     <h2>Информация о системе</h2>
     <div class="system-info-grid">
       <div class="system-info-item">
@@ -36,7 +39,7 @@
   </div>
 
   <!-- Основные метрики -->
-  <div class="server-info metrics-grid">
+  <div class="server-info metrics-grid page-unified-card">
     <div class="column_serv_monitor">
       <div class="info-item">
         <h3>Использование CPU</h3>
@@ -97,8 +100,8 @@
   </div>
 
   <!-- ===== Новый блок: Пропускная способность сети (vnStat) ===== -->
-  <div class="server-info bw-section">
-    <div class="bw-card card">
+  <div class="server-info bw-section page-unified-card">
+    <div class="bw-card card page-unified-card">
       <div class="card-body">
         <div class="bw-header">
           <h3 class="card-title">Загрузка канала</h3>
@@ -106,9 +109,14 @@
           <!-- Переключатели -->
           <div class="iface-buttons" style="margin: 6px 0 10px;">
             <button class="iface-btn" data-iface="{{ iface }}">{{ iface }}</button>
-            <button class="iface-btn" data-iface="vpn">VPN (vpn, vpn-udp, vpn-tcp)</button>
-            <button class="iface-btn" data-iface="antizapret">Antizapret (antizapret, antizapret-udp,
-              antizapret-tcp)</button>
+            <button class="iface-btn" data-iface="vpn">VPN ({{ (bw_iface_groups.vpn or ['vpn']) | join(', ')
+              }})</button>
+            <button class="iface-btn" data-iface="antizapret">Antizapret ({{ (bw_iface_groups.antizapret or
+              ['antizapret']) | join(', ') }})</button>
+            <button class="iface-btn" data-iface="openvpn">OpenVPN ({{ (bw_iface_groups.openvpn or
+              ['vpn-udp', 'vpn-tcp', 'antizapret-udp', 'antizapret-tcp']) | join(', ') }})</button>
+            <button class="iface-btn" data-iface="wireguard">WG/AWG ({{ (bw_iface_groups.wireguard or
+              ['vpn', 'antizapret']) | join(', ') }})</button>
           </div>
 
           <div class="bw-range" role="tablist" aria-label="Диапазон">
@@ -177,7 +185,9 @@
 {% endblock %}
 
 {% block scripts %}
-<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/server_monitor_styles.css') }}">
+<script>
+  window.__bwIfaceGroups = {{ bw_iface_groups | tojson }};
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='assets/js/server_monitor.js') }}"></script>
 {% endblock %}

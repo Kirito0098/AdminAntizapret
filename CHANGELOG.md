@@ -1,5 +1,129 @@
 # CHANGELOG
 
+## [1.6.0] – 04.04.2026
+
+### Добавлено
+
+#### Поддержка WireGuard/AmneziaWG в мониторинге трафика
+
+- Сбор трафика расширен на WireGuard/AWG через `wg show all dump`; новая таблица `wireguard_peer_cache` хранит соответствие `interface+peer_public_key → имя клиента`.
+- Автоматическая синхронизация `wireguard_peer_cache` из `/etc/wireguard/{antizapret,vpn}.conf` при запуске и после операций add/delete/recreate.
+- Новая таблица `user_traffic_stat_protocol` (ключ `common_name + protocol_type`) для раздельного учёта трафика OpenVPN и WireGuard у одного клиента.
+- Новое поле `user_traffic_sample.protocol_type` (`openvpn | wireguard`); миграция добавляет колонку с `DEFAULT 'openvpn'`.
+- Действие `logs_rebase_wireguard_baseline` — безопасная перебазировка счётчиков WG без сброса накопленной статистики.
+- Фильтр протокола в таблицах `Трафик (БД)`: приоритет строится по фактическим сэмплам, конфиги используются как fallback.
+
+#### Поддержка OpenVPN management socket
+
+- Статус и события клиентов теперь читаются из Unix-сокетов OpenVPN management (`status 3`, `log N`) вместо файлов логов.
+- Автоопределение пути сокета через `_openvpn_socket_path(profile_key)`; при недоступности сокета — fallback на файл.
+- Настраиваемый лимит объёма ответа (`OPENVPN_EVENT_MAX_RESPONSE_BYTES`, по умолчанию 1 MiB) для защиты от утечки памяти при `log all`.
+- Управление режимом хвоста: `OPENVPN_LOG_TAIL_LINES > 0` → `log N`; `= 0` → `log all` (полный буфер процесса).
+- Нормализация форматов адресов клиентов: поддержка `IP:PORT` и `udp4:IP:PORT`/`tcp4-server:IP:PORT`.
+- Парсер `status 3` поддерживает табличный формат (пробелы/табы) и CSV-формат одновременно.
+
+#### Кэширование и фоновые задачи
+
+- Новая модель `BackgroundTask` и очередь задач: `/run-doall`, `/edit-files` (POST), `/update_system`, `/api/restart-service` возвращают `202` с `task_id`.
+- Новый endpoint `GET /api/tasks/<task_id>` — получение статуса фоновой задачи.
+- Новая модель `LogsDashboardCache` и ленивое фоновое обновление dashboard через `BackgroundTask` (`task_type=logs_dashboard_refresh`).
+- Новый endpoint `GET /api/logs_dashboard_refresh_status/<task_id>` — отслеживание статуса обновления кэша.
+- TTL кэша регулируется через `LOGS_DASHBOARD_CACHE_TTL_SECONDS` (минимум 5 с, по умолчанию 45 с).
+- Кэш `OpenVPNPeerInfoCache` (последняя версия/платформа клиента) и `OpenVPNPeerInfoHistory` (история за несколько дней) для fallback-подстановки при отсутствии peer info в текущем хвосте.
+
+#### Ночной автоматический перезапуск
+
+- Новый скрипт `utils/nightly_idle_restart.py` — перезапускает сервис в настроенное время, только если нет активных веб-сессий.
+- Новая модель `ActiveWebSession` — таблица активных аутентифицированных пользователей.
+- Heartbeat-скрипт в `base.html`: каждую минуту отправляет запрос на `GET /api/session-heartbeat` при активной вкладке браузера.
+- Новый endpoint `GET /api/session-heartbeat` — обновляет метку активности текущей сессии.
+- Настройки в разделе **Settings → Ночной рестарт**: включение/выключение, время срабатывания, TTL бездействия сессии, интервал heartbeat, расширенный ввод cron-выражения.
+- После сохранения настроек cron обновляется сразу через `_ensure_nightly_idle_restart_cron()`.
+- Переменные окружения: `NIGHTLY_IDLE_RESTART_ENABLED`, `NIGHTLY_IDLE_RESTART_CRON`, `ACTIVE_WEB_SESSION_TTL_SECONDS`, `ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS`.
+
+#### Обновлённый UX — Dashboard подключённых клиентов
+
+- Трёхвкладочный layout: **Обзор**, **Клиенты**, **Трафик (БД)** с сохранением активной вкладки.
+- Вкладка **Обзор**: сводная карточка с `total_openvpn_sessions` / `total_wireguard_sessions`, три мини-графика (сети, устройства, протоколы), таблица по сетям с колонкой `protocol_split`.
+- Вкладка **Клиенты**: карточки клиентов, фильтр по протоколу (`OpenVPN` / `WireGuard`), переключатель скрытия неактивных/возможно зависших сессий. Кастомный combobox вместо нативного `datalist` для поиска клиента.
+- Детальная модалка клиента: трафик по диапазонам `1h / 24h / 7d / 30d / all`, список подключений (IP, устройство, версия). Для WG/AWG-клиентов поля устройства/версии скрыты отдельно через `show_client_meta`.
+- Вкладка **Трафик (БД)**: две отдельные таблицы — активные клиенты и удалённые клиенты. Удалена лишняя колонка `Updated`. Очистка статистики по scope: `WG/AWG`, `OpenVPN`, `all`. Новый endpoint `POST /logs_dashboard/delete_deleted_client_traffic` для удаления записей по удалённым клиентам.
+- Графики Chart.js инициализируются лениво при активации вкладки во избежание некорректной отрисовки на скрытых панелях.
+- Авто-refresh только для активной вкладки браузера (`visibilityState`) не чаще 60 с.
+
+#### Обновлённый UX — Главная страница (`index`)
+
+- Полный редизайн: таблицы клиентов переведены в карточки с единой модалкой **«Подробнее»**.
+- В модалке `#clientDetailsActionsMain` объединены все действия: скачивание VPN/AZ конфига, генерация QR/одноразовой ссылки, блокировка/разблокировка, удаление профиля, продление сертификата OpenVPN.
+- Данные передаются через `data-атрибуты` строки `.client-row` (`data-download-*`, `data-one-time-*`, `data-qr-*`, `data-delete-option`, `data-blocked`, `data-can-manage`).
+- Кастомный диалог `requestRenewDays` (замена `window.prompt`) для ввода срока продления сертификата (1–3650 дней) с валидацией и закрытием по Esc/бекдропу.
+- Модалка «Добавить клиента» (`#addClientModal`) вынесена в отдельный слой вместо side-drawer.
+- Авто-обнаружение групп интерфейсов `_collect_bw_interface_groups()`: WireGuard-интерфейсы определяются через `ip -o link show type wireguard`.
+
+#### Обновлённый UX — Страница настроек (`settings`)
+
+- Полный редизайн layout вкладок: унифицированные карточки, сетки, кнопки действий.
+- Viewer-профили переведены в компактную сетку плиток `viewer-profile-tile`; детальное управление (доступ к конфигам, роль, пароль, удаление) открывается в полноэкранных модалках `.viewer-profile-modal`.
+- Доступы к конфигам в viewer-модалке сгруппированы по протоколам (сворачиваемые секции `.viewer-config-group`), добавлены поиск и фильтр «Только выданные».
+- Управление пользователями переведено на карточки `<details>` (`.user-card`) без отдельных подвкладок.
+- Confirm-попап действий (`#userActionModal`) имеет `z-index` выше viewer-модалки для корректного отображения подтверждений.
+- Счётчик viewer на плитке отражает число выданных групп доступа (не общее число файлов).
+- Вкладка `qr-settings` переименована для пользователя в **«Одноразовые ссылки»**; журнал ссылок рендерится в адаптивном контейнере с горизонтальным скроллом.
+- Блок «Публичный доступ к файлам маршрутов» удалён из вкладки viewer-access.
+
+#### Переработанная страница IP-ограничений (`ip_settings`)
+
+- Шаблон переведён на `{% extends "base.html" %}` с унифицированным layout.
+- Полностью переработаны стили: новый `.ip-settings-wrapper`, статусные бейджи `.ip-status.enabled/.disabled`, карточки секций.
+
+#### Улучшения установки и обслуживания
+
+- `install.sh`: добавлен fail-fast с проверкой обязательных команд (`require_command`), явный список pre-required пакетов с проверкой через `dpkg-query` до запуска `apt-get install`.
+- `script_sh/adminpanel.sh`: функция `generate_secret_key` с тремя fallback-источниками (`openssl` → `python3 secrets` → `/dev/urandom`).
+- `script_sh/backup_functions.sh`: режим **data-only** backup — архивирует только БД (`*.db`, `*.db-wal`, `*.db-shm`) без инфраструктуры. Формирует `*.meta.txt` с метаданными бэкапа. Вспомогательная функция `append_if_exists` для безопасного формирования списка файлов.
+- `script_sh/ssl_setup.sh`: функции `set_env_value` / `unset_env_value` для upsert/delete ключей в `.env` вместо append — устраняет проблему дублирования ключей (`USE_HTTPS`, `SSL_*`, `DOMAIN`).
+- `script_sh/uninstall.sh`: очистка cron-маркера `adminantizapret-nightly-idle-restart` при удалении.
+- `gunicorn.conf.py`: обновлены параметры конфигурации воркеров.
+
+### Изменено
+
+- **Таблицы трафика (Трафик (БД))**: переработаны ширины колонок, выравнивание, компактность строк; удалена колонка `Updated`.
+- **Сервер-монитор (`server_monitor`)**: группы интерфейсов vnStat/WireGuard формируются динамически через `_collect_bw_interface_groups()` вместо жёстко прошитых имён.
+- **Страница редактирования файлов (`edit_files`)**: исправлена инициализация активного `.nav-item` на старте через `defaultNavItem.click()`.
+- **`main.js`**: обновлена логика взаимодействий для совместимости с новым layout.
+- **`settings.js`**: инициализация вкладки по `.menu-item.active` вместо первого пункта меню.
+- **`server_monitor.js`**: обновлена обработка динамических групп интерфейсов.
+- **Стили и адаптивность**: существенно переработаны `styles_index.css`, `logs_dashboard.css`, `server_monitor_styles.css`.
+
+### Исправлено
+
+- **`ssl_setup.sh`**: дублирование ключей в `.env` при повторном запуске setup (старое поведение — append нового значения без удаления существующего).
+- **Логика определения протоколов клиента** в фильтре dashboard: метка `row.protocols` строится по фактическим ненулевым `user_traffic_sample`, конфигурационный маппинг используется только как fallback.
+- **WireGuard legacy-семплы**: семплы до миграции (`protocol_type DEFAULT 'openvpn'`) для WG-only клиентов корректно интерпретируются как `wireguard` в графиках.
+- **Settings bugfixes**: исправлены ошибки отображения и взаимодействия после переработки layout вкладок.
+- **Logs dashboard bugfixes**: исправлены смещения в таблицах, несогласованность размеров элементов, проблемы фильтрации.
+
+### Новые API endpoints
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/session-heartbeat` | Обновление метки активной веб-сессии |
+| `GET` | `/api/tasks/<task_id>` | Статус фоновой задачи |
+| `GET` | `/api/logs_dashboard_refresh_status/<task_id>` | Статус обновления кэша dashboard |
+| `POST` | `/logs_dashboard/delete_deleted_client_traffic` | Удаление статистики по удалённым клиентам |
+
+### Новые таблицы БД
+
+| Таблица | Назначение |
+|---|---|
+| `user_traffic_stat_protocol` | Раздельная статистика трафика по `common_name + protocol_type` |
+| `wireguard_peer_cache` | Соответствие WireGuard `peer_public_key → client_name` |
+| `openvpn_peer_info_cache` | Кэш последней версии/платформы OpenVPN-клиента |
+| `openvpn_peer_info_history` | История peer info за несколько дней для fallback-подстановки |
+| `active_web_session` | Активные аутентифицированные веб-сессии для ночного рестарта |
+| `background_task` | Очередь и статусы фоновых задач |
+| `logs_dashboard_cache` | Кэш данных dashboard с TTL |
+
 ## [1.5.3] – 15.03.2026
 
 ### Добавлено

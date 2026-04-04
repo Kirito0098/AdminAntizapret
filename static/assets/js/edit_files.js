@@ -1,13 +1,51 @@
 // === Уведомления ===
 const notifyEl = document.getElementById('notification');
 let notifyTimeout;
+let notifyExitTimeout;
+
+async function pollBackgroundTask(taskId, options = {}) {
+    const intervalMs = options.intervalMs || 3000;
+    const timeoutMs = options.timeoutMs || 900000;
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+        const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
+            cache: 'no-store'
+        });
+        if (!response.ok) {
+            throw new Error(`Ошибка запроса статуса задачи (HTTP ${response.status})`);
+        }
+
+        const task = await response.json();
+        if (task.status === 'completed') {
+            return task;
+        }
+        if (task.status === 'failed') {
+            throw new Error(task.error || task.message || 'Фоновая задача завершилась с ошибкой');
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    throw new Error('Превышено время ожидания фоновой задачи');
+}
 
 function showNotify(msg, type = 'success') {
     notifyEl.textContent = msg;
     notifyEl.className = `notification notification-${type}`;
+    notifyEl.classList.remove('notification-exit');
     notifyEl.hidden = false;
+
     clearTimeout(notifyTimeout);
-    notifyTimeout = setTimeout(() => { notifyEl.hidden = true; }, 5000);
+    clearTimeout(notifyExitTimeout);
+
+    notifyTimeout = setTimeout(() => {
+        notifyEl.classList.add('notification-exit');
+        notifyExitTimeout = setTimeout(() => {
+            notifyEl.classList.remove('notification-exit');
+            notifyEl.hidden = true;
+        }, 180);
+    }, 4700);
 }
 
 // === Навигация форм ===
@@ -51,7 +89,13 @@ editForms.forEach(form => {
                 throw new Error('Некорректный ответ сервера');
             }
 
-            showNotify(data.message || 'Изменения сохранены', data.success ? 'success' : 'error');
+            if (data.queued && data.task_id) {
+                showNotify(data.message || 'Изменения сохранены. Применение запущено в фоне.', 'success');
+                const task = await pollBackgroundTask(data.task_id);
+                showNotify(task.message || 'Изменения успешно применены', 'success');
+            } else {
+                showNotify(data.message || 'Изменения сохранены', data.success ? 'success' : 'error');
+            }
         } catch (err) {
             showNotify('Ошибка при сохранении', 'error');
             console.error('Ошибка сохранения:', err);
@@ -93,7 +137,13 @@ runDoAllBtn?.addEventListener('click', async () => {
             throw new Error('Некорректный ответ сервера');
         }
 
-        showNotify(data.message || 'Список успешно обновлён', data.success ? 'success' : 'error');
+        if (data.queued && data.task_id) {
+            showNotify(data.message || 'Обновление списка запущено в фоне', 'success');
+            const task = await pollBackgroundTask(data.task_id);
+            showNotify(task.message || 'Список успешно обновлён', 'success');
+        } else {
+            showNotify(data.message || 'Список успешно обновлён', data.success ? 'success' : 'error');
+        }
     } catch (err) {
         showNotify('Не удалось обновить список', 'error');
         console.error('Ошибка обновления:', err);

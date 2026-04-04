@@ -204,6 +204,13 @@
   margin-top: 2rem;
 }
 
+.server-monitor-wrapper.page-unified-wrapper {
+  width: min(1320px, 96%);
+  margin: 1.6rem auto 2rem;
+  align-items: stretch;
+  gap: 1rem;
+}
+
 .uptime-icon {
   margin-top: 0.7rem;
   display: flex;
@@ -242,6 +249,11 @@
   padding: 0 1rem;
 }
 
+.refresh-control.page-unified-card {
+  max-width: none;
+  margin: 0;
+}
+
 .refresh-btn {
   display: flex;
   align-items: center;
@@ -278,8 +290,12 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .last-update {
@@ -296,6 +312,27 @@
   background: rgba(30, 40, 30, 0.5);
   border: 1px solid #4caf50;
   border-radius: 0.8rem;
+}
+
+.system-info-section.page-unified-card {
+  max-width: none;
+  margin: 0;
+}
+
+.metrics-grid.page-unified-card {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+}
+
+.server-info.bw-section.page-unified-card {
+  max-width: none;
+  margin: 0;
+}
+
+.bw-card.page-unified-card {
+  margin: 0;
+  width: 100%;
 }
 
 .system-info-section h2 {
@@ -374,18 +411,33 @@
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes pulse-yellow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 @keyframes pulse-red {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* Disk and Load info */
@@ -442,7 +494,6 @@
   .system-info-grid {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
-
 }
 
 /* ===== МОБИЛЬНЫЕ СТИЛИ ДЛЯ iPhone XR (375px) ===== */
@@ -640,6 +691,4 @@
   .system-info-item {
     padding: 0.6rem;
   }
-
 }
-

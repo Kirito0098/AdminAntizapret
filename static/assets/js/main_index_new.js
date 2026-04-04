@@ -2,6 +2,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     initializeUI();
     initializeFormLogic();
+    initializeAddClientModal();
     initializeTabSwitching();
     initializeSearch();
     initializeFiltering();
@@ -10,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeQRButtons();
     initializeOneTimeLinkButtons();
     initializeClientBanToggles();
+    initializeClientDetailsModal();
 });
 
 // ============ STATE MANAGEMENT ============
@@ -53,27 +55,63 @@ function initializeUI() {
 
 // ============ FORM LOGIC ============
 function initializeFormLogic() {
-    const optionSelect = document.getElementById('option');
+    const optionInput = document.getElementById('option');
+    const optionButtons = document.querySelectorAll('.add-client-option-btn[data-option]');
     const clientNameContainer = document.getElementById('client-name-container');
     const workTermContainer = document.getElementById('work-term-container');
     const clientSelectContainer = document.getElementById('client-select-container');
     const clientForm = document.getElementById('client-form');
 
-    if (optionSelect) {
-        optionSelect.addEventListener('change', function () {
-            const value = this.value;
-
+    const updateFormByOption = (value) => {
+        if (clientNameContainer) {
             clientNameContainer.style.display =
                 (value === '1' || value === '4') ? 'flex' : 'none';
+        }
+        if (workTermContainer) {
             workTermContainer.style.display =
                 (value === '1') ? 'flex' : 'none';
+        }
+        if (clientSelectContainer) {
             clientSelectContainer.style.display =
                 (value === '2' || value === '5') ? 'flex' : 'none';
+        }
 
-            if (value === '2' || value === '5') {
-                populateClientSelect(value);
-            }
+        if (value === '2' || value === '5') {
+            populateClientSelect(value);
+        }
+    };
+
+    const setOptionValue = (value) => {
+        if (!optionInput) {
+            return;
+        }
+
+        optionInput.value = value;
+        optionButtons.forEach(btn => {
+            const isActive = btn.dataset.option === value;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
+        updateFormByOption(value);
+    };
+
+    if (optionButtons.length) {
+        optionButtons.forEach(btn => {
+            if (btn.dataset.bound === '1') {
+                return;
+            }
+            btn.dataset.bound = '1';
+            btn.addEventListener('click', function () {
+                setOptionValue(this.dataset.option || '');
+            });
+        });
+    }
+
+    if (optionInput) {
+        optionInput.addEventListener('change', function () {
+            updateFormByOption(this.value || '');
+        });
+        updateFormByOption(optionInput.value || '');
     }
 
     const clientSelect = document.getElementById('client-select');
@@ -92,6 +130,79 @@ function initializeFormLogic() {
                 showNotification('Выберите действие', 'error');
                 return false;
             }
+        });
+    }
+}
+
+function initializeAddClientModal() {
+    const modal = document.getElementById('addClientModal');
+    const openButton = document.getElementById('openAddClientModalBtn');
+    const form = document.getElementById('client-form');
+
+    if (!modal || !openButton) {
+        return;
+    }
+
+    const setModalOpen = (isOpen) => {
+        if (isOpen) {
+            modal.hidden = false;
+            requestAnimationFrame(() => {
+                modal.classList.add('is-open');
+            });
+            document.body.classList.add('add-client-modal-open');
+        } else {
+            modal.classList.remove('is-open');
+            setTimeout(() => {
+                modal.hidden = true;
+            }, 180);
+            document.body.classList.remove('add-client-modal-open');
+            if (form) {
+                form.reset();
+            }
+        }
+    };
+
+    if (openButton.dataset.bound !== '1') {
+        openButton.dataset.bound = '1';
+        openButton.addEventListener('click', () => {
+            setModalOpen(true);
+        });
+    }
+
+    if (modal.dataset.bound === '1') {
+        return;
+    }
+    modal.dataset.bound = '1';
+
+    modal.querySelectorAll('[data-add-client-close]').forEach(node => {
+        node.addEventListener('click', () => {
+            setModalOpen(false);
+        });
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.hidden) {
+            setModalOpen(false);
+        }
+    });
+
+    if (form) {
+        form.addEventListener('reset', () => {
+            const clientNameContainer = document.getElementById('client-name-container');
+            const workTermContainer = document.getElementById('work-term-container');
+            const clientSelectContainer = document.getElementById('client-select-container');
+            const optionButtons = document.querySelectorAll('.add-client-option-btn[data-option]');
+            const optionInput = document.getElementById('option');
+
+            if (clientNameContainer) clientNameContainer.style.display = 'none';
+            if (workTermContainer) workTermContainer.style.display = 'none';
+            if (clientSelectContainer) clientSelectContainer.style.display = 'none';
+            if (optionInput) optionInput.value = '';
+
+            optionButtons.forEach(btn => {
+                btn.classList.remove('active');
+                btn.setAttribute('aria-pressed', 'false');
+            });
         });
     }
 }
@@ -160,12 +271,20 @@ async function refreshMainContent() {
         currentProtocolTabs.innerHTML = newProtocolTabs.innerHTML;
     }
 
+    const newClientDetailsData = doc.querySelector('#index-client-details-data');
+    const currentClientDetailsData = document.querySelector('#index-client-details-data');
+    if (newClientDetailsData && currentClientDetailsData) {
+        currentClientDetailsData.textContent = newClientDetailsData.textContent;
+    }
+
     initializeTabSwitching();
+    initializeAddClientModal();
     initializeTableSorting();
     initializeOpenVpnGroupSwitching();
     initializeQRButtons();
     initializeOneTimeLinkButtons();
     initializeClientBanToggles();
+    initializeClientDetailsModal();
 
     switchTab(currentTab);
 
@@ -409,6 +528,8 @@ function initializeOpenVpnGroupSwitching() {
                 const doc = parser.parseFromString(html, 'text/html');
                 const newOpenVpnTab = doc.getElementById('openvpn-tab');
                 const currentOpenVpnTab = document.getElementById('openvpn-tab');
+                const newClientDetailsData = doc.querySelector('#index-client-details-data');
+                const currentClientDetailsData = document.querySelector('#index-client-details-data');
 
                 if (!newOpenVpnTab || !currentOpenVpnTab) {
                     throw new Error('OpenVPN tab content not found');
@@ -425,6 +546,11 @@ function initializeOpenVpnGroupSwitching() {
                 initializeQRButtons();
                 initializeOneTimeLinkButtons();
                 initializeClientBanToggles();
+                initializeClientDetailsModal();
+
+                if (newClientDetailsData && currentClientDetailsData) {
+                    currentClientDetailsData.textContent = newClientDetailsData.textContent;
+                }
 
                 if (currentTab === 'openvpn') {
                     filterTable();
@@ -450,9 +576,6 @@ function initializeClientBanToggles() {
         return;
     }
 
-    const csrfInput = document.getElementById('csrf-token-value');
-    const csrfToken = csrfInput ? csrfInput.value : '';
-
     toggles.forEach(toggle => {
         if (toggle.dataset.blockBound === '1') {
             return;
@@ -475,32 +598,7 @@ function initializeClientBanToggles() {
             checkbox.disabled = true;
 
             try {
-                const formData = new FormData();
-                formData.append('client_name', clientName);
-                formData.append('blocked', shouldBlock ? '1' : '0');
-                if (csrfToken) {
-                    formData.append('csrf_token', csrfToken);
-                }
-
-                const response = await fetch('/api/openvpn/client-block', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
-
-                let payload = null;
-                try {
-                    payload = await response.json();
-                } catch (_e) {
-                    payload = null;
-                }
-
-                if (!response.ok || !payload || !payload.success) {
-                    const msg = payload && payload.message ? payload.message : `HTTP error! status: ${response.status}`;
-                    throw new Error(msg);
-                }
+                const payload = await updateClientBlockState(clientName, shouldBlock);
 
                 if (row) {
                     row.dataset.blocked = shouldBlock ? '1' : '0';
@@ -517,6 +615,40 @@ function initializeClientBanToggles() {
     });
 }
 
+async function updateClientBlockState(clientName, shouldBlock) {
+    const csrfInput = document.getElementById('csrf-token-value');
+    const csrfToken = csrfInput ? csrfInput.value : '';
+
+    const formData = new FormData();
+    formData.append('client_name', clientName);
+    formData.append('blocked', shouldBlock ? '1' : '0');
+    if (csrfToken) {
+        formData.append('csrf_token', csrfToken);
+    }
+
+    const response = await fetch('/api/openvpn/client-block', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    });
+
+    let payload = null;
+    try {
+        payload = await response.json();
+    } catch (_e) {
+        payload = null;
+    }
+
+    if (!response.ok || !payload || !payload.success) {
+        const msg = payload && payload.message ? payload.message : `HTTP error! status: ${response.status}`;
+        throw new Error(msg);
+    }
+
+    return payload;
+}
+
 function showQRModal(configUrl) {
     const modal = document.getElementById('modalQRContainer');
     const img = document.getElementById('qrImage');
@@ -524,8 +656,22 @@ function showQRModal(configUrl) {
     const qrInfo = document.getElementById('qrInfoMessage');
     const qrCopyLinkButton = document.getElementById('qrCopyLinkButton');
 
-    if (modal && img && configUrl) {
+    const openQrModal = () => {
         modal.style.display = 'flex';
+        requestAnimationFrame(() => {
+            modal.classList.add('is-open');
+        });
+    };
+
+    const closeQrModal = () => {
+        modal.classList.remove('is-open');
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 180);
+    };
+
+    if (modal && img && configUrl) {
+        openQrModal();
         img.removeAttribute('src');
 
         if (qrContainer) {
@@ -608,19 +754,23 @@ function showQRModal(configUrl) {
                 showNotification(error.message || 'Не удалось загрузить QR', 'error');
             });
 
-        // Close on backdrop click
-        modal.addEventListener('click', function (e) {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
+        if (!modal.dataset.popupBound) {
+            modal.dataset.popupBound = '1';
 
-        // Close on escape key
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && modal.style.display === 'flex') {
-                modal.style.display = 'none';
-            }
-        });
+            // Close on backdrop click
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) {
+                    closeQrModal();
+                }
+            });
+
+            // Close on escape key
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && modal.style.display === 'flex') {
+                    closeQrModal();
+                }
+            });
+        }
     }
 }
 
@@ -707,6 +857,790 @@ async function copyTextToClipboard(text) {
     }
 }
 
+// ============ CLIENT DETAILS MODAL ============
+function getIndexClientDetailsPayload() {
+    const dataNode = document.getElementById('index-client-details-data');
+    if (!dataNode) {
+        return { connected: {}, traffic: {} };
+    }
+
+    try {
+        const parsed = JSON.parse(dataNode.textContent || '{}');
+        return {
+            connected: parsed && parsed.connected ? parsed.connected : {},
+            traffic: parsed && parsed.traffic ? parsed.traffic : {},
+        };
+    } catch (error) {
+        console.warn('Failed to parse index client details payload:', error);
+        return { connected: {}, traffic: {} };
+    }
+}
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function initializeClientDetailsModal() {
+    const modal = document.getElementById('clientDetailsModalMain');
+    if (!modal || modal.dataset.bound === '1') {
+        return;
+    }
+    modal.dataset.bound = '1';
+
+    const modalTitle = document.getElementById('clientDetailsTitleMain');
+    const modalSummary = document.getElementById('clientDetailsSummaryMain');
+    const modalTrafficQuick = document.getElementById('clientDetailsTrafficQuickMain');
+    const modalTrafficMeta = document.getElementById('clientDetailsTrafficMetaMain');
+    const modalConnections = document.getElementById('clientDetailsConnectionsMain');
+    const modalActions = document.getElementById('clientDetailsActionsMain');
+    const modalChartCanvas = document.getElementById('clientDetailsTrafficChartMain');
+    const rangeButtons = Array.from(document.querySelectorAll('.client-details-range-btn[data-range]'));
+
+    const modalRangeStorageKey = 'index_client_details_selected_range';
+    let currentClientName = '';
+    let currentRange = localStorage.getItem(modalRangeStorageKey) || '7d';
+    let detailsChart = null;
+
+    if (!rangeButtons.some(btn => btn.dataset.range === currentRange)) {
+        currentRange = '7d';
+    }
+
+    function humanBytes(value) {
+        let size = Number(value || 0);
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let idx = 0;
+        while (size >= 1024 && idx < units.length - 1) {
+            size /= 1024;
+            idx += 1;
+        }
+        const precision = idx === 0 ? 0 : (size < 10 ? 2 : 1);
+        return `${size.toFixed(precision)} ${units[idx]}`;
+    }
+
+    function setModalOpen(isOpen) {
+        if (isOpen) {
+            modal.hidden = false;
+            requestAnimationFrame(() => {
+                modal.classList.add('is-open');
+            });
+        } else {
+            modal.classList.remove('is-open');
+            setTimeout(() => {
+                modal.hidden = true;
+            }, 180);
+        }
+        document.body.classList.toggle('client-details-modal-open', isOpen);
+    }
+
+    function closeModal() {
+        setModalOpen(false);
+    }
+
+    async function generateOneTimeLink(endpoint) {
+        if (!endpoint) {
+            throw new Error('Не найден endpoint для генерации ссылки');
+        }
+
+        const response = await fetch(endpoint, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (_error) {
+            payload = null;
+        }
+
+        if (!response.ok || !payload || !payload.success || !payload.download_url) {
+            const message = payload && payload.message
+                ? payload.message
+                : `Не удалось создать ссылку (HTTP ${response.status})`;
+            throw new Error(message);
+        }
+
+        await copyTextToClipboard(payload.download_url);
+    }
+
+    function requestRenewDays(defaultDays) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'renew-days-modal';
+            modal.innerHTML = `
+                <div class="renew-days-backdrop"></div>
+                <div class="renew-days-dialog" role="dialog" aria-modal="true" aria-labelledby="renewDaysTitle">
+                    <button type="button" class="renew-days-close" aria-label="Закрыть">×</button>
+                    <div class="renew-days-header">
+                        <h4 id="renewDaysTitle">Продлить сертификат</h4>
+                        <p>Укажите новый срок сертификата для клиента.</p>
+                    </div>
+                    <form class="renew-days-form">
+                        <label for="renewDaysInput">Срок действия (дни, 1-3650)</label>
+                        <input id="renewDaysInput" name="renewDays" type="number" min="1" max="3650" inputmode="numeric" required />
+                        <div class="renew-days-error" aria-live="polite"></div>
+                        <div class="renew-days-actions">
+                            <button type="button" class="download-button renew-days-cancel">Отмена</button>
+                            <button type="submit" class="btn-primary renew-days-submit">Сохранить</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+
+            const input = modal.querySelector('#renewDaysInput');
+            const errorNode = modal.querySelector('.renew-days-error');
+            const form = modal.querySelector('.renew-days-form');
+            const closeButton = modal.querySelector('.renew-days-close');
+            const cancelButton = modal.querySelector('.renew-days-cancel');
+            const backdrop = modal.querySelector('.renew-days-backdrop');
+
+            const initialValue = String(defaultDays || '365').trim();
+            input.value = /^\d+$/.test(initialValue) ? initialValue : '365';
+
+            let resolved = false;
+
+            const cleanup = (value) => {
+                if (resolved) {
+                    return;
+                }
+                resolved = true;
+                document.removeEventListener('keydown', onKeyDown);
+                document.body.classList.remove('renew-days-modal-open');
+                modal.remove();
+                resolve(value);
+            };
+
+            const setError = (message) => {
+                if (!errorNode) {
+                    return;
+                }
+                errorNode.textContent = message || '';
+            };
+
+            const parseDays = () => {
+                const raw = String(input.value || '').trim();
+                if (!/^\d+$/.test(raw)) {
+                    setError('Введите целое число от 1 до 3650');
+                    return null;
+                }
+
+                const days = Number.parseInt(raw, 10);
+                if (!Number.isFinite(days) || days < 1 || days > 3650) {
+                    setError('Срок должен быть в диапазоне 1-3650 дней');
+                    return null;
+                }
+
+                setError('');
+                return days;
+            };
+
+            const onKeyDown = (event) => {
+                if (event.key === 'Escape') {
+                    cleanup(null);
+                }
+            };
+
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const days = parseDays();
+                if (days === null) {
+                    return;
+                }
+                cleanup(days);
+            });
+
+            input.addEventListener('input', () => {
+                setError('');
+            });
+
+            closeButton.addEventListener('click', () => cleanup(null));
+            cancelButton.addEventListener('click', () => cleanup(null));
+            backdrop.addEventListener('click', () => cleanup(null));
+            document.addEventListener('keydown', onKeyDown);
+
+            document.body.appendChild(modal);
+            document.body.classList.add('renew-days-modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('is-open');
+                input.focus();
+                input.select();
+            });
+        });
+    }
+
+    function renderActions(clientName) {
+        if (!modalActions) {
+            return;
+        }
+
+        modalActions.innerHTML = '';
+
+        const escapedName = (window.CSS && typeof window.CSS.escape === 'function')
+            ? window.CSS.escape(clientName)
+            : clientName.replace(/"/g, '\\"');
+
+        const activePane = document.querySelector('.tab-pane.active');
+        const rowSelector = `.client-row[data-client-name="${escapedName}"]`;
+        const row = (activePane && activePane.querySelector(rowSelector)) || document.querySelector(rowSelector);
+
+        if (!row) {
+            modalActions.innerHTML = '<div class="client-details-actions-note">Действия для этого клиента недоступны.</div>';
+            return;
+        }
+
+        const downloadVpnUrl = row.dataset.downloadVpnUrl || '';
+        const downloadAzUrl = row.dataset.downloadAzUrl || '';
+        const qrVpnUrl = row.dataset.qrVpnUrl || '';
+        const qrAzUrl = row.dataset.qrAzUrl || '';
+        const oneTimeVpnEndpoint = row.dataset.oneTimeVpnEndpoint || '';
+        const oneTimeAzEndpoint = row.dataset.oneTimeAzEndpoint || '';
+        const canBlock = row.dataset.canBlock === '1' && row.dataset.protocol === 'openvpn';
+        const canManage = row.dataset.canManage === '1';
+        const deleteOption = row.dataset.deleteOption || '';
+        const isBlocked = row.dataset.blocked === '1';
+
+        const groupTitles = {
+            manage: 'Управление',
+            download: 'Скачать',
+            qr: 'QR',
+            links: 'Одноразовые ссылки',
+        };
+
+        const groupNodes = {};
+
+        const ensureGroupNode = (groupKey) => {
+            if (groupNodes[groupKey]) {
+                return groupNodes[groupKey];
+            }
+
+            const section = document.createElement('div');
+            section.className = 'client-details-actions-group';
+
+            const title = document.createElement('div');
+            title.className = 'client-details-actions-group-title';
+            title.textContent = groupTitles[groupKey] || 'Действия';
+
+            const buttons = document.createElement('div');
+            buttons.className = 'client-details-actions-group-buttons';
+
+            section.appendChild(title);
+            section.appendChild(buttons);
+            modalActions.appendChild(section);
+
+            groupNodes[groupKey] = buttons;
+            return buttons;
+        };
+
+        const makeActionButton = ({ label, onClick, groupKey = 'manage' }) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'download-button client-details-action-btn';
+            button.textContent = label;
+            button.addEventListener('click', onClick);
+            const groupButtons = ensureGroupNode(groupKey);
+            groupButtons.appendChild(button);
+        };
+
+        let actionsCount = 0;
+
+        const addActionButton = (config) => {
+            actionsCount += 1;
+            makeActionButton(config);
+        };
+
+        if (canBlock) {
+            addActionButton({
+                label: isBlocked ? '🔓 Разблокировать' : '⛔ Заблокировать',
+                groupKey: 'manage',
+                onClick: async (event) => {
+                    const button = event.currentTarget;
+                    const currentlyBlocked = row.dataset.blocked === '1';
+                    const nextBlocked = !currentlyBlocked;
+                    const originalText = button.textContent;
+
+                    button.disabled = true;
+                    button.textContent = '...';
+
+                    try {
+                        const payload = await updateClientBlockState(clientName, nextBlocked);
+                        row.dataset.blocked = nextBlocked ? '1' : '0';
+                        button.textContent = nextBlocked
+                            ? '🔓 Разблокировать'
+                            : '⛔ Заблокировать';
+                        showNotification(payload.message || 'Статус блокировки обновлён', 'success');
+                    } catch (error) {
+                        button.textContent = originalText;
+                        showNotification(error.message || 'Не удалось изменить блокировку клиента', 'error');
+                    } finally {
+                        button.disabled = false;
+                    }
+                }
+            });
+        }
+
+        if (canManage && row.dataset.protocol === 'openvpn') {
+            addActionButton({
+                label: '♻ Продлить сертификат',
+                groupKey: 'manage',
+                onClick: async (event) => {
+                    const certDaysRaw = Number.parseInt(row.dataset.certDays || '', 10);
+                    const defaultDays = Number.isFinite(certDaysRaw) && certDaysRaw > 0 && certDaysRaw <= 3650
+                        ? String(certDaysRaw)
+                        : '365';
+
+                    const renewDays = await requestRenewDays(defaultDays);
+                    if (renewDays === null) {
+                        return;
+                    }
+
+                    const button = event.currentTarget;
+                    const originalText = button.textContent;
+                    button.disabled = true;
+                    button.textContent = '...';
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('option', '1');
+                        formData.append('client-name', clientName);
+                        formData.append('work-term', String(renewDays));
+
+                        const csrfInput = document.getElementById('csrf-token-value');
+                        const csrfToken = csrfInput ? csrfInput.value : '';
+                        if (csrfToken) {
+                            formData.append('csrf_token', csrfToken);
+                        }
+
+                        const response = await fetch('/', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+
+                        let payload = null;
+                        try {
+                            payload = await response.json();
+                        } catch (_error) {
+                            payload = null;
+                        }
+
+                        if (!response.ok || !payload || !payload.success) {
+                            const message = payload && payload.message
+                                ? payload.message
+                                : `Не удалось продлить сертификат (HTTP ${response.status})`;
+                            throw new Error(message);
+                        }
+
+                        showNotification(payload.message || 'Сертификат продлён', 'success');
+                        closeModal();
+                        await refreshMainContent();
+                    } catch (error) {
+                        showNotification(error.message || 'Ошибка продления сертификата', 'error');
+                    } finally {
+                        button.disabled = false;
+                        button.textContent = originalText;
+                    }
+                }
+            });
+        }
+
+        if (canManage && deleteOption) {
+            addActionButton({
+                label: '🗑 Удалить профиль',
+                groupKey: 'manage',
+                onClick: async (event) => {
+                    const button = event.currentTarget;
+                    const confirmed = window.confirm(`Удалить профиль "${clientName}"?`);
+                    if (!confirmed) {
+                        return;
+                    }
+
+                    const originalText = button.textContent;
+                    button.disabled = true;
+                    button.textContent = '...';
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('option', deleteOption);
+                        formData.append('client-name', clientName);
+
+                        const csrfInput = document.getElementById('csrf-token-value');
+                        const csrfToken = csrfInput ? csrfInput.value : '';
+                        if (csrfToken) {
+                            formData.append('csrf_token', csrfToken);
+                        }
+
+                        const response = await fetch('/', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        });
+
+                        let payload = null;
+                        try {
+                            payload = await response.json();
+                        } catch (_error) {
+                            payload = null;
+                        }
+
+                        if (!response.ok || !payload || !payload.success) {
+                            const message = payload && payload.message
+                                ? payload.message
+                                : `Не удалось удалить профиль (HTTP ${response.status})`;
+                            throw new Error(message);
+                        }
+
+                        showNotification(payload.message || 'Профиль удалён', 'success');
+                        closeModal();
+                        await refreshMainContent();
+                    } catch (error) {
+                        showNotification(error.message || 'Ошибка удаления профиля', 'error');
+                    } finally {
+                        button.disabled = false;
+                        button.textContent = originalText;
+                    }
+                }
+            });
+        }
+
+        if (downloadVpnUrl) {
+            addActionButton({
+                label: '⬇️ Скачать VPN',
+                groupKey: 'download',
+                onClick: () => {
+                    window.location.href = downloadVpnUrl;
+                }
+            });
+        }
+
+        if (downloadAzUrl) {
+            addActionButton({
+                label: '⬇️ Скачать AZ',
+                groupKey: 'download',
+                onClick: () => {
+                    window.location.href = downloadAzUrl;
+                }
+            });
+        }
+
+        if (qrVpnUrl) {
+            addActionButton({
+                label: '📱 QR VPN',
+                groupKey: 'qr',
+                onClick: () => {
+                    showQRModal(qrVpnUrl);
+                }
+            });
+        }
+
+        if (qrAzUrl) {
+            addActionButton({
+                label: '📱 QR AZ',
+                groupKey: 'qr',
+                onClick: () => {
+                    showQRModal(qrAzUrl);
+                }
+            });
+        }
+
+        if (oneTimeVpnEndpoint) {
+            addActionButton({
+                label: '🔗 Ссылка VPN',
+                groupKey: 'links',
+                onClick: async (event) => {
+                    const button = event.currentTarget;
+                    const originalText = button.textContent;
+                    button.disabled = true;
+                    button.textContent = '...';
+                    try {
+                        await generateOneTimeLink(oneTimeVpnEndpoint);
+                        showNotification('Одноразовая ссылка скопирована в буфер', 'success');
+                    } catch (error) {
+                        showNotification(error.message || 'Ошибка формирования ссылки', 'error');
+                    } finally {
+                        button.disabled = false;
+                        button.textContent = originalText;
+                    }
+                }
+            });
+        }
+
+        if (oneTimeAzEndpoint) {
+            addActionButton({
+                label: '🔗 Ссылка AZ',
+                groupKey: 'links',
+                onClick: async (event) => {
+                    const button = event.currentTarget;
+                    const originalText = button.textContent;
+                    button.disabled = true;
+                    button.textContent = '...';
+                    try {
+                        await generateOneTimeLink(oneTimeAzEndpoint);
+                        showNotification('Одноразовая ссылка скопирована в буфер', 'success');
+                    } catch (error) {
+                        showNotification(error.message || 'Ошибка формирования ссылки', 'error');
+                    } finally {
+                        button.disabled = false;
+                        button.textContent = originalText;
+                    }
+                }
+            });
+        }
+
+        if (actionsCount === 0) {
+            modalActions.innerHTML = '<div class="client-details-actions-note">Для этого клиента нет доступных действий.</div>';
+        }
+    }
+
+    function setActiveRangeButtons() {
+        rangeButtons.forEach(btn => {
+            const isActive = btn.dataset.range === currentRange;
+            btn.classList.toggle('active', isActive);
+            btn.disabled = isActive;
+        });
+    }
+
+    function renderConnections(clientName) {
+        if (!modalConnections) {
+            return;
+        }
+
+        const payload = getIndexClientDetailsPayload();
+        const connectedItem = payload.connected[clientName];
+        const ipDeviceMap = connectedItem && Array.isArray(connectedItem.ip_device_map)
+            ? connectedItem.ip_device_map
+            : [];
+
+        if (!ipDeviceMap.length) {
+            modalConnections.innerHTML = '<div class="client-details-note">Сейчас нет активных подключений по этому клиенту.</div>';
+            return;
+        }
+
+        const rendered = ipDeviceMap.map(item => {
+            const ip = escapeHtml(item.ip || '-');
+            const profile = escapeHtml(item.profile_label || '-');
+            const realAddress = escapeHtml(item.real_address || '');
+            const showSession = !!item.show_real_address;
+            const platform = escapeHtml(item.platform || 'Не определено');
+            const version = escapeHtml(item.version || 'Не определено');
+            const staleLine = item.stale_candidate
+                ? '<div><span class="client-details-key">Статус:</span> возможно зависшая (есть более новая сессия с тем же IP и профилем)</div>'
+                : '';
+
+            return `
+                <div class="client-details-ip-item">
+                    <div><span class="client-details-key">IP:</span>${ip}</div>
+                    <div><span class="client-details-key">Профиль:</span>${profile}</div>
+                    ${showSession ? `<div><span class="client-details-key">Сессия:</span>${realAddress}</div>` : ''}
+                    ${staleLine}
+                    <div><span class="client-details-key">Устройство:</span>${platform}</div>
+                    <div><span class="client-details-key">Версия:</span>${version}</div>
+                </div>
+            `;
+        }).join('');
+
+        modalConnections.innerHTML = rendered;
+    }
+
+    async function loadTrafficChart() {
+        if (!currentClientName || !modalTrafficMeta || !modalChartCanvas) {
+            return;
+        }
+
+        if (typeof Chart === 'undefined') {
+            modalTrafficMeta.textContent = 'График недоступен: библиотека Chart.js не загружена';
+            return;
+        }
+
+        modalTrafficMeta.textContent = 'Загрузка...';
+
+        try {
+            const url = `/api/user-traffic-chart?client=${encodeURIComponent(currentClientName)}&range=${encodeURIComponent(currentRange)}`;
+            const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const labels = (data.labels || []).slice();
+            const vpnData = (data.vpn_bytes || []).map(v => Number(v || 0));
+            const antData = (data.antizapret_bytes || []).map(v => Number(v || 0));
+
+            if (!labels.length) {
+                labels.push('Нет данных');
+                vpnData.push(0);
+                antData.push(0);
+            }
+
+            if (detailsChart) {
+                detailsChart.destroy();
+            }
+
+            detailsChart = new Chart(modalChartCanvas, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'VPN',
+                            data: vpnData,
+                            borderColor: '#4caf50',
+                            backgroundColor: 'rgba(76,175,80,0.12)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.2,
+                        },
+                        {
+                            label: 'Antizapret',
+                            data: antData,
+                            borderColor: '#f44336',
+                            backgroundColor: 'rgba(244,67,54,0.12)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.2,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: '#bbb',
+                                autoSkip: true,
+                                maxTicksLimit: currentRange === '1h' ? 12 : (currentRange === '24h' ? 24 : 10)
+                            },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#ddd',
+                                callback: function (value) {
+                                    return humanBytes(value);
+                                }
+                            },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#fff' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    return `${ctx.dataset.label}: ${humanBytes(ctx.parsed.y)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            modalTrafficMeta.textContent =
+                `VPN: ${data.total_vpn_human || humanBytes(data.total_vpn)} | ` +
+                `Antizapret: ${data.total_antizapret_human || humanBytes(data.total_antizapret)} | ` +
+                `Итого: ${data.total_human || humanBytes(data.total)}`;
+        } catch (error) {
+            modalTrafficMeta.textContent = `Не удалось загрузить график: ${error.message}`;
+        }
+    }
+
+    function openModal(clientName) {
+        const name = String(clientName || '').trim();
+        if (!name) {
+            showNotification('Не удалось определить имя клиента', 'error');
+            return;
+        }
+
+        currentClientName = name;
+
+        const payload = getIndexClientDetailsPayload();
+        const connectedItem = payload.connected[name] || {};
+        const trafficItem = payload.traffic[name] || null;
+
+        if (modalTitle) {
+            modalTitle.textContent = name;
+        }
+
+        const sessions = connectedItem.sessions != null ? connectedItem.sessions : '-';
+        const profiles = connectedItem.profiles || '-';
+        const rx = connectedItem.bytes_received_human || '-';
+        const tx = connectedItem.bytes_sent_human || '-';
+        const total = connectedItem.total_bytes_human || '-';
+
+        if (modalSummary) {
+            modalSummary.textContent = `Сессий: ${sessions} | Профили: ${profiles} | Rx: ${rx} | Tx: ${tx} | Итого: ${total}`;
+        }
+
+        if (modalTrafficQuick) {
+            if (trafficItem) {
+                const statusText = trafficItem.is_active ? 'Онлайн' : 'Оффлайн';
+                modalTrafficQuick.textContent =
+                    `Статус: ${statusText} | 1 день: ${trafficItem.traffic_1d_human} | 7 дней: ${trafficItem.traffic_7d_human} | 30 дней: ${trafficItem.traffic_30d_human} | VPN: ${trafficItem.total_bytes_vpn_human} | Antizapret: ${trafficItem.total_bytes_antizapret_human}`;
+            } else {
+                modalTrafficQuick.textContent = 'В БД пока нет накопленной статистики по этому клиенту.';
+            }
+        }
+
+        renderActions(name);
+        renderConnections(name);
+        setActiveRangeButtons();
+        setModalOpen(true);
+        loadTrafficChart();
+    }
+
+    rangeButtons.forEach(btn => {
+        btn.addEventListener('click', function () {
+            currentRange = btn.dataset.range || '7d';
+            localStorage.setItem(modalRangeStorageKey, currentRange);
+            setActiveRangeButtons();
+            loadTrafficChart();
+        });
+    });
+
+    document.addEventListener('click', function (event) {
+        const row = event.target.closest('.client-row');
+        if (!row) {
+            return;
+        }
+
+        if (event.target.closest('button, a, input, label, textarea, select')) {
+            return;
+        }
+
+        event.preventDefault();
+        const clientName = row.getAttribute('data-client-name') || '';
+        openModal(clientName);
+    });
+
+    modal.querySelectorAll('[data-client-details-close]').forEach(node => {
+        node.addEventListener('click', closeModal);
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.hidden) {
+            closeModal();
+        }
+    });
+}
+
 // ============ NOTIFICATIONS ============
 function showNotification(message, type = 'success') {
     const notification = document.getElementById('notification');
@@ -714,11 +1648,16 @@ function showNotification(message, type = 'success') {
     if (notification) {
         notification.textContent = message;
         notification.className = `notification notification-${type}`;
+        notification.classList.remove('notification-exit');
         notification.style.display = 'block';
 
         setTimeout(() => {
-            notification.style.display = 'none';
-        }, 3000);
+            notification.classList.add('notification-exit');
+            setTimeout(() => {
+                notification.classList.remove('notification-exit');
+                notification.style.display = 'none';
+            }, 180);
+        }, 2800);
     }
 }
 
@@ -761,23 +1700,23 @@ document.addEventListener('submit', function (e) {
             .then(async (data) => {
                 showNotification(data.message || 'Операция выполнена успешно', 'success');
                 await refreshMainContent();
+
+                const addClientForm = document.getElementById('client-form');
+                if (addClientForm) {
+                    addClientForm.reset();
+                }
+
+                const addClientModal = document.getElementById('addClientModal');
+                if (addClientModal && !addClientModal.hidden) {
+                    addClientModal.classList.remove('is-open');
+                    addClientModal.hidden = true;
+                    document.body.classList.remove('add-client-modal-open');
+                }
             })
             .catch(error => {
                 console.error('Error:', error);
                 showNotification(error.message || 'Ошибка при выполнении операции', 'error');
             });
-    }
-});
-
-// ============ DOUBLE-CLICK DOWNLOAD ============
-document.addEventListener('dblclick', function (e) {
-    if (e.target.classList.contains('client-name')) {
-        const row = e.target.closest('.client-row');
-        const firstDownloadBtn = row.querySelector('.download-button:not(:disabled)');
-
-        if (firstDownloadBtn) {
-            firstDownloadBtn.click();
-        }
     }
 });
 
@@ -796,7 +1735,10 @@ document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
         const modal = document.getElementById('modalQRContainer');
         if (modal) {
-            modal.style.display = 'none';
+            modal.classList.remove('is-open');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 180);
         }
     }
 });

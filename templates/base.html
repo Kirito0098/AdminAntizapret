@@ -40,6 +40,34 @@
   </nav>
 
   {% block content %}{% endblock %} {% block scripts %}{% endblock %}
+
+  {% if current_user %}
+  <script>
+    (function () {
+      const heartbeatIntervalMs = 60000;
+
+      async function sendSessionHeartbeat() {
+        if (document.visibilityState !== "visible") {
+          return;
+        }
+
+        try {
+          await fetch("{{ url_for('api_session_heartbeat') }}", {
+            method: "GET",
+            cache: "no-store",
+            credentials: "same-origin",
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+          });
+        } catch (e) {
+          // Тихо игнорируем сетевые ошибки heartbeat.
+        }
+      }
+
+      setInterval(sendSessionHeartbeat, heartbeatIntervalMs);
+      sendSessionHeartbeat();
+    })();
+  </script>
+  {% endif %}
 </body>
 
 </html>

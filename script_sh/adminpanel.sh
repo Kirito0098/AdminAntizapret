@@ -8,6 +8,7 @@ export LANG="C.UTF-8"
 RED=$(printf '\033[31m')
 GREEN=$(printf '\033[32m')
 YELLOW=$(printf '\033[33m')
+CYAN=$(printf '\033[36m')
 NC=$(printf '\033[0m')
 
 # Основные параметры
@@ -47,8 +48,34 @@ for module in "${modules[@]}"; do
 	fi
 done
 
+generate_secret_key() {
+	if command -v openssl >/dev/null 2>&1; then
+		openssl rand -hex 32
+		return $?
+	fi
+
+	if command -v python3 >/dev/null 2>&1; then
+		python3 - <<'PY'
+import secrets
+print(secrets.token_hex(32))
+PY
+		return $?
+	fi
+
+	if [ -r /dev/urandom ]; then
+		od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+		return $?
+	fi
+
+	return 1
+}
+
 # Генерируем случайный секретный ключ
-SECRET_KEY=$(openssl rand -hex 32)
+SECRET_KEY=$(generate_secret_key)
+if [ -z "$SECRET_KEY" ]; then
+	echo "${RED}Ошибка: не удалось сгенерировать SECRET_KEY (openssl/python3/dev/urandom недоступны).${NC}" >&2
+	exit 1
+fi
 
 # Функция проверки занятости порта
 check_port() {
@@ -77,10 +104,16 @@ check_port() {
 # Проверка зависимостей
 check_dependencies() {
 	echo "${YELLOW}Установка зависимостей...${NC}"
-	apt-get update --quiet --quiet && apt-get install -y --quiet --quiet apt-utils >/dev/null
-	apt-get install -y --quiet --quiet python3 python3-pip git wget openssl python3-venv cron vnstat >/dev/null
+	if ! apt-get update --quiet --quiet >/dev/null; then
+		check_error "Не удалось обновить индексы пакетов"
+	fi
+	if ! apt-get install -y --quiet --quiet apt-utils >/dev/null; then
+		check_error "Не удалось установить apt-utils"
+	fi
+	if ! apt-get install -y --quiet --quiet python3 python3-pip git wget openssl python3-venv cron vnstat >/dev/null; then
+		check_error "Не удалось установить зависимости"
+	fi
 	echo "${GREEN}[✓] Готово${NC}"
-	check_error "Не удалось установить зависимости"
 }
 
 # Полная проверка окружения и зависимостей
@@ -316,13 +349,21 @@ auto_update() {
 	echo "${YELLOW}Проверка обновлений...${NC}"
 	cd "$INSTALL_DIR" || return 1
 
-	git fetch origin main
+	if ! git fetch origin main; then
+		check_error "Не удалось получить обновления из origin/main"
+	fi
 
 	if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
 		echo "${GREEN}Найдены обновления. Установка...${NC}"
-		git pull origin main
-		"$VENV_PATH/bin/pip" install -q -r requirements.txt
-		systemctl restart $SERVICE_NAME
+		if ! git pull origin main; then
+			check_error "Не удалось выполнить git pull origin main"
+		fi
+		if ! "$VENV_PATH/bin/pip" install -q -r requirements.txt; then
+			check_error "Не удалось обновить Python-зависимости"
+		fi
+		if ! systemctl restart "$SERVICE_NAME"; then
+			check_error "Не удалось перезапустить сервис $SERVICE_NAME"
+		fi
 		echo "${GREEN}Обновление завершено!${NC}"
 	else
 		echo "${GREEN}Система актуальна.${NC}"
@@ -449,6 +490,9 @@ install() {
 
 	# Проверка установки AntiZapret-VPN
 	check_antizapret_installed() {
+		if systemctl is-active --quiet antizapret.service 2>/dev/null; then
+			return 0
+		fi
 		[ -d "$ANTIZAPRET_INSTALL_DIR" ]
 	}
 
@@ -474,27 +518,40 @@ install() {
 
 	# Обновление пакетов
 	echo "${YELLOW}Обновление списка пакетов...${NC}"
-	apt-get update --quiet --quiet >/dev/null
+	if ! apt-get update --quiet --quiet >/dev/null; then
+		check_error "Не удалось обновить пакеты"
+	fi
 	echo "${GREEN}[✓] Готово${NC}"
-	check_error "Не удалось обновить пакеты"
 
 	# Проверка и установка зависимостей
 	check_dependencies
 
 	# Создание виртуального окружения
 	echo "${YELLOW}Создание виртуального окружения...${NC}"
-	python3 -m venv "$VENV_PATH"
+	if ! python3 -m venv "$VENV_PATH"; then
+		check_error "Не удалось создать виртуальное окружение"
+	fi
 	echo "${GREEN}[✓] Готово${NC}"
-	check_error "Не удалось создать виртуальное окружение"
+
+	# Обновление pip-инструментов внутри venv для лучшей совместимости пакетов
+	echo "${YELLOW}Обновление pip/setuptools/wheel...${NC}"
+	if ! "$VENV_PATH/bin/pip" install -q --upgrade pip setuptools wheel; then
+		check_error "Не удалось обновить pip/setuptools/wheel"
+	fi
+	echo "${GREEN}[✓] Готово${NC}"
 
 	# Установка Python-зависимостей
 	echo "${YELLOW}Установка Python-зависимостей...${NC}"
-	"$VENV_PATH/bin/pip" install -q -r "$INSTALL_DIR/requirements.txt"
+	if ! "$VENV_PATH/bin/pip" install -q -r "$INSTALL_DIR/requirements.txt"; then
+		check_error "Не удалось установить Python-зависимости"
+	fi
 	echo "${GREEN}[✓] Готово${NC}"
-	check_error "Не удалось установить Python-зависимости"
 
 	# Выбор способа установки
-	choose_installation_type || exit 1
+	if ! choose_installation_type; then
+		finish_install_logging 1
+		exit 1
+	fi
 
 	# Инициализация базы данных
 	init_db
@@ -655,17 +712,10 @@ EOL
 	check_error "Не удалось запустить сервис vnstat"
 	echo "${GREEN}[✓] Сервис vnstat настроен и запущен${NC}"
 
-	# Добавление дополнительных настроек в .env
+	# Добавление дополнительных настроек в .env без дублей ключей
 	echo "${YELLOW}Добавление дополнительных настроек в .env...${NC}"
-	{
-		echo ""
-		echo "# Настройки безопасности - разрешенные IP адреса"
-		echo "# Формат: ALLOWED_IPS=192.168.1.1,192.168.1.2"
-		echo "ALLOWED_IPS="
-		echo ""
-		echo "# Режим ограничения IP: strict (строгий) или none (без ограничений)"
-		echo "IP_RESTRICTION_MODE=strict"
-	} >>"$INSTALL_DIR/.env"
+	set_env_value "ALLOWED_IPS" ""
+	set_env_value "IP_RESTRICTION_MODE" "strict"
 	echo "${GREEN}[✓] Дополнительные настройки добавлены в .env${NC}"
 
 	# Проверка установки

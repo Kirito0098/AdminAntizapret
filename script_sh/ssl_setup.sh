@@ -33,6 +33,30 @@ get_port() {
 	done
 }
 
+set_env_value() {
+	local key="$1"
+	local value="$2"
+	local env_file="$INSTALL_DIR/.env"
+	local escaped_value
+
+	mkdir -p "$INSTALL_DIR"
+	[ -f "$env_file" ] || touch "$env_file"
+
+	escaped_value=$(printf '%s' "$value" | sed 's/[&|]/\\&/g')
+	if grep -q "^${key}=" "$env_file"; then
+		sed -i "s|^${key}=.*|${key}=${escaped_value}|" "$env_file"
+	else
+		echo "${key}=${value}" >>"$env_file"
+	fi
+}
+
+unset_env_value() {
+	local key="$1"
+	local env_file="$INSTALL_DIR/.env"
+	[ -f "$env_file" ] || return 0
+	sed -i "/^${key}=/d" "$env_file"
+}
+
 choose_installation_type() {
 	while true; do
 		echo "${YELLOW}Выберите способ установки:${NC}"
@@ -53,10 +77,8 @@ choose_installation_type() {
 			1 | 2 | 3 | 4)
 				# Базовые настройки для HTTPS
 				get_port
-				cat >"$INSTALL_DIR/.env" <<EOL
-SECRET_KEY='$SECRET_KEY'
-APP_PORT=$APP_PORT
-EOL
+				set_env_value "SECRET_KEY" "$SECRET_KEY"
+				set_env_value "APP_PORT" "$APP_PORT"
 
 				case $ssl_sub_choice in
 				1) setup_letsencrypt ;;
@@ -123,12 +145,11 @@ setup_letsencrypt() {
 				echo "${YELLOW}Для домена $DOMAIN уже существуют сертификаты Let's Encrypt.${NC}"
 				read -p "Использовать существующие сертификаты? (y/n): " use_existing
 				if [[ "$use_existing" =~ ^[Yy]$ ]]; then
-					cat >>"$INSTALL_DIR/.env" <<EOL
-USE_HTTPS=true
-SSL_CERT=/etc/letsencrypt/live/$DOMAIN/fullchain.pem
-SSL_KEY=/etc/letsencrypt/live/$DOMAIN/privkey.pem
-DOMAIN=$DOMAIN
-EOL
+					set_env_value "USE_HTTPS" "true"
+					set_env_value "SSL_CERT" "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+					set_env_value "SSL_KEY" "/etc/letsencrypt/live/$DOMAIN/privkey.pem"
+					set_env_value "DOMAIN" "$DOMAIN"
+					unset_env_value "BIND"
 					echo "${GREEN}Используются существующие сертификаты Let's Encrypt для домена $DOMAIN!${NC}"
 					return 0
 				else
@@ -298,12 +319,11 @@ EOF
 	) | crontab -
 
 	# Запись в базу пути скриптов Let's Encript и названия домена
-	cat >>"$INSTALL_DIR/.env" <<EOL
-USE_HTTPS=true
-SSL_CERT=/etc/letsencrypt/live/$DOMAIN/fullchain.pem
-SSL_KEY=/etc/letsencrypt/live/$DOMAIN/privkey.pem
-DOMAIN=$DOMAIN
-EOL
+	set_env_value "USE_HTTPS" "true"
+	set_env_value "SSL_CERT" "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+	set_env_value "SSL_KEY" "/etc/letsencrypt/live/$DOMAIN/privkey.pem"
+	set_env_value "DOMAIN" "$DOMAIN"
+	unset_env_value "BIND"
 
 	echo "${GREEN}Let's Encrypt успешно настроен для домена $DOMAIN!${NC}"
 }
@@ -329,12 +349,11 @@ setup_custom_certs() {
 		return 1
 	fi
 
-	cat >>"$INSTALL_DIR/.env" <<EOL
-USE_HTTPS=true
-SSL_CERT=$CERT_PATH
-SSL_KEY=$KEY_PATH
-DOMAIN=$DOMAIN
-EOL
+	set_env_value "USE_HTTPS" "true"
+	set_env_value "SSL_CERT" "$CERT_PATH"
+	set_env_value "SSL_KEY" "$KEY_PATH"
+	set_env_value "DOMAIN" "$DOMAIN"
+	unset_env_value "BIND"
 
 	echo "${GREEN}Собственные сертификаты успешно настроены для домена $DOMAIN!${NC}"
 }
@@ -350,11 +369,11 @@ setup_selfsigned() {
 		-out /etc/ssl/certs/admin-antizapret.crt \
 		-subj "/CN=$(hostname)" >/dev/null 2>&1
 
-	cat >>"$INSTALL_DIR/.env" <<EOL
-USE_HTTPS=true
-SSL_CERT=/etc/ssl/certs/admin-antizapret.crt
-SSL_KEY=/etc/ssl/private/admin-antizapret.key
-EOL
+	set_env_value "USE_HTTPS" "true"
+	set_env_value "SSL_CERT" "/etc/ssl/certs/admin-antizapret.crt"
+	set_env_value "SSL_KEY" "/etc/ssl/private/admin-antizapret.key"
+	unset_env_value "DOMAIN"
+	unset_env_value "BIND"
 
 	log "Самоподписанный сертификат создан"
 	echo "${GREEN}Самоподписанный сертификат успешно создан!${NC}"
@@ -364,11 +383,13 @@ configure_http() {
 	log "Настройка HTTP соединения"
 	echo "${YELLOW}Настройка HTTP соединения...${NC}"
 
-	cat >"$INSTALL_DIR/.env" <<EOL
-SECRET_KEY='$SECRET_KEY'
-APP_PORT=$APP_PORT
-USE_HTTPS=false
-EOL
+	set_env_value "SECRET_KEY" "$SECRET_KEY"
+	set_env_value "APP_PORT" "$APP_PORT"
+	set_env_value "USE_HTTPS" "false"
+	unset_env_value "SSL_CERT"
+	unset_env_value "SSL_KEY"
+	unset_env_value "DOMAIN"
+	unset_env_value "BIND"
 
 	echo "${GREEN}HTTP соединение настроено на порту $APP_PORT!${NC}"
 }
@@ -501,11 +522,11 @@ EOF
 
 	systemctl enable --now snap.certbot.renew.timer 2>/dev/null || true
 
-	cat >>"$INSTALL_DIR/.env" <<EOL
-USE_HTTPS=false
-DOMAIN=$DOMAIN
-BIND=127.0.0.1
-EOL
+	set_env_value "USE_HTTPS" "false"
+	set_env_value "DOMAIN" "$DOMAIN"
+	set_env_value "BIND" "127.0.0.1"
+	unset_env_value "SSL_CERT"
+	unset_env_value "SSL_KEY"
 
 	echo "${YELLOW}Nginx с Let's Encrypt успешно настроен для $DOMAIN!${NC}"
 	echo "${YELLOW}Конфиг сохранён как: $NGINX_CONF_FILE${NC}"
