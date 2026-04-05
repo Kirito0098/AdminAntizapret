@@ -922,6 +922,48 @@ function initializeClientDetailsModal() {
         return `${size.toFixed(precision)} ${units[idx]}`;
     }
 
+    const trafficLabelFormatters = {
+        minute5: new Intl.DateTimeFormat(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+        }),
+        hour: new Intl.DateTimeFormat(undefined, {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+        }),
+        day: new Intl.DateTimeFormat(undefined, {
+            day: '2-digit',
+            month: '2-digit',
+        }),
+        month: new Intl.DateTimeFormat(undefined, {
+            month: '2-digit',
+            year: 'numeric',
+        }),
+    };
+
+    function formatTrafficChartLabels(data) {
+        const labels = Array.isArray(data && data.labels) ? data.labels.slice() : [];
+        const labelDatetimesUtc = Array.isArray(data && data.label_datetimes_utc)
+            ? data.label_datetimes_utc
+            : [];
+        const bucket = String((data && data.bucket) || '').toLowerCase();
+        const formatter = trafficLabelFormatters[bucket];
+
+        if (!labels.length || labels.length !== labelDatetimesUtc.length || !formatter) {
+            return labels;
+        }
+
+        return labels.map((fallbackLabel, index) => {
+            const parsed = new Date(labelDatetimesUtc[index]);
+            if (Number.isNaN(parsed.getTime())) {
+                return fallbackLabel;
+            }
+            return formatter.format(parsed);
+        });
+    }
+
     function setModalOpen(isOpen) {
         if (isOpen) {
             modal.hidden = false;
@@ -1473,7 +1515,7 @@ function initializeClientDetailsModal() {
             }
 
             const data = await response.json();
-            const labels = (data.labels || []).slice();
+            const labels = formatTrafficChartLabels(data);
             const vpnData = (data.vpn_bytes || []).map(v => Number(v || 0));
             const antData = (data.antizapret_bytes || []).map(v => Number(v || 0));
 

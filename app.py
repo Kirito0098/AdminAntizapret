@@ -6309,10 +6309,32 @@ def api_user_traffic_chart():
 
     grouped = defaultdict(lambda: {"vpn": 0, "antizapret": 0, "openvpn": 0, "wireguard": 0})
 
+    def format_bucket_dt_utc(dt_value, bucket_name):
+        if not dt_value:
+            return None
+
+        if bucket_name == "minute5":
+            aligned = dt_value.replace(minute=(dt_value.minute // 5) * 5, second=0, microsecond=0)
+        elif bucket_name == "hour":
+            aligned = dt_value.replace(minute=0, second=0, microsecond=0)
+        elif bucket_name == "day":
+            aligned = dt_value.replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            aligned = dt_value.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        if aligned.tzinfo is None:
+            aligned = aligned.replace(tzinfo=timezone.utc)
+        else:
+            aligned = aligned.astimezone(timezone.utc)
+
+        return aligned.isoformat().replace("+00:00", "Z")
+
     for item in samples:
         dt = item.created_at
         if not dt:
             continue
+
+        label_dt_utc = format_bucket_dt_utc(dt, bucket)
 
         if bucket == "minute5":
             minute = (dt.minute // 5) * 5
@@ -6340,11 +6362,14 @@ def api_user_traffic_chart():
             continue
 
         grouped[bucket_key]["label"] = label
+        if label_dt_utc and "label_dt_utc" not in grouped[bucket_key]:
+            grouped[bucket_key]["label_dt_utc"] = label_dt_utc
         grouped[bucket_key][net] += total_delta
         grouped[bucket_key][protocol] += total_delta
 
     ordered_keys = sorted(grouped.keys())
     labels = [grouped[key].get("label", key) for key in ordered_keys]
+    label_datetimes_utc = [grouped[key].get("label_dt_utc") for key in ordered_keys]
     vpn_bytes = [int(grouped[key].get("vpn", 0)) for key in ordered_keys]
     antizapret_bytes = [int(grouped[key].get("antizapret", 0)) for key in ordered_keys]
     openvpn_bytes = [int(grouped[key].get("openvpn", 0)) for key in ordered_keys]
@@ -6362,6 +6387,7 @@ def api_user_traffic_chart():
             "bucket": bucket,
             "protocol_filter": protocol_filter,
             "labels": labels,
+            "label_datetimes_utc": label_datetimes_utc,
             "vpn_bytes": vpn_bytes,
             "antizapret_bytes": antizapret_bytes,
             "openvpn_bytes": openvpn_bytes,
