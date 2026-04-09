@@ -3036,6 +3036,14 @@ body.renew-days-modal-open {
   color: #e7fff0;
 }
 
+.renew-days-field-meta {
+  margin: 0.5rem 0 0.32rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgba(216, 245, 230, 0.62);
+}
+
 .renew-days-form input {
   width: 100%;
   padding: 0.62rem 0.68rem;
@@ -3052,6 +3060,12 @@ body.renew-days-modal-open {
   outline: none;
   border-color: rgba(126, 220, 184, 0.75);
   box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.18);
+}
+
+.renew-days-hint {
+  margin: 0.38rem 0 0;
+  font-size: 0.76rem;
+  color: rgba(220, 246, 232, 0.74);
 }
 
 .renew-days-error {

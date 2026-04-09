@@ -1028,6 +1028,10 @@ function initializeClientDetailsModal() {
                     <form class="renew-days-form">
                         <label for="renewDaysInput">Срок действия (дни, 1-3650)</label>
                         <input id="renewDaysInput" name="renewDays" type="number" min="1" max="3650" inputmode="numeric" required />
+                        <div class="renew-days-field-meta">или выберите дату окончания</div>
+                        <label for="renewDateInput">Дата окончания сертификата</label>
+                        <input id="renewDateInput" name="renewDate" type="date" required />
+                        <p class="renew-days-hint">При выборе даты срок в днях рассчитывается автоматически.</p>
                         <div class="renew-days-error" aria-live="polite"></div>
                         <div class="renew-days-actions">
                             <button type="button" class="download-button renew-days-cancel">Отмена</button>
@@ -1038,6 +1042,7 @@ function initializeClientDetailsModal() {
             `;
 
             const input = modal.querySelector('#renewDaysInput');
+            const dateInput = modal.querySelector('#renewDateInput');
             const errorNode = modal.querySelector('.renew-days-error');
             const form = modal.querySelector('.renew-days-form');
             const closeButton = modal.querySelector('.renew-days-close');
@@ -1045,7 +1050,62 @@ function initializeClientDetailsModal() {
             const backdrop = modal.querySelector('.renew-days-backdrop');
 
             const initialValue = String(defaultDays || '365').trim();
-            input.value = /^\d+$/.test(initialValue) ? initialValue : '365';
+            const initialDaysParsed = Number.parseInt(initialValue, 10);
+            const initialDays = Number.isFinite(initialDaysParsed) && initialDaysParsed >= 1 && initialDaysParsed <= 3650
+                ? initialDaysParsed
+                : 365;
+            input.value = String(initialDays);
+
+            const MS_PER_DAY = 24 * 60 * 60 * 1000;
+            const getToday = () => {
+                const now = new Date();
+                return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            };
+
+            const formatDateForInput = (date) => {
+                const year = String(date.getFullYear());
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            const parseInputDate = (raw) => {
+                const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(raw || '').trim());
+                if (!match) {
+                    return null;
+                }
+
+                const year = Number.parseInt(match[1], 10);
+                const month = Number.parseInt(match[2], 10);
+                const day = Number.parseInt(match[3], 10);
+                const parsed = new Date(year, month - 1, day);
+                if (
+                    parsed.getFullYear() !== year
+                    || parsed.getMonth() !== month - 1
+                    || parsed.getDate() !== day
+                ) {
+                    return null;
+                }
+                return parsed;
+            };
+
+            const today = getToday();
+
+            const setDateFromDays = (days) => {
+                const targetDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + days);
+                dateInput.value = formatDateForInput(targetDate);
+            };
+
+            const calculateDaysFromDate = (selectedDate) => {
+                const diffMs = selectedDate.getTime() - today.getTime();
+                const diffDays = Math.round(diffMs / MS_PER_DAY);
+                return Math.max(1, diffDays);
+            };
+
+            dateInput.min = formatDateForInput(today);
+            setDateFromDays(initialDays);
+
+            let activeSource = 'days';
 
             let resolved = false;
 
@@ -1084,6 +1144,35 @@ function initializeClientDetailsModal() {
                 return days;
             };
 
+            const parseDateBasedDays = () => {
+                const raw = String(dateInput.value || '').trim();
+                if (!raw) {
+                    setError('Выберите дату окончания сертификата');
+                    return null;
+                }
+
+                const parsedDate = parseInputDate(raw);
+                if (!parsedDate) {
+                    setError('Выберите корректную дату окончания');
+                    return null;
+                }
+
+                if (parsedDate.getTime() < today.getTime()) {
+                    setError('Дата не может быть раньше сегодняшней');
+                    return null;
+                }
+
+                const days = calculateDaysFromDate(parsedDate);
+                if (!Number.isFinite(days) || days < 1 || days > 3650) {
+                    setError('Выбранная дата должна быть в пределах 3650 дней');
+                    return null;
+                }
+
+                input.value = String(days);
+                setError('');
+                return days;
+            };
+
             const onKeyDown = (event) => {
                 if (event.key === 'Escape') {
                     cleanup(null);
@@ -1092,7 +1181,7 @@ function initializeClientDetailsModal() {
 
             form.addEventListener('submit', (event) => {
                 event.preventDefault();
-                const days = parseDays();
+                const days = activeSource === 'date' ? parseDateBasedDays() : parseDays();
                 if (days === null) {
                     return;
                 }
@@ -1100,7 +1189,29 @@ function initializeClientDetailsModal() {
             });
 
             input.addEventListener('input', () => {
+                activeSource = 'days';
                 setError('');
+                const days = Number.parseInt(String(input.value || '').trim(), 10);
+                if (Number.isFinite(days) && days >= 1 && days <= 3650) {
+                    setDateFromDays(days);
+                }
+            });
+
+            dateInput.addEventListener('input', () => {
+                activeSource = 'date';
+                setError('');
+                const parsedDate = parseInputDate(dateInput.value);
+                if (!parsedDate || parsedDate.getTime() < today.getTime()) {
+                    return;
+                }
+
+                const days = calculateDaysFromDate(parsedDate);
+                if (days > 3650) {
+                    setError('Выбранная дата должна быть в пределах 3650 дней');
+                    return;
+                }
+
+                input.value = String(days);
             });
 
             closeButton.addEventListener('click', () => cleanup(null));
@@ -1233,6 +1344,12 @@ function initializeClientDetailsModal() {
                 label: '♻ Продлить сертификат',
                 groupKey: 'manage',
                 onClick: async (event) => {
+                    const button = event.currentTarget;
+                    if (!button) {
+                        showNotification('Кнопка продления недоступна', 'error');
+                        return;
+                    }
+
                     const certDaysRaw = Number.parseInt(row.dataset.certDays || '', 10);
                     const defaultDays = Number.isFinite(certDaysRaw) && certDaysRaw > 0 && certDaysRaw <= 3650
                         ? String(certDaysRaw)
@@ -1243,7 +1360,6 @@ function initializeClientDetailsModal() {
                         return;
                     }
 
-                    const button = event.currentTarget;
                     const originalText = button.textContent;
                     button.disabled = true;
                     button.textContent = '...';

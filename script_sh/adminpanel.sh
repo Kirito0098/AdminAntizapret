@@ -304,6 +304,30 @@ check_root() {
 	fi
 }
 
+resolve_vnstat_unit_file() {
+	local fragment_path=""
+
+	if command -v systemctl >/dev/null 2>&1; then
+		fragment_path=$(systemctl show -P FragmentPath vnstat.service 2>/dev/null || true)
+		if [ -n "$fragment_path" ] && [ -f "$fragment_path" ]; then
+			echo "$fragment_path"
+			return 0
+		fi
+	fi
+
+	if [ -f "/lib/systemd/system/vnstat.service" ]; then
+		echo "/lib/systemd/system/vnstat.service"
+		return 0
+	fi
+
+	if [ -f "/usr/lib/systemd/system/vnstat.service" ]; then
+		echo "/usr/lib/systemd/system/vnstat.service"
+		return 0
+	fi
+
+	return 1
+}
+
 # Установка AntiZapret-VPN
 install_antizapret() {
 	log "Проверка наличия AntiZapret-VPN"
@@ -689,18 +713,19 @@ EOL
 
 	# Настройка сервиса vnstat
 	echo "${YELLOW}Настройка сервиса vnstat...${NC}"
-	if [ -f "/lib/systemd/system/vnstat.service" ]; then
-		if grep -q "ExecStartPre=/bin/sleep 10" /lib/systemd/system/vnstat.service; then
+	vnstat_unit_file=$(resolve_vnstat_unit_file)
+	if [ -n "$vnstat_unit_file" ] && [ -f "$vnstat_unit_file" ]; then
+		if grep -q "ExecStartPre=/bin/sleep 10" "$vnstat_unit_file"; then
 			echo "${GREEN}ExecStartPre=/bin/sleep 10 уже присутствует в vnstat.service${NC}"
 		else
 			temp_file=$(mktemp)
-			awk '/^\[Service\]$/{print; print "ExecStartPre=/bin/sleep 10"; next}1' /lib/systemd/system/vnstat.service >"$temp_file"
-			cat "$temp_file" >/lib/systemd/system/vnstat.service
+			awk '/^\[Service\]$/{print; print "ExecStartPre=/bin/sleep 10"; next}1' "$vnstat_unit_file" >"$temp_file"
+			cat "$temp_file" >"$vnstat_unit_file"
 			rm "$temp_file"
 			echo "${GREEN}Добавлена строка ExecStartPre=/bin/sleep 10 в vnstat.service${NC}"
 		fi
 	else
-		echo "${RED}Ошибка: Файл /lib/systemd/system/vnstat.service не найден! Убедитесь, что vnstat установлен корректно.${NC}"
+		echo "${RED}Ошибка: unit-файл vnstat.service не найден! Убедитесь, что vnstat установлен корректно.${NC}"
 		exit 1
 	fi
 
