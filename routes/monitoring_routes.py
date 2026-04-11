@@ -147,10 +147,14 @@ def register_monitoring_routes(
     @app.route("/api/bw")
     @auth_manager.login_required
     def api_bw():
-        iface = os.environ.get("VNSTAT_IFACE") or app.config.get("VNSTAT_IFACE")
+        iface = os.environ.get("VNSTAT_IFACE") or app.config.get("VNSTAT_IFACE") or "ens3"
         q_iface = request.args.get("iface")
         if q_iface:
             iface = q_iface
+
+        iface = (iface or "").strip()
+        if not iface:
+            return jsonify({"error": "Не задан сетевой интерфейс", "iface": iface}), 400
 
         rng = request.args.get("range", "1d")
         if rng not in ("1d", "7d", "30d"):

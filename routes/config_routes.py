@@ -7,6 +7,7 @@ from flask import (
     abort,
     flash,
     jsonify,
+    make_response,
     redirect,
     render_template,
     render_template_string,
@@ -91,7 +92,7 @@ def register_config_routes(
         session["openvpn_group"] = grp
         return redirect(url_for("index"))
 
-    @app.route("/qr_download/<token>")
+    @app.route("/qr_download/<token>", methods=["GET", "POST"])
     def one_time_qr_download(token):
         if not token or len(token) < 16:
             abort(404)
@@ -118,7 +119,8 @@ def register_config_routes(
 <body>
   <div class="wrap">
     <h2>PIN для скачивания</h2>
-    <form method="GET">
+        <form method="POST" autocomplete="off">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="password" name="pin" inputmode="numeric" pattern="[0-9]*" placeholder="Введите PIN" autofocus required />
       <button type="submit">Скачать файл</button>
     </form>
@@ -128,6 +130,16 @@ def register_config_routes(
 </body>
 </html>
         """
+
+        def _render_pin_page(error=None, remaining=0, status_code=200):
+            response = make_response(
+                render_template_string(pin_page_tpl, error=error, remaining=remaining),
+                status_code,
+            )
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
 
         try:
             token_row = qr_download_token_model.query.filter_by(token_hash=token_hash).first()
@@ -144,15 +156,18 @@ def register_config_routes(
                 abort(410, description="Ссылка истекла или уже использована")
 
             if token_row.pin_hash:
-                pin = (request.args.get("pin") or "").strip()
                 remaining = max(token_row.max_downloads - token_row.download_count, 0)
+                if request.method != "POST":
+                    return _render_pin_page(error=None, remaining=remaining)
+
+                pin = (request.form.get("pin") or "").strip()
                 if not pin:
-                    return render_template_string(pin_page_tpl, error=None, remaining=remaining)
+                    return _render_pin_page(error="Введите PIN", remaining=remaining, status_code=400)
 
                 pin_hash = hashlib.sha256(pin.encode("utf-8")).hexdigest()
                 if pin_hash != token_row.pin_hash:
                     log_qr_event("download_pin_invalid", token_row=token_row, details="invalid_pin")
-                    return render_template_string(pin_page_tpl, error="Неверный PIN", remaining=remaining), 403
+                    return _render_pin_page(error="Неверный PIN", remaining=remaining, status_code=403)
 
             updated = db.session.query(qr_download_token_model).filter(
                 qr_download_token_model.id == token_row.id,

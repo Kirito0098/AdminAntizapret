@@ -116,12 +116,16 @@ def register_admin_routes(
         if not all([user_id, config_name, config_type, action]):
             return jsonify({"success": False, "message": "Неверные параметры"}), 400
 
+        allowed_config_types = {"openvpn", "wg", "amneziawg"}
+        if config_type not in allowed_config_types:
+            return jsonify({"success": False, "message": "Неверный тип конфигурации"}), 400
+
         target_user = db.session.get(user_model, user_id)
         if not target_user or target_user.role != "viewer":
             return jsonify({"success": False, "message": "Пользователь не найден или не является viewer"}), 404
 
         target_config_names = [config_name]
-        if config_type in ("openvpn", "wg", "amneziawg"):
+        if config_type in allowed_config_types:
             all_configs = collect_all_configs_for_access(config_type)
             grouped_names = {
                 os.path.basename(path)

@@ -29,16 +29,18 @@ def register_index_routes(
             if group not in group_folders:
                 group = "GROUP_UDP\\TCP"
             folders = group_folders[group]
-            config_file_handler.config_paths["openvpn"] = folders
-            file_validator.config_paths["openvpn"] = folders
-            openvpn_files, wg_files, amneziawg_files = config_file_handler.get_config_files()
-            cert_expiry = config_file_handler.get_openvpn_cert_expiry()
+            request_config_paths = dict(config_file_handler.config_paths)
+            request_config_paths["openvpn"] = list(folders)
+            request_config_file_handler = config_file_handler.__class__(request_config_paths)
+
+            openvpn_files, wg_files, amneziawg_files = request_config_file_handler.get_config_files()
+            cert_expiry = request_config_file_handler.get_openvpn_cert_expiry()
             raw_banned_clients = read_banned_clients()
             banned_clients = set()
 
             for file_path in openvpn_files:
                 filename = os.path.basename(file_path)
-                client_name = config_file_handler._extract_client_name_from_ovpn(filename)
+                client_name = request_config_file_handler._extract_client_name_from_ovpn(filename)
                 if client_name and client_name in raw_banned_clients:
                     banned_clients.add(client_name)
 

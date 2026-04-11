@@ -41,15 +41,8 @@ def register_settings_routes(
         if request.method == "POST":
             new_port = request.form.get("port")
             if new_port and new_port.isdigit():
-                env_path = os.path.join(app.root_path, ".env")
-                with open(env_path, "r", encoding="utf-8") as file:
-                    lines = file.readlines()
-                with open(env_path, "w", encoding="utf-8") as file:
-                    for line in lines:
-                        if line.startswith("APP_PORT="):
-                            file.write(f"APP_PORT={new_port}\n")
-                        else:
-                            file.write(line)
+                set_env_value("APP_PORT", new_port)
+                os.environ["APP_PORT"] = new_port
                 flash("Порт успешно изменён. Перезапуск службы...", "success")
 
                 try:
