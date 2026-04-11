@@ -3,14 +3,14 @@
 # Управление сервисом
 restart_service() {
 	echo "${YELLOW}Перезапуск сервиса...${NC}"
-	systemctl restart $SERVICE_NAME
+	systemctl restart "$SERVICE_NAME"
 	check_status
 }
 
 # Проверка статуса сервиса
 check_status() {
 	echo "${YELLOW}Статус сервиса:${NC}"
-	systemctl status $SERVICE_NAME --no-pager -l
+	systemctl status "$SERVICE_NAME" --no-pager -l
 	press_any_key
 }
 
@@ -22,28 +22,29 @@ check_updates() {
 # Просмотр логов сервиса
 show_logs() {
 	echo "${YELLOW}Log File:${NC}"
-	journalctl -u $SERVICE_NAME -n 50 --no-pager
+	journalctl -u "$SERVICE_NAME" -n 50 --no-pager
 	press_any_key
 }
 
 # Валидация конфигурации
 validate_config() {
 	local errors=0
+	local env_file="$INSTALL_DIR/.env"
 
 	echo "${YELLOW}Проверка конфигурации...${NC}"
 
-	if [ ! -f "$INSTALL_DIR/.env" ]; then
+	if [ ! -f "$env_file" ]; then
 		echo "${RED}Ошибка: .env файл не найден${NC}"
 		errors=$((errors + 1))
-	fi
-
-	if ! grep -q "SECRET_KEY=" "$INSTALL_DIR/.env"; then
-		echo "${RED}Ошибка: SECRET_KEY не установлен${NC}"
-		errors=$((errors + 1))
-	fi
-	if ! grep -q "VNSTAT_IFACE=" "$INSTALL_DIR/.env"; then
-		echo "${RED}Ошибка: VNSTAT_IFACE не установлен${NC}"
-		errors=$((errors + 1))
+	else
+		if ! grep -q "^SECRET_KEY=" "$env_file"; then
+			echo "${RED}Ошибка: SECRET_KEY не установлен${NC}"
+			errors=$((errors + 1))
+		fi
+		if ! grep -q "^VNSTAT_IFACE=" "$env_file"; then
+			echo "${RED}Ошибка: VNSTAT_IFACE не установлен${NC}"
+			errors=$((errors + 1))
+		fi
 	fi
 
 	if [ ! -f "$DB_FILE" ]; then
@@ -56,7 +57,7 @@ validate_config() {
 		errors=$((errors + 1))
 	fi
 
-	if [ $errors -eq 0 ]; then
+	if [ "$errors" -eq 0 ]; then
 		echo "${GREEN}Конфигурация в порядке.${NC}"
 		return 0
 	else
@@ -68,13 +69,14 @@ validate_config() {
 # Проверка и установка прав выполнения для файлов
 check_and_set_permissions() {
 	echo "${YELLOW}Проверка и установка прав выполнения для client.sh и doall.sh...${NC}"
+	local files
+	local file
 
 	files=("$INSTALL_DIR/client.sh" "$ANTIZAPRET_INSTALL_DIR/doall.sh")
 	for file in "${files[@]}"; do
 		if [ -f "$file" ]; then
 			if [ ! -x "$file" ]; then
-				chmod +x "$file"
-				if [ $? -eq 0 ]; then
+				if chmod +x "$file"; then
 					echo "${GREEN}Права выполнения установлены для $file${NC}"
 				else
 					echo "${RED}Ошибка при установке прав выполнения для $file!${NC}"
@@ -93,9 +95,13 @@ check_and_set_permissions() {
 # Изменение порта сервиса
 change_port() {
 	echo "${YELLOW}Изменение порта сервиса...${NC}"
+	local current_port=""
 	get_port
 	# Обновляем .env
-	if [[ $(grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env") == "$APP_PORT" ]]; then
+	if [ -f "$INSTALL_DIR/.env" ]; then
+		current_port=$(grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env" 2>/dev/null || true)
+	fi
+	if [[ "$current_port" == "$APP_PORT" ]]; then
 		echo "${GREEN}Порт не изменился${NC}"
 		press_any_key
 		return

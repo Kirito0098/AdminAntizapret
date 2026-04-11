@@ -15,9 +15,26 @@ prune_logs_by_pattern() {
   local pattern="$1"
   local keep_count="${2:-20}"
   local i=0
+  local file
+  local entry
+  local matches=()
   local files=()
 
-  mapfile -t files < <(ls -1t $pattern 2>/dev/null || true)
+  while IFS= read -r file; do
+    [ -n "$file" ] && matches+=("$file")
+  done < <(compgen -G "$pattern" || true)
+
+  [ "${#matches[@]}" -gt 0 ] || return 0
+
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    files+=("${entry#*$'\t'}")
+  done < <(
+    for file in "${matches[@]}"; do
+      printf '%s\t%s\n' "$(stat -c %Y "$file" 2>/dev/null || echo 0)" "$file"
+    done | sort -nr
+  )
+
   for file in "${files[@]}"; do
     i=$((i + 1))
     if [ "$i" -gt "$keep_count" ]; then
