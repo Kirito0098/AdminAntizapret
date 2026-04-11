@@ -19,8 +19,8 @@
 }
 
 .unit-btn {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid #ccc;
+  background: var(--theme-muted-alpha-85, rgba(255, 255, 255, 0.85));
+  border: 1px solid var(--theme-control-border-light, #ccc);
   border-radius: 6px;
   padding: 6px 12px;
   cursor: pointer;
@@ -31,9 +31,9 @@
 .unit-btn {
   margin-right: 6px;
   padding: 6px 10px;
-  background: #2b2b2b;
-  color: #ddd;
-  border: 1px solid #555;
+  background: var(--theme-control-bg, #2b2b2b);
+  color: var(--theme-control-text, #ddd);
+  border: 1px solid var(--theme-control-border, #555);
   border-radius: 6px;
   cursor: pointer;
 }
@@ -41,9 +41,9 @@
 .iface-btn.active,
 .bw-range-btn.active,
 .unit-btn.active {
-  background: #4caf50;
-  color: #fff;
-  border-color: #4caf50;
+  background: var(--theme-primary, #4caf50);
+  color: var(--theme-text-main, #fff);
+  border-color: var(--theme-primary, #4caf50);
 }
 
 .iface-btn:disabled,
@@ -62,14 +62,14 @@
 
 /* Внешняя окружность */
 .uptime-icon circle {
-  stroke: #4caf50;
+  stroke: var(--theme-primary, #4caf50);
   stroke-width: 3;
   fill: none;
 }
 
 /* Галочка */
 .uptime-icon path {
-  stroke: #4caf50;
+  stroke: var(--theme-primary, #4caf50);
   stroke-width: 3;
   fill: none;
   stroke-linecap: round;
@@ -153,27 +153,27 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  border: 2px solid #4caf50;
-  background: rgba(30, 40, 30, 0.7);
+  border: 2px solid var(--theme-primary, #4caf50);
+  background: var(--theme-success-surface, rgba(30, 40, 30, 0.7));
   border-radius: 1.2rem;
   text-align: center;
   min-width: 260px;
   max-width: 350px;
   min-height: 320px;
   /* одинаковая высота карточек */
-  box-shadow: 0 4px 24px rgba(76, 175, 80, 0.08);
+  box-shadow: 0 4px 24px var(--theme-primary-alpha-08, rgba(76, 175, 80, 0.08));
   transition: box-shadow 0.2s;
   margin: 0;
 }
 
 .info-item:hover {
-  box-shadow: 0 8px 32px rgba(76, 175, 80, 0.18);
+  box-shadow: 0 8px 32px var(--theme-primary-alpha-18, rgba(76, 175, 80, 0.18));
 }
 
 .info-item h3 {
   font-size: 1.15rem;
   margin-bottom: 0.7rem;
-  color: #b2ffb2;
+  color: var(--theme-accent-soft, #b2ffb2);
   text-align: center;
   letter-spacing: 0.02em;
 }
@@ -181,7 +181,7 @@
 .info-item p {
   font-size: 2rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--theme-text-main, #fff);
   text-align: center;
   margin-bottom: 1rem;
   margin-top: 0.2rem;
@@ -189,9 +189,9 @@
 
 .info-item canvas {
   margin-top: 0.5rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--theme-logs-surface-subtle, rgba(255, 255, 255, 0.03));
   border-radius: 0.7rem;
-  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.08);
+  box-shadow: 0 2px 8px var(--theme-primary-alpha-08, rgba(76, 175, 80, 0.08));
   width: 100% !important;
   max-width: 320px;
   height: 120px !important;
@@ -259,21 +259,21 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.8rem 1.5rem;
-  background: linear-gradient(135deg, #4caf50, #45a049);
-  color: white;
+  background: linear-gradient(135deg, var(--theme-primary, #4caf50), var(--theme-primary-hover, #45a049));
+  color: var(--theme-text-main, white);
   border: none;
   border-radius: 0.6rem;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 4px 12px var(--theme-primary-alpha-30, rgba(76, 175, 80, 0.3));
 }
 
 .refresh-btn:hover {
-  background: linear-gradient(135deg, #45a049, #3d8b40);
+  background: linear-gradient(135deg, var(--theme-primary-hover, #45a049), var(--theme-primary-deep, #3d8b40));
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+  box-shadow: 0 6px 16px var(--theme-primary-alpha-40, rgba(76, 175, 80, 0.4));
 }
 
 .refresh-btn:active {
@@ -299,7 +299,7 @@
 }
 
 .last-update {
-  color: #b2ffb2;
+  color: var(--theme-accent-soft, #b2ffb2);
   font-size: 0.9rem;
 }
 
@@ -309,8 +309,8 @@
   max-width: 1200px;
   margin: 0 auto 2rem;
   padding: 1.5rem;
-  background: rgba(30, 40, 30, 0.5);
-  border: 1px solid #4caf50;
+  background: var(--theme-success-surface-soft, rgba(30, 40, 30, 0.5));
+  border: 1px solid var(--theme-primary, #4caf50);
   border-radius: 0.8rem;
 }
 
@@ -336,7 +336,7 @@
 }
 
 .system-info-section h2 {
-  color: #b2ffb2;
+  color: var(--theme-accent-soft, #b2ffb2);
   margin-top: 0;
   margin-bottom: 1rem;
   font-size: 1.3rem;
@@ -351,14 +351,14 @@
 .system-info-item {
   padding: 1rem;
   border-radius: 0.6rem;
-  background: rgba(30, 40, 30, 0.7);
-  border-left: 3px solid #4caf50;
+  background: var(--theme-success-surface, rgba(30, 40, 30, 0.7));
+  border-left: 3px solid var(--theme-primary, #4caf50);
 }
 
 .system-info-item label {
   display: block;
   font-size: 0.85rem;
-  color: #888;
+  color: var(--theme-text-muted, #888);
   margin-bottom: 0.3rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -366,7 +366,7 @@
 
 .system-info-item p {
   font-size: 1rem;
-  color: #fff;
+  color: var(--theme-text-main, #fff);
   margin: 0;
   word-break: break-all;
 }
@@ -394,19 +394,19 @@
 }
 
 .status-indicator.green {
-  background: #4caf50;
-  color: #4caf50;
+  background: var(--theme-primary, #4caf50);
+  color: var(--theme-primary, #4caf50);
 }
 
 .status-indicator.yellow {
-  background: #ffc107;
-  color: #ffc107;
+  background: var(--theme-warning-bright, #ffc107);
+  color: var(--theme-warning-bright, #ffc107);
   animation: pulse-yellow 2s infinite;
 }
 
 .status-indicator.red {
-  background: #f44336;
-  color: #f44336;
+  background: var(--theme-danger, #f44336);
+  color: var(--theme-danger, #f44336);
   animation: pulse-red 2s infinite;
 }
 
@@ -450,7 +450,7 @@
 
 .disk-info p {
   font-size: 0.9rem !important;
-  color: #b2ffb2;
+  color: var(--theme-accent-soft, #b2ffb2);
   margin: 0.3rem 0 !important;
 }
 
@@ -465,7 +465,7 @@
   display: flex;
   gap: 1rem;
   font-size: 1rem;
-  color: #b2ffb2;
+  color: var(--theme-accent-soft, #b2ffb2);
 }
 
 .load-item span:first-child {
@@ -475,7 +475,7 @@
 
 .load-item span:last-child {
   font-family: monospace;
-  color: #fff;
+  color: var(--theme-text-main, #fff);
 }
 
 /* Responsive adjustments */

@@ -23,6 +23,11 @@ let clientExpiry = {};
 let indexClientDetailsCache = null;
 let indexClientDetailsFetchPromise = null;
 
+function getThemeColor(token, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+    return value || fallback;
+}
+
 // Extract cert expiry data from HTML on load
 function extractCertExpiryData() {
     clientExpiry = {};
@@ -1720,8 +1725,8 @@ function initializeClientDetailsModal() {
                         {
                             label: 'VPN',
                             data: vpnData,
-                            borderColor: '#4caf50',
-                            backgroundColor: 'rgba(76,175,80,0.12)',
+                            borderColor: getThemeColor('--theme-chart-vpn-border', '#4caf50'),
+                            backgroundColor: getThemeColor('--theme-chart-vpn-fill', 'rgba(76,175,80,0.12)'),
                             borderWidth: 2,
                             fill: false,
                             tension: 0.2,
@@ -1729,8 +1734,8 @@ function initializeClientDetailsModal() {
                         {
                             label: 'Antizapret',
                             data: antData,
-                            borderColor: '#f44336',
-                            backgroundColor: 'rgba(244,67,54,0.12)',
+                            borderColor: getThemeColor('--theme-chart-antizapret-border', '#f44336'),
+                            backgroundColor: getThemeColor('--theme-chart-antizapret-fill', 'rgba(244,67,54,0.12)'),
                             borderWidth: 2,
                             fill: false,
                             tension: 0.2,
@@ -1745,27 +1750,27 @@ function initializeClientDetailsModal() {
                     scales: {
                         x: {
                             ticks: {
-                                color: '#bbb',
+                                color: getThemeColor('--theme-chart-axis-x', '#bbb'),
                                 autoSkip: true,
                                 maxTicksLimit: currentRange === '1h' ? 12 : (currentRange === '24h' ? 24 : 10)
                             },
-                            grid: { color: 'rgba(255,255,255,0.05)' }
+                            grid: { color: getThemeColor('--theme-chart-grid-soft', 'rgba(255,255,255,0.05)') }
                         },
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                color: '#ddd',
+                                color: getThemeColor('--theme-chart-axis-y', '#ddd'),
                                 callback: function (value) {
                                     return humanBytes(value);
                                 }
                             },
-                            grid: { color: 'rgba(255,255,255,0.1)' }
+                            grid: { color: getThemeColor('--theme-chart-grid-strong', 'rgba(255,255,255,0.1)') }
                         }
                     },
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: { color: '#fff' }
+                            labels: { color: getThemeColor('--theme-chart-legend', '#fff') }
                         },
                         tooltip: {
                             callbacks: {

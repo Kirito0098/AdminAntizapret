@@ -1,9 +1,9 @@
 :root {
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --accent: #4caf50;
-  --accent-dark: #43a047;
-  --border-accent: #4caf50;
+  --text-primary: var(--theme-text-primary, #e2e8f0);
+  --text-secondary: var(--theme-text-secondary, #94a3b8);
+  --accent: var(--theme-primary, #4caf50);
+  --accent-dark: var(--theme-primary-hover, #45a049);
+  --border-accent: var(--theme-primary, #4caf50);
 }
 
 * {
@@ -30,7 +30,7 @@ body {
 
 .left-sidebar {
   width: 240px;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: var(--theme-glass-bg, rgba(0, 0, 0, 0.4));
   backdrop-filter: blur(50px);
   border: 2px solid var(--border-accent);
   border-radius: 1rem;
@@ -56,7 +56,7 @@ body {
   padding: 0.7rem 1rem;
   background: transparent;
   border-radius: 0.7rem;
-  color: rgba(255, 255, 255);
+  color: var(--theme-text-main, rgba(255, 255, 255));
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -64,13 +64,13 @@ body {
 }
 
 .nav-item:hover {
-  background: rgba(76, 175, 80, 0.2);
-  color: #ffffff;
+  background: var(--theme-primary-alpha-20, rgba(76, 175, 80, 0.2));
+  color: var(--theme-text-main, #ffffff);
 }
 
 .nav-item.active {
-  background: rgba(76, 175, 80, 0.35);
-  color: #ffffff;
+  background: var(--theme-primary-alpha-35, rgba(76, 175, 80, 0.35));
+  color: var(--theme-text-main, #ffffff);
 }
 
 /* ===== Нижняя кнопка ===== */
@@ -83,7 +83,7 @@ body {
   width: 100%;
   padding: 0.8rem;
   background: var(--accent);
-  color: white;
+  color: var(--theme-text-main, white);
   border: none;
   border-radius: 0.8rem;
   cursor: pointer;
@@ -108,12 +108,12 @@ body {
 .editor-card {
   width: 100%;
   max-width: 1000px;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: var(--theme-glass-bg, rgba(0, 0, 0, 0.4));
   backdrop-filter: blur(50px);
   border: 2px solid var(--border-accent);
   border-radius: 1rem;
   padding: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 32px var(--theme-black-alpha-35, rgba(0, 0, 0, 0.35));
 }
 
 .editor-header h1 {
@@ -127,7 +127,7 @@ body {
   width: 100%;
   min-height: 50vh;
   padding: 1.3rem;
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: var(--theme-glass-bg, rgba(0, 0, 0, 0.4));
   color: var(--text-primary);
   border: 1px solid var(--border-accent);
   border-radius: 0.8rem;
@@ -140,7 +140,7 @@ body {
 
 .code-area:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 0 0 2px var(--theme-primary-alpha-30, rgba(76, 175, 80, 0.3));
 }
 
 /* ===== Actions ===== */
@@ -152,7 +152,7 @@ body {
 .btn-save {
   padding: 0.8rem 1.6rem;
   background: var(--accent);
-  color: white;
+  color: var(--theme-text-main, white);
   border: none;
   border-radius: 0.8rem;
   cursor: pointer;
@@ -172,19 +172,19 @@ body {
   right: 1rem;
   padding: 0.8rem 1.4rem;
   border-radius: 0.8rem;
-  color: white;
+  color: var(--theme-text-main, white);
   z-index: 1000;
   backdrop-filter: blur(6px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 16px var(--theme-black-alpha-45, rgba(0, 0, 0, 0.45));
   min-width: 260px;
 }
 
 .notification-success {
-  background: rgba(76, 175, 80, 0.85);
+  background: var(--theme-success-toast-bg, rgba(76, 175, 80, 0.85));
 }
 
 .notification-error {
-  background: rgba(244, 67, 54, 0.85);
+  background: var(--theme-danger-toast-bg, rgba(244, 67, 54, 0.85));
 }
 
 .toggle-buttons {
@@ -206,13 +206,13 @@ body {
 }
 
 .toggle-btn.active {
-  background: rgba(76, 175, 80, 0.35);
-  color: #fff;
+  background: var(--theme-primary-alpha-35, rgba(76, 175, 80, 0.35));
+  color: var(--theme-text-main, #fff);
 }
 
 .toggle-btn:hover {
-  background: rgba(76, 175, 80, 0.2);
-  color: #fff;
+  background: var(--theme-primary-alpha-20, rgba(76, 175, 80, 0.2));
+  color: var(--theme-text-main, #fff);
 }
 
 .routes-buttons {
@@ -228,7 +228,7 @@ body {
   padding: 0.7rem 1rem;
   background: transparent;
   border-radius: 0.7rem;
-  color: rgba(255, 255, 255);
+  color: var(--theme-text-main, rgba(255, 255, 255));
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -236,13 +236,13 @@ body {
 }
 
 .route-btn:hover {
-  background: rgba(76, 175, 80, 0.2);
-  color: #ffffff;
+  background: var(--theme-primary-alpha-20, rgba(76, 175, 80, 0.2));
+  color: var(--theme-text-main, #ffffff);
 }
 
 .route-btn.active {
-  background: rgba(76, 175, 80, 0.35);
-  color: #ffffff;
+  background: var(--theme-primary-alpha-35, rgba(76, 175, 80, 0.35));
+  color: var(--theme-text-main, #ffffff);
 }
 
 /* ===== Адаптив ===== */

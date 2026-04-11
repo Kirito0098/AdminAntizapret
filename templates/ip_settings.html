@@ -19,15 +19,15 @@
     }
 
     .ip-status.enabled {
-        background: rgba(17, 75, 34, 0.55);
-        border: 1px solid rgba(92, 201, 126, 0.45);
-        color: #d3ffd9;
+        background: var(--theme-success-surface-strong, rgba(17, 75, 34, 0.55));
+        border: 1px solid var(--theme-success-border-strong, rgba(92, 201, 126, 0.45));
+        color: var(--theme-text-primary, #d3ffd9);
     }
 
     .ip-status.disabled {
-        background: rgba(86, 23, 23, 0.55);
-        border: 1px solid rgba(255, 110, 110, 0.45);
-        color: #ffd8d8;
+        background: var(--theme-danger-surface, rgba(86, 23, 23, 0.55));
+        border: 1px solid var(--theme-danger-border-soft, rgba(255, 110, 110, 0.45));
+        color: var(--theme-text-primary, #ffd8d8);
     }
 
     .ip-table-wrap {
@@ -42,15 +42,15 @@
 
     .ip-table th,
     .ip-table td {
-        border: 1px solid rgba(137, 179, 164, 0.22);
+        border: 1px solid var(--theme-primary-alpha-22, rgba(137, 179, 164, 0.22));
         padding: 0.56rem;
         font-size: 0.9rem;
         text-align: left;
     }
 
     .ip-table th {
-        background: rgba(17, 53, 44, 0.68);
-        color: #c8f7e8;
+        background: var(--theme-success-surface, rgba(17, 53, 44, 0.68));
+        color: var(--theme-text-primary, #c8f7e8);
     }
 
     .ip-form-group {
@@ -62,9 +62,9 @@
         width: 100%;
         padding: 0.7rem 0.75rem;
         border-radius: 8px;
-        border: 1px solid rgba(121, 184, 163, 0.45);
-        background: rgba(14, 36, 30, 0.75);
-        color: #e8fff5;
+        border: 1px solid var(--theme-logs-border-strong, rgba(121, 184, 163, 0.45));
+        background: var(--theme-logs-surface, rgba(14, 36, 30, 0.75));
+        color: var(--theme-text-main, #e8fff5);
     }
 
     .ip-actions {
@@ -75,9 +75,9 @@
     }
 
     .ip-btn {
-        border: 1px solid rgba(121, 184, 163, 0.45);
-        background: rgba(14, 36, 30, 0.75);
-        color: #d8fff2;
+        border: 1px solid var(--theme-logs-border-strong, rgba(121, 184, 163, 0.45));
+        background: var(--theme-logs-surface, rgba(14, 36, 30, 0.75));
+        color: var(--theme-text-main, #d8fff2);
         border-radius: 8px;
         padding: 0.45rem 0.85rem;
         cursor: pointer;
@@ -86,17 +86,17 @@
     }
 
     .ip-btn:hover {
-        background: rgba(19, 58, 48, 0.85);
+        background: var(--theme-logs-surface-hover, rgba(19, 58, 48, 0.85));
     }
 
     .ip-btn-danger {
-        border-color: rgba(236, 125, 125, 0.6);
-        background: rgba(86, 23, 23, 0.65);
-        color: #ffdede;
+        border-color: var(--theme-danger-border-strong, rgba(236, 125, 125, 0.6));
+        background: var(--theme-danger-surface-strong, rgba(86, 23, 23, 0.65));
+        color: var(--theme-text-primary, #ffdede);
     }
 
     .ip-btn-danger:hover {
-        background: rgba(105, 29, 29, 0.72);
+        background: var(--theme-danger-surface-hover, rgba(105, 29, 29, 0.72));
     }
 
     .ip-help-list {

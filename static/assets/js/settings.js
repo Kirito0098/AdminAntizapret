@@ -375,16 +375,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (data.update_available) {
         updateButton.textContent = "Доступно обновление!";
-        updateButton.style.background = "#e74c3c";
+        updateButton.style.background = "var(--theme-update-available, #e74c3c)";
         updateButton.disabled = false;
       } else {
         updateButton.textContent = "У вас последняя версия";
-        updateButton.style.background = "#27ae60";
+        updateButton.style.background = "var(--theme-update-latest, #27ae60)";
         updateButton.disabled = true;
       }
     } catch {
       updateButton.textContent = "Проверка недоступна";
-      updateButton.style.background = "#95a5a6";
+      updateButton.style.background = "var(--theme-update-unavailable, #95a5a6)";
       updateButton.disabled = true;
     }
   };

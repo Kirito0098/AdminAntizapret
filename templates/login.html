@@ -9,6 +9,7 @@
   <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet" />
 
   <!--=============== CSS ===============-->
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/theme.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/login_styles.css') }}" />
 
   <title>Админпанель Claymore</title>
@@ -91,7 +92,8 @@
 
       {% if telegram_login_enabled and telegram_bot_username %}
       <div class="login__check" style="margin-top: 0.8rem;">
-        <div style="width: 100%; text-align: center; color: rgba(255,255,255,0.75); font-size: 0.88rem;">
+        <div
+          style="width: 100%; text-align: center; color: var(--theme-text-secondary, rgba(255,255,255,0.75)); font-size: 0.88rem;">
           или войдите через Telegram
         </div>
       </div>

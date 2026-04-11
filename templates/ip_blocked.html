@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Доступ ограничен</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/theme.css') }}">
     <style>
         * {
             margin: 0;
@@ -14,8 +15,8 @@
 
         body {
             font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
+            background: linear-gradient(135deg, var(--theme-blocked-bg-start, #1a1a2e) 0%, var(--theme-blocked-bg-end, #16213e) 100%);
+            color: var(--theme-text-main, #fff);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -33,23 +34,23 @@
             right: 0;
             bottom: 0;
             background:
-                radial-gradient(circle at 20% 80%, rgba(76, 175, 80, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(244, 67, 54, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(33, 150, 243, 0.05) 0%, transparent 50%);
+                radial-gradient(circle at 20% 80%, var(--theme-primary-alpha-10, rgba(76, 175, 80, 0.1)) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, var(--theme-danger-alpha-10, rgba(244, 67, 54, 0.1)) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, var(--theme-chart-grid-soft, rgba(33, 150, 243, 0.05)) 0%, transparent 50%);
             z-index: -1;
         }
 
         .container {
             max-width: 600px;
             width: 100%;
-            background: rgba(30, 30, 46, 0.8);
+            background: var(--theme-blocked-surface, rgba(30, 30, 46, 0.8));
             backdrop-filter: blur(10px);
             border-radius: 20px;
             padding: 40px;
             box-shadow:
-                0 20px 40px rgba(0, 0, 0, 0.3),
-                0 0 0 1px rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+                0 20px 40px var(--theme-black-alpha-30, rgba(0, 0, 0, 0.3)),
+                0 0 0 1px var(--theme-glass-border, rgba(255, 255, 255, 0.1));
+            border: 1px solid var(--theme-glass-border, rgba(255, 255, 255, 0.1));
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -62,7 +63,7 @@
             left: 0;
             right: 0;
             height: 4px;
-            background: linear-gradient(90deg, #f44336, #ff9800, #4caf50);
+            background: linear-gradient(90deg, var(--theme-danger, #f44336), var(--theme-warning, #ff9800), var(--theme-primary, #4caf50));
         }
 
         .lock-icon {
@@ -70,32 +71,32 @@
             margin-bottom: 20px;
             display: inline-block;
             animation: pulse 2s infinite;
-            filter: drop-shadow(0 0 10px rgba(244, 67, 54, 0.5));
+            filter: drop-shadow(0 0 10px var(--theme-danger-toast-bg, rgba(244, 67, 54, 0.5)));
         }
 
         h1 {
             font-size: 2.5rem;
             margin-bottom: 20px;
-            background: linear-gradient(45deg, #f44336, #ff9800);
+            background: linear-gradient(45deg, var(--theme-danger, #f44336), var(--theme-warning, #ff9800));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            text-shadow: 0 2px 10px rgba(244, 67, 54, 0.3);
+            text-shadow: 0 2px 10px var(--theme-danger-alpha-10, rgba(244, 67, 54, 0.3));
         }
 
         .subtitle {
             font-size: 1.2rem;
-            color: #aaa;
+            color: var(--theme-text-dim, #aaa);
             margin-bottom: 30px;
             line-height: 1.5;
         }
 
         .info-box {
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--theme-chart-grid-soft, rgba(255, 255, 255, 0.05));
             border-radius: 12px;
             padding: 20px;
             margin: 25px 0;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--theme-glass-border, rgba(255, 255, 255, 0.1));
             text-align: left;
         }
 
@@ -104,7 +105,7 @@
             justify-content: space-between;
             margin-bottom: 10px;
             padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--theme-chart-grid-soft, rgba(255, 255, 255, 0.05));
         }
 
         .info-row:last-child {
@@ -114,59 +115,59 @@
         }
 
         .info-label {
-            color: #888;
+            color: var(--theme-text-muted, #888);
             font-weight: 500;
         }
 
         .info-value {
-            color: #4caf50;
+            color: var(--theme-primary, #4caf50);
             font-family: 'Monaco', 'Menlo', monospace;
             font-weight: 600;
         }
 
         .ip-address {
-            background: rgba(76, 175, 80, 0.1);
-            border: 2px solid rgba(76, 175, 80, 0.3);
+            background: var(--theme-primary-alpha-10, rgba(76, 175, 80, 0.1));
+            border: 2px solid var(--theme-primary-alpha-30, rgba(76, 175, 80, 0.3));
             border-radius: 8px;
             padding: 15px;
             margin: 20px 0;
             font-family: 'Monaco', 'Menlo', monospace;
             font-size: 1.3rem;
             letter-spacing: 1px;
-            color: #4caf50;
+            color: var(--theme-primary, #4caf50);
             font-weight: 600;
         }
 
         .action-box {
-            background: rgba(33, 150, 243, 0.1);
+            background: var(--theme-secondary-alpha-10, rgba(33, 150, 243, 0.1));
             border-radius: 12px;
             padding: 20px;
             margin: 25px 0;
-            border: 1px solid rgba(33, 150, 243, 0.2);
+            border: 1px solid var(--theme-secondary-alpha-30, rgba(33, 150, 243, 0.2));
         }
 
         .action-title {
-            color: #2196f3;
+            color: var(--theme-secondary, #2196f3);
             font-size: 1.1rem;
             margin-bottom: 10px;
             font-weight: 600;
         }
 
         .action-text {
-            color: #aaa;
+            color: var(--theme-text-dim, #aaa);
             line-height: 1.5;
         }
 
         .contact-info {
-            background: rgba(255, 193, 7, 0.1);
+            background: var(--theme-warning-alpha-10, rgba(255, 193, 7, 0.1));
             border-radius: 12px;
             padding: 20px;
             margin: 25px 0;
-            border: 1px solid rgba(255, 193, 7, 0.2);
+            border: 1px solid var(--theme-warning-alpha-20, rgba(255, 193, 7, 0.2));
         }
 
         .contact-title {
-            color: #ffc107;
+            color: var(--theme-warning-bright, #ffc107);
             font-size: 1.1rem;
             margin-bottom: 10px;
             font-weight: 600;
@@ -175,11 +176,11 @@
         .instructions {
             margin-top: 30px;
             padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid var(--theme-glass-border, rgba(255, 255, 255, 0.1));
         }
 
         .instructions h3 {
-            color: #888;
+            color: var(--theme-text-muted, #888);
             font-size: 1rem;
             margin-bottom: 15px;
             text-transform: uppercase;
@@ -197,12 +198,12 @@
             display: flex;
             align-items: flex-start;
             gap: 10px;
-            color: #aaa;
+            color: var(--theme-text-dim, #aaa);
         }
 
         .step-number {
-            background: rgba(76, 175, 80, 0.2);
-            color: #4caf50;
+            background: var(--theme-primary-alpha-20, rgba(76, 175, 80, 0.2));
+            color: var(--theme-primary, #4caf50);
             width: 24px;
             height: 24px;
             border-radius: 50%;
@@ -216,9 +217,9 @@
 
         .footer {
             margin-top: 30px;
-            color: #666;
+            color: var(--theme-text-subtle, #666);
             font-size: 0.9rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            border-top: 1px solid var(--theme-chart-grid-soft, rgba(255, 255, 255, 0.05));
             padding-top: 20px;
         }
 
@@ -227,12 +228,12 @@
             0%,
             100% {
                 transform: scale(1);
-                filter: drop-shadow(0 0 10px rgba(244, 67, 54, 0.5));
+                filter: drop-shadow(0 0 10px var(--theme-danger-toast-bg, rgba(244, 67, 54, 0.5)));
             }
 
             50% {
                 transform: scale(1.05);
-                filter: drop-shadow(0 0 15px rgba(244, 67, 54, 0.7));
+                filter: drop-shadow(0 0 15px var(--theme-danger-toast-bg, rgba(244, 67, 54, 0.7)));
             }
         }
 
@@ -298,7 +299,7 @@
 
         .particle {
             position: absolute;
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--theme-glass-border, rgba(255, 255, 255, 0.1));
             border-radius: 50%;
             animation: float 20s infinite linear;
         }

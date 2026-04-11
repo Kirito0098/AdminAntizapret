@@ -3,19 +3,19 @@
 
 /*=============== VARIABLES ===============*/
 :root {
-  --ink-100: hsl(0, 0%, 100%);
-  --ink-70: rgba(255, 255, 255, 0.74);
-  --ink-45: rgba(255, 255, 255, 0.52);
-  --line-strong: rgba(255, 255, 255, 0.65);
-  --line-soft: rgba(255, 255, 255, 0.34);
+  --ink-100: var(--theme-text-main, hsl(0, 0%, 100%));
+  --ink-70: var(--theme-text-secondary, rgba(255, 255, 255, 0.74));
+  --ink-45: var(--theme-settings-text-muted, rgba(186, 231, 216, 0.72));
+  --line-strong: var(--theme-primary-alpha-45, rgba(76, 175, 80, 0.45));
+  --line-soft: var(--theme-primary-alpha-24, rgba(76, 175, 80, 0.24));
 
-  --surface-main: hsla(0, 0%, 10%, 0.7);
-  --surface-field: rgba(255, 255, 255, 0.02);
-  --surface-field-focus: rgba(255, 255, 255, 0.08);
+  --surface-main: var(--theme-login-surface-main, rgba(10, 19, 16, 0.9));
+  --surface-field: var(--theme-login-surface-field, rgba(18, 31, 26, 0.88));
+  --surface-field-focus: var(--theme-login-surface-focus, rgba(24, 46, 38, 0.95));
 
-  --brand-cyan: hsl(0, 0%, 100%);
-  --brand-mint: hsl(0, 0%, 100%);
-  --brand-amber: hsl(0, 0%, 100%);
+  --brand-cyan: var(--theme-secondary, hsl(0, 0%, 100%));
+  --brand-mint: var(--theme-primary, hsl(0, 0%, 100%));
+  --brand-amber: var(--theme-warning, hsl(0, 0%, 100%));
 
   --font-body: "Manrope", sans-serif;
   --font-title: "Unbounded", sans-serif;
@@ -27,8 +27,8 @@
   --radius-card: 1.3rem;
   --radius-field: 0.85rem;
 
-  --shadow-card: 0 16px 36px rgba(0, 0, 0, 0.35);
-  --shadow-focus: 0 0 0 2px rgba(255, 255, 255, 0.2);
+  --shadow-card: 0 16px 36px var(--theme-black-alpha-40, rgba(0, 0, 0, 0.4));
+  --shadow-focus: 0 0 0 2px var(--theme-primary-alpha-30, rgba(76, 175, 80, 0.3));
 }
 
 /*=============== BASE ===============*/
@@ -52,7 +52,7 @@ button {
 
 body {
   color: var(--ink-100);
-  background: hsl(0, 0%, 0%);
+  background: var(--theme-black, hsl(0, 0%, 0%));
   overflow: hidden;
 }
 
@@ -81,7 +81,7 @@ img {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.38);
+  background: var(--theme-overlay-dark, rgba(0, 0, 0, 0.38));
   z-index: -1;
 }
 
@@ -97,14 +97,29 @@ img {
 }
 
 .login__form {
+  position: relative;
+  overflow: hidden;
   width: min(100%, 460px);
   background: var(--surface-main);
-  border: 2px solid var(--ink-100);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-card);
   backdrop-filter: blur(10px);
   box-shadow: var(--shadow-card);
   padding: 2.1rem 1.2rem 1.3rem;
   animation: card-in 0.56s cubic-bezier(0.25, 1, 0.45, 1);
+}
+
+.login__form::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    160deg,
+    var(--theme-primary-alpha-12, rgba(76, 175, 80, 0.12)),
+    transparent 45%
+  );
 }
 
 .login__brand {
@@ -116,8 +131,8 @@ img {
   margin-bottom: 0.65rem;
   padding: 0.28rem 0.58rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: var(--brand-cyan);
+  border: 1px solid var(--line-strong);
+  color: var(--brand-mint);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -173,7 +188,7 @@ img {
 }
 
 .login__box:focus-within {
-  border-color: rgba(255, 255, 255, 0.86);
+  border-color: var(--theme-primary-light, rgba(255, 255, 255, 0.86));
   background: var(--surface-field-focus);
   box-shadow: var(--shadow-focus);
 }
@@ -247,7 +262,7 @@ img {
 .login__check-input {
   width: 16px;
   height: 16px;
-  accent-color: var(--ink-100);
+  accent-color: var(--theme-primary, var(--ink-100));
 }
 
 .login__check-label {
@@ -267,12 +282,16 @@ img {
   width: 100%;
   border-radius: 0.78rem;
   padding: 0.86rem 1rem;
-  color: hsl(0, 0%, 0%);
+  color: var(--theme-text-main, #fff);
   font-weight: 800;
   letter-spacing: 0.01em;
   cursor: pointer;
-  background: var(--ink-100);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.26);
+  background: linear-gradient(
+    135deg,
+    var(--theme-primary, #4caf50),
+    var(--theme-primary-hover, #45a049)
+  );
+  box-shadow: 0 8px 18px var(--theme-primary-alpha-30, rgba(76, 175, 80, 0.3));
   transition:
     transform 0.15s ease,
     filter 0.2s ease,
@@ -282,8 +301,8 @@ img {
 
 .login__button:hover {
   transform: translateY(-1px);
-  filter: brightness(0.96);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+  filter: brightness(1.03);
+  box-shadow: 0 12px 24px var(--theme-primary-alpha-40, rgba(76, 175, 80, 0.4));
 }
 
 .login__button:active {
@@ -315,7 +334,7 @@ img {
   background: linear-gradient(
     to right,
     transparent,
-    rgba(255, 255, 255, 0.38),
+    var(--theme-primary-alpha-30, rgba(76, 175, 80, 0.3)),
     transparent
   );
 }
@@ -370,7 +389,7 @@ img {
 }
 
 #captcha-input:focus {
-  border-color: rgba(255, 255, 255, 0.86);
+  border-color: var(--theme-primary-light, rgba(255, 255, 255, 0.86));
   background: var(--surface-field-focus);
   box-shadow: var(--shadow-focus);
 }
@@ -417,7 +436,7 @@ img {
   height: 40px;
   border: 1px solid var(--line-soft);
   border-radius: 0.55rem;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--theme-muted-alpha-06, rgba(255, 255, 255, 0.06));
 }
 
 #refresh-captcha {
@@ -427,7 +446,7 @@ img {
   height: 35px;
   border-radius: 0.55rem;
   color: var(--ink-100);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--theme-muted-alpha-08, rgba(255, 255, 255, 0.08));
   cursor: pointer;
   transition:
     transform 0.15s ease,
@@ -436,7 +455,7 @@ img {
 
 #refresh-captcha:hover {
   transform: scale(1.07);
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--theme-muted-alpha-14, rgba(255, 255, 255, 0.14));
 }
 
 .hidden {
@@ -453,22 +472,22 @@ img {
   border-radius: 0.72rem;
   font-family: var(--font-body);
   font-size: 0.95rem;
-  color: #fff;
+  color: var(--theme-text-main, #fff);
   z-index: 2000;
-  box-shadow: 0 8px 24px rgba(5, 15, 24, 0.35);
+  box-shadow: 0 8px 24px var(--theme-black-alpha-35, rgba(5, 15, 24, 0.35));
   animation: notif-in 0.2s ease;
 }
 
 .notification-info {
-  background-color: #2196f3;
+  background-color: var(--theme-secondary, #2196f3);
 }
 
 .notification-success {
-  background-color: #4caf50;
+  background-color: var(--theme-primary, #4caf50);
 }
 
 .notification-error {
-  background-color: #f44336;
+  background-color: var(--theme-danger, #f44336);
 }
 
 .notification-exit {
@@ -524,7 +543,7 @@ input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
-  -webkit-text-fill-color: #f8f7f7 !important;
+  -webkit-text-fill-color: var(--theme-text-main, #f8f7f7) !important;
   transition: background-color 5000s ease-in-out 0s;
 }
 
