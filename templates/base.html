@@ -15,6 +15,10 @@
 
 <body>
 
+  <script id="base-flash-messages" type="application/json">
+    {{ get_flashed_messages(with_categories=True) | tojson }}
+  </script>
+
   <nav class="navigation">
     <div class="nav-content">
       <div class="nav-group">
@@ -41,6 +45,62 @@
   </nav>
 
   {% block content %}{% endblock %} {% block scripts %}{% endblock %}
+
+  <script>
+    (function () {
+      const flashPayload = document.getElementById("base-flash-messages");
+      if (!flashPayload) {
+        return;
+      }
+
+      let flashed = [];
+      try {
+        flashed = JSON.parse(flashPayload.textContent || "[]");
+      } catch (_error) {
+        flashed = [];
+      }
+
+      if (!Array.isArray(flashed) || flashed.length === 0) {
+        return;
+      }
+
+      const normalizeType = (rawCategory) => {
+        const category = String(rawCategory || "info").toLowerCase();
+        if (["error", "danger"].includes(category)) return "error";
+        if (["success", "ok"].includes(category)) return "success";
+        if (["warning", "warn"].includes(category)) return "warning";
+        return "info";
+      };
+
+      const showToast = (message, type, delayMs) => {
+        setTimeout(() => {
+          const toast = document.createElement("div");
+          toast.className = `notification notification-${type}`;
+          toast.textContent = message;
+          toast.setAttribute("role", type === "error" ? "alert" : "status");
+          toast.setAttribute("aria-live", type === "error" ? "assertive" : "polite");
+          toast.setAttribute("aria-atomic", "true");
+          document.body.appendChild(toast);
+
+          setTimeout(() => {
+            toast.classList.add("notification-exit");
+            setTimeout(() => {
+              toast.remove();
+            }, 200);
+          }, 4200);
+        }, delayMs);
+      };
+
+      flashed.forEach((entry, index) => {
+        const category = Array.isArray(entry) ? entry[0] : "info";
+        const message = Array.isArray(entry) ? entry[1] : String(entry || "");
+        if (!message) {
+          return;
+        }
+        showToast(message, normalizeType(category), index * 600);
+      });
+    })();
+  </script>
 
   {% if current_user %}
   <script>

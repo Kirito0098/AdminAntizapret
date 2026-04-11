@@ -304,6 +304,67 @@
             animation: float 20s infinite linear;
         }
 
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            max-width: min(92vw, 420px);
+            padding: 0.9rem 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--theme-glass-border, rgba(255, 255, 255, 0.2));
+            color: var(--theme-text-main, #fff);
+            background: var(--theme-blocked-surface, rgba(30, 30, 46, 0.92));
+            box-shadow: 0 14px 28px var(--theme-black-alpha-30, rgba(0, 0, 0, 0.3));
+            backdrop-filter: blur(8px);
+            z-index: 1200;
+            animation: popup-toast-in 220ms cubic-bezier(0.2, 0.75, 0.22, 1);
+            transform-origin: top right;
+        }
+
+        .notification-success {
+            border-left: 4px solid var(--theme-primary, #4caf50);
+        }
+
+        .notification-info {
+            border-left: 4px solid var(--theme-secondary, #2196f3);
+        }
+
+        .notification-warning {
+            border-left: 4px solid var(--theme-warning, #ff9800);
+        }
+
+        .notification-error {
+            border-left: 4px solid var(--theme-danger, #f44336);
+        }
+
+        @keyframes popup-toast-in {
+            from {
+                opacity: 0;
+                transform: translate3d(18px, -14px, 0) scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0) scale(1);
+            }
+        }
+
+        @keyframes popup-toast-out {
+            from {
+                opacity: 1;
+                transform: translate3d(0, 0, 0) scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: translate3d(14px, -10px, 0) scale(0.98);
+            }
+        }
+
+        .notification.notification-exit {
+            animation: popup-toast-out 170ms ease forwards;
+        }
+
         @keyframes float {
             0% {
                 transform: translateY(100vh) rotate(0deg);
@@ -317,6 +378,10 @@
 </head>
 
 <body>
+    <script id="blocked-flash-messages" type="application/json">
+        {{ get_flashed_messages(with_categories=True) | tojson }}
+    </script>
+
     <!-- Эффект частиц -->
     <div class="particles" id="particles"></div>
 
@@ -383,10 +448,58 @@
 
                 setTimeout(typeWriter, 500);
             }
+
+            function showFlashes() {
+                const payloadEl = document.getElementById('blocked-flash-messages');
+                if (!payloadEl) return;
+
+                let flashes = [];
+                try {
+                    flashes = JSON.parse(payloadEl.textContent || '[]');
+                } catch (_e) {
+                    flashes = [];
+                }
+
+                const normalizeType = (rawCategory) => {
+                    const category = String(rawCategory || 'info').toLowerCase();
+                    if (['error', 'danger'].includes(category)) return 'error';
+                    if (['success', 'ok'].includes(category)) return 'success';
+                    if (['warning', 'warn'].includes(category)) return 'warning';
+                    return 'info';
+                };
+
+                const showToast = (message, type, delayMs) => {
+                    setTimeout(() => {
+                        const toast = document.createElement('div');
+                        toast.className = `notification notification-${type}`;
+                        toast.textContent = message;
+                        toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+                        toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+                        toast.setAttribute('aria-atomic', 'true');
+                        document.body.appendChild(toast);
+
+                        setTimeout(() => {
+                            toast.classList.add('notification-exit');
+                            setTimeout(() => {
+                                toast.remove();
+                            }, 200);
+                        }, 4200);
+                    }, delayMs);
+                };
+
+                flashes.forEach((entry, index) => {
+                    const category = Array.isArray(entry) ? entry[0] : 'info';
+                    const message = Array.isArray(entry) ? entry[1] : String(entry || '');
+                    if (!message) return;
+                    showToast(message, normalizeType(category), index * 600);
+                });
+            }
+
             // Инициализация
             document.addEventListener('DOMContentLoaded', () => {
                 createParticles();
                 animateIp();
+                showFlashes();
             });
         </script>
 </body>

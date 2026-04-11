@@ -677,6 +677,7 @@ td {
   box-sizing: border-box;
   flex: 1;
   padding: 1.5rem 2rem;
+  min-width: 0;
   min-height: 0;
 }
 
