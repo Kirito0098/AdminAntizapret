@@ -38,7 +38,7 @@ add_admin() {
         fi
     done
 
-    "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py" --add-user "$username" "$password"
+    printf '%s\n' "$password" | "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py" --add-user "$username" --password-stdin
     check_error "Не удалось добавить администратора"
     press_any_key
 }

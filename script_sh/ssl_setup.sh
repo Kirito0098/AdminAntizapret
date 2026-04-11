@@ -525,6 +525,7 @@ EOF
 	set_env_value "USE_HTTPS" "false"
 	set_env_value "DOMAIN" "$DOMAIN"
 	set_env_value "BIND" "127.0.0.1"
+	set_env_value "TRUSTED_PROXY_IPS" "127.0.0.1,::1"
 	unset_env_value "SSL_CERT"
 	unset_env_value "SSL_KEY"
 
