@@ -35,6 +35,30 @@ def register_settings_routes(
     set_active_web_session_settings,
     get_public_download_enabled,
 ):
+    def _normalize_telegram_id(raw_value):
+        value = (raw_value or "").strip()
+        if not value:
+            return "", None
+        if not re.fullmatch(r"^[1-9][0-9]{4,20}$", value):
+            return None, "Telegram ID должен содержать только цифры (5..21 символ) и не начинаться с 0"
+        return value, None
+
+    def _normalize_telegram_bot_username(raw_value):
+        value = (raw_value or "").strip().lstrip("@")
+        if not value:
+            return "", None
+        if not re.fullmatch(r"^[A-Za-z0-9_]{5,64}$", value):
+            return None, "Username Telegram-бота должен содержать 5..64 символа: латиница, цифры, _"
+        return value, None
+
+    def _normalize_telegram_bot_token(raw_value):
+        value = (raw_value or "").strip()
+        if not value:
+            return "", None
+        if not re.fullmatch(r"^[0-9]{6,12}:[A-Za-z0-9_-]{20,}$", value):
+            return None, "Неверный формат токена Telegram-бота"
+        return value, None
+
     @app.route("/settings", methods=["GET", "POST"])
     @auth_manager.admin_required
     def settings():
@@ -156,6 +180,51 @@ def register_settings_routes(
                     else:
                         flash(cron_msg, "error")
 
+            if request.form.get("telegram_auth_action") == "save":
+                tg_username_raw = request.form.get("telegram_auth_bot_username", "")
+                tg_token_raw = request.form.get("telegram_auth_bot_token", "")
+                tg_max_age_raw = request.form.get("telegram_auth_max_age_seconds", "").strip()
+
+                has_tg_error = False
+                tg_username, username_error = _normalize_telegram_bot_username(tg_username_raw)
+                if username_error:
+                    flash(username_error, "error")
+                    has_tg_error = True
+
+                tg_max_age_value = 300
+                if tg_max_age_raw:
+                    if tg_max_age_raw.isdigit() and 30 <= int(tg_max_age_raw) <= 86400:
+                        tg_max_age_value = int(tg_max_age_raw)
+                    else:
+                        flash("Срок действия Telegram авторизации должен быть в диапазоне 30..86400 секунд", "error")
+                        has_tg_error = True
+
+                token_to_apply = ""
+                if (tg_token_raw or "").strip():
+                    tg_token, token_error = _normalize_telegram_bot_token(tg_token_raw)
+                    if token_error:
+                        flash(token_error, "error")
+                        has_tg_error = True
+                    else:
+                        token_to_apply = tg_token
+
+                if not has_tg_error:
+                    set_env_value("TELEGRAM_AUTH_BOT_USERNAME", tg_username)
+                    set_env_value("TELEGRAM_AUTH_MAX_AGE_SECONDS", str(tg_max_age_value))
+                    os.environ["TELEGRAM_AUTH_BOT_USERNAME"] = tg_username
+                    os.environ["TELEGRAM_AUTH_MAX_AGE_SECONDS"] = str(tg_max_age_value)
+
+                    set_env_value("TELEGRAM_AUTH_BOT_TOKEN", token_to_apply)
+                    os.environ["TELEGRAM_AUTH_BOT_TOKEN"] = token_to_apply
+
+                    if token_to_apply:
+                        if tg_username:
+                            flash("Настройки Telegram авторизации обновлены. Telegram логин включен.", "success")
+                        else:
+                            flash("Токен сохранен, но Telegram логин выключен: не заполнен username бота.", "info")
+                    else:
+                        flash("Telegram логин выключен (токен бота пустой).", "success")
+
             username = request.form.get("username")
             password = request.form.get("password")
             if username and password:
@@ -165,14 +234,61 @@ def register_settings_routes(
                     role = request.form.get("role", "admin")
                     if role not in ("admin", "viewer"):
                         role = "admin"
-                    if user_model.query.filter_by(username=username).first():
+                    telegram_id_raw = request.form.get("telegram_id", "")
+                    normalized_telegram_id, tg_error = _normalize_telegram_id(telegram_id_raw)
+
+                    if tg_error:
+                        flash(tg_error, "error")
+                    elif user_model.query.filter_by(username=username).first():
                         flash(f"Пользователь '{username}' уже существует!", "error")
+                    elif normalized_telegram_id and user_model.query.filter_by(telegram_id=normalized_telegram_id).first():
+                        flash(f"Telegram ID {normalized_telegram_id} уже привязан к другому пользователю!", "error")
                     else:
-                        user = user_model(username=username, role=role)
+                        user = user_model(
+                            username=username,
+                            role=role,
+                            telegram_id=normalized_telegram_id or None,
+                        )
                         user.set_password(password)
                         db.session.add(user)
                         db.session.commit()
                         flash(f"Пользователь '{username}' ({role}) успешно добавлен!", "success")
+
+            change_telegram_username = request.form.get("change_telegram_username")
+            if change_telegram_username:
+                tg_user = user_model.query.filter_by(username=change_telegram_username).first()
+                if not tg_user:
+                    flash(f"Пользователь '{change_telegram_username}' не найден!", "error")
+                else:
+                    new_telegram_id_raw = request.form.get("new_telegram_id", "")
+                    normalized_telegram_id, tg_error = _normalize_telegram_id(new_telegram_id_raw)
+                    if tg_error:
+                        flash(tg_error, "error")
+                    else:
+                        if normalized_telegram_id:
+                            owner = user_model.query.filter(
+                                user_model.telegram_id == normalized_telegram_id,
+                                user_model.username != change_telegram_username,
+                            ).first()
+                            if owner:
+                                flash(
+                                    f"Telegram ID {normalized_telegram_id} уже привязан к пользователю '{owner.username}'",
+                                    "error",
+                                )
+                                return redirect(url_for("settings"))
+
+                        tg_user.telegram_id = normalized_telegram_id or None
+                        db.session.commit()
+                        if normalized_telegram_id:
+                            flash(
+                                f"Telegram ID пользователя '{change_telegram_username}' обновлён",
+                                "success",
+                            )
+                        else:
+                            flash(
+                                f"Telegram ID пользователя '{change_telegram_username}' очищен",
+                                "success",
+                            )
 
             delete_username = request.form.get("delete_username")
             if delete_username:
@@ -304,6 +420,10 @@ def register_settings_routes(
         qr_download_token_ttl_seconds = get_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600")
         qr_download_token_max_downloads = get_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", "1")
         qr_download_pin_set = bool((get_env_value("QR_DOWNLOAD_PIN", "") or "").strip())
+        telegram_auth_bot_username = get_env_value("TELEGRAM_AUTH_BOT_USERNAME", "")
+        telegram_auth_max_age_seconds = get_env_value("TELEGRAM_AUTH_MAX_AGE_SECONDS", "300")
+        telegram_auth_bot_token_set = bool((get_env_value("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip())
+        telegram_auth_enabled = bool(telegram_auth_bot_username and telegram_auth_bot_token_set)
 
         nightly_idle_restart_enabled, nightly_idle_restart_cron = get_nightly_idle_restart_settings()
         nightly_idle_restart_time = "04:00"
@@ -369,6 +489,10 @@ def register_settings_routes(
             qr_download_token_ttl_seconds=qr_download_token_ttl_seconds,
             qr_download_token_max_downloads=qr_download_token_max_downloads,
             qr_download_pin_set=qr_download_pin_set,
+            telegram_auth_bot_username=telegram_auth_bot_username,
+            telegram_auth_max_age_seconds=telegram_auth_max_age_seconds,
+            telegram_auth_bot_token_set=telegram_auth_bot_token_set,
+            telegram_auth_enabled=telegram_auth_enabled,
             nightly_idle_restart_enabled=nightly_idle_restart_enabled,
             nightly_idle_restart_cron=nightly_idle_restart_cron,
             nightly_idle_restart_time=nightly_idle_restart_time,

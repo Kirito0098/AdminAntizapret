@@ -1,51 +1,65 @@
 /*=============== GOOGLE FONTS ===============*/
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap");
-/*=============== VARIABLES CSS ===============*/
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap");
+
+/*=============== VARIABLES ===============*/
 :root {
-  /*========== Colors ==========*/
-  /*Color mode HSL(hue, saturation, lightness)*/
-  --white-color: hsl(0, 0%, 100%);
-  --black-color: hsl(0, 0%, 0%);
-  /*========== Font and typography ==========*/
-  /*.5rem = 8px | 1rem = 16px ...*/
-  --body-font: "Poppins", sans-serif;
-  --h1-font-size: 1.75rem;
+  --ink-100: hsl(0, 0%, 100%);
+  --ink-70: rgba(255, 255, 255, 0.74);
+  --ink-45: rgba(255, 255, 255, 0.52);
+  --line-strong: rgba(255, 255, 255, 0.65);
+  --line-soft: rgba(255, 255, 255, 0.34);
+
+  --surface-main: hsla(0, 0%, 10%, 0.7);
+  --surface-field: rgba(255, 255, 255, 0.02);
+  --surface-field-focus: rgba(255, 255, 255, 0.08);
+
+  --brand-cyan: hsl(0, 0%, 100%);
+  --brand-mint: hsl(0, 0%, 100%);
+  --brand-amber: hsl(0, 0%, 100%);
+
+  --font-body: "Manrope", sans-serif;
+  --font-title: "Unbounded", sans-serif;
+
+  --h1-font-size: clamp(1.55rem, 1.25rem + 1.2vw, 2.15rem);
   --normal-font-size: 1rem;
-  --small-font-size: 0.813rem;
-  /*========== Font weight ==========*/
-  --font-medium: 500;
+  --small-font-size: 0.84rem;
+
+  --radius-card: 1.3rem;
+  --radius-field: 0.85rem;
+
+  --shadow-card: 0 16px 36px rgba(0, 0, 0, 0.35);
+  --shadow-focus: 0 0 0 2px rgba(255, 255, 255, 0.2);
 }
 
 /*=============== BASE ===============*/
 * {
   box-sizing: border-box;
-  padding: 0;
   margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body,
 input,
 button {
+  font-family: var(--font-body);
   font-size: var(--normal-font-size);
-  font-family: var(--body-font);
 }
 
 body {
-  color: var(--white-color);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  color: var(--ink-100);
+  background: hsl(0, 0%, 0%);
+  overflow: hidden;
 }
 
 input,
 button {
   border: none;
   outline: none;
-}
-
-a {
-  text-decoration: none;
 }
 
 img {
@@ -55,151 +69,285 @@ img {
 
 /*=============== LOGIN ===============*/
 .login {
-  position: relative; /* Изменено с absolute на relative */
+  position: relative;
   display: grid;
-  align-items: center;
-  justify-content: center;
-  height: 100vh; /* Занимает всю высоту экрана */
-  width: 100%; /* Занимает всю ширину экрана */
+  place-items: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+  isolation: isolate;
+}
+
+.login::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.38);
+  z-index: -1;
 }
 
 .login__img {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center;
-  z-index: -1; /* Перемещаем изображение на задний план */
+  filter: saturate(0.86) contrast(1.02) brightness(0.62);
+  z-index: -2;
 }
 
 .login__form {
-  position: relative;
-  background-color: hsla(0, 0%, 10%, 0.7); /* Увеличена прозрачность */
-  border: 2px solid var(--white-color);
-  margin-inline: 1.5rem;
-  padding: 2.5rem 1.5rem;
-  border-radius: 1rem;
-  backdrop-filter: blur(8px);
-  z-index: 1; /* Устанавливаем форму поверх фона */
+  width: min(100%, 460px);
+  background: var(--surface-main);
+  border: 2px solid var(--ink-100);
+  border-radius: var(--radius-card);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-card);
+  padding: 2.1rem 1.2rem 1.3rem;
+  animation: card-in 0.56s cubic-bezier(0.25, 1, 0.45, 1);
+}
+
+.login__brand {
+  margin-bottom: 1.45rem;
+}
+
+.login__eyebrow {
+  display: inline-block;
+  margin-bottom: 0.65rem;
+  padding: 0.28rem 0.58rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: var(--brand-cyan);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .login__title {
-  text-align: center;
+  font-family: var(--font-title);
   font-size: var(--h1-font-size);
-  font-weight: var(--font-medium);
-  margin-bottom: 2rem;
+  font-weight: 700;
+  line-height: 1.24;
+  text-wrap: balance;
+  margin-bottom: 1.25rem;
 }
+
+.login__subtitle {
+  margin-top: 0.5rem;
+  color: var(--ink-70);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
 .login__content,
 .login__box {
   display: grid;
 }
+
 .login__content {
-  row-gap: 1.75rem;
-  margin-bottom: 1.5rem;
+  row-gap: 0.9rem;
+  margin-bottom: 1.05rem;
 }
+
+.login__content > * {
+  animation: item-in 0.5s ease both;
+}
+
+.login__content > :nth-child(2) {
+  animation-delay: 0.08s;
+}
+
 .login__box {
   grid-template-columns: max-content 1fr;
   align-items: center;
-  column-gap: 0.75rem;
-  border-bottom: 2px solid var(--white-color);
+  column-gap: 0.6rem;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-field);
+  background: var(--surface-field);
+  padding-inline: 0.85rem;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
 }
+
+.login__box:focus-within {
+  border-color: rgba(255, 255, 255, 0.86);
+  background: var(--surface-field-focus);
+  box-shadow: var(--shadow-focus);
+}
+
 .login__icon,
 .login__eye {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
+  color: var(--ink-70);
 }
-.login__input {
-  width: 100%;
-  padding-block: 0.8rem;
-  background: none;
-  color: var(--white-color);
-  position: relative;
-  z-index: 1;
-}
+
 .login__box-input {
   position: relative;
 }
+
+.login__input {
+  width: 100%;
+  padding-block: 0.9rem 0.68rem;
+  background: transparent;
+  color: var(--ink-100);
+  position: relative;
+  z-index: 1;
+}
+
 .login__label {
   position: absolute;
   left: 0;
-  top: 13px;
-  font-weight: var(--font-medium);
-  transition: top 0.3s, font-size 0.3s;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-45);
+  font-weight: 600;
+  padding-inline: 0.2rem;
+  background: var(--surface-main);
+  transition:
+    top 0.2s ease,
+    transform 0.2s ease,
+    font-size 0.2s ease,
+    color 0.2s ease;
 }
+
 .login__eye {
   position: absolute;
   right: 0;
-  top: 18px;
+  top: 0.95rem;
   z-index: 10;
   cursor: pointer;
+  transition: color 0.15s ease;
 }
+
+.login__eye:hover,
+.login__eye:focus-visible {
+  color: var(--ink-100);
+}
+
 .login__box:nth-child(2) input {
   padding-right: 1.8rem;
 }
-.login__check,
-.login__check-group {
+
+.login__check {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 0.65rem;
 }
-.login__check {
-  margin-bottom: 1.5rem;
-}
-.login__check-label {
-  font-size: var(--small-font-size);
-}
+
 .login__check-group {
-  column-gap: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  column-gap: 0.58rem;
 }
+
 .login__check-input {
   width: 16px;
   height: 16px;
+  accent-color: var(--ink-100);
 }
+
+.login__check-label {
+  font-size: var(--small-font-size);
+  color: var(--ink-100);
+  cursor: pointer;
+}
+
+.login__check-hint {
+  margin-bottom: 0.95rem;
+  color: var(--ink-70);
+  font-size: 0.79rem;
+  line-height: 1.3;
+}
+
 .login__button {
   width: 100%;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  background-color: var(--white-color);
-  font-weight: var(--font-medium);
+  border-radius: 0.78rem;
+  padding: 0.86rem 1rem;
+  color: hsl(0, 0%, 0%);
+  font-weight: 800;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  margin-bottom: 2rem;
+  background: var(--ink-100);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.26);
+  transition:
+    transform 0.15s ease,
+    filter 0.2s ease,
+    box-shadow 0.2s ease;
+  margin-bottom: 1rem;
 }
+
+.login__button:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.96);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+}
+
+.login__button:active {
+  transform: translateY(0);
+}
+
+.login__button:disabled {
+  opacity: 0.78;
+  cursor: wait;
+}
+
+.login__telegram {
+  margin-top: 0.95rem;
+}
+
+.login__divider {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--ink-70);
+  font-size: 0.84rem;
+}
+
+.login__divider::before,
+.login__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.38),
+    transparent
+  );
+}
+
+.login__telegram-widget {
+  margin-top: 0.7rem;
+  display: flex;
+  justify-content: center;
+}
+
 /* Input focus move up label */
 .login__input:focus + .login__label {
-  top: -12px;
-  font-size: var(--small-font-size);
+  top: -0.35rem;
+  transform: none;
+  font-size: 0.72rem;
+  color: var(--ink-100);
 }
 
 /* Input focus sticky top label */
 .login__input:not(:placeholder-shown).login__input:not(:focus) + .login__label {
-  top: -12px;
-  font-size: var(--small-font-size);
+  top: -0.35rem;
+  transform: none;
+  font-size: 0.72rem;
+  color: var(--ink-70);
 }
 
+/*=============== CAPTCHA ===============*/
 .captcha-container {
-  position: relative;
   display: flex;
-  align-items: center;
-  margin-bottom: 20px;
-  justify-content: space-between;
-}
-
-.captcha-image-group {
-  display: flex;
-  align-items: center;
-}
-
-@media (max-width: 768px) {
-  .captcha-container {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  #captcha-img,
-  #refresh-captcha {
-    margin-top: 20px;
-  }
+  align-items: flex-end;
+  gap: 0.65rem;
+  margin: 0.25rem 0 0.95rem;
 }
 
 .captcha-wrapper {
@@ -207,60 +355,88 @@ img {
   flex: 1;
 }
 
-#captcha-img {
-  width: 90%;
-  height: auto;
-  margin-left: 0.5rem;
-  border-radius: 0.5rem;
+#captcha-input {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-field);
+  background: var(--surface-field);
+  color: var(--ink-100);
+  padding: 0.84rem 0.85rem 0.6rem;
+  text-align: center;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
 }
 
-#captcha-input {
-  padding: 0.8rem 0rem;
-  background: none;
-  color: var(--white-color);
-  border: none;
-  border-bottom: 2px solid var(--white-color);
-  width: 100%;
-  text-align: center;
-  position: relative;
-  z-index: 1;
+#captcha-input:focus {
+  border-color: rgba(255, 255, 255, 0.86);
+  background: var(--surface-field-focus);
+  box-shadow: var(--shadow-focus);
 }
 
 .captcha__label {
   position: absolute;
-  left: 0;
-  top: 13px;
-  font-weight: var(--font-medium);
-  transition: top 0.3s, font-size 0.3s;
-  color: var(--white-color);
-  font-size: var(--normal-font-size);
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 600;
+  color: var(--ink-45);
+  padding-inline: 0.2rem;
+  background: var(--surface-main);
   pointer-events: none;
+  transition:
+    top 0.2s ease,
+    transform 0.2s ease,
+    font-size 0.2s ease,
+    color 0.2s ease;
 }
 
-/* Input focus move up label */
 #captcha-input:focus + .captcha__label {
-  top: -12px;
-  font-size: var(--small-font-size);
+  top: -0.35rem;
+  transform: none;
+  font-size: 0.72rem;
+  color: var(--ink-100);
 }
 
-/* Input focus sticky top label */
 #captcha-input:not(:placeholder-shown):not(:focus) + .captcha__label {
-  top: -12px;
-  font-size: var(--small-font-size);
+  top: -0.35rem;
+  transform: none;
+  font-size: 0.72rem;
+  color: var(--ink-70);
+}
+
+.captcha-image-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+#captcha-img {
+  width: 110px;
+  height: 40px;
+  border: 1px solid var(--line-soft);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 #refresh-captcha {
-  position: relative;
-  background: none;
-  border: none;
-  color: var(--white-color);
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  border-radius: 0.55rem;
+  color: var(--ink-100);
+  background: rgba(255, 255, 255, 0.08);
   cursor: pointer;
-  margin-left: 5px;
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease;
 }
 
 #refresh-captcha:hover {
-  transform: scale(1.4);
-  opacity: 0.8;
+  transform: scale(1.07);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .hidden {
@@ -270,20 +446,21 @@ img {
 /*=============== NOTIFICATIONS ===============*/
 .notification {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  padding: 1rem 1.5rem;
-  border-radius: 0.5rem;
-  font-family: "Poppins", sans-serif;
-  font-size: 1rem;
+  top: 18px;
+  right: 18px;
+  max-width: min(92vw, 420px);
+  padding: 0.82rem 1.1rem;
+  border-radius: 0.72rem;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
   color: #fff;
   z-index: 2000;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  animation: fadeInOut 3s ease-in-out;
+  box-shadow: 0 8px 24px rgba(5, 15, 24, 0.35);
+  animation: notif-in 0.2s ease;
 }
 
 .notification-info {
-  background-color: #2196f3; /* Синий цвет для информационных сообщений */
+  background-color: #2196f3;
 }
 
 .notification-success {
@@ -294,42 +471,103 @@ img {
   background-color: #f44336;
 }
 
-@keyframes fadeInOut {
-  0% {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  10%,
-  90% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
+.notification-exit {
+  animation: notif-out 0.2s ease forwards;
 }
 
 /*=============== BREAKPOINTS ===============*/
-/* For medium devices */
 @media screen and (min-width: 576px) {
   .login {
-    justify-content: center;
+    padding: 2rem;
   }
+
   .login__form {
-    width: 432px;
-    padding: 4rem 3rem 3.5rem;
-    border-radius: 1.5rem;
-  }
-  .login__title {
-    font-size: 2rem;
+    padding: 2.4rem 2.25rem 1.55rem;
   }
 }
+
+@media (max-width: 520px) {
+  .login {
+    padding: 1rem;
+  }
+
+  .login__form {
+    width: 100%;
+    padding: 1.7rem 1rem 1.15rem;
+  }
+
+  .captcha-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .captcha-image-group {
+    justify-content: flex-start;
+  }
+
+  #captcha-img {
+    width: 125px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px transparent inset !important; /* Прозрачный фон */
-  -webkit-text-fill-color: #f8f7f7 !important; /* Цвет текста */
-  transition: background-color 5000s ease-in-out 0s; /* Отключаем анимацию */
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: #f8f7f7 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes item-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes notif-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes notif-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }

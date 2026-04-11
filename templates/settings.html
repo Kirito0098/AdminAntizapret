@@ -711,6 +711,10 @@
         <i class="icon">🛡️</i>
         <span>Безопасность</span>
       </li>
+      <li class="menu-item" data-tab="telegram-auth">
+        <i class="icon">🤖</i>
+        <span>Telegram авторизация</span>
+      </li>
       <li class="menu-item" data-tab="user-management">
         <i class="icon">👥</i>
         <span>Пользователи и доступ</span>
@@ -1312,6 +1316,12 @@
               <input type="password" name="password" placeholder="Пароль" required />
             </div>
             <div class="form-group">
+              <input type="text" name="telegram_id" placeholder="Telegram ID (опционально)" inputmode="numeric"
+                pattern="[0-9]*" />
+              <small class="help-text">Укажите numeric Telegram ID пользователя, чтобы разрешить вход через
+                Telegram.</small>
+            </div>
+            <div class="form-group">
               <label for="role-select">Роль:</label>
               <select name="role" id="role-select" class="form-control">
                 <option value="admin">admin (полный доступ)</option>
@@ -1334,6 +1344,7 @@
                 <span class="user-card__name">{{ user.username }}</span>
                 <span class="badge {% if user.role == 'admin' %}badge-admin{% else %}badge-viewer{% endif %}">{{
                   user.role }}</span>
+                <span class="user-card__self">TG: {{ user.telegram_id or 'не привязан' }}</span>
                 {% if user.username == current_user.username %}
                 <span class="user-card__self">Это вы</span>
                 {% endif %}
@@ -1370,6 +1381,20 @@
                     <input type="password" name="new_password" placeholder="Новый пароль (мин. 8 символов)" required />
                   </div>
                   <button type="submit" class="button save-button">Обновить пароль</button>
+                </form>
+              </section>
+
+              <section class="user-card__section">
+                <h4>Telegram ID</h4>
+                <form method="POST" class="settings-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_telegram_username" value="{{ user.username }}" />
+                  <div class="form-group">
+                    <input type="text" name="new_telegram_id" value="{{ user.telegram_id or '' }}"
+                      placeholder="Numeric Telegram ID" inputmode="numeric" pattern="[0-9]*" />
+                    <small class="help-text">Оставьте пустым и сохраните, чтобы отвязать Telegram ID.</small>
+                  </div>
+                  <button type="submit" class="button save-button">Сохранить Telegram ID</button>
                 </form>
               </section>
 
@@ -1511,6 +1536,7 @@
               <h3 id="viewerProfileModalTitle-{{ vu.id }}" class="viewer-profile-modal__title">
                 👤 {{ vu.username }}
                 <span class="badge badge-viewer">viewer</span>
+                <span class="user-card__self">TG: {{ vu.telegram_id or 'не привязан' }}</span>
               </h3>
               <button type="button" class="viewer-profile-modal__close" data-viewer-modal-close
                 aria-label="Закрыть">×</button>
@@ -1545,6 +1571,20 @@
                     <input type="password" name="new_password" placeholder="Новый пароль (мин. 8 символов)" required />
                   </div>
                   <button type="submit" class="button save-button">Обновить пароль</button>
+                </form>
+              </section>
+
+              <section class="viewer-profile-modal__block">
+                <h4>Telegram ID</h4>
+                <form method="POST" class="settings-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_telegram_username" value="{{ vu.username }}" />
+                  <div class="form-group">
+                    <input type="text" name="new_telegram_id" value="{{ vu.telegram_id or '' }}"
+                      placeholder="Numeric Telegram ID" inputmode="numeric" pattern="[0-9]*" />
+                    <small class="help-text">Оставьте пустым и сохраните, чтобы отвязать Telegram ID.</small>
+                  </div>
+                  <button type="submit" class="button save-button">Сохранить Telegram ID</button>
                 </form>
               </section>
 
@@ -1913,6 +1953,56 @@
             <pre><code>192.168.1  # неполный адрес</code></pre>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ Telegram авторизация ═══════════════ -->
+    <div id="telegram-auth" class="content-tab">
+      <h2>Telegram авторизация</h2>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3>Вход в панель через Telegram</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <input type="hidden" name="telegram_auth_action" value="save" />
+
+          <div class="form-group">
+            <label for="telegram_auth_bot_username">Username бота Telegram</label>
+            <input type="text" id="telegram_auth_bot_username" name="telegram_auth_bot_username"
+              value="{{ telegram_auth_bot_username or '' }}" placeholder="MyPanelAuthBot" />
+            <small class="help-text">Можно вводить с @ или без него.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="telegram_auth_bot_token">Токен бота Telegram</label>
+            <input type="password" id="telegram_auth_bot_token" name="telegram_auth_bot_token"
+              placeholder="Оставьте пустым, чтобы выключить Telegram логин" autocomplete="off" />
+            <small class="help-text">
+              Текущий статус токена:
+              <strong>{% if telegram_auth_bot_token_set %}установлен{% else %}не установлен{% endif %}</strong>.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="telegram_auth_max_age_seconds">Макс. возраст Telegram авторизации (секунд)</label>
+            <input type="number" id="telegram_auth_max_age_seconds" name="telegram_auth_max_age_seconds" min="30"
+              max="86400" step="1" value="{{ telegram_auth_max_age_seconds }}" />
+            <small class="help-text">Рекомендуемое значение: 300 секунд.</small>
+          </div>
+
+          <div class="info-box" style="margin-bottom: 1rem;">
+            <p style="margin: 0;">
+              Статус Telegram логина:
+              <strong>{% if telegram_auth_enabled %}включен{% else %}выключен{% endif %}</strong>.
+            </p>
+            <p style="margin: 0.45rem 0 0 0;" class="help-text">
+              Для входа через Telegram у пользователя должен быть заполнен его персональный TG ID в разделе
+              «Пользователи и доступ».
+            </p>
+          </div>
+
+          <button type="submit" class="button save-button">Сохранить Telegram авторизацию</button>
+        </form>
       </div>
     </div>
 
