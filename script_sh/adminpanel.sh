@@ -12,22 +12,22 @@ CYAN=$(printf '\033[36m')
 NC=$(printf '\033[0m')
 
 # Основные параметры
-INSTALL_DIR="/opt/AdminAntizapret"
-VENV_PATH="$INSTALL_DIR/venv"
-SERVICE_NAME="admin-antizapret"
-DEFAULT_PORT="5050"
-APP_PORT="$DEFAULT_PORT"
-DB_FILE="$INSTALL_DIR/instance/users.db"
-ANTIZAPRET_INSTALL_DIR="/root/antizapret"
-ANTIZAPRET_INSTALL_SCRIPT="https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/main/setup.sh"
-LOG_FILE="/var/log/adminpanel.log"
-INSTALL_LOG_FILE=""
-INSTALL_LOG_ACTIVE=0
-INSTALL_LOG_KEEP_COUNT=30
-MAX_MAIN_LOG_SIZE_MB=20
-MAX_MAIN_LOG_BACKUPS=5
-INCLUDE_DIR="$INSTALL_DIR/script_sh"
-ADMIN_PANEL_DIR="/root/AdminPanel"
+export INSTALL_DIR="/opt/AdminAntizapret"
+export VENV_PATH="$INSTALL_DIR/venv"
+export SERVICE_NAME="admin-antizapret"
+export DEFAULT_PORT="5050"
+export APP_PORT="$DEFAULT_PORT"
+export DB_FILE="$INSTALL_DIR/instance/users.db"
+export ANTIZAPRET_INSTALL_DIR="/root/antizapret"
+export ANTIZAPRET_INSTALL_SCRIPT="https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/main/setup.sh"
+export LOG_FILE="/var/log/adminpanel.log"
+export INSTALL_LOG_FILE=""
+export INSTALL_LOG_ACTIVE=0
+export INSTALL_LOG_KEEP_COUNT=30
+export MAX_MAIN_LOG_SIZE_MB=20
+export MAX_MAIN_LOG_BACKUPS=5
+export INCLUDE_DIR="$INSTALL_DIR/script_sh"
+export ADMIN_PANEL_DIR="/root/AdminPanel"
 
 modules=(
 	"ssl_setup"
@@ -41,6 +41,7 @@ modules=(
 
 for module in "${modules[@]}"; do
 	if [ -f "$INCLUDE_DIR/${module}.sh" ]; then
+		# shellcheck disable=SC1090
 		. "$INCLUDE_DIR/${module}.sh"
 	else
 		echo "${RED}Ошибка: не найден файл ${module}.sh${NC}" >&2
@@ -89,7 +90,7 @@ check_port() {
 			return 0
 		fi
 	elif command -v lsof >/dev/null 2>&1; then
-		if lsof -i :$port >/dev/null; then
+		if lsof -i :"$port" >/dev/null; then
 			return 0
 		fi
 	elif grep -q ":$port " /proc/net/tcp /proc/net/tcp6 2>/dev/null; then
@@ -172,8 +173,7 @@ verify_project_environment() {
 		install_missing_sys=$(echo "$install_missing_sys" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 		if [[ "$install_missing_sys" =~ ^y ]]; then
 			echo "${YELLOW}Устанавливаем недостающие системные пакеты...${NC}"
-			apt-get update --quiet --quiet >/dev/null && apt-get install -y --quiet --quiet "${missing_system_packages[@]}" >/dev/null
-			if [ $? -eq 0 ]; then
+			if apt-get update --quiet --quiet >/dev/null && apt-get install -y --quiet --quiet "${missing_system_packages[@]}" >/dev/null; then
 				print_ok "Системные пакеты установлены"
 			else
 				print_fail "Не удалось установить часть системных пакетов"
@@ -229,8 +229,7 @@ verify_project_environment() {
 				install_py_missing=$(echo "$install_py_missing" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 				if [[ "$install_py_missing" =~ ^y ]]; then
 					echo "${YELLOW}Устанавливаем Python-зависимости...${NC}"
-					"$VENV_PATH/bin/pip" install -q -r "$req_file"
-					if [ $? -eq 0 ]; then
+					if "$VENV_PATH/bin/pip" install -q -r "$req_file"; then
 						print_ok "Python-зависимости установлены"
 					else
 						print_fail "Не удалось установить Python-зависимости"
@@ -240,8 +239,7 @@ verify_project_environment() {
 				fi
 			fi
 
-			"$VENV_PATH/bin/pip" check >/dev/null 2>&1
-			if [ $? -eq 0 ]; then
+			if "$VENV_PATH/bin/pip" check >/dev/null 2>&1; then
 				print_ok "Зависимости Python согласованы (pip check)"
 			else
 				print_warn "Обнаружены конфликты зависимостей Python (pip check). Выполните: $VENV_PATH/bin/pip check"
@@ -460,7 +458,7 @@ main_menu() {
 		printf "└────────────────────────────────────────────┘\n"
 		printf "%s\n" "${NC}"
 
-		read -p "Выберите действие [0-16]: " choice
+		read -r -p "Выберите действие [0-16]: " choice
 		case $choice in
 		1) add_admin ;;
 		2) delete_admin ;;
@@ -470,7 +468,7 @@ main_menu() {
 		6) check_updates ;;
 		7) create_backup ;;
 		8)
-			read -p "Введите путь к файлу резервной копии: " backup_file
+			read -r -p "Введите путь к файлу резервной копии: " backup_file
 			restore_backup "$backup_file"
 			press_any_key
 			;;
@@ -536,8 +534,8 @@ install() {
 	fi
 
 	# Установка прав выполнения
-	echo "${YELLOW}Установка прав выполнения...${NC}" &&
-		chmod +x "$INSTALL_DIR/client.sh" "$ANTIZAPRET_INSTALL_DIR/doall.sh" 2>/dev/null || true
+	echo "${YELLOW}Установка прав выполнения...${NC}"
+	chmod +x "$INSTALL_DIR/client.sh" "$ANTIZAPRET_INSTALL_DIR/doall.sh" 2>/dev/null || true
 	echo "${GREEN}[✓] Готово${NC}"
 
 	# Обновление пакетов
@@ -672,7 +670,7 @@ EOL
 		echo "${YELLOW}Доступные сетевые интерфейсы:${NC}"
 		echo "$available_interfaces"
 		while true; do
-			read -p "Введите сетевой интерфейс для мониторинга трафика vnstat (по умолчанию: $default_interface): " vnstat_iface
+			read -r -p "Введите сетевой интерфейс для мониторинга трафика vnstat (по умолчанию: $default_interface): " vnstat_iface
 			vnstat_iface=${vnstat_iface:-$default_interface}
 			# Проверка существования выбранного интерфейса
 			if ip link show "$vnstat_iface" >/dev/null 2>&1; then
@@ -688,7 +686,7 @@ EOL
 		current_vnstat_iface=$(grep "^VNSTAT_IFACE=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
 		echo "${YELLOW}Переменная VNSTAT_IFACE уже задана в $INSTALL_DIR/.env как: $current_vnstat_iface${NC}"
 		while true; do
-			read -p "Хотите изменить интерфейс на $vnstat_iface? (y/n): " answer
+			read -r -p "Хотите изменить интерфейс на $vnstat_iface? (y/n): " answer
 			answer=$(echo "$answer" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 			case $answer in
 			[Yy]*)
@@ -772,7 +770,7 @@ EOL
 		max_len=55
 		if [ "$line_len" -lt "$max_len" ]; then
 			padding=$((max_len - line_len))
-			line="$line$(printf '%*s' "$padding")│"
+			line="$line$(printf '%*s' "$padding" "")│"
 		else
 			line="$line│"
 		fi

@@ -13,10 +13,14 @@ append_if_exists() {
 # Функция создания резервной копии
 create_backup() {
     local backup_dir="/var/backups/antizapret"
-    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local timestamp
     local backup_file="$backup_dir/full_backup_$timestamp.tar.gz"
     local backup_meta_file="$backup_dir/full_backup_$timestamp.meta.txt"
     local backup_items=()
+
+    timestamp=$(date +%Y%m%d_%H%M%S)
+    backup_file="$backup_dir/full_backup_$timestamp.tar.gz"
+    backup_meta_file="$backup_dir/full_backup_$timestamp.meta.txt"
 
     log "Создание резервной копии в $backup_file"
     echo "${YELLOW}Создание полной резервной копии...${NC}"
@@ -48,8 +52,7 @@ create_backup() {
         echo "data_items_count=${#backup_items[@]}"
     } >"$backup_meta_file"
 
-    tar -czf "$backup_file" "${backup_items[@]}" 2>/dev/null
-    if [ $? -ne 0 ]; then
+    if ! tar -czf "$backup_file" "${backup_items[@]}" 2>/dev/null; then
         echo "${RED}Ошибка: не удалось создать архив резервной копии.${NC}"
         rm -f "$backup_file"
         return 1
@@ -69,7 +72,7 @@ create_backup() {
 
 # Функция восстановления из резервной копии
 restore_backup() {
-    local backup_file=$1
+    local backup_file="$1"
 
     if [ ! -f "$backup_file" ]; then
         echo "${RED}Файл резервной копии не найден!${NC}"

@@ -7,34 +7,58 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dotenv import dotenv_values
+
+
+SQLITE_TIMEOUT_SECONDS = 10
+
 
 def _parse_bool(raw, default=False):
     if raw is None:
         return default
-    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+    value = str(raw).strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        value = value[1:-1]
+    return value.lower() in {"1", "true", "yes", "on"}
 
 
 def _parse_int(raw, default):
     try:
-        return int(str(raw).strip())
+        value = str(raw).strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        return int(value)
     except Exception:
         return default
 
 
 def _load_env_file(env_path):
-    env_map = {}
     if not env_path.exists():
-        return env_map
+        return {}
 
-    with env_path.open("r", encoding="utf-8") as fh:
-        for raw in fh:
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            env_map[key.strip()] = value.strip()
+    values = dotenv_values(str(env_path))
+    env_map = {}
+    for key, value in values.items():
+        if not key or value is None:
+            continue
+        env_map[str(key).strip()] = str(value).strip()
 
     return env_map
+
+
+def _clean_env_value(raw, default=""):
+    if raw is None:
+        return default
+    value = str(raw).strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        value = value[1:-1]
+    return value if value else default
+
+
+def _connect_db(db_path):
+    conn = sqlite3.connect(str(db_path), timeout=SQLITE_TIMEOUT_SECONDS)
+    conn.execute(f"PRAGMA busy_timeout = {int(SQLITE_TIMEOUT_SECONDS * 1000)}")
+    return conn
 
 
 def _resolve_db_path(app_root):
@@ -114,7 +138,8 @@ def main():
         env_map.get("ADMIN_ANTIZAPRET_SERVICE_NAME")
         or os.getenv("ADMIN_ANTIZAPRET_SERVICE_NAME")
         or "admin-antizapret.service"
-    ).strip()
+    )
+    service_name = _clean_env_value(service_name, default="admin-antizapret.service")
 
     db_path = _resolve_db_path(app_root)
     if not db_path.exists():
@@ -122,7 +147,7 @@ def main():
         return 0
 
     try:
-        conn = sqlite3.connect(str(db_path))
+        conn = _connect_db(db_path)
         try:
             if not _table_exists(conn, "active_web_session"):
                 print("active_web_session table not found, skip restart")

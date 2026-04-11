@@ -1,9 +1,11 @@
+#!/bin/bash
+
 uninstall() {
 	printf "%s\n" "${YELLOW}Подготовка к удалению AdminAntizapret...${NC}"
 	printf "%s\n" "${RED}ВНИМАНИЕ! Это действие необратимо!${NC}"
 
 	printf "Вы уверены, что хотите удалить AdminAntizapret? (y/n) "
-	read answer
+	read -r answer
 	answer=$(echo "$answer" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 
 	case "$answer" in
@@ -57,7 +59,7 @@ uninstall() {
 
 			if [[ $response =~ ^[yY]$ ]]; then
 				if [ "$use_nginx" = true ] && [ -n "$DOMAIN" ]; then
-					NGINX_CONF_NAME=$(echo "$DOMAIN" | sed 's/\./_/g')
+					NGINX_CONF_NAME=${DOMAIN//./_}
 					printf "%s\n" "${YELLOW}Удаление конфигурации Nginx для домена $DOMAIN...${NC}"
 					rm -f "/etc/nginx/sites-available/$NGINX_CONF_NAME"
 					rm -f "/etc/nginx/sites-enabled/$NGINX_CONF_NAME"

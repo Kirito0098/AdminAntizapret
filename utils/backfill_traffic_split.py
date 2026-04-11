@@ -50,9 +50,10 @@ def _split_proportionally(missing: int, vpn_part: int, ant_part: int) -> tuple[i
 
 
 def backfill(apply_changes: bool, include_mixed_antizapret: bool = False) -> int:
-    users = UserTrafficStat.query.all()
+    users = UserTrafficStat.query.yield_per(500)
     affected = 0
     skipped_nonzero_antizapret = 0
+    pending_updates = 0
 
     for row in users:
         missing_rx, missing_tx = _row_missing_parts(row)
@@ -104,8 +105,13 @@ def backfill(apply_changes: bool, include_mixed_antizapret: bool = False) -> int
             row.total_sent_vpn = after_vpn_tx
             row.total_received_antizapret = after_ant_rx
             row.total_sent_antizapret = after_ant_tx
+            pending_updates += 1
 
-    if apply_changes:
+            if pending_updates >= 500:
+                db.session.commit()
+                pending_updates = 0
+
+    if apply_changes and pending_updates > 0:
         db.session.commit()
 
     print(f"Affected rows: {affected}")

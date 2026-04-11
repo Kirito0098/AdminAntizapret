@@ -4,7 +4,7 @@
 get_port() {
 	DEF_CUR_PORT=$([[ -f "$INSTALL_DIR/.env" ]] && grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env") || DEF_CUR_PORT="$DEFAULT_PORT"
 	while true; do
-		read -p "Введите порт для сервиса 1-65535 [$DEF_CUR_PORT]: " APP_PORT
+		read -r -p "Введите порт для сервиса 1-65535 [$DEF_CUR_PORT]: " APP_PORT
 		APP_PORT=${APP_PORT:-"$DEF_CUR_PORT"}
 		if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || ((APP_PORT < 1 || APP_PORT > 65535)); then
 			echo "${RED}Некорректный номер порта!${NC}"
@@ -62,7 +62,7 @@ choose_installation_type() {
 		echo "${YELLOW}Выберите способ установки:${NC}"
 		echo "1) HTTPS (Защищенное соединение)"
 		echo "2) HTTP (Не защищенное соединение)"
-		read -p "Ваш выбор [1-2]: " ssl_main_choice
+		read -r -p "Ваш выбор [1-2]: " ssl_main_choice
 
 		case $ssl_main_choice in
 		1)
@@ -71,7 +71,7 @@ choose_installation_type() {
 			echo "  2) Использовать собственный домен и собственные сертификаты"
 			echo "  3) Самоподписанный сертификат"
 			echo "  4) Использовать Nginx как reverse proxy с сертификатами Let's Encrypt"
-			read -p "Ваш выбор [1-4]: " ssl_sub_choice
+			read -r -p "Ваш выбор [1-4]: " ssl_sub_choice
 
 			case $ssl_sub_choice in
 			1 | 2 | 3 | 4)
@@ -117,7 +117,7 @@ check_openvpn_tcp_setting() {
 			echo "${YELLOW}адресу https://example.com вместо https://example.com:443), но это не является безопасным вариантом.${NC}"
 			echo "${YELLOW}Учтите, что подавляющая часть сетевых атак приходятся именно на WEB сервисы, размещенные на 80 и 443 портах.${NC}"
 			echo "Вы можете отключить это резервирование для OpenVPN, чтобы использовать стандартные WEB порты для AdminAntizapret(y) или оставить как есть, выбрав другой порт(n)"
-			read -p "Отключить резервирование портов в OpenVPN? (y/n): " change_choice
+			read -r -p "Отключить резервирование портов в OpenVPN? (y/n): " change_choice
 			if [[ "$change_choice" =~ ^[Yy]$ ]]; then
 				sed -i 's/^OPENVPN_80_443_TCP=y/OPENVPN_80_443_TCP=n/' /root/antizapret/setup
 				systemctl restart antizapret.service
@@ -138,12 +138,12 @@ setup_letsencrypt() {
 	echo "${YELLOW}Настройка Let's Encrypt...${NC}"
 
 	while true; do
-		read -p "Введите доменное имя (например, example.com): " DOMAIN
+		read -r -p "Введите доменное имя (например, example.com): " DOMAIN
 		if [[ $DOMAIN =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
 			# Проверка существующих сертификатов для введенного домена
 			if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
 				echo "${YELLOW}Для домена $DOMAIN уже существуют сертификаты Let's Encrypt.${NC}"
-				read -p "Использовать существующие сертификаты? (y/n): " use_existing
+				read -r -p "Использовать существующие сертификаты? (y/n): " use_existing
 				if [[ "$use_existing" =~ ^[Yy]$ ]]; then
 					set_env_value "USE_HTTPS" "true"
 					set_env_value "SSL_CERT" "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
@@ -163,15 +163,15 @@ setup_letsencrypt() {
 	done
 
 	# Тут изменил блок для email с возможностью пропуска
-	read -p "Введите email для уведомлений и рассылки от Let's Encrypt (нажмите ENTER, если эта функция не нужна): " EMAIL
+	read -r -p "Введите email для уведомлений и рассылки от Let's Encrypt (нажмите ENTER, если эта функция не нужна): " EMAIL
 	while [[ -n "$EMAIL" && ! "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; do
 		echo "${RED}Неверный формат email!${NC}"
-		read -p "Попробуйте еще раз или нажмите ENTER для отмены: " EMAIL
+		read -r -p "Попробуйте еще раз или нажмите ENTER для отмены: " EMAIL
 	done
 
-	if ! dig +short $DOMAIN | grep -q '[0-9]'; then
+	if ! dig +short "$DOMAIN" | grep -q '[0-9]'; then
 		echo "${YELLOW}DNS запись для $DOMAIN не найдена или неверна!${NC}"
-		read -p "Продолжить установку? (y/n): " choice
+		read -r -p "Продолжить установку? (y/n): " choice
 		[[ "$choice" =~ ^[Yy]$ ]] || return 1
 	fi
 
@@ -226,7 +226,8 @@ setup_letsencrypt() {
 	PORT80_RULES=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')")
 	if [ -n "$PORT80_RULES" ]; then
 		while read -r line; do
-			iptables -t nat -D $(echo $line | sed 's/^-A //')
+			read -r -a rule_parts <<<"${line#-A }"
+			iptables -t nat -D "${rule_parts[@]}"
 		done <<<"$PORT80_RULES"
 		if ! iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')" >/dev/null; then
 			echo "${GREEN}Все правила с портом 80 временно удалены${NC}"
@@ -240,8 +241,7 @@ setup_letsencrypt() {
 
 	# Установка certbot без дополнительных nginx и apache компонентов
 	echo "${YELLOW}Установка Certbot...${NC}"
-	apt-get install -y -qq certbot --no-install-recommends >/dev/null 2>&1
-	if [ $? -ne 0 ]; then
+	if ! apt-get install -y -qq certbot --no-install-recommends >/dev/null 2>&1; then
 		restore_rules
 		restore_services
 		check_error "Не удалось установить Certbot"
@@ -254,13 +254,21 @@ setup_letsencrypt() {
 
 	# Измененный вызов certbot (с учетом нужна рассылка или нет)
 	if [[ -n "$EMAIL" ]]; then
-		certbot certonly --standalone --non-interactive --agree-tos -m $EMAIL -d $DOMAIN
+		if ! certbot certonly --standalone --non-interactive --agree-tos -m "$EMAIL" -d "$DOMAIN"; then
+			restore_rules
+			restore_services
+			check_error "Не удалось получить сертификат Let's Encrypt"
+		fi
 	else
-		certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email -d $DOMAIN
+		if ! certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email -d "$DOMAIN"; then
+			restore_rules
+			restore_services
+			check_error "Не удалось получить сертификат Let's Encrypt"
+		fi
 	fi
 
 	# Улучшена проверка получения сертификата
-	if [[ $? -ne 0 || ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]]; then
+	if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
 		restore_rules
 		restore_services
 		check_error "Не удалось получить сертификат Let's Encrypt"
@@ -333,7 +341,7 @@ setup_custom_certs() {
 	echo "${YELLOW}Настройка пользовательских сертификатов...${NC}"
 
 	while true; do
-		read -p "Введите доменное имя (например, example.com): " DOMAIN
+		read -r -p "Введите доменное имя (например, example.com): " DOMAIN
 		if [[ $DOMAIN =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
 			break
 		else
@@ -341,8 +349,8 @@ setup_custom_certs() {
 		fi
 	done
 
-	read -p "Введите полный путь к файлу сертификата (.crt или .pem): " CERT_PATH
-	read -p "Введите полный путь к файлу приватного ключа (.key): " KEY_PATH
+	read -r -p "Введите полный путь к файлу сертификата (.crt или .pem): " CERT_PATH
+	read -r -p "Введите полный путь к файлу приватного ключа (.key): " KEY_PATH
 
 	if [ ! -f "$CERT_PATH" ] || [ ! -f "$KEY_PATH" ]; then
 		echo "${RED}Файлы сертификатов не найдены!${NC}"
@@ -399,7 +407,7 @@ setup_nginx_letsencrypt() {
 	echo "${YELLOW}Настройка Nginx как reverse proxy с Let's Encrypt...${NC}"
 
 	while true; do
-		read -p "Введите доменное имя (например, example.com): " DOMAIN
+		read -r -p "Введите доменное имя (например, example.com): " DOMAIN
 		if [[ $DOMAIN =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
 			break
 		else
@@ -408,20 +416,18 @@ setup_nginx_letsencrypt() {
 	done
 
 	# Безопасное имя файла
-	NGINX_CONF_NAME=$(echo "$DOMAIN" | sed 's/\./_/g')
+	NGINX_CONF_NAME=${DOMAIN//./_}
 	NGINX_CONF_FILE="/etc/nginx/sites-available/$NGINX_CONF_NAME"
 	NGINX_ENABLED_LINK="/etc/nginx/sites-enabled/$NGINX_CONF_NAME"
 
-	read -p "Введите email для уведомлений от Let's Encrypt (ENTER — пропустить): " EMAIL
-	EMAIL_ARG=""
+	read -r -p "Введите email для уведомлений от Let's Encrypt (ENTER — пропустить): " EMAIL
 	if [[ -n "$EMAIL" ]]; then
 		if [[ "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-			EMAIL_ARG="-m $EMAIL"
+			:
 		else
 			echo "${RED}Неверный email, пропускаем.${NC}"
+			EMAIL=""
 		fi
-	else
-		EMAIL_ARG="--register-unsafely-without-email"
 	fi
 
 	# Установка Nginx и Certbot (snap)
@@ -440,8 +446,10 @@ setup_nginx_letsencrypt() {
 	SAVE_RULES=$(iptables-save)
 	PORT80_RULES=$(iptables-save | grep "PREROUTING.*-p tcp.*--dport 80" | grep "$(ip route | grep default | awk '{print $5}')")
 	if [ -n "$PORT80_RULES" ]; then
+		local -a rule_parts=()
 		while read -r line; do
-			iptables -t nat -D $(echo $line | sed 's/^-A //')
+			read -r -a rule_parts <<<"${line#-A }"
+			iptables -t nat -D "${rule_parts[@]}"
 		done <<<"$PORT80_RULES"
 		echo "${GREEN}Все правила с портом 80 временно удалены${NC}"
 	else
@@ -456,12 +464,21 @@ setup_nginx_letsencrypt() {
 		echo "${YELLOW}Сертификат для $DOMAIN уже существует. Используем существующий.${NC}"
 	else
 		echo "${YELLOW}Получение нового сертификата (standalone)...${NC}"
-		certbot certonly --standalone --non-interactive --agree-tos $EMAIL_ARG -d $DOMAIN || {
-			echo "${RED}Ошибка получения сертификата!${NC}"
-			echo "$SAVE_RULES" | iptables-restore 2>/dev/null
-			systemctl start nginx 2>/dev/null
-			return 1
-		}
+		if [[ -n "$EMAIL" ]]; then
+			certbot certonly --standalone --non-interactive --agree-tos -m "$EMAIL" -d "$DOMAIN" || {
+				echo "${RED}Ошибка получения сертификата!${NC}"
+				echo "$SAVE_RULES" | iptables-restore 2>/dev/null
+				systemctl start nginx 2>/dev/null
+				return 1
+			}
+		else
+			certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email -d "$DOMAIN" || {
+				echo "${RED}Ошибка получения сертификата!${NC}"
+				echo "$SAVE_RULES" | iptables-restore 2>/dev/null
+				systemctl start nginx 2>/dev/null
+				return 1
+			}
+		fi
 	fi
 
 	# Восстанавливаем iptables
@@ -512,9 +529,7 @@ EOF
 
 	ln -sf "$NGINX_CONF_FILE" "$NGINX_ENABLED_LINK"
 
-	nginx -t && systemctl start nginx
-
-	if [ $? -ne 0 ]; then
+	if ! nginx -t || ! systemctl start nginx; then
 		echo "${RED}Ошибка запуска Nginx! Вывод nginx -t:${NC}"
 		nginx -t
 		return 1
@@ -525,6 +540,7 @@ EOF
 	set_env_value "USE_HTTPS" "false"
 	set_env_value "DOMAIN" "$DOMAIN"
 	set_env_value "BIND" "127.0.0.1"
+	set_env_value "TRUSTED_PROXY_IPS" "127.0.0.1,::1"
 	unset_env_value "SSL_CERT"
 	unset_env_value "SSL_KEY"
 
@@ -549,7 +565,7 @@ change_protocol() {
 	echo "Выберите новый протокол:"
 	echo "1) HTTPS (Защищенное соединение)"
 	echo "2) HTTP (Не защищенное соединение)"
-	read -p "Ваш выбор [1-2]: " protocol_choice
+		read -r -p "Ваш выбор [1-2]: " protocol_choice
 
 	case $protocol_choice in
 	1)
@@ -558,7 +574,7 @@ change_protocol() {
 		echo "  1) Использовать собственный домен и получить сертификаты Let's Encrypt"
 		echo "  2) Использовать собственный домен и собственные сертификаты"
 		echo "  3) Самоподписанный сертификат"
-		read -p "Ваш выбор [1-3]: " ssl_sub_choice
+		read -r -p "Ваш выбор [1-3]: " ssl_sub_choice
 
 		case $ssl_sub_choice in
 		1) setup_letsencrypt ;;
@@ -581,7 +597,7 @@ change_protocol() {
 	esac
 
 	# Перезапуск сервиса
-	systemctl restart $SERVICE_NAME
+	systemctl restart "$SERVICE_NAME"
 	echo "${GREEN}Протокол успешно изменен!${NC}"
 	press_any_key
 }

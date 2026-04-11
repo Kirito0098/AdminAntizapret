@@ -15,8 +15,9 @@ INSTALL_DIR="/opt/AdminAntizapret"
 
 # Функция для проверки ошибок
 check_error() {
-	local error_message="$1"
-	if [ $? -ne 0 ]; then
+	local status="$1"
+	local error_message="$2"
+	if [ "$status" -ne 0 ]; then
 		echo "${RED}Ошибка: $error_message${NC}" >&2
 		exit 1
 	fi
@@ -74,7 +75,7 @@ else
 	echo "${YELLOW}Доступные сетевые интерфейсы:${NC}"
 	echo "$available_interfaces"
 	while true; do
-		read -p "Введите сетевой интерфейс для мониторинга трафика vnstat (по умолчанию: $default_interface): " vnstat_iface
+		read -r -p "Введите сетевой интерфейс для мониторинга трафика vnstat (по умолчанию: $default_interface): " vnstat_iface
 		vnstat_iface=${vnstat_iface:-$default_interface}
 		# Проверка существования выбранного интерфейса
 		if ip link show "$vnstat_iface" >/dev/null 2>&1; then
@@ -90,7 +91,7 @@ if [ -f "$INSTALL_DIR/.env" ] && grep -q "^VNSTAT_IFACE=" "$INSTALL_DIR/.env"; t
 	current_vnstat_iface=$(grep "^VNSTAT_IFACE=" "$INSTALL_DIR/.env" | cut -d'=' -f2)
 	echo "${YELLOW}Переменная VNSTAT_IFACE уже задана в $INSTALL_DIR/.env как: $current_vnstat_iface${NC}"
 	while true; do
-		read -p "Хотите изменить интерфейс на $vnstat_iface? (y/n): " answer
+		read -r -p "Хотите изменить интерфейс на $vnstat_iface? (y/n): " answer
 		answer=$(echo "$answer" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 		case $answer in
 		[Yy]*)
@@ -138,7 +139,7 @@ fi
 # Перезагрузка конфигурации systemd и перезапуск vnstat
 systemctl daemon-reload
 systemctl enable vnstat
-check_error "Не удалось включить сервис vnstat"
+check_error $? "Не удалось включить сервис vnstat"
 systemctl restart vnstat
-check_error "Не удалось запустить сервис vnstat"
+check_error $? "Не удалось запустить сервис vnstat"
 echo "${GREEN}[✓] Сервис vnstat настроен и запущен${NC}"
