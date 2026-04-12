@@ -119,6 +119,9 @@
                 data-one-time-az-endpoint="{% if current_user and current_user.is_admin() and files['antizapret'] %}{{ url_for('generate_one_time_download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) }}{% endif %}">
                 <td class="client-name client-name-cell">
                   <div class="client-name-main">{{ client_name }}</div>
+                  <span class="client-block-badge {% if is_blocked %}is-blocked{% else %}is-active{% endif %}">
+                    {% if is_blocked %}Заблокирован{% else %}Активный{% endif %}
+                  </span>
                   {% if show_cert_meta %}
                   <div class="client-cert-meta {{ cert_state }}">
                     {% if cert_expires_at %}
@@ -177,6 +180,13 @@
                 data-one-time-az-endpoint="{% if current_user and current_user.is_admin() and files['antizapret'] %}{{ url_for('generate_one_time_download', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}">
                 <td class="client-name">
                   <div class="client-name-main">{{ client_name }}</div>
+                  <span class="client-block-badge is-active">Активный</span>
+                  <div class="client-card-meta">
+                    <span class="client-card-chip is-protocol">AmneziaWG</span>
+                    {% if files['vpn'] %}<span class="client-card-chip is-vpn">VPN</span>{% endif %}
+                    {% if files['antizapret'] %}<span class="client-card-chip is-az">AZ</span>{% endif %}
+                  </div>
+                  <div class="client-card-hint">Нажмите для действий</div>
                 </td>
               </tr>
               {% endfor %}
@@ -215,6 +225,13 @@
                 data-one-time-az-endpoint="{% if current_user and current_user.is_admin() and files['antizapret'] %}{{ url_for('generate_one_time_download', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}">
                 <td class="client-name">
                   <div class="client-name-main">{{ client_name }}</div>
+                  <span class="client-block-badge is-active">Активный</span>
+                  <div class="client-card-meta">
+                    <span class="client-card-chip is-protocol">WireGuard</span>
+                    {% if files['vpn'] %}<span class="client-card-chip is-vpn">VPN</span>{% endif %}
+                    {% if files['antizapret'] %}<span class="client-card-chip is-az">AZ</span>{% endif %}
+                  </div>
+                  <div class="client-card-hint">Нажмите для действий</div>
                 </td>
               </tr>
               {% endfor %}

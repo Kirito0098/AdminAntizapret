@@ -18,6 +18,7 @@ def register_all_routes(app, sock, deps):
         user_model=g("User"),
         touch_active_web_session=g("_touch_active_web_session"),
         remove_active_web_session=g("_remove_active_web_session"),
+        log_telegram_audit_event=g("_log_telegram_audit_event"),
     )
 
     register_config_routes(
@@ -46,6 +47,8 @@ def register_all_routes(app, sock, deps):
         set_env_value=g("_set_env_value"),
         get_public_download_enabled=g("_get_public_download_enabled"),
         set_public_download_enabled=g("_set_public_download_enabled"),
+        log_telegram_audit_event=g("_log_telegram_audit_event"),
+        log_user_action_event=g("_log_user_action_event"),
     )
 
     register_admin_routes(
@@ -65,6 +68,7 @@ def register_all_routes(app, sock, deps):
         task_update_system=g("_task_update_system"),
         task_restart_service=g("_task_restart_service"),
         task_accepted_response=g("_task_accepted_response"),
+        log_user_action_event=g("_log_user_action_event"),
     )
 
     register_settings_routes(
@@ -74,6 +78,8 @@ def register_all_routes(app, sock, deps):
         user_model=g("User"),
         active_web_session_model=g("ActiveWebSession"),
         qr_download_audit_log_model=g("QrDownloadAuditLog"),
+        telegram_mini_audit_log_model=g("TelegramMiniAuditLog"),
+        user_action_log_model=g("UserActionLog"),
         ip_restriction=g("ip_restriction"),
         ip_manager=g("ip_manager"),
         collect_all_openvpn_files_for_access=g("collect_all_openvpn_files_for_access"),
@@ -93,6 +99,8 @@ def register_all_routes(app, sock, deps):
         get_active_web_session_settings=g("_get_active_web_session_settings"),
         set_active_web_session_settings=g("_set_active_web_session_settings"),
         get_public_download_enabled=g("_get_public_download_enabled"),
+        log_telegram_audit_event=g("_log_telegram_audit_event"),
+        log_user_action_event=g("_log_user_action_event"),
     )
 
     register_index_routes(
@@ -109,6 +117,8 @@ def register_all_routes(app, sock, deps):
         human_bytes=g("_human_bytes"),
         script_executor=g("script_executor"),
         sync_wireguard_peer_cache_from_configs=g("_sync_wireguard_peer_cache_from_configs"),
+        log_telegram_audit_event=g("_log_telegram_audit_event"),
+        log_user_action_event=g("_log_user_action_event"),
     )
 
     register_monitoring_routes(

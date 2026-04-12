@@ -1,7 +1,7 @@
 # routes/settings_antizapret.py
 
 import re
-from flask import jsonify, request, current_app
+from flask import jsonify, request, current_app, session
 
 from config.antizapret_params import ANTIZAPRET_PARAMS
 
@@ -89,9 +89,43 @@ def init_antizapret(app_or_bp):
                     new_lines.append(f"{env}={val}\n")
                     changes += 1
 
+            has_mini_session = bool(
+                session.get("telegram_mini_auth")
+                and session.get("telegram_mini_username")
+                and session.get("telegram_mini_username") == session.get("username")
+            )
+
             if changes > 0:
                 with open(FILE_PATH, "w", encoding="utf-8") as f:
                     f.writelines(new_lines)
+
+                user_action_logger = current_app.config.get("USER_ACTION_AUDIT_LOGGER")
+                if callable(user_action_logger):
+                    changed_keys = sorted(desired.keys())
+                    sample = ",".join(changed_keys[:8])
+                    if len(changed_keys) > 8:
+                        sample += ",..."
+                    details_text = f"changes={changes} keys={sample}"
+                    if has_mini_session:
+                        details_text += " via=tg-mini"
+                    user_action_logger(
+                        "settings_antizapret_update",
+                        target_type="antizapret",
+                        target_name="setup",
+                        details=details_text,
+                    )
+
+            if changes > 0 and has_mini_session:
+                logger_callback = current_app.config.get("TELEGRAM_AUDIT_LOGGER")
+                if callable(logger_callback):
+                    changed_keys = sorted(desired.keys())
+                    sample = ",".join(changed_keys[:8])
+                    if len(changed_keys) > 8:
+                        sample += ",..."
+                    logger_callback(
+                        "mini_antizapret_settings_update",
+                        details=f"changes={changes} keys={sample}",
+                    )
 
             return jsonify({
                 "success": True,
@@ -111,6 +145,14 @@ def init_antizapret(app_or_bp):
     #@auth_manager.login_required
     def antizapret_settings_schema():
         return jsonify([
-            {"key": p["key"], "html_id": p["html_id"], "type": p["type"]}
+            {
+                "key": p["key"],
+                "html_id": p["html_id"],
+                "type": p["type"],
+                "env": p.get("env", ""),
+                "param_label": p.get("param_label", p.get("env", "")),
+                "title": p.get("title", ""),
+                "description": p.get("description", ""),
+            }
             for p in ANTIZAPRET_PARAMS
         ])

@@ -4,6 +4,24 @@ document.addEventListener("DOMContentLoaded", () => {
   let bwChart = null;
   let pollInterval = null;
 
+  const getThemeColor = (token, fallback) =>
+    getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback;
+
+  const chartColors = {
+    cpuBorder: getThemeColor("--theme-chart-vpn-border", "#4caf50"),
+    cpuFill: getThemeColor("--theme-chart-vpn-fill", "rgba(76, 175, 80, 0.12)"),
+    memoryBorder: getThemeColor("--theme-secondary", "#2196f3"),
+    memoryFill: getThemeColor("--theme-secondary-alpha-10", "rgba(33, 150, 243, 0.1)"),
+    rxBorder: getThemeColor("--theme-chart-vpn-border", "#4caf50"),
+    txBorder: getThemeColor("--theme-chart-antizapret-border", "#f44336"),
+    legend: getThemeColor("--theme-chart-legend", "#fff"),
+    axisX: getThemeColor("--theme-chart-axis-x", "#bbb"),
+    axisY: getThemeColor("--theme-chart-axis-y", "#ddd"),
+    gridSoft: getThemeColor("--theme-chart-grid-soft", "rgba(255, 255, 255, 0.05)"),
+    gridStrong: getThemeColor("--theme-chart-grid-strong", "rgba(255, 255, 255, 0.1)"),
+    miniGrid: getThemeColor("--theme-chart-grid-monitor", "#444"),
+  };
+
   const defaultIfaceGroups = {
     vpn: ["vpn", "vpn-udp", "vpn-tcp"],
     antizapret: ["antizapret", "antizapret-udp", "antizapret-tcp"],
@@ -110,8 +128,8 @@ document.addEventListener("DOMContentLoaded", () => {
         labels: Array(30).fill(""),
         datasets: [{
           data: cpuData,
-          borderColor: "#4caf50",
-          backgroundColor: "rgba(76,175,80,0.1)",
+          borderColor: chartColors.cpuBorder,
+          backgroundColor: chartColors.cpuFill,
           tension: 0.3,
           pointRadius: 0,
           borderWidth: 2,
@@ -122,7 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
         responsive: false,
         plugins: { legend: { display: false } },
         scales: {
-          y: { min: 0, max: 100, ticks: { color: "#fff" }, grid: { color: "#444" } },
+          y: { min: 0, max: 100, ticks: { color: chartColors.legend }, grid: { color: chartColors.miniGrid } },
           x: { display: false },
         },
       },
@@ -134,8 +152,8 @@ document.addEventListener("DOMContentLoaded", () => {
         labels: Array(30).fill(""),
         datasets: [{
           data: memoryData,
-          borderColor: "#2196f3",
-          backgroundColor: "rgba(33,150,243,0.1)",
+          borderColor: chartColors.memoryBorder,
+          backgroundColor: chartColors.memoryFill,
           tension: 0.3,
           pointRadius: 0,
           borderWidth: 2,
@@ -146,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
         responsive: false,
         plugins: { legend: { display: false } },
         scales: {
-          y: { min: 0, max: 100, ticks: { color: "#fff" }, grid: { color: "#444" } },
+          y: { min: 0, max: 100, ticks: { color: chartColors.legend }, grid: { color: chartColors.miniGrid } },
           x: { display: false },
         },
       },
@@ -234,15 +252,15 @@ document.addEventListener("DOMContentLoaded", () => {
       data: {
         labels,
         datasets: [
-          { label: isRateMode ? `Rx (${unitLabel})` : "Rx (в день)", data: rxSeries, borderColor: "#4caf50", fill: false, tension: 0.2 },
-          { label: isRateMode ? `Tx (${unitLabel})` : "Tx (в день)", data: txSeries, borderColor: "#f44336", fill: false, tension: 0.2 },
+          { label: isRateMode ? `Rx (${unitLabel})` : "Rx (в день)", data: rxSeries, borderColor: chartColors.rxBorder, fill: false, tension: 0.2 },
+          { label: isRateMode ? `Tx (${unitLabel})` : "Tx (в день)", data: txSeries, borderColor: chartColors.txBorder, fill: false, tension: 0.2 },
         ],
       },
       options: {
         responsive: true,
         interaction: { mode: "index", intersect: false },
         plugins: {
-          legend: { position: "bottom", labels: { color: "#fff" } },
+          legend: { position: "bottom", labels: { color: chartColors.legend } },
           tooltip: {
             callbacks: {
               label: (ctx2) => {
@@ -256,12 +274,12 @@ document.addEventListener("DOMContentLoaded", () => {
         scales: {
           y: {
             title: { display: true, text: yTitle },
-            ticks: { color: "#ddd", callback: isRateMode ? undefined : (v) => fmtVolume(v, currentUnit) },
-            grid: { color: "rgba(255,255,255,0.1)" },
+            ticks: { color: chartColors.axisY, callback: isRateMode ? undefined : (v) => fmtVolume(v, currentUnit) },
+            grid: { color: chartColors.gridStrong },
           },
           x: {
-            ticks: { color: "#bbb", autoSkip: true, maxTicksLimit: currentRange === "1d" ? 24 : 10 },
-            grid: { color: "rgba(255,255,255,0.05)" },
+            ticks: { color: chartColors.axisX, autoSkip: true, maxTicksLimit: currentRange === "1d" ? 24 : 10 },
+            grid: { color: chartColors.gridSoft },
           },
         },
       },

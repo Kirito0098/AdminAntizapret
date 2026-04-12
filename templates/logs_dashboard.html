@@ -600,11 +600,14 @@
     const overviewSummary = {{ summary | tojson }};
     const overviewPane = document.querySelector('.logs-tab-pane[data-tab-pane="overview"]');
 
+    const getThemeColor = (token, fallback) =>
+        getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback;
+
     const protocolPalette = {
-        openvpnBg: 'rgba(79, 140, 255, 0.82)',
-        openvpnBorder: 'rgba(79, 140, 255, 1)',
-        wireguardBg: 'rgba(47, 194, 125, 0.82)',
-        wireguardBorder: 'rgba(47, 194, 125, 1)',
+        openvpnBg: getThemeColor('--theme-protocol-openvpn-bg', 'rgba(79, 140, 255, 0.82)'),
+        openvpnBorder: getThemeColor('--theme-protocol-openvpn-border', 'rgba(79, 140, 255, 1)'),
+        wireguardBg: getThemeColor('--theme-protocol-wireguard-bg', 'rgba(47, 194, 125, 0.82)'),
+        wireguardBorder: getThemeColor('--theme-protocol-wireguard-border', 'rgba(47, 194, 125, 1)'),
     };
 
     const networkLabels = groupedStatusRows.map(item => item.network);
@@ -631,21 +634,21 @@
             return protocolPalette.wireguardBg;
         }
         if (key.includes('android')) {
-            return 'rgba(201, 83, 112, 0.82)';
+            return getThemeColor('--theme-device-android-bg', 'rgba(201, 83, 112, 0.82)');
         }
         if (key.includes('ios') || key.includes('iphone') || key.includes('ipad')) {
-            return 'rgba(201, 167, 74, 0.82)';
+            return getThemeColor('--theme-device-ios-bg', 'rgba(201, 167, 74, 0.82)');
         }
         if (key.includes('windows')) {
-            return 'rgba(87, 190, 189, 0.82)';
+            return getThemeColor('--theme-device-windows-bg', 'rgba(87, 190, 189, 0.82)');
         }
         if (key.includes('mac')) {
-            return 'rgba(149, 125, 235, 0.82)';
+            return getThemeColor('--theme-device-mac-bg', 'rgba(149, 125, 235, 0.82)');
         }
         if (key.includes('linux')) {
-            return 'rgba(86, 144, 228, 0.82)';
+            return getThemeColor('--theme-device-linux-bg', 'rgba(86, 144, 228, 0.82)');
         }
-        return 'rgba(201, 203, 207, 0.82)';
+        return getThemeColor('--theme-device-unknown-bg', 'rgba(201, 203, 207, 0.82)');
     }
 
     function deviceBorderColor(label) {
@@ -654,21 +657,21 @@
             return protocolPalette.wireguardBorder;
         }
         if (key.includes('android')) {
-            return 'rgba(201, 83, 112, 1)';
+            return getThemeColor('--theme-device-android-border', 'rgba(201, 83, 112, 1)');
         }
         if (key.includes('ios') || key.includes('iphone') || key.includes('ipad')) {
-            return 'rgba(201, 167, 74, 1)';
+            return getThemeColor('--theme-device-ios-border', 'rgba(201, 167, 74, 1)');
         }
         if (key.includes('windows')) {
-            return 'rgba(87, 190, 189, 1)';
+            return getThemeColor('--theme-device-windows-border', 'rgba(87, 190, 189, 1)');
         }
         if (key.includes('mac')) {
-            return 'rgba(149, 125, 235, 1)';
+            return getThemeColor('--theme-device-mac-border', 'rgba(149, 125, 235, 1)');
         }
         if (key.includes('linux')) {
-            return 'rgba(86, 144, 228, 1)';
+            return getThemeColor('--theme-device-linux-border', 'rgba(86, 144, 228, 1)');
         }
-        return 'rgba(201, 203, 207, 1)';
+        return getThemeColor('--theme-device-unknown-border', 'rgba(201, 203, 207, 1)');
     }
 
     const deviceBackgroundColors = deviceLabels.map(deviceColor);
@@ -693,8 +696,14 @@
                     labels: networkLabels,
                     datasets: [{
                         data: sessionsSeries,
-                        backgroundColor: ['rgba(75, 192, 192, 0.78)', 'rgba(153, 102, 255, 0.78)'],
-                        borderColor: ['rgba(75, 192, 192, 1)', 'rgba(153, 102, 255, 1)'],
+                        backgroundColor: [
+                            getThemeColor('--theme-overview-cyan-bg', 'rgba(75, 192, 192, 0.78)'),
+                            getThemeColor('--theme-overview-violet-bg', 'rgba(153, 102, 255, 0.78)')
+                        ],
+                        borderColor: [
+                            getThemeColor('--theme-overview-cyan-border', 'rgba(75, 192, 192, 1)'),
+                            getThemeColor('--theme-overview-violet-border', 'rgba(153, 102, 255, 1)')
+                        ],
                         borderWidth: 1,
                     }]
                 },
@@ -708,7 +717,7 @@
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: '#e7fff7',
+                                color: getThemeColor('--theme-text-primary', '#e7fff7'),
                                 boxWidth: 18,
                                 padding: 12,
                                 font: {
@@ -745,7 +754,7 @@
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: '#e7fff7',
+                                color: getThemeColor('--theme-text-primary', '#e7fff7'),
                                 boxWidth: 18,
                                 padding: 12,
                                 font: {
@@ -783,7 +792,7 @@
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: '#e7fff7',
+                                color: getThemeColor('--theme-text-primary', '#e7fff7'),
                                 boxWidth: 18,
                                 padding: 12,
                                 font: {
@@ -931,6 +940,11 @@
             }
             const tokens = parseProtocolTokens(rawValue);
             return tokens.includes(selected);
+        }
+
+        function getThemeColor(token, fallback) {
+            const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+            return value || fallback;
         }
 
         function applyClientCardsFilters() {
@@ -1380,8 +1394,8 @@
                             {
                                 label: 'OpenVPN',
                                 data: openvpnData,
-                                borderColor: '#4f8cff',
-                                backgroundColor: 'rgba(79,140,255,0.14)',
+                                borderColor: getThemeColor('--theme-chart-openvpn-border', '#4f8cff'),
+                                backgroundColor: getThemeColor('--theme-chart-openvpn-fill', 'rgba(79,140,255,0.14)'),
                                 borderWidth: 2,
                                 fill: false,
                                 tension: 0.2,
@@ -1389,8 +1403,8 @@
                             {
                                 label: 'WireGuard',
                                 data: wireguardData,
-                                borderColor: '#2fc27d',
-                                backgroundColor: 'rgba(47,194,125,0.14)',
+                                borderColor: getThemeColor('--theme-chart-wireguard-border', '#2fc27d'),
+                                backgroundColor: getThemeColor('--theme-chart-wireguard-fill', 'rgba(47,194,125,0.14)'),
                                 borderWidth: 2,
                                 fill: false,
                                 tension: 0.2,
@@ -1405,27 +1419,27 @@
                         scales: {
                             x: {
                                 ticks: {
-                                    color: '#bbb',
+                                    color: getThemeColor('--theme-chart-axis-x', '#bbb'),
                                     autoSkip: true,
                                     maxTicksLimit: currentRange === '1h' ? 12 : (currentRange === '24h' ? 24 : 10)
                                 },
-                                grid: { color: 'rgba(255,255,255,0.05)' }
+                                grid: { color: getThemeColor('--theme-chart-grid-soft', 'rgba(255,255,255,0.05)') }
                             },
                             y: {
                                 beginAtZero: true,
                                 ticks: {
-                                    color: '#ddd',
+                                    color: getThemeColor('--theme-chart-axis-y', '#ddd'),
                                     callback: function (value) {
                                         return humanBytes(value);
                                     }
                                 },
-                                grid: { color: 'rgba(255,255,255,0.1)' }
+                                grid: { color: getThemeColor('--theme-chart-grid-strong', 'rgba(255,255,255,0.1)') }
                             }
                         },
                         plugins: {
                             legend: {
                                 position: 'bottom',
-                                labels: { color: '#fff' }
+                                labels: { color: getThemeColor('--theme-chart-legend', '#fff') }
                             },
                             tooltip: {
                                 callbacks: {
@@ -1580,6 +1594,11 @@
         let currentModalRange = localStorage.getItem(modalRangeStorageKey) || '7d';
         let modalChart = null;
 
+        function getThemeColor(token, fallback) {
+            const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+            return value || fallback;
+        }
+
         if (!modalRangeButtons.some(btn => btn.dataset.range === currentModalRange)) {
             currentModalRange = '7d';
         }
@@ -1715,8 +1734,8 @@
                             {
                                 label: 'OpenVPN',
                                 data: openvpnData,
-                                borderColor: '#4f8cff',
-                                backgroundColor: 'rgba(79,140,255,0.14)',
+                                borderColor: getThemeColor('--theme-chart-openvpn-border', '#4f8cff'),
+                                backgroundColor: getThemeColor('--theme-chart-openvpn-fill', 'rgba(79,140,255,0.14)'),
                                 borderWidth: 2,
                                 fill: false,
                                 tension: 0.2,
@@ -1724,8 +1743,8 @@
                             {
                                 label: 'WireGuard',
                                 data: wireguardData,
-                                borderColor: '#2fc27d',
-                                backgroundColor: 'rgba(47,194,125,0.14)',
+                                borderColor: getThemeColor('--theme-chart-wireguard-border', '#2fc27d'),
+                                backgroundColor: getThemeColor('--theme-chart-wireguard-fill', 'rgba(47,194,125,0.14)'),
                                 borderWidth: 2,
                                 fill: false,
                                 tension: 0.2,
@@ -1740,27 +1759,27 @@
                         scales: {
                             x: {
                                 ticks: {
-                                    color: '#bbb',
+                                    color: getThemeColor('--theme-chart-axis-x', '#bbb'),
                                     autoSkip: true,
                                     maxTicksLimit: currentModalRange === '1h' ? 12 : (currentModalRange === '24h' ? 24 : 10)
                                 },
-                                grid: { color: 'rgba(255,255,255,0.05)' }
+                                grid: { color: getThemeColor('--theme-chart-grid-soft', 'rgba(255,255,255,0.05)') }
                             },
                             y: {
                                 beginAtZero: true,
                                 ticks: {
-                                    color: '#ddd',
+                                    color: getThemeColor('--theme-chart-axis-y', '#ddd'),
                                     callback: function (value) {
                                         return humanBytes(value);
                                     }
                                 },
-                                grid: { color: 'rgba(255,255,255,0.1)' }
+                                grid: { color: getThemeColor('--theme-chart-grid-strong', 'rgba(255,255,255,0.1)') }
                             }
                         },
                         plugins: {
                             legend: {
                                 position: 'bottom',
-                                labels: { color: '#fff' }
+                                labels: { color: getThemeColor('--theme-chart-legend', '#fff') }
                             },
                             tooltip: {
                                 callbacks: {

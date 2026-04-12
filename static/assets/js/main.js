@@ -3,22 +3,28 @@ const showHiddenPass = (loginPass, loginEye) => {
   const input = document.getElementById(loginPass),
     iconEye = document.getElementById(loginEye);
 
-  iconEye.addEventListener('click', () => {
-    // Change password to text
-    if (input.type === 'password') {
-      // Switch to text
-      input.type = 'text';
+  if (!input || !iconEye) {
+    return;
+  }
 
-      // Icon change
-      iconEye.classList.add('ri-eye-line');
-      iconEye.classList.remove('ri-eye-off-line');
-    } else {
-      // Change to password
-      input.type = 'password';
+  iconEye.setAttribute('role', 'button');
+  iconEye.setAttribute('tabindex', '0');
+  iconEye.setAttribute('aria-label', 'Показать пароль');
 
-      // Icon change
-      iconEye.classList.remove('ri-eye-line');
-      iconEye.classList.add('ri-eye-off-line');
+  const togglePasswordVisibility = () => {
+    const revealPassword = input.type === 'password';
+    input.type = revealPassword ? 'text' : 'password';
+
+    iconEye.classList.toggle('ri-eye-line', revealPassword);
+    iconEye.classList.toggle('ri-eye-off-line', !revealPassword);
+    iconEye.setAttribute('aria-label', revealPassword ? 'Скрыть пароль' : 'Показать пароль');
+  };
+
+  iconEye.addEventListener('click', togglePasswordVisibility);
+  iconEye.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      togglePasswordVisibility();
     }
   });
 };
@@ -34,9 +40,19 @@ document.addEventListener('DOMContentLoaded', function () {
   // Включение капчи после 2 неудачных авторизаций
   const loginForm = document.querySelector('.login__form');
   const captchaContainer = document.querySelector('.captcha-container');
-  const attempts = parseInt(loginForm.dataset.attempts);
-  if (attempts >= 2) {
+  const attempts = Number.parseInt(loginForm?.dataset?.attempts || '0', 10);
+  if (captchaContainer && Number.isFinite(attempts) && attempts >= 2) {
     captchaContainer.classList.remove('hidden');
+  }
+
+  const loginSubmitButton = document.getElementById('login-submit');
+  if (loginForm && loginSubmitButton) {
+    loginForm.addEventListener('submit', function () {
+      loginSubmitButton.disabled = true;
+      loginSubmitButton.setAttribute('aria-busy', 'true');
+      loginSubmitButton.dataset.defaultText = loginSubmitButton.textContent || 'Войти';
+      loginSubmitButton.textContent = 'Входим...';
+    });
   }
 
   // Обновление капчи
@@ -54,6 +70,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Функция для отображения уведомлений
   function showNotification(message, type = 'info') {
+    if (!notification) {
+      return;
+    }
+
+    const isError = type === 'error';
+    notification.setAttribute('role', isError ? 'alert' : 'status');
+    notification.setAttribute('aria-live', isError ? 'assertive' : 'polite');
+    notification.setAttribute('aria-atomic', 'true');
     notification.textContent = message;
     notification.className = `notification notification-${type}`;
     notification.classList.remove('notification-exit');
@@ -78,8 +102,9 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // Проверяем наличие сообщений flash
+  const flashNode = document.getElementById('flash-messages');
   const flashMessages = JSON.parse(
-    document.getElementById('flash-messages').textContent || '[]',
+    (flashNode && flashNode.textContent) || '[]',
   );
   flashMessages.forEach(([category, message]) => {
     showNotification(message, category);

@@ -325,6 +325,53 @@ document.addEventListener("DOMContentLoaded", function () {
     }, 300);
   };
 
+  const initMiniAppLinkCopy = () => {
+    const input = document.getElementById("tg-mini-link-input");
+    const button = document.getElementById("copy-tg-mini-link-btn");
+    const status = document.getElementById("copy-tg-mini-link-status");
+
+    if (!input || !button || !status) {
+      return;
+    }
+
+    const setStatus = (text, isError = false) => {
+      status.textContent = text;
+      status.classList.toggle("miniapp-link-status-error", Boolean(isError));
+    };
+
+    const fallbackCopy = (text) => {
+      input.removeAttribute("readonly");
+      input.focus();
+      input.select();
+      input.setSelectionRange(0, text.length);
+      const ok = document.execCommand("copy");
+      input.setAttribute("readonly", "readonly");
+      return ok;
+    };
+
+    button.addEventListener("click", async () => {
+      const text = (input.value || "").trim();
+      if (!text) {
+        setStatus("Ссылка пуста", true);
+        return;
+      }
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else if (!fallbackCopy(text)) {
+          throw new Error("clipboard_unavailable");
+        }
+
+        setStatus("Ссылка скопирована");
+      } catch {
+        setStatus("Не удалось скопировать автоматически. Скопируйте ссылку вручную.", true);
+        input.focus();
+        input.select();
+      }
+    });
+  };
+
   // === ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ СИСТЕМЫ ===
   const updateSystem = async () => {
     const statusElement = document.getElementById("update-status");
@@ -375,16 +422,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (data.update_available) {
         updateButton.textContent = "Доступно обновление!";
-        updateButton.style.background = "#e74c3c";
+        updateButton.style.background = "var(--theme-update-available, #e74c3c)";
         updateButton.disabled = false;
       } else {
         updateButton.textContent = "У вас последняя версия";
-        updateButton.style.background = "#27ae60";
+        updateButton.style.background = "var(--theme-update-latest, #27ae60)";
         updateButton.disabled = true;
       }
     } catch {
       updateButton.textContent = "Проверка недоступна";
-      updateButton.style.background = "#95a5a6";
+      updateButton.style.background = "var(--theme-update-unavailable, #95a5a6)";
       updateButton.disabled = true;
     }
   };
@@ -411,6 +458,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   window.addEventListener("resize", handleResize);
   window.addEventListener("orientationchange", handleOrientationChange);
+  initMiniAppLinkCopy();
 
   if (history.pushState) {
     document.querySelectorAll(".menu-item[data-tab]").forEach((link) => {

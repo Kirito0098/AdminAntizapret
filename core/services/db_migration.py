@@ -23,6 +23,23 @@ class DatabaseMigrationService:
                         )
                         conn.commit()
 
+                if "telegram_id" not in cols:
+                    with self.db.engine.connect() as conn:
+                        conn.execute(
+                            text(
+                                "ALTER TABLE \"user\" ADD COLUMN telegram_id VARCHAR(32)"
+                            )
+                        )
+                        conn.commit()
+
+                with self.db.engine.connect() as conn:
+                    conn.execute(
+                        text(
+                            "CREATE UNIQUE INDEX IF NOT EXISTS uq_user_telegram_id ON \"user\" (telegram_id)"
+                        )
+                    )
+                    conn.commit()
+
                 if insp.has_table("user_traffic_stat"):
                     traffic_cols = {c["name"] for c in insp.get_columns("user_traffic_stat")}
                     traffic_missing = {

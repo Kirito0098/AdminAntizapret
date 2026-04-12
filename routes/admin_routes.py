@@ -21,6 +21,7 @@ def register_admin_routes(
     task_update_system,
     task_restart_service,
     task_accepted_response,
+    log_user_action_event,
 ):
     @app.route("/check_updates", methods=["GET"])
     @auth_manager.admin_required
@@ -155,12 +156,24 @@ def register_admin_routes(
                 )
                 db.session.add(access)
             db.session.commit()
+            log_user_action_event(
+                "settings_viewer_access_grant",
+                target_type=config_type,
+                target_name=str(target_user.username),
+                details=f"configs={len(target_config_names)} group={config_name}",
+            )
         elif action == "revoke":
             viewer_config_access_model.query.filter(
                 viewer_config_access_model.user_id == user_id,
                 viewer_config_access_model.config_name.in_(target_config_names),
             ).delete(synchronize_session=False)
             db.session.commit()
+            log_user_action_event(
+                "settings_viewer_access_revoke",
+                target_type=config_type,
+                target_name=str(target_user.username),
+                details=f"configs={len(target_config_names)} group={config_name}",
+            )
         else:
             return jsonify({"success": False, "message": "Неверное действие"}), 400
 

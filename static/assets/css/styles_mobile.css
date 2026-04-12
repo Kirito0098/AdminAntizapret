@@ -71,7 +71,7 @@
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1100;
     overflow-y: auto;
-    box-shadow: 3px 0 20px rgba(0, 0, 0, 0.5);
+    box-shadow: 3px 0 20px var(--theme-black-alpha-50, rgba(0, 0, 0, 0.5));
   }
 
   .settings-page-wrapper.active {

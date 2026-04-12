@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Telegram Mini App{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/tg_mini_app.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="tg-mini-shell" id="tgMiniApp"
+    data-is-admin="{% if current_user and current_user.is_admin() %}1{% else %}0{% endif %}">
+    <header class="tg-mini-header">
+        <div class="tg-mini-brand">AdminAntizapret Mini</div>
+        <p class="tg-mini-subtitle">Быстрый доступ к Dashboard и настройкам в Telegram</p>
+        <div class="tg-mini-identity" aria-live="polite">
+            <span class="tg-mini-identity-item">Панель: <strong>{{ panel_username or '-' }}</strong></span>
+            {% if telegram_mini_tg_username %}
+            <span class="tg-mini-identity-item">Telegram: <strong>@{{ telegram_mini_tg_username }}</strong></span>
+            {% endif %}
+            {% if telegram_mini_tg_display_name %}
+            <span class="tg-mini-identity-item">Имя: <strong>{{ telegram_mini_tg_display_name }}</strong></span>
+            {% endif %}
+            <span class="tg-mini-identity-item">TG ID: <strong>{{ telegram_mini_id or '-' }}</strong></span>
+        </div>
+    </header>
+
+    <nav class="tg-mini-tabs" role="tablist" aria-label="Mini app tabs">
+        <button class="tg-mini-tab is-active" data-pane="main" type="button">Главная</button>
+        {% if current_user and current_user.is_admin() %}
+        <button class="tg-mini-tab" data-pane="dashboard" type="button">Dashboard</button>
+        <button class="tg-mini-tab" data-pane="settings" type="button">Settings</button>
+        {% endif %}
+    </nav>
+
+    <section class="tg-mini-pane is-active" data-pane="main">
+        <div class="tg-mini-status" id="tgMiniMainStatus">Загрузка данных главной страницы...</div>
+
+        <article class="tg-mini-panel">
+            <h3>Клиенты и конфиги</h3>
+            <div class="tg-mini-main-toolbar">
+                <div class="tg-mini-main-control-group">
+                    <div class="tg-mini-main-label">Протокол</div>
+                    <div class="tg-mini-range tg-mini-main-protocol-range" role="tablist" aria-label="Protocol switch">
+                        <button type="button" class="tg-mini-range-btn is-active"
+                            data-main-protocol="openvpn">OpenVPN</button>
+                        <button type="button" class="tg-mini-range-btn"
+                            data-main-protocol="amneziawg">AmneziaWG</button>
+                        <button type="button" class="tg-mini-range-btn"
+                            data-main-protocol="wireguard">WireGuard</button>
+                    </div>
+                </div>
+                <div class="tg-mini-main-control-group">
+                    <div class="tg-mini-main-label">Поиск</div>
+                    <input id="tgMiniMainSearch" type="text" placeholder="Поиск клиента по имени" />
+                </div>
+                {% if current_user and current_user.is_admin() %}
+                <div class="tg-mini-main-control-group">
+                    <div class="tg-mini-main-label">Сортировка по статусу</div>
+                    <div class="tg-mini-range tg-mini-main-status-range" role="tablist" aria-label="Config status sort">
+                        <button type="button" class="tg-mini-range-btn is-active"
+                            data-main-status-filter="all">Все</button>
+                        <button type="button" class="tg-mini-range-btn"
+                            data-main-status-filter="enabled">Включенные</button>
+                        <button type="button" class="tg-mini-range-btn"
+                            data-main-status-filter="disabled">Выключенные</button>
+                    </div>
+                </div>
+                <div class="tg-mini-main-control-group">
+                    <div class="tg-mini-main-label">Telegram бот</div>
+                    <div class="tg-mini-bot-indicator is-idle" id="tgMiniBotDeliveryIndicator" aria-live="polite">
+                        <span class="tg-mini-bot-indicator-dot" aria-hidden="true"></span>
+                        <span class="tg-mini-bot-indicator-text" id="tgMiniBotDeliveryText">Статус не проверен</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% if current_user and current_user.is_admin() %}
+            <form id="tgMiniMainCreateForm" class="tg-mini-form tg-mini-main-form-grid">
+                <div>
+                    <label for="tgMiniCreateType">Создать</label>
+                    <select id="tgMiniCreateType">
+                        <option value="1">OpenVPN</option>
+                        <option value="4">WireGuard/AmneziaWG</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="tgMiniCreateClientName">Имя клиента</label>
+                    <input id="tgMiniCreateClientName" type="text" maxlength="15" placeholder="client_name" required />
+                </div>
+                <div id="tgMiniCreateDaysWrap">
+                    <label for="tgMiniCreateDays">Срок (дней, OpenVPN)</label>
+                    <input id="tgMiniCreateDays" type="number" min="1" max="3650" value="365" />
+                </div>
+                <div class="tg-mini-form-actions">
+                    <button type="submit" class="tg-mini-btn">Создать конфиг</button>
+                </div>
+            </form>
+            {% endif %}
+
+            <div id="tgMiniMainClients" class="tg-mini-main-list"></div>
+        </article>
+    </section>
+
+    {% if current_user and current_user.is_admin() %}
+    <section class="tg-mini-pane" data-pane="dashboard">
+        <div class="tg-mini-status" id="tgMiniDashboardStatus">Загрузка данных dashboard...</div>
+        <div class="tg-mini-legend tg-mini-legend-dashboard" aria-label="Цветовой код dashboard">
+            <span class="tg-mini-chip tg-mini-chip-proto-openvpn">OpenVPN</span>
+            <span class="tg-mini-chip tg-mini-chip-proto-wireguard">WireGuard</span>
+            <span class="tg-mini-chip tg-mini-chip-online">online</span>
+            <span class="tg-mini-chip tg-mini-chip-offline">offline</span>
+            <span class="tg-mini-chip tg-mini-chip-network-az">antizapret</span>
+            <span class="tg-mini-chip tg-mini-chip-network-vpn">vpn</span>
+        </div>
+
+        <div class="tg-mini-cards" id="tgMiniSummaryCards">
+            <article class="tg-mini-card">
+                <h3>Сессии</h3>
+                <p data-key="total_active_clients">-</p>
+            </article>
+            <article class="tg-mini-card">
+                <h3>Клиенты</h3>
+                <p data-key="unique_client_names">-</p>
+            </article>
+            <article class="tg-mini-card">
+                <h3>IP</h3>
+                <p data-key="unique_ips">-</p>
+            </article>
+            <article class="tg-mini-card">
+                <h3>OpenVPN</h3>
+                <p data-key="total_openvpn_sessions">-</p>
+            </article>
+            <article class="tg-mini-card">
+                <h3>WireGuard</h3>
+                <p data-key="total_wireguard_sessions">-</p>
+            </article>
+            <article class="tg-mini-card">
+                <h3>Трафик</h3>
+                <p data-key="total_traffic_human">-</p>
+            </article>
+        </div>
+
+        <div class="tg-mini-grid-2">
+            <article class="tg-mini-panel">
+                <h3>Сессии по протоколам</h3>
+                <div class="tg-mini-chart-wrap">
+                    <canvas id="tgMiniProtocolChart"></canvas>
+                </div>
+            </article>
+            <article class="tg-mini-panel">
+                <h3>Топ сетей</h3>
+                <div class="tg-mini-table-wrap">
+                    <table class="tg-mini-table">
+                        <thead>
+                            <tr>
+                                <th>Сеть</th>
+                                <th>Клиенты</th>
+                                <th>Трафик</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tgMiniNetworksBody">
+                            <tr>
+                                <td colspan="3">Нет данных</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </div>
+
+        <article class="tg-mini-panel">
+            <h3>Трафик клиента</h3>
+            <div class="tg-mini-inline-controls">
+                <select id="tgMiniTrafficClient"></select>
+                <div class="tg-mini-range" role="tablist" aria-label="Traffic range">
+                    <button type="button" class="tg-mini-range-btn" data-range="1h">1h</button>
+                    <button type="button" class="tg-mini-range-btn is-active" data-range="1d">1d</button>
+                    <button type="button" class="tg-mini-range-btn" data-range="7d">7d</button>
+                    <button type="button" class="tg-mini-range-btn" data-range="30d">30d</button>
+                    <button type="button" class="tg-mini-range-btn" data-range="all">All</button>
+                </div>
+            </div>
+            <div id="tgMiniTrafficMeta" class="tg-mini-meta">Загрузка...</div>
+            <div class="tg-mini-chart-wrap tg-mini-chart-wrap-lg">
+                <canvas id="tgMiniTrafficChart"></canvas>
+            </div>
+        </article>
+
+        <div class="tg-mini-grid-2">
+            <article class="tg-mini-panel">
+                <div class="tg-mini-panel-headline">
+                    <h3>Топ активных клиентов</h3>
+                    <button type="button" class="tg-mini-btn tg-mini-btn-ghost tg-mini-btn-compact"
+                        id="tgMiniToggleConnected">Показать полный список</button>
+                </div>
+                <div class="tg-mini-table-wrap">
+                    <table class="tg-mini-table">
+                        <thead>
+                            <tr>
+                                <th>Клиент</th>
+                                <th>Сессии</th>
+                                <th>Трафик</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tgMiniConnectedBody">
+                            <tr>
+                                <td colspan="3">Нет данных</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+            <article class="tg-mini-panel">
+                <div class="tg-mini-panel-headline">
+                    <h3>Топ по накопленному трафику</h3>
+                    <button type="button" class="tg-mini-btn tg-mini-btn-ghost tg-mini-btn-compact"
+                        id="tgMiniToggleTraffic">Показать полный список</button>
+                </div>
+                <div class="tg-mini-table-wrap">
+                    <table class="tg-mini-table">
+                        <thead>
+                            <tr>
+                                <th>Клиент</th>
+                                <th>1h</th>
+                                <th>1d</th>
+                                <th>Всего</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tgMiniTrafficBody">
+                            <tr>
+                                <td colspan="4">Нет данных</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if current_user and current_user.is_admin() %}
+    <section class="tg-mini-pane" data-pane="settings">
+        <div class="tg-mini-status" id="tgMiniSettingsStatus">Загрузка настроек...</div>
+
+        <article class="tg-mini-panel">
+            <h3>Antizapret toggle settings</h3>
+            <div class="tg-mini-toggle-grid" id="tgMiniAntizapretGrid"></div>
+            <div class="tg-mini-actions-row">
+                <button id="tgMiniApplyAntizapret" class="tg-mini-btn" type="button">Сохранить и применить
+                    (doall)</button>
+            </div>
+        </article>
+
+        <article class="tg-mini-panel">
+            <h3>Сервисные действия</h3>
+            <div class="tg-mini-actions-row">
+                <button id="tgMiniRestartService" class="tg-mini-btn tg-mini-btn-muted" type="button">Перезапустить
+                    службу</button>
+            </div>
+        </article>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://telegram.org/js/telegram-web-app.js?57"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='assets/js/tg_mini_app.js') }}"></script>
+{% endblock %}

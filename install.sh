@@ -175,8 +175,17 @@ prune_logs_by_pattern() {
   local keep_count="${2:-20}"
   local i=0
   local files=()
+  local pattern_dir
+  local pattern_name
 
-  mapfile -t files < <(ls -1t $pattern 2>/dev/null || true)
+  pattern_dir=$(dirname "$pattern")
+  pattern_name=$(basename "$pattern")
+
+  mapfile -t files < <(
+    find "$pattern_dir" -maxdepth 1 -type f -name "$pattern_name" -printf '%T@ %p\n' 2>/dev/null |
+      sort -rn |
+      awk '{ $1=""; sub(/^ /, ""); print }'
+  )
   for file in "${files[@]}"; do
     i=$((i + 1))
     if [ "$i" -gt "$keep_count" ]; then
@@ -243,14 +252,19 @@ require_command git
 # Включение и запуск vnstat
 echo -e "${YELLOW}Настройка vnStat...${NC}"
 if systemctl list-unit-files | grep -q "^vnstat.service"; then
-  systemctl enable --now vnstat
-    if systemctl is-active --quiet vnstat; then
-        echo -e "${GREEN}Служба vnStat успешно запущена и добавлена в автозагрузку.${NC}"
-    else
-        echo -e "${RED}Ошибка при запуске службы vnStat!${NC}" >&2
-    fi
+  if ! systemctl enable --now vnstat; then
+    echo -e "${RED}Ошибка: не удалось включить/запустить службу vnStat.${NC}" >&2
+    exit 1
+  fi
+  if systemctl is-active --quiet vnstat; then
+    echo -e "${GREEN}Служба vnStat успешно запущена и добавлена в автозагрузку.${NC}"
+  else
+    echo -e "${RED}Ошибка при запуске службы vnStat!${NC}" >&2
+    exit 1
+  fi
 else
-    echo -e "${RED}Служба vnStat не найдена в системе.${NC}" >&2
+  echo -e "${RED}Служба vnStat не найдена в системе.${NC}" >&2
+  exit 1
 fi
 # Клонирование или обновление репозитория
 echo -e "${YELLOW}Проверка репозитория...${NC}"
@@ -263,9 +277,10 @@ if [ -d "$INSTALL_DIR/.git" ]; then
   }
 else
   if [ -d "$INSTALL_DIR" ]; then
-    echo -e "${YELLOW}Директория существует, но не является репо. Удаляем и клонируем заново...${NC}"
-    rm -rf "$INSTALL_DIR" || {
-      echo -e "${RED}Ошибка при удалении директории!${NC}" >&2
+    backup_dir="${INSTALL_DIR}.backup-$(date '+%Y%m%d-%H%M%S')"
+    echo -e "${YELLOW}Директория существует, но не является репо. Переносим в бэкап: ${backup_dir}${NC}"
+    mv "$INSTALL_DIR" "$backup_dir" || {
+      echo -e "${RED}Ошибка при создании резервной копии директории!${NC}" >&2
       exit 1
     }
   fi

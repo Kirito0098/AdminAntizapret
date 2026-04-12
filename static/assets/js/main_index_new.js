@@ -20,6 +20,13 @@ let currentFilter = 'all';
 let sortColumn = 'name';
 let sortOrder = 'asc';
 let clientExpiry = {};
+let indexClientDetailsCache = null;
+let indexClientDetailsFetchPromise = null;
+
+function getThemeColor(token, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+    return value || fallback;
+}
 
 // Extract cert expiry data from HTML on load
 function extractCertExpiryData() {
@@ -29,6 +36,8 @@ function extractCertExpiryData() {
         const clientName = row.getAttribute('data-client-name');
         if (!clientName) return;
 
+        syncClientBlockedBadge(row);
+
         const certState = row.dataset.certState || 'active';
         const certDays = Number.parseInt(row.dataset.certDays || '999', 10);
         clientExpiry[clientName] = {
@@ -36,6 +45,22 @@ function extractCertExpiryData() {
             days: Number.isNaN(certDays) ? 999 : certDays,
         };
     });
+}
+
+function syncClientBlockedBadge(row) {
+    if (!row || row.dataset.protocol !== 'openvpn') {
+        return;
+    }
+
+    const badge = row.querySelector('.client-block-badge');
+    if (!badge) {
+        return;
+    }
+
+    const isBlocked = row.dataset.blocked === '1';
+    badge.textContent = isBlocked ? 'Заблокирован' : 'Активный';
+    badge.classList.toggle('is-blocked', isBlocked);
+    badge.classList.toggle('is-active', !isBlocked);
 }
 
 // ============ UI INITIALIZATION ============
@@ -276,6 +301,9 @@ async function refreshMainContent() {
     if (newClientDetailsData && currentClientDetailsData) {
         currentClientDetailsData.textContent = newClientDetailsData.textContent;
     }
+
+    indexClientDetailsCache = null;
+    indexClientDetailsFetchPromise = null;
 
     initializeTabSwitching();
     initializeAddClientModal();
@@ -602,6 +630,7 @@ function initializeClientBanToggles() {
 
                 if (row) {
                     row.dataset.blocked = shouldBlock ? '1' : '0';
+                    syncClientBlockedBadge(row);
                 }
 
                 showNotification(payload.message || 'Статус блокировки обновлён', 'success');
@@ -859,21 +888,83 @@ async function copyTextToClipboard(text) {
 
 // ============ CLIENT DETAILS MODAL ============
 function getIndexClientDetailsPayload() {
+    if (indexClientDetailsCache) {
+        return indexClientDetailsCache;
+    }
+
     const dataNode = document.getElementById('index-client-details-data');
     if (!dataNode) {
-        return { connected: {}, traffic: {} };
+        indexClientDetailsCache = { connected: {}, traffic: {} };
+        return indexClientDetailsCache;
     }
 
     try {
         const parsed = JSON.parse(dataNode.textContent || '{}');
-        return {
+        indexClientDetailsCache = {
             connected: parsed && parsed.connected ? parsed.connected : {},
             traffic: parsed && parsed.traffic ? parsed.traffic : {},
         };
+        return indexClientDetailsCache;
     } catch (error) {
         console.warn('Failed to parse index client details payload:', error);
-        return { connected: {}, traffic: {} };
+        indexClientDetailsCache = { connected: {}, traffic: {} };
+        return indexClientDetailsCache;
     }
+}
+
+function hasClientDetailsData(payload) {
+    if (!payload) {
+        return false;
+    }
+
+    const connected = payload.connected || {};
+    const traffic = payload.traffic || {};
+    return Object.keys(connected).length > 0 || Object.keys(traffic).length > 0;
+}
+
+async function loadIndexClientDetailsPayload(force = false) {
+    if (!force && hasClientDetailsData(indexClientDetailsCache)) {
+        return indexClientDetailsCache;
+    }
+
+    if (!force && indexClientDetailsFetchPromise) {
+        return indexClientDetailsFetchPromise;
+    }
+
+    indexClientDetailsFetchPromise = fetch('/api/index-client-details', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+        .then(async (response) => {
+            let payload = null;
+            try {
+                payload = await response.json();
+            } catch (_error) {
+                payload = null;
+            }
+
+            if (!response.ok || !payload) {
+                throw new Error(`Не удалось загрузить данные клиента (HTTP ${response.status})`);
+            }
+
+            if (payload.success === false) {
+                throw new Error(payload.message || 'Ошибка загрузки данных клиента');
+            }
+
+            const raw = payload.payload || payload;
+            indexClientDetailsCache = {
+                connected: raw && raw.connected ? raw.connected : {},
+                traffic: raw && raw.traffic ? raw.traffic : {},
+            };
+            return indexClientDetailsCache;
+        })
+        .finally(() => {
+            indexClientDetailsFetchPromise = null;
+        });
+
+    return indexClientDetailsFetchPromise;
 }
 
 function escapeHtml(value) {
@@ -1325,6 +1416,7 @@ function initializeClientDetailsModal() {
                     try {
                         const payload = await updateClientBlockState(clientName, nextBlocked);
                         row.dataset.blocked = nextBlocked ? '1' : '0';
+                        syncClientBlockedBadge(row);
                         button.textContent = nextBlocked
                             ? '🔓 Разблокировать'
                             : '⛔ Заблокировать';
@@ -1653,8 +1745,8 @@ function initializeClientDetailsModal() {
                         {
                             label: 'VPN',
                             data: vpnData,
-                            borderColor: '#4caf50',
-                            backgroundColor: 'rgba(76,175,80,0.12)',
+                            borderColor: getThemeColor('--theme-chart-vpn-border', '#4caf50'),
+                            backgroundColor: getThemeColor('--theme-chart-vpn-fill', 'rgba(76,175,80,0.12)'),
                             borderWidth: 2,
                             fill: false,
                             tension: 0.2,
@@ -1662,8 +1754,8 @@ function initializeClientDetailsModal() {
                         {
                             label: 'Antizapret',
                             data: antData,
-                            borderColor: '#f44336',
-                            backgroundColor: 'rgba(244,67,54,0.12)',
+                            borderColor: getThemeColor('--theme-chart-antizapret-border', '#f44336'),
+                            backgroundColor: getThemeColor('--theme-chart-antizapret-fill', 'rgba(244,67,54,0.12)'),
                             borderWidth: 2,
                             fill: false,
                             tension: 0.2,
@@ -1678,27 +1770,27 @@ function initializeClientDetailsModal() {
                     scales: {
                         x: {
                             ticks: {
-                                color: '#bbb',
+                                color: getThemeColor('--theme-chart-axis-x', '#bbb'),
                                 autoSkip: true,
                                 maxTicksLimit: currentRange === '1h' ? 12 : (currentRange === '24h' ? 24 : 10)
                             },
-                            grid: { color: 'rgba(255,255,255,0.05)' }
+                            grid: { color: getThemeColor('--theme-chart-grid-soft', 'rgba(255,255,255,0.05)') }
                         },
                         y: {
                             beginAtZero: true,
                             ticks: {
-                                color: '#ddd',
+                                color: getThemeColor('--theme-chart-axis-y', '#ddd'),
                                 callback: function (value) {
                                     return humanBytes(value);
                                 }
                             },
-                            grid: { color: 'rgba(255,255,255,0.1)' }
+                            grid: { color: getThemeColor('--theme-chart-grid-strong', 'rgba(255,255,255,0.1)') }
                         }
                     },
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: { color: '#fff' }
+                            labels: { color: getThemeColor('--theme-chart-legend', '#fff') }
                         },
                         tooltip: {
                             callbacks: {
@@ -1720,22 +1812,9 @@ function initializeClientDetailsModal() {
         }
     }
 
-    function openModal(clientName) {
-        const name = String(clientName || '').trim();
-        if (!name) {
-            showNotification('Не удалось определить имя клиента', 'error');
-            return;
-        }
-
-        currentClientName = name;
-
-        const payload = getIndexClientDetailsPayload();
+    function applyClientDetailsToModal(name, payload) {
         const connectedItem = payload.connected[name] || {};
         const trafficItem = payload.traffic[name] || null;
-
-        if (modalTitle) {
-            modalTitle.textContent = name;
-        }
 
         const sessions = connectedItem.sessions != null ? connectedItem.sessions : '-';
         const profiles = connectedItem.profiles || '-';
@@ -1757,10 +1836,55 @@ function initializeClientDetailsModal() {
             }
         }
 
-        renderActions(name);
         renderConnections(name);
+    }
+
+    async function openModal(clientName) {
+        const name = String(clientName || '').trim();
+        if (!name) {
+            showNotification('Не удалось определить имя клиента', 'error');
+            return;
+        }
+
+        currentClientName = name;
+
+        if (modalTitle) {
+            modalTitle.textContent = name;
+        }
+
+        if (modalSummary) {
+            modalSummary.textContent = 'Загрузка сведений о клиенте...';
+        }
+
+        if (modalTrafficQuick) {
+            modalTrafficQuick.textContent = 'Загрузка статистики...';
+        }
+
+        renderActions(name);
         setActiveRangeButtons();
         setModalOpen(true);
+
+        let payload = getIndexClientDetailsPayload();
+        if (!hasClientDetailsData(payload)) {
+            try {
+                payload = await loadIndexClientDetailsPayload();
+            } catch (error) {
+                if (modalSummary) {
+                    modalSummary.textContent = `Не удалось загрузить сведения: ${error.message}`;
+                }
+                if (modalTrafficQuick) {
+                    modalTrafficQuick.textContent = 'Повторите попытку позже.';
+                }
+                if (modalConnections) {
+                    modalConnections.innerHTML = '<div class="client-details-note">Данные подключений недоступны.</div>';
+                }
+                showNotification(error.message || 'Не удалось загрузить данные клиента', 'error');
+                loadTrafficChart();
+                return;
+            }
+        }
+
+        applyClientDetailsToModal(name, payload);
         loadTrafficChart();
     }
 
