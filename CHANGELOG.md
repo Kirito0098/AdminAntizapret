@@ -1,5 +1,144 @@
 # CHANGELOG
 
+## [1.7.0] – 12.04.2026
+
+### 🔥 Крупнейшее изменение — Рефакторинг архитектуры (break-monolith)
+
+#### Разделение монолита
+
+- **`app.py` сокращён с ~6,700 до ~1,060 строк** (~84% уменьшение)
+- Бизнес-логика извлечена в **27 независимых сервисных модулей** в `core/services/`
+- Маршруты вынесены в **6 отдельных модулей** в `routes/`
+- Все модели SQLAlchemy централизованы в `core/models.py` (14 моделей)
+- Добавлена документация архитектуры: `PROJECT_MAP.md`
+
+#### Архитектурные паттерны
+
+- **Composition Root**: `app.py` создаёт приложение, инициализирует сервисы и регистрирует маршруты
+- **Dependency Injection**: фабрика `build_services()` в `service_container.py` собирает все сервисы с инъекцией зависимостей через callbacks
+- **Route Wiring**: `register_all_routes()` распределяет зависимости по модулям маршрутов через `deps` словарь
+- **Thin Wrappers**: хелперы в `app.py` (`_get_env_value`, `_log_telegram_audit_event`, `_enqueue_background_task`) передаются как callback'и
+
+#### Извлечённые сервисы
+
+| Сервис | Назначение |
+|---|---|
+| `ActiveWebSessionService` | Отслеживание активных веб-сессий |
+| `AuthenticationManager` | Декораторы `login_required`, `admin_required` |
+| `BackgroundTaskService` | Очередь фоновых задач на ThreadPoolExecutor |
+| `CaptchaGenerator` | Генерация CAPTCHA-изображений |
+| `ClientProtocolCatalogService` | Маппинг клиент → протокол |
+| `ConfigAccessService` | Управление доступом viewer к конфигам |
+| `ConfigFileHandler` | Поиск конфигов, проверка сроков сертификатов |
+| `DatabaseMigrationService` | Инкрементальные миграции БД |
+| `EnvFileService` | Чтение/запись `.env` файла |
+| `FileEditor` | CRUD текстовых файлов маршрутов |
+| `FileValidator` | Decorator для валидации файлов |
+| `LogsDashboardCacheService` | Кэширование данных dashboard с TTL |
+| `LogsDashboardCollector` | Агрегация статусов/событий OpenVPN/WireGuard |
+| `MaintenanceSchedulerService` | Управление cron-задачами |
+| `NetworkStatusCollectorService` | Парсинг статусов OpenVPN/WireGuard |
+| `OpenVPNBanlistService` | Управление списком заблокированных клиентов |
+| `OpenVPNSocketReaderService` | Чтение из Unix-сокетов OpenVPN management |
+| `PeerInfoCacheService` | Кэш версий/платформ OpenVPN-клиентов |
+| `QrDownloadTokenService` | Одноразовые ссылки с PIN/audit |
+| `QRGenerator` | Генерация QR-кодов |
+| `RuntimeSettingsService` | Загрузка runtime/env настроек |
+| `ScriptExecutor` | Обёртка над `client.sh` |
+| `ServerMonitor` | Мониторинг CPU/RAM/диска |
+| `TrafficMaintenanceService` | Сброс/пересборка статистики трафика |
+| `TrafficPersistenceService` | Сохранение/агрегация дельт трафика |
+
+---
+
+### Добавлено
+
+#### Telegram Mini App
+
+- Полноценное Telegram Web App для управления VPN через встроенный браузер Telegram
+- **Новые файлы**: `templates/tg_mini_app.html` (269 строк), `static/assets/css/tg_mini_app.css` (833 строки), `static/assets/js/tg_mini_app.js` (1,606 строк)
+- Управление конфигами VPN (OpenVPN, WireGuard, AmneziaWG) прямо из Telegram
+- Модель `TelegramMiniAuditLog` — отдельный журнал аудита событий Mini App
+- Модель `TelegramMiniAuditLog` + `UserActionLog` для единого журнала действий
+- API `/api/tg-mini/settings` (GET/POST) — чтение/запись настроек порта, ночного рестарта, Telegram auth
+- API `/api/tg-mini/dashboard` — данные дашборда для Mini App
+- API `/api/tg-mini/openvpn` — список OpenVPN-клиентов для Mini App
+- API `/api/tg-mini/send-config` — отправка конфига через Telegram бот
+- Эндпоинт `/auth/telegram-mini` — аутентификация через WebAppData (проверка HMAC-подписи)
+- Эндпоинт `/tg-mini` — основной интерфейс Mini App
+
+#### Telegram авторизация
+
+- Авторизация через **Telegram Login Widget** с HMAC-верификацией (`hash` field)
+- Тайминг-безопасное сравнение через `hmac.compare_digest`
+- Новые переменные окружения:
+  - `TELEGRAM_AUTH_BOT_USERNAME` — username бота для виджета
+  - `TELEGRAM_AUTH_BOT_TOKEN` — токен бота для верификации
+  - `TELEGRAM_AUTH_MAX_AGE_SECONDS` — максимальный возраст данных
+  - `REMEMBER_ME_DAYS` — срок remembers сессии
+
+#### WARP интеграция
+
+- Разделение единого флага `WARP_OUTBOUND` на два независимых:
+  - `ANTIZAPRET_WARP` — маршрутизация трафика AntiZapret через Cloudflare WARP
+  - `VPN_WARP` — маршрутизация всего исходящего VPN-трафика через WARP
+- Поддержка включения/отключения каждого флага отдельно через настройки AntiZapret
+- Исправлена маршрутизация WARP для всех VPN-протоколов
+
+#### Расширенный аудит-лог
+
+- Модель `UserActionLog` — журнал действий пользователей с тегами источника
+- Источники событий: `web`, `miniapp`, `qr`, `public`, `api`
+- 30+ типов событий с русскоязычными лейблами и деталями
+- Отображение аудита в настройках (`_build_telegram_mini_audit_view`, `_build_user_action_audit_view`)
+- Вкладка **«Все логи»** в настройках с объединённым представлением
+
+#### Документация
+
+- **`Telegram.md`** (230 строк) — полная документация интеграции с Telegram
+- **`PROJECT_MAP.md`** — техническая карта архитектуры (+30 строк обновлений)
+- Обновлён `README.md` с инструкциями по Telegram Mini App
+
+---
+
+### Новые API endpoints
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/auth/telegram` | Callback Telegram Login Widget |
+| `GET` | `/auth/telegram-mini` | Аутентификация Telegram Mini App (WebAppData) |
+| `GET` | `/api/session-heartbeat` | Обновление метки активной сессии |
+| `GET/POST` | `/api/tg-mini/settings` | Чтение/запись настроек для Mini App |
+| `GET` | `/api/tg-mini/dashboard` | Данные дашборда для Mini App |
+| `GET` | `/api/tg-mini/openvpn` | Список OpenVPN-клиентов |
+| `POST` | `/api/tg-mini/send-config` | Отправка конфига через бот |
+| `GET` | `/api/bw` | Данные vnStat bandwidth (JSON) |
+| `GET` | `/api/user-traffic-chart` | Временной ряд трафика клиента |
+
+---
+
+### Новые таблицы БД
+
+| Таблица | Назначение |
+|---|---|
+| `telegram_mini_audit_log` | Журнал событий Telegram Mini App |
+| `user_action_log` | Общий журнал действий пользователей |
+
+---
+
+### Новые переменные окружения
+
+| Переменная | Описание |
+|---|---|
+| `TELEGRAM_AUTH_BOT_USERNAME` | Username бота для Login Widget |
+| `TELEGRAM_AUTH_BOT_TOKEN` | Токен бота для HMAC-верификации |
+| `TELEGRAM_AUTH_MAX_AGE_SECONDS` | Максимальный возраст данных авторизации |
+| `REMEMBER_ME_DAYS` | Срок сохранения сессии |
+| `ANTIZAPRET_WARP` | Флаг WARP для AntiZapret трафика |
+| `VPN_WARP` | Флаг WARP для всего VPN-трафика |
+
+---
+
 ## [1.6.1] – 09.04.2026
 
 ### Добавлено
