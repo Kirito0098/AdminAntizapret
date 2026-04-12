@@ -36,6 +36,8 @@ function extractCertExpiryData() {
         const clientName = row.getAttribute('data-client-name');
         if (!clientName) return;
 
+        syncClientBlockedBadge(row);
+
         const certState = row.dataset.certState || 'active';
         const certDays = Number.parseInt(row.dataset.certDays || '999', 10);
         clientExpiry[clientName] = {
@@ -43,6 +45,22 @@ function extractCertExpiryData() {
             days: Number.isNaN(certDays) ? 999 : certDays,
         };
     });
+}
+
+function syncClientBlockedBadge(row) {
+    if (!row || row.dataset.protocol !== 'openvpn') {
+        return;
+    }
+
+    const badge = row.querySelector('.client-block-badge');
+    if (!badge) {
+        return;
+    }
+
+    const isBlocked = row.dataset.blocked === '1';
+    badge.textContent = isBlocked ? 'Заблокирован' : 'Активный';
+    badge.classList.toggle('is-blocked', isBlocked);
+    badge.classList.toggle('is-active', !isBlocked);
 }
 
 // ============ UI INITIALIZATION ============
@@ -612,6 +630,7 @@ function initializeClientBanToggles() {
 
                 if (row) {
                     row.dataset.blocked = shouldBlock ? '1' : '0';
+                    syncClientBlockedBadge(row);
                 }
 
                 showNotification(payload.message || 'Статус блокировки обновлён', 'success');
@@ -1397,6 +1416,7 @@ function initializeClientDetailsModal() {
                     try {
                         const payload = await updateClientBlockState(clientName, nextBlocked);
                         row.dataset.blocked = nextBlocked ? '1' : '0';
+                        syncClientBlockedBadge(row);
                         button.textContent = nextBlocked
                             ? '🔓 Разблокировать'
                             : '⛔ Заблокировать';

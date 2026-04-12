@@ -3216,7 +3216,7 @@ body.client-details-modal-open {
 
 .config-table.client-grid-table thead {
   background: transparent;
-  border-bottom: 1px solid var(--theme-primary-alpha-45, rgba(76, 175, 80, 0.45));
+  border-bottom: 1px solid var(--theme-primary-alpha-60, rgba(120, 200, 140, 0.6));
   margin-bottom: 0.55rem;
 }
 
@@ -3231,6 +3231,9 @@ body.client-details-modal-open {
   padding: 0.35rem 0.2rem 0.45rem;
   border: none;
   background: transparent;
+  color: var(--theme-text-primary, rgba(245, 252, 248, 0.96));
+  font-weight: 700;
+  text-shadow: 0 1px 1px var(--theme-black-alpha-35, rgba(0, 0, 0, 0.35));
 }
 
 .config-table.client-grid-table tbody {
@@ -3242,9 +3245,12 @@ body.client-details-modal-open {
 .config-table.client-grid-table tbody tr.client-row {
   display: block;
   outline: none;
-  border: 1px solid var(--theme-primary-alpha-32, rgba(120, 200, 140, 0.32));
+  border: 1px solid var(--theme-primary-alpha-45, rgba(120, 200, 140, 0.45));
   border-radius: 0.55rem;
-  background: var(--theme-card-gradient-dark);
+  background: linear-gradient(160deg, rgba(11, 26, 27, 0.94), rgba(7, 15, 20, 0.98));
+  box-shadow:
+    inset 0 1px 0 var(--theme-muted-alpha-08, rgba(255, 255, 255, 0.08)),
+    0 4px 14px var(--theme-black-alpha-28, rgba(0, 0, 0, 0.28));
   cursor: pointer;
   transition:
     border-color 0.22s ease,
@@ -3253,8 +3259,11 @@ body.client-details-modal-open {
 }
 
 .config-table.client-grid-table tbody tr.client-row:hover {
-  border-color: var(--theme-primary-alpha-60, rgba(120, 200, 140, 0.62));
-  box-shadow: 0 10px 26px var(--theme-black-alpha-28, rgba(0, 0, 0, 0.28));
+  border-color: var(--theme-primary-alpha-70, rgba(120, 200, 140, 0.7));
+  box-shadow:
+    inset 0 1px 0 var(--theme-muted-alpha-12, rgba(255, 255, 255, 0.12)),
+    0 12px 28px var(--theme-black-alpha-35, rgba(0, 0, 0, 0.35)),
+    0 0 0 1px var(--theme-primary-alpha-24, rgba(120, 200, 140, 0.24));
   transform: translateY(-1px);
 }
 
@@ -3277,16 +3286,87 @@ body.client-details-modal-open {
   width: 100%;
   font-size: 0.91rem;
   line-height: 1.18;
-  color: var(--theme-primary-light, #66c87a);
+  color: var(--theme-text-main, #f2fff7);
+  font-weight: 700;
+  text-shadow: 0 1px 1px var(--theme-black-alpha-30, rgba(0, 0, 0, 0.3));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.client-block-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.46rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  margin-top: 0.1rem;
+}
+
+.client-block-badge.is-active {
+  background: var(--theme-primary-alpha-15, rgba(76, 175, 80, 0.15));
+  color: var(--theme-accent-soft, #b2ffb2);
+  border-color: var(--theme-primary-alpha-42, rgba(76, 175, 80, 0.42));
+}
+
+.client-block-badge.is-blocked {
+  background: var(--theme-danger-alpha-20, rgba(244, 67, 54, 0.2));
+  color: #ffd3d3;
+  border-color: var(--theme-danger-alpha-50, rgba(244, 67, 54, 0.5));
+}
+
+.client-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.26rem;
+  margin-top: 0.12rem;
+}
+
+.client-card-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.12rem 0.42rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+
+.client-card-chip.is-protocol {
+  background: var(--theme-secondary-alpha-20, rgba(33, 150, 243, 0.2));
+  color: #b8ddff;
+  border-color: var(--theme-secondary-alpha-40, rgba(33, 150, 243, 0.4));
+}
+
+.client-card-chip.is-vpn {
+  background: var(--theme-primary-alpha-15, rgba(76, 175, 80, 0.15));
+  color: var(--theme-accent-soft, #b2ffb2);
+  border-color: var(--theme-primary-alpha-35, rgba(76, 175, 80, 0.35));
+}
+
+.client-card-chip.is-az {
+  background: var(--theme-warning-alpha-20, rgba(255, 193, 7, 0.2));
+  color: #ffe29d;
+  border-color: var(--theme-warning-alpha-45, rgba(255, 193, 7, 0.45));
+}
+
+.client-card-hint {
+  margin-top: 0.14rem;
+  font-size: 0.67rem;
+  line-height: 1.2;
+  color: var(--theme-text-secondary, rgba(255, 255, 255, 0.7));
+}
+
 .config-table.client-grid-table .client-cert-meta {
   font-size: 0.72rem;
   line-height: 1.22;
-  color: var(--theme-text-primary, rgba(230, 236, 233, 0.86));
+  color: var(--theme-text-primary, rgba(236, 244, 240, 0.92));
 }
 
 .client-details-actions-note {
