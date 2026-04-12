@@ -233,7 +233,7 @@ def register_config_routes(
                 lines.extend(
                     [
                         "🛰 Клиент: AmneziaVPN (Android)",
-                        "🔗 Сайт: https://amnezia.org/",
+                        "🔗 Сайт: https://play.google.com/store/apps/details?id=org.amnezia.awg",
                         "1) Установите AmneziaVPN на Android.",
                         "2) Откройте .conf из Telegram.",
                         "3) Выберите Импорт в AmneziaVPN.",
@@ -244,7 +244,7 @@ def register_config_routes(
                 lines.extend(
                     [
                         "🛰 Клиент: AmneziaVPN (iPhone/iPad)",
-                        "🔗 Сайт: https://amnezia.org/",
+                        "🔗 Сайт: https://apps.apple.com/ru/app/amneziawg/id6478942365",
                         "1) Установите AmneziaVPN на iOS.",
                         "2) В Telegram нажмите Поделиться -> Открыть в AmneziaVPN.",
                         "3) Подтвердите импорт профиля.",
@@ -255,7 +255,7 @@ def register_config_routes(
                 lines.extend(
                     [
                         "🛰 Клиент: AmneziaVPN (Windows)",
-                        "🔗 Сайт: https://amnezia.org/",
+                        "🔗 Сайт: https://github.com/amnezia-vpn/amneziawg-windows-client/releases",
                         "1) Установите клиент AmneziaVPN для Windows.",
                         "2) Импортируйте полученный .conf файл.",
                         "3) Выберите профиль в списке.",
@@ -266,7 +266,7 @@ def register_config_routes(
                 lines.extend(
                     [
                         "🛰 Клиент: AmneziaVPN",
-                        "🔗 Сайт: https://amnezia.org/",
+                        "🔗 Сайт: https://github.com/amnezia-vpn",
                         "1) Установите клиент AmneziaVPN.",
                         "2) Импортируйте этот .conf файл.",
                         "3) Активируйте профиль подключения.",
