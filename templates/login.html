@@ -106,6 +106,46 @@
     </form>
   </div>
 
+  {% if telegram_login_enabled and telegram_bot_username %}
+  <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
+  <script>
+    (function () {
+      try {
+        if (!window.Telegram || !window.Telegram.WebApp) {
+          return;
+        }
+
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        const initData = (tg.initData || "").trim();
+        if (!initData) {
+          return;
+        }
+
+        const onceKey = "tgMiniAutoAuthAttempted";
+        if (window.sessionStorage && sessionStorage.getItem(onceKey) === "1") {
+          return;
+        }
+        if (window.sessionStorage) {
+          sessionStorage.setItem(onceKey, "1");
+        }
+
+        const nextUrl = "{{ (request.args.get('next') or url_for('tg_mini_app')) | e }}";
+        const authUrl =
+          "{{ url_for('auth_telegram_mini') }}" +
+          "?next=" + encodeURIComponent(nextUrl) +
+          "&init_data=" + encodeURIComponent(initData);
+
+        window.location.replace(authUrl);
+      } catch (_error) {
+        // Оставляем обычную форму входа как fallback.
+      }
+    })();
+  </script>
+  {% endif %}
+
   <!--=============== MAIN JS ===============-->
   <script src="{{ url_for('static', filename='assets/js/main.js') }}"></script>
 </body>

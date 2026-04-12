@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Telegram Mini App вход</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: "Segoe UI", sans-serif;
+            background: #f3f7f2;
+            color: #0f1a2b;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+        }
+
+        .card {
+            max-width: 520px;
+            width: 100%;
+            border: 1px solid rgba(15, 26, 43, 0.15);
+            background: #fff;
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 10px 24px rgba(9, 21, 41, 0.12);
+        }
+
+        h2 {
+            margin: 0 0 10px;
+        }
+
+        p {
+            margin: 8px 0;
+        }
+
+        .muted {
+            color: #4f617e;
+        }
+
+        a {
+            display: inline-block;
+            margin-top: 10px;
+            color: #fff;
+            background: #0b5bd3;
+            border-radius: 10px;
+            text-decoration: none;
+            padding: 8px 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h2>Вход в Mini App</h2>
+        <p id="status">Проверяем Telegram авторизацию...</p>
+        <p class="muted">Mini App доступен только из официального Telegram клиента.</p>
+    </div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
+    <script>
+        (function () {
+            const status = document.getElementById("status");
+            const targetUrl = "{{ url_for('tg_mini_app') }}";
+
+            function setStatus(text) {
+                if (status) {
+                    status.textContent = text;
+                }
+            }
+
+            try {
+                if (!window.Telegram || !window.Telegram.WebApp) {
+                    setStatus("Telegram WebApp API недоступен. Откройте Mini App через Telegram.");
+                    return;
+                }
+
+                const tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand();
+
+                const initData = (tg.initData || "").trim();
+                if (!initData) {
+                    setStatus("Не получены initData от Telegram. Выполните вход вручную.");
+                    return;
+                }
+
+                setStatus("Авторизация... перенаправляем");
+                const authUrl =
+                    "{{ url_for('auth_telegram_mini') }}" +
+                    "?next=" + encodeURIComponent(targetUrl) +
+                    "&init_data=" + encodeURIComponent(initData);
+                window.location.replace(authUrl);
+            } catch (_error) {
+                setStatus("Ошибка запуска mini-авторизации. Откройте Mini App из Telegram.");
+            }
+        })();
+    </script>
+</body>
+
+</html>

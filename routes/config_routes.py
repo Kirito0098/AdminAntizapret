@@ -1,6 +1,11 @@
 import hashlib
+import json
+import mimetypes
 import os
 import re
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime
 
 from flask import (
@@ -49,6 +54,340 @@ def register_config_routes(
     get_public_download_enabled,
     set_public_download_enabled,
 ):
+    def _build_short_download_name(file_path):
+        base = os.path.basename(file_path)
+        pattern = re.compile(
+            r"^(?P<prefix>antizapret|vpn)-(?P<client>[\w\-]+?)(?:_(?P<id>[\w\-]+))?(?:-\([^)]+\))?(?:-(?P<proto>udp|tcp))?(?:-(?P<suffix>wg|am))?\.(?P<ext>ovpn|conf)$",
+            re.IGNORECASE,
+        )
+        match = pattern.match(base)
+
+        if not match:
+            return base
+
+        prefix = (match.group("prefix") or "").lower()
+        client = match.group("client") or "client"
+        profile_id = match.group("id")
+        proto = match.group("proto")
+        ext = (match.group("ext") or "conf").lower()
+
+        prefix_out = "az" if prefix == "antizapret" else "vpn"
+        base_name = f"{prefix_out}-{client}_{profile_id}" if profile_id else f"{prefix_out}-{client}"
+        if proto:
+            return f"{base_name}-{proto}.{ext}"
+        return f"{base_name}.{ext}"
+
+    def _has_telegram_mini_session():
+        return bool(
+            session.get("telegram_mini_auth")
+            and session.get("telegram_mini_username")
+            and session.get("telegram_mini_username") == session.get("username")
+        )
+
+    def _enforce_telegram_mini_api_access():
+        if _has_telegram_mini_session():
+            return None
+        return jsonify(
+            {
+                "success": False,
+                "message": "Доступ к Mini App API разрешён только из Telegram Mini App.",
+            }
+        ), 403
+
+    def _telegram_bot_api_json(bot_token, method_name, params=None, timeout=20):
+        api_url = f"https://api.telegram.org/bot{bot_token}/{method_name}"
+        payload = urllib.parse.urlencode(params or {}).encode("utf-8")
+        request_obj = urllib.request.Request(
+            api_url,
+            data=payload,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(request_obj, timeout=timeout) as response:
+                response_bytes = response.read()
+        except urllib.error.HTTPError as e:
+            error_payload_raw = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
+            try:
+                error_payload = json.loads(error_payload_raw) if error_payload_raw else {}
+            except Exception:
+                error_payload = {}
+            message = error_payload.get("description") or f"Telegram API error: HTTP {e.code}"
+            raise ValueError(message)
+        except urllib.error.URLError as e:
+            raise ValueError(f"Не удалось связаться с Telegram API: {e}")
+
+        try:
+            parsed = json.loads(response_bytes.decode("utf-8", errors="replace"))
+        except Exception:
+            raise ValueError("Telegram API вернул некорректный ответ")
+
+        if not parsed.get("ok"):
+            raise ValueError(parsed.get("description") or "Telegram API вернул ошибку")
+
+        return parsed
+
+    def _normalize_device_platform(raw_platform):
+        value = (raw_platform or "").strip().lower()
+        if value in {"android", "apple", "windows"}:
+            return value
+        if value in {"ios", "iphone", "ipad", "mac", "macos"}:
+            return "apple"
+        return ""
+
+    def _detect_device_platform(raw_platform):
+        normalized = _normalize_device_platform(raw_platform)
+        if normalized:
+            return normalized
+
+        ua = (request.headers.get("User-Agent") or "").lower()
+        if "android" in ua:
+            return "android"
+        if any(token in ua for token in ("iphone", "ipad", "ios", "mac os x", "macintosh")):
+            return "apple"
+        if any(token in ua for token in ("windows", "win64", "win32")):
+            return "windows"
+        return "unknown"
+
+    def _normalize_config_kind(file_type_hint, file_path, file_name):
+        kind_raw = (file_type_hint or "").strip().lower()
+        kind_map = {
+            "openvpn": "openvpn",
+            "wg": "wireguard",
+            "wireguard": "wireguard",
+            "amneziawg": "amneziawg",
+        }
+
+        if kind_raw in kind_map:
+            return kind_map[kind_raw]
+
+        detected = (get_config_type(file_path) or "").strip().lower() if file_path else ""
+        if detected in kind_map:
+            return kind_map[detected]
+
+        name = (file_name or "").strip().lower()
+        if name.endswith(".ovpn"):
+            return "openvpn"
+        if name.endswith(".conf"):
+            return "wireguard"
+
+        return "openvpn"
+
+    def _build_platform_instruction_caption(file_name, device_platform, config_kind):
+        name = file_name or "config.ovpn"
+        platform = (device_platform or "unknown").lower()
+        kind = (config_kind or "openvpn").lower()
+
+        lines = [f"📦 Ваш конфиг: {name}"]
+
+        if kind == "wireguard":
+            if platform == "android":
+                lines.extend(
+                    [
+                        "🛡 Клиент: WireGuard (Android)",
+                        "🔗 Скачать: https://play.google.com/store/apps/details?id=com.wireguard.android",
+                        "1) Установите WireGuard из Google Play.",
+                        "2) В Telegram откройте файл .conf.",
+                        "3) Выберите WireGuard в меню Открыть с помощью.",
+                        "4) Нажмите Import и активируйте туннель.",
+                    ]
+                )
+            elif platform == "apple":
+                lines.extend(
+                    [
+                        "🛡 Клиент: WireGuard (iPhone/iPad)",
+                        "🔗 Скачать: https://apps.apple.com/app/wireguard/id1441195209",
+                        "1) Установите WireGuard из App Store.",
+                        "2) В Telegram нажмите Поделиться -> Открыть в WireGuard.",
+                        "3) Подтвердите Import tunnel.",
+                        "4) Включите туннель переключателем Activate.",
+                    ]
+                )
+            elif platform == "windows":
+                lines.extend(
+                    [
+                        "🛡 Клиент: WireGuard (Windows)",
+                        "🔗 Скачать: https://www.wireguard.com/install/",
+                        "1) Установите WireGuard для Windows.",
+                        "2) Откройте Import tunnel(s) from file.",
+                        "3) Выберите полученный .conf файл.",
+                        "4) Нажмите Activate для подключения.",
+                    ]
+                )
+            else:
+                lines.extend(
+                    [
+                        "🛡 Клиент: WireGuard",
+                        "🔗 Сайт: https://www.wireguard.com/install/",
+                        "1) Установите приложение WireGuard.",
+                        "2) Импортируйте этот .conf файл.",
+                        "3) Активируйте созданный туннель.",
+                    ]
+                )
+
+        elif kind == "amneziawg":
+            if platform == "android":
+                lines.extend(
+                    [
+                        "🛰 Клиент: AmneziaVPN (Android)",
+                        "🔗 Сайт: https://amnezia.org/",
+                        "1) Установите AmneziaVPN на Android.",
+                        "2) Откройте .conf из Telegram.",
+                        "3) Выберите Импорт в AmneziaVPN.",
+                        "4) Включите профиль подключения.",
+                    ]
+                )
+            elif platform == "apple":
+                lines.extend(
+                    [
+                        "🛰 Клиент: AmneziaVPN (iPhone/iPad)",
+                        "🔗 Сайт: https://amnezia.org/",
+                        "1) Установите AmneziaVPN на iOS.",
+                        "2) В Telegram нажмите Поделиться -> Открыть в AmneziaVPN.",
+                        "3) Подтвердите импорт профиля.",
+                        "4) Включите подключение в приложении.",
+                    ]
+                )
+            elif platform == "windows":
+                lines.extend(
+                    [
+                        "🛰 Клиент: AmneziaVPN (Windows)",
+                        "🔗 Сайт: https://amnezia.org/",
+                        "1) Установите клиент AmneziaVPN для Windows.",
+                        "2) Импортируйте полученный .conf файл.",
+                        "3) Выберите профиль в списке.",
+                        "4) Запустите подключение кнопкой Connect.",
+                    ]
+                )
+            else:
+                lines.extend(
+                    [
+                        "🛰 Клиент: AmneziaVPN",
+                        "🔗 Сайт: https://amnezia.org/",
+                        "1) Установите клиент AmneziaVPN.",
+                        "2) Импортируйте этот .conf файл.",
+                        "3) Активируйте профиль подключения.",
+                    ]
+                )
+
+        else:
+            if platform == "android":
+                lines.extend(
+                    [
+                        "🔐 Клиент: OpenVPN Connect (Android)",
+                        "🔗 Скачать: https://play.google.com/store/apps/details?id=net.openvpn.openvpn",
+                        "1) Установите OpenVPN Connect из Google Play.",
+                        "2) Откройте файл .ovpn из Telegram.",
+                        "3) Выберите OpenVPN Connect.",
+                        "4) Нажмите Add/Connect для подключения.",
+                    ]
+                )
+            elif platform == "apple":
+                lines.extend(
+                    [
+                        "🔐 Клиент: OpenVPN Connect (iPhone/iPad)",
+                        "🔗 Скачать: https://apps.apple.com/app/openvpn-connect-openvpn-app/id590379981",
+                        "1) Установите OpenVPN Connect из App Store.",
+                        "2) В Telegram: Поделиться -> Открыть в OpenVPN.",
+                        "3) Импортируйте профиль.",
+                        "4) Нажмите Connect для подключения.",
+                    ]
+                )
+            elif platform == "windows":
+                lines.extend(
+                    [
+                        "🔐 Клиент: OpenVPN Connect (Windows)",
+                        "🔗 Скачать: https://openvpn.net/client/client-connect-vpn-for-windows/",
+                        "1) Установите OpenVPN Connect для Windows.",
+                        "2) Нажмите Import Profile и выберите .ovpn.",
+                        "3) Сохраните профиль.",
+                        "4) Нажмите Connect для запуска VPN.",
+                    ]
+                )
+            else:
+                lines.extend(
+                    [
+                        "🔐 Клиент: OpenVPN Connect",
+                        "🔗 Сайт: https://openvpn.net/client/",
+                        "1) Установите OpenVPN Connect.",
+                        "2) Импортируйте этот .ovpn файл.",
+                        "3) Запустите подключение кнопкой Connect.",
+                    ]
+                )
+
+        lines.append("💡 Если импорт не открывается: сначала сохраните файл в Папку Файлы и импортируйте вручную.")
+        caption = "\n".join(lines)
+
+        # Telegram ограничивает подпись документа 1024 символами.
+        if len(caption) > 1000:
+            caption = caption[:997].rstrip() + "..."
+
+        return caption
+
+    def _send_document_via_telegram_bot(bot_token, chat_id, file_path, caption="", telegram_filename=""):
+        api_url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+        filename = (telegram_filename or "").strip() or os.path.basename(file_path)
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
+        with open(file_path, "rb") as src:
+            file_bytes = src.read()
+
+        boundary = f"----AdminAntizapret{hashlib.md5(os.urandom(16)).hexdigest()}"
+        body = bytearray()
+
+        def _append_field(name, value):
+            body.extend(f"--{boundary}\r\n".encode("utf-8"))
+            body.extend(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"))
+            body.extend(str(value).encode("utf-8"))
+            body.extend(b"\r\n")
+
+        _append_field("chat_id", chat_id)
+        if caption:
+            _append_field("caption", caption)
+
+        body.extend(f"--{boundary}\r\n".encode("utf-8"))
+        body.extend(
+            f'Content-Disposition: form-data; name="document"; filename="{filename}"\r\n'.encode("utf-8")
+        )
+        body.extend(f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"))
+        body.extend(file_bytes)
+        body.extend(b"\r\n")
+        body.extend(f"--{boundary}--\r\n".encode("utf-8"))
+
+        request_obj = urllib.request.Request(
+            api_url,
+            data=bytes(body),
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+            },
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(request_obj, timeout=35) as response:
+                response_bytes = response.read()
+        except urllib.error.HTTPError as e:
+            error_payload_raw = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
+            try:
+                error_payload = json.loads(error_payload_raw) if error_payload_raw else {}
+            except Exception:
+                error_payload = {}
+            message = error_payload.get("description") or f"Telegram API error: HTTP {e.code}"
+            raise ValueError(message)
+        except urllib.error.URLError as e:
+            raise ValueError(f"Не удалось связаться с Telegram API: {e}")
+
+        try:
+            payload = json.loads(response_bytes.decode("utf-8", errors="replace"))
+        except Exception:
+            raise ValueError("Telegram API вернул некорректный ответ")
+
+        if not payload.get("ok"):
+            raise ValueError(payload.get("description") or "Telegram API вернул ошибку")
+
+        return payload
+
     @app.route("/api/openvpn/client-block", methods=["POST"])
     @auth_manager.admin_required
     def api_openvpn_client_block():
@@ -226,29 +565,7 @@ def register_config_routes(
 
         try:
             base = os.path.basename(file_path)
-            pattern = re.compile(
-                r"^(?P<prefix>antizapret|vpn)-(?P<client>[\w\-]+?)(?:_(?P<id>[\w\-]+))?(?:-\([^)]+\))?(?:-(?P<proto>udp|tcp))?(?:-(?P<suffix>wg|am))?\.(?P<ext>ovpn|conf)$",
-                re.IGNORECASE,
-            )
-            m = pattern.match(base)
-
-            if m:
-                prefix = m.group("prefix").lower()
-                client = m.group("client")
-                id_ = m.group("id")
-                proto = m.group("proto")
-                ext = m.group("ext").lower()
-                prefix_out = "az" if prefix == "antizapret" else "vpn"
-                if id_:
-                    base_name = f"{prefix_out}-{client}_{id_}"
-                else:
-                    base_name = f"{prefix_out}-{client}"
-                if proto:
-                    download_name = f"{base_name}-{proto}.{ext}"
-                else:
-                    download_name = f"{base_name}.{ext}"
-            else:
-                download_name = base
+            download_name = _build_short_download_name(file_path)
             return send_from_directory(
                 os.path.dirname(file_path),
                 base,
@@ -258,6 +575,137 @@ def register_config_routes(
         except Exception as e:
             print(f"Аларм! ошибка: {e}")
             abort(500)
+
+    @app.route("/api/tg-mini/send-config", methods=["POST"])
+    @auth_manager.login_required
+    def api_tg_mini_send_config():
+        denied = _enforce_telegram_mini_api_access()
+        if denied is not None:
+            return denied
+
+        user = user_model.query.filter_by(username=session.get("username")).first()
+        if not user:
+            return jsonify({"success": False, "message": "Пользователь не найден"}), 403
+
+        bot_token = (os.getenv("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip()
+        if not bot_token:
+            return jsonify({"success": False, "message": "Telegram бот не настроен на сервере"}), 400
+
+        telegram_chat_id = str(
+            session.get("telegram_mini_id")
+            or getattr(user, "telegram_id", "")
+            or ""
+        ).strip()
+        if not telegram_chat_id or not re.fullmatch(r"^[1-9][0-9]{4,20}$", telegram_chat_id):
+            return jsonify({"success": False, "message": "Не удалось определить Telegram chat id пользователя"}), 400
+
+        payload = request.get_json(silent=True) or {}
+        download_url = (payload.get("download_url") or "").strip()
+        device_platform = _detect_device_platform(payload.get("device_platform"))
+        if not download_url:
+            return jsonify({"success": False, "message": "Не передан URL конфига"}), 400
+
+        parsed = urllib.parse.urlparse(download_url)
+        path = parsed.path or ""
+        match = re.fullmatch(r"^/download/([^/]+)/(.+)$", path)
+        if not match:
+            return jsonify({"success": False, "message": "Некорректный URL конфига"}), 400
+
+        file_type = urllib.parse.unquote(match.group(1))
+        filename = urllib.parse.unquote(match.group(2))
+        file_path, clean_name = resolve_config_file(file_type, filename)
+        if not file_path:
+            return jsonify({"success": False, "message": "Файл конфига не найден"}), 404
+
+        if user.role == "viewer":
+            cfg_type = get_config_type(file_path)
+            if cfg_type not in ("openvpn", "wg", "amneziawg"):
+                return jsonify({"success": False, "message": "Доступ запрещён"}), 403
+            cfg_name = os.path.basename(file_path)
+            access = viewer_config_access_model.query.filter_by(
+                user_id=user.id, config_name=cfg_name
+            ).first()
+            if not access:
+                return jsonify({"success": False, "message": "Доступ к конфигу запрещён"}), 403
+
+        file_name = _build_short_download_name(file_path)
+        config_kind = _normalize_config_kind(file_type, file_path, file_name)
+        caption = _build_platform_instruction_caption(file_name, device_platform, config_kind)
+
+        try:
+            _send_document_via_telegram_bot(
+                bot_token,
+                telegram_chat_id,
+                file_path,
+                caption,
+                telegram_filename=file_name,
+            )
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Конфиг отправлен в чат Telegram",
+                    "file_name": file_name,
+                }
+            )
+        except ValueError as e:
+            return jsonify({"success": False, "message": str(e)}), 502
+        except Exception as e:
+            app.logger.exception("Ошибка отправки конфига в Telegram: %s", e)
+            return jsonify({"success": False, "message": "Внутренняя ошибка отправки в Telegram"}), 500
+
+    @app.route("/api/tg-mini/check-bot-delivery", methods=["POST"])
+    @auth_manager.login_required
+    def api_tg_mini_check_bot_delivery():
+        denied = _enforce_telegram_mini_api_access()
+        if denied is not None:
+            return denied
+
+        user = user_model.query.filter_by(username=session.get("username")).first()
+        if not user:
+            return jsonify({"success": False, "message": "Пользователь не найден"}), 403
+
+        bot_token = (os.getenv("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip()
+        if not bot_token:
+            return jsonify({"success": False, "message": "Telegram бот не настроен на сервере"}), 400
+
+        telegram_chat_id = str(
+            session.get("telegram_mini_id")
+            or getattr(user, "telegram_id", "")
+            or ""
+        ).strip()
+        if not telegram_chat_id or not re.fullmatch(r"^[1-9][0-9]{4,20}$", telegram_chat_id):
+            return jsonify({"success": False, "message": "Не удалось определить Telegram chat id пользователя"}), 400
+
+        try:
+            _telegram_bot_api_json(
+                bot_token,
+                "sendChatAction",
+                {
+                    "chat_id": telegram_chat_id,
+                    "action": "typing",
+                },
+            )
+            return jsonify(
+                {
+                    "success": True,
+                    "message": "Связь с ботом в порядке: отправка в чат доступна",
+                }
+            )
+        except ValueError as e:
+            error_text = str(e)
+            lower_error = error_text.lower()
+            if (
+                "bot can't initiate conversation" in lower_error
+                or "forbidden" in lower_error
+                or "chat not found" in lower_error
+            ):
+                user_message = "Бот не может написать вам первым. Откройте бота и нажмите Start, затем повторите проверку."
+            else:
+                user_message = f"Проверка не пройдена: {error_text}"
+            return jsonify({"success": False, "message": user_message}), 400
+        except Exception as e:
+            app.logger.exception("Ошибка проверки связи mini app с Telegram bot: %s", e)
+            return jsonify({"success": False, "message": "Внутренняя ошибка проверки Telegram"}), 500
 
     @app.route("/public_download/<router>")
     def public_download(router):

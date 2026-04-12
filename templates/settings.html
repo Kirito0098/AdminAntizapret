@@ -1258,6 +1258,19 @@
       <h2>Telegram авторизация</h2>
 
       <div class="card settings-inline-card-mb">
+        <h3>Ссылка на Mini App</h3>
+        <p class="help-text">Эту ссылку можно отправить в Telegram и открыть как web-приложение.</p>
+        <div class="miniapp-link-row">
+          <input type="text" id="tg-mini-link-input" class="miniapp-link-input"
+            value="{{ url_for('tg_mini_open', _external=True) }}" readonly />
+          <button type="button" id="copy-tg-mini-link-btn" class="button save-button miniapp-link-copy-btn">
+            Копировать
+          </button>
+        </div>
+        <p id="copy-tg-mini-link-status" class="help-text miniapp-link-status" aria-live="polite"></p>
+      </div>
+
+      <div class="card settings-inline-card-mb">
         <h3>Вход в панель через Telegram</h3>
         <form method="POST" class="settings-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />

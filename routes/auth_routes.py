@@ -3,6 +3,8 @@ import time
 import hashlib
 import hmac
 import os
+import json
+from urllib.parse import parse_qsl
 from datetime import timedelta
 
 from flask import (
@@ -95,6 +97,120 @@ def register_auth_routes(
 
         return True, None
 
+    def _verify_telegram_webapp_init_data(init_data_raw):
+        bot_token = _get_telegram_bot_token()
+        if not bot_token:
+            return False, "Telegram авторизация не настроена (нет токена бота).", None
+
+        init_data = (init_data_raw or "").strip()
+        if not init_data:
+            return False, "Отсутствуют initData Telegram Mini App.", None
+
+        try:
+            payload = dict(parse_qsl(init_data, keep_blank_values=True))
+        except Exception:
+            return False, "Некорректный формат initData Telegram Mini App.", None
+
+        received_hash = (payload.get("hash") or "").strip().lower()
+        auth_date_raw = (payload.get("auth_date") or "").strip()
+        if not received_hash or not auth_date_raw:
+            return False, "Некорректные данные Telegram Mini App авторизации.", None
+
+        if not auth_date_raw.isdigit():
+            return False, "Некорректная дата Telegram Mini App авторизации.", None
+
+        auth_date = int(auth_date_raw)
+        max_age_seconds = _get_telegram_auth_max_age_seconds()
+        now_ts = int(time.time())
+        if abs(now_ts - auth_date) > max_age_seconds:
+            return False, "Время Telegram Mini App авторизации истекло. Повторите вход.", None
+
+        check_payload = {k: v for k, v in payload.items() if k != "hash"}
+        data_parts = []
+        for key in sorted(check_payload.keys()):
+            value = check_payload.get(key)
+            if value is None:
+                continue
+            data_parts.append(f"{key}={value}")
+
+        data_check_string = "\n".join(data_parts)
+        secret_key = hmac.new(
+            b"WebAppData",
+            bot_token.encode("utf-8"),
+            hashlib.sha256,
+        ).digest()
+        expected_hash = hmac.new(
+            secret_key,
+            data_check_string.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+        if not hmac.compare_digest(expected_hash, received_hash):
+            return False, "Проверка подписи Telegram Mini App не пройдена.", None
+
+        telegram_id = (payload.get("id") or "").strip()
+        telegram_username = ""
+        telegram_display_name = ""
+        user_raw = payload.get("user")
+        if user_raw:
+            try:
+                user_payload = json.loads(user_raw)
+                if not telegram_id:
+                    telegram_id = str(user_payload.get("id") or "").strip()
+                telegram_username = str(user_payload.get("username") or "").strip()
+                first_name = str(user_payload.get("first_name") or "").strip()
+                last_name = str(user_payload.get("last_name") or "").strip()
+                telegram_display_name = " ".join(
+                    part for part in (first_name, last_name) if part
+                ).strip()
+            except Exception:
+                telegram_username = ""
+                telegram_display_name = ""
+
+        if not telegram_id:
+            return False, "В initData отсутствует Telegram ID пользователя.", None
+
+        payload["id"] = telegram_id
+        payload["telegram_username"] = telegram_username
+        payload["telegram_display_name"] = telegram_display_name
+        return True, None, payload
+
+    def _finish_telegram_login(
+        user,
+        *,
+        mini=False,
+        telegram_id="",
+        telegram_username="",
+        telegram_display_name="",
+    ):
+        session["username"] = user.username
+        session["user_role"] = user.role
+        session["auth_sid"] = secrets.token_hex(16)
+        session.pop("_active_session_touch_ts", None)
+        session["attempts"] = 0
+
+        if mini:
+            session["telegram_mini_auth"] = True
+            session["telegram_mini_username"] = user.username
+            session["telegram_mini_id"] = str(telegram_id or "").strip()
+            session["telegram_mini_tg_username"] = str(telegram_username or "").strip()
+            session["telegram_mini_tg_display_name"] = str(telegram_display_name or "").strip()
+            session["telegram_mini_fresh_login"] = True
+            session.permanent = False
+        else:
+            session.pop("telegram_mini_auth", None)
+            session.pop("telegram_mini_username", None)
+            session.pop("telegram_mini_id", None)
+            session.pop("telegram_mini_tg_username", None)
+            session.pop("telegram_mini_tg_display_name", None)
+            session.pop("telegram_mini_fresh_login", None)
+
+        try:
+            touch_active_web_session(user.username, force=True)
+        except Exception as e:
+            db.session.rollback()
+            app.logger.warning("Не удалось обновить активную сессию при Telegram логине: %s", e)
+
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if ip_restriction.is_enabled():
@@ -135,16 +251,7 @@ def register_auth_routes(
                 else:
                     session.permanent = False
 
-                session["username"] = user.username
-                session["user_role"] = user.role
-                session["auth_sid"] = secrets.token_hex(16)
-                session.pop("_active_session_touch_ts", None)
-                session["attempts"] = 0
-                try:
-                    touch_active_web_session(user.username, force=True)
-                except Exception as e:
-                    db.session.rollback()
-                    app.logger.warning("Не удалось обновить активную сессию при логине: %s", e)
+                _finish_telegram_login(user, mini=False)
                 return redirect(url_for("index"))
             flash("Неверные учетные данные. Попробуйте снова.", "error")
             return redirect(url_for("login"))
@@ -179,19 +286,47 @@ def register_auth_routes(
             flash("Этот Telegram аккаунт не привязан ни к одному пользователю панели.", "error")
             return redirect(url_for("login"))
 
-        session["username"] = user.username
-        session["user_role"] = user.role
-        session["auth_sid"] = secrets.token_hex(16)
-        session.pop("_active_session_touch_ts", None)
-        session["attempts"] = 0
-
-        try:
-            touch_active_web_session(user.username, force=True)
-        except Exception as e:
-            db.session.rollback()
-            app.logger.warning("Не удалось обновить активную сессию при Telegram логине: %s", e)
+        _finish_telegram_login(user, mini=False)
 
         return redirect(url_for("index"))
+
+    @app.route("/auth/telegram-mini", methods=["GET"])
+    def auth_telegram_mini():
+        if ip_restriction.is_enabled():
+            client_ip = ip_restriction.get_client_ip()
+            if not ip_restriction.is_ip_allowed(client_ip):
+                return redirect(url_for("ip_blocked"))
+
+        if not _is_telegram_auth_enabled():
+            flash("Telegram авторизация не настроена на сервере.", "error")
+            return redirect(url_for("login"))
+
+        init_data = request.args.get("init_data", "")
+        verified, error_message, payload = _verify_telegram_webapp_init_data(init_data)
+        if not verified:
+            flash(error_message or "Ошибка Telegram Mini App авторизации.", "error")
+            return redirect(url_for("login"))
+
+        telegram_id = (payload or {}).get("id", "")
+        telegram_username = (payload or {}).get("telegram_username", "")
+        telegram_display_name = (payload or {}).get("telegram_display_name", "")
+        user = user_model.query.filter_by(telegram_id=telegram_id).first()
+        if not user:
+            flash("Этот Telegram аккаунт не привязан ни к одному пользователю панели.", "error")
+            return redirect(url_for("login"))
+
+        _finish_telegram_login(
+            user,
+            mini=True,
+            telegram_id=telegram_id,
+            telegram_username=telegram_username,
+            telegram_display_name=telegram_display_name,
+        )
+
+        next_url = (request.args.get("next") or "").strip()
+        if not next_url.startswith("/"):
+            next_url = url_for("tg_mini_app")
+        return redirect(next_url)
 
     @app.route("/logout")
     def logout():
@@ -204,6 +339,12 @@ def register_auth_routes(
         session.pop("auth_sid", None)
         session.pop("_active_session_touch_ts", None)
         session.pop("username", None)
+        session.pop("telegram_mini_auth", None)
+        session.pop("telegram_mini_username", None)
+        session.pop("telegram_mini_id", None)
+        session.pop("telegram_mini_tg_username", None)
+        session.pop("telegram_mini_tg_display_name", None)
+        session.pop("telegram_mini_fresh_login", None)
         return redirect(url_for("login"))
 
     @app.route("/api/session-heartbeat", methods=["GET"])

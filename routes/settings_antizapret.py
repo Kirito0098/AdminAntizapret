@@ -111,6 +111,14 @@ def init_antizapret(app_or_bp):
     #@auth_manager.login_required
     def antizapret_settings_schema():
         return jsonify([
-            {"key": p["key"], "html_id": p["html_id"], "type": p["type"]}
+            {
+                "key": p["key"],
+                "html_id": p["html_id"],
+                "type": p["type"],
+                "env": p.get("env", ""),
+                "param_label": p.get("param_label", p.get("env", "")),
+                "title": p.get("title", ""),
+                "description": p.get("description", ""),
+            }
             for p in ANTIZAPRET_PARAMS
         ])

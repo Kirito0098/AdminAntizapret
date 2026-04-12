@@ -904,6 +904,31 @@
   padding: 0.85rem 0.95rem;
 }
 
+#telegram-auth .miniapp-link-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+#telegram-auth .miniapp-link-input {
+  width: 100%;
+  font-family: monospace;
+}
+
+#telegram-auth .miniapp-link-copy-btn {
+  white-space: nowrap;
+}
+
+#telegram-auth .miniapp-link-status {
+  margin-top: 0.55rem;
+  min-height: 1.1em;
+}
+
+#telegram-auth .miniapp-link-status-error {
+  color: var(--theme-danger, #ff6a6a);
+}
+
 #qr-settings .qr-links-log-table th,
 #qr-settings .qr-links-log-table td {
   border-bottom: 1px solid var(--theme-primary-alpha-20, rgba(121, 184, 163, 0.2));
@@ -945,5 +970,9 @@
 
   .user-action-modal__btn {
     width: 100%;
+  }
+
+  #telegram-auth .miniapp-link-row {
+    grid-template-columns: 1fr;
   }
 }
