@@ -15,6 +15,7 @@ def register_settings_routes(
     user_model,
     active_web_session_model,
     qr_download_audit_log_model,
+    telegram_mini_audit_log_model,
     ip_restriction,
     ip_manager,
     collect_all_openvpn_files_for_access,
@@ -34,6 +35,7 @@ def register_settings_routes(
     get_active_web_session_settings,
     set_active_web_session_settings,
     get_public_download_enabled,
+    log_telegram_audit_event,
 ):
     def _has_telegram_mini_session():
         return bool(
@@ -75,6 +77,166 @@ def register_settings_routes(
             if 0 <= minute_value <= 59 and 0 <= hour_value <= 23:
                 return f"{hour_value:02d}:{minute_value:02d}"
         return "04:00"
+
+    def _mini_protocol_label(raw_value):
+        value = (raw_value or "").strip().lower()
+        if value in {"openvpn", "ovpn"}:
+            return "OpenVPN"
+        if value in {"wireguard", "wg"}:
+            return "WireGuard"
+        if value in {"amneziawg", "amnezia"}:
+            return "AmneziaWG"
+        return "неизвестно"
+
+    def _parse_mini_details_kv(raw_details):
+        result = {}
+        for token in str(raw_details or "").split():
+            if "=" not in token:
+                continue
+            key, value = token.split("=", 1)
+            key = key.strip()
+            if not key:
+                continue
+            result[key] = value.strip()
+        return result
+
+    def _mini_event_label(event_type):
+        mapping = {
+            "telegram_login_failed": "Вход через Telegram: ошибка",
+            "telegram_login_unlinked": "Вход через Telegram: TG ID не привязан",
+            "telegram_login_success": "Вход через Telegram: успешно",
+            "telegram_mini_login_failed": "Вход в Mini App: ошибка",
+            "telegram_mini_login_unlinked": "Вход в Mini App: TG ID не привязан",
+            "telegram_mini_login_success": "Вход в Mini App: успешно",
+            "mini_send_config": "Отправка конфига в Telegram",
+            "mini_send_config_failed": "Отправка конфига: ошибка",
+            "mini_check_bot_delivery": "Проверка связи с ботом",
+            "mini_check_bot_delivery_failed": "Проверка связи с ботом: ошибка",
+            "mini_openvpn_block_toggle": "Изменение статуса OpenVPN-клиента",
+            "mini_run_doall": "Применение изменений (doall)",
+            "mini_create_openvpn_config": "Создание OpenVPN-конфига",
+            "mini_delete_openvpn_config": "Удаление OpenVPN-конфига",
+            "mini_create_wireguard_config": "Создание WireGuard/AmneziaWG-конфига",
+            "mini_delete_wireguard_config": "Удаление WireGuard/AmneziaWG-конфига",
+            "mini_recreate_wireguard_config": "Пересоздание WireGuard/AmneziaWG-конфига",
+            "mini_index_action": "Действие с конфигом",
+            "mini_settings_port": "Изменение порта панели",
+            "mini_settings_nightly": "Изменение настроек ночного рестарта",
+            "mini_settings_telegram_auth": "Изменение Telegram-авторизации",
+            "mini_restart_service": "Перезапуск службы",
+            "mini_antizapret_settings_update": "Изменение настроек Antizapret",
+        }
+        event_key = str(event_type or "").strip()
+        if event_key in mapping:
+            return mapping[event_key]
+        fallback = event_key.replace("_", " ").strip()
+        return fallback.capitalize() if fallback else "Событие"
+
+    def _mini_event_details_label(event_type, details):
+        event_key = str(event_type or "").strip()
+        details_value = str(details or "").strip()
+        if not details_value:
+            return "-"
+
+        detail_map = _parse_mini_details_kv(details_value)
+
+        if event_key == "mini_send_config":
+            protocol = _mini_protocol_label(detail_map.get("kind"))
+            return f"Тип конфига: {protocol}"
+
+        if event_key == "mini_send_config_failed":
+            return f"Причина: {details_value}"
+
+        if event_key == "mini_check_bot_delivery":
+            return "Бот доступен, отправка сообщений работает"
+
+        if event_key == "mini_check_bot_delivery_failed":
+            return f"Причина: {details_value}"
+
+        if event_key in {"telegram_login_success", "telegram_mini_login_success"}:
+            return "Авторизация подтверждена"
+
+        if event_key in {
+            "telegram_login_failed",
+            "telegram_login_unlinked",
+            "telegram_mini_login_failed",
+            "telegram_mini_login_unlinked",
+        }:
+            return f"Причина: {details_value}"
+
+        if event_key == "mini_openvpn_block_toggle":
+            blocked_state = detail_map.get("blocked")
+            if blocked_state == "1":
+                return "Блокировка включена (доступ клиента отключен)"
+            if blocked_state == "0":
+                return "Блокировка выключена (доступ клиента включен)"
+            return details_value
+
+        if event_key == "mini_settings_port":
+            port = detail_map.get("port", "-")
+            restart = "да" if detail_map.get("restart") == "1" else "нет"
+            return f"Порт: {port}, перезапуск службы: {restart}"
+
+        if event_key == "mini_settings_nightly":
+            enabled = "включено" if detail_map.get("enabled") == "1" else "выключено"
+            time_value = detail_map.get("time", "-")
+            ttl = detail_map.get("ttl", "-")
+            touch = detail_map.get("touch", "-")
+            return f"Ночной рестарт: {enabled}, время: {time_value}, TTL сессии: {ttl}с, heartbeat: {touch}с"
+
+        if event_key == "mini_settings_telegram_auth":
+            bot_name = detail_map.get("bot", "-")
+            max_age = detail_map.get("max_age", "-")
+            token_changed = "да" if detail_map.get("token_updated") == "1" else "нет"
+            return f"Бот: {bot_name}, max age: {max_age}с, токен обновлен: {token_changed}"
+
+        if event_key in {"mini_restart_service", "mini_run_doall"}:
+            task_id = detail_map.get("task_id")
+            if task_id:
+                return f"Запущена фоновая задача: {task_id}"
+            return "Запущена фоновая задача"
+
+        if event_key == "mini_antizapret_settings_update":
+            changes = detail_map.get("changes", "-")
+            keys = detail_map.get("keys", "-")
+            return f"Изменено параметров: {changes}; ключи: {keys.replace(',', ', ')}"
+
+        if event_key in {
+            "mini_create_openvpn_config",
+            "mini_delete_openvpn_config",
+            "mini_create_wireguard_config",
+            "mini_delete_wireguard_config",
+            "mini_recreate_wireguard_config",
+            "mini_index_action",
+        }:
+            cert_days = detail_map.get("cert_days")
+            if cert_days and cert_days != "-":
+                return f"Срок сертификата: {cert_days} дней"
+            return "Действие выполнено через Mini App"
+
+        return details_value
+
+    def _build_telegram_mini_audit_view(rows):
+        view_rows = []
+        for row in rows or []:
+            event_type = str(getattr(row, "event_type", "") or "").strip()
+            details_raw = str(getattr(row, "details", "") or "").strip()
+            config_name = str(getattr(row, "config_name", "") or "").strip()
+            base_event_label = _mini_event_label(event_type)
+            event_display = f"{base_event_label}: {config_name}" if config_name else base_event_label
+            view_rows.append(
+                {
+                    "created_at": row.created_at,
+                    "actor_username": row.actor_username,
+                    "telegram_id": row.telegram_id,
+                    "event_type": event_type,
+                    "event_label": base_event_label,
+                    "event_display": event_display,
+                    "details_raw": details_raw,
+                    "details_label": _mini_event_details_label(event_type, details_raw),
+                }
+            )
+        return view_rows
 
     def _build_tg_mini_settings_payload():
         nightly_idle_restart_enabled, nightly_idle_restart_cron = get_nightly_idle_restart_settings()
@@ -481,6 +643,10 @@ def register_settings_routes(
         qr_download_audit_logs = qr_download_audit_log_model.query.order_by(
             qr_download_audit_log_model.created_at.desc()
         ).limit(100).all()
+        telegram_mini_audit_logs = telegram_mini_audit_log_model.query.order_by(
+            telegram_mini_audit_log_model.created_at.desc()
+        ).limit(200).all()
+        telegram_mini_audit_view = _build_telegram_mini_audit_view(telegram_mini_audit_logs)
         users = user_model.query.all()
         viewer_users = user_model.query.filter_by(role="viewer").all()
 
@@ -539,6 +705,7 @@ def register_settings_routes(
             active_web_session_touch_interval_seconds=active_web_session_touch_interval_seconds,
             active_web_sessions_count=active_web_sessions_count,
             qr_download_audit_logs=qr_download_audit_logs,
+            telegram_mini_audit_logs=telegram_mini_audit_view,
         )
 
     @app.route("/api/tg-mini/settings", methods=["GET"])
@@ -584,6 +751,11 @@ def register_settings_routes(
                         queued_message="Перезапуск службы поставлен в очередь",
                     )
                     restart_task_id = task.id
+
+                log_telegram_audit_event(
+                    "mini_settings_port",
+                    details=f"port={port_value} restart={1 if bool(data.get('restart_service', True)) else 0}",
+                )
 
                 return jsonify(
                     {
@@ -664,6 +836,14 @@ def register_settings_routes(
                 if not cron_ok:
                     return jsonify({"success": False, "message": cron_msg}), 500
 
+                log_telegram_audit_event(
+                    "mini_settings_nightly",
+                    details=(
+                        f"enabled={1 if nightly_enabled else 0} "
+                        f"time={nightly_time_raw or '-'} ttl={ttl_value} touch={touch_value}"
+                    ),
+                )
+
                 return jsonify(
                     {
                         "success": True,
@@ -703,6 +883,14 @@ def register_settings_routes(
                     set_env_value("TELEGRAM_AUTH_BOT_TOKEN", tg_token)
                     os.environ["TELEGRAM_AUTH_BOT_TOKEN"] = tg_token
 
+                log_telegram_audit_event(
+                    "mini_settings_telegram_auth",
+                    details=(
+                        f"bot={tg_username or '-'} max_age={tg_max_age_value} "
+                        f"token_updated={1 if tg_token_raw is not None else 0}"
+                    ),
+                )
+
                 return jsonify(
                     {
                         "success": True,
@@ -717,6 +905,10 @@ def register_settings_routes(
                     task_restart_service,
                     created_by_username=session.get("username"),
                     queued_message="Перезапуск службы поставлен в очередь",
+                )
+                log_telegram_audit_event(
+                    "mini_restart_service",
+                    details=f"task_id={task.id}",
                 )
                 return jsonify(
                     {

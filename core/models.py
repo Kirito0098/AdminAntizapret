@@ -60,6 +60,21 @@ class QrDownloadAuditLog(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 
 
+class TelegramMiniAuditLog(db.Model):
+    __tablename__ = "telegram_mini_audit_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    actor_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    actor_username = db.Column(db.String(80), nullable=True, index=True)
+    telegram_id = db.Column(db.String(32), nullable=True, index=True)
+    event_type = db.Column(db.String(64), nullable=False, index=True)
+    config_name = db.Column(db.String(255), nullable=True)
+    details = db.Column(db.String(255), nullable=True)
+    remote_addr = db.Column(db.String(64), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+
 class ViewerConfigAccess(db.Model):
     __tablename__ = "viewer_config_access"
 

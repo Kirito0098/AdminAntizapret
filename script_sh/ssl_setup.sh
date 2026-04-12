@@ -68,9 +68,9 @@ choose_installation_type() {
 		1)
 			echo "${YELLOW}Выберите тип HTTPS соединения:${NC}"
 			echo "  1) Использовать собственный домен и получить сертификаты Let's Encrypt"
-			echo "  2) Использовать собственный домен и собственные сертификаты"
+			echo "  2) Использовать Nginx как reverse proxy с сертификатами Let's Encrypt"
 			echo "  3) Самоподписанный сертификат"
-			echo "  4) Использовать Nginx как reverse proxy с сертификатами Let's Encrypt"
+			echo "  4) Использовать собственный домен и собственные сертификаты"
 			read -r -p "Ваш выбор [1-4]: " ssl_sub_choice
 
 			case $ssl_sub_choice in
@@ -82,9 +82,9 @@ choose_installation_type() {
 
 				case $ssl_sub_choice in
 				1) setup_letsencrypt ;;
-				2) setup_custom_certs ;;
+				2) setup_nginx_letsencrypt ;;
 				3) setup_selfsigned ;;
-				4) setup_nginx_letsencrypt ;;
+				4) setup_custom_certs ;;
 				esac
 				return 0
 				;;

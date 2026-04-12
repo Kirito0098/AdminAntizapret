@@ -40,6 +40,7 @@ from core.models import (
     OpenVPNPeerInfoHistory,
     QrDownloadAuditLog,
     QrDownloadToken,
+    TelegramMiniAuditLog,
     TrafficSessionState,
     User,
     UserTrafficSample,
@@ -360,6 +361,44 @@ def _log_qr_event(event_type, token_row=None, details=None):
         token_row=token_row,
         details=details,
     )
+
+
+def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_username=None, telegram_id=None):
+    """Writes Telegram/Mini App audit events without affecting primary workflow."""
+    try:
+        username = str(actor_username or session.get("username") or "").strip() or None
+        actor_user_id = None
+        resolved_telegram_id = str(telegram_id or session.get("telegram_mini_id") or "").strip()
+
+        if username:
+            actor = User.query.filter_by(username=username).first()
+            if actor:
+                actor_user_id = actor.id
+                if not resolved_telegram_id:
+                    resolved_telegram_id = str(getattr(actor, "telegram_id", "") or "").strip()
+
+        remote_addr = ((request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",", 1)[0]).strip()
+        user_agent = (request.headers.get("User-Agent") or "")[:255]
+
+        db.session.add(
+            TelegramMiniAuditLog(
+                actor_user_id=actor_user_id,
+                actor_username=username,
+                telegram_id=(resolved_telegram_id or None),
+                event_type=str(event_type or "unknown")[:64],
+                config_name=(str(config_name or "").strip() or None),
+                details=(str(details or "")[:255] or None),
+                remote_addr=(remote_addr or None),
+                user_agent=(user_agent or None),
+            )
+        )
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning("Не удалось записать событие Telegram audit: %s", e)
+
+
+app.config["TELEGRAM_AUDIT_LOGGER"] = _log_telegram_audit_event
 
 
 background_task_service = BackgroundTaskService(

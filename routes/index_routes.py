@@ -19,7 +19,15 @@ def register_index_routes(
     human_bytes,
     script_executor,
     sync_wireguard_peer_cache_from_configs,
+    log_telegram_audit_event,
 ):
+    def _has_telegram_mini_session():
+        return bool(
+            session.get("telegram_mini_auth")
+            and session.get("telegram_mini_username")
+            and session.get("telegram_mini_username") == session.get("username")
+        )
+
     def _resolve_group_and_files(idx_user):
         group = session.get("openvpn_group", "GROUP_UDP\\TCP")
         if group not in group_folders:
@@ -239,6 +247,20 @@ def register_index_routes(
                         option,
                         e,
                     )
+
+            if _has_telegram_mini_session():
+                option_events = {
+                    "1": "mini_create_openvpn_config",
+                    "2": "mini_delete_openvpn_config",
+                    "4": "mini_create_wireguard_config",
+                    "5": "mini_delete_wireguard_config",
+                    "7": "mini_recreate_wireguard_config",
+                }
+                log_telegram_audit_event(
+                    option_events.get(str(option), "mini_index_action"),
+                    config_name=client_name,
+                    details=f"option={option} cert_days={cert_expire or '-'}",
+                )
 
             return jsonify(
                 {

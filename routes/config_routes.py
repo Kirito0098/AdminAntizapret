@@ -53,6 +53,7 @@ def register_config_routes(
     set_env_value,
     get_public_download_enabled,
     set_public_download_enabled,
+    log_telegram_audit_event,
 ):
     def _build_short_download_name(file_path):
         base = os.path.basename(file_path)
@@ -409,6 +410,12 @@ def register_config_routes(
                 banned_clients.discard(client_name)
 
             write_banned_clients(banned_clients)
+            if _has_telegram_mini_session():
+                log_telegram_audit_event(
+                    "mini_openvpn_block_toggle",
+                    config_name=client_name,
+                    details=f"blocked={1 if should_block else 0}",
+                )
             return jsonify(
                 {
                     "success": True,
@@ -640,6 +647,11 @@ def register_config_routes(
                 caption,
                 telegram_filename=file_name,
             )
+            log_telegram_audit_event(
+                "mini_send_config",
+                config_name=file_name,
+                details=f"kind={config_kind}",
+            )
             return jsonify(
                 {
                     "success": True,
@@ -648,9 +660,19 @@ def register_config_routes(
                 }
             )
         except ValueError as e:
+            log_telegram_audit_event(
+                "mini_send_config_failed",
+                config_name=file_name,
+                details=str(e),
+            )
             return jsonify({"success": False, "message": str(e)}), 502
         except Exception as e:
             app.logger.exception("Ошибка отправки конфига в Telegram: %s", e)
+            log_telegram_audit_event(
+                "mini_send_config_failed",
+                config_name=file_name,
+                details="internal_error",
+            )
             return jsonify({"success": False, "message": "Внутренняя ошибка отправки в Telegram"}), 500
 
     @app.route("/api/tg-mini/check-bot-delivery", methods=["POST"])
@@ -685,6 +707,10 @@ def register_config_routes(
                     "action": "typing",
                 },
             )
+            log_telegram_audit_event(
+                "mini_check_bot_delivery",
+                details="ok",
+            )
             return jsonify(
                 {
                     "success": True,
@@ -702,9 +728,17 @@ def register_config_routes(
                 user_message = "Бот не может написать вам первым. Откройте бота и нажмите Start, затем повторите проверку."
             else:
                 user_message = f"Проверка не пройдена: {error_text}"
+            log_telegram_audit_event(
+                "mini_check_bot_delivery_failed",
+                details=error_text,
+            )
             return jsonify({"success": False, "message": user_message}), 400
         except Exception as e:
             app.logger.exception("Ошибка проверки связи mini app с Telegram bot: %s", e)
+            log_telegram_audit_event(
+                "mini_check_bot_delivery_failed",
+                details="internal_error",
+            )
             return jsonify({"success": False, "message": "Внутренняя ошибка проверки Telegram"}), 500
 
     @app.route("/public_download/<router>")
@@ -860,6 +894,11 @@ def register_config_routes(
                 created_by_username=session.get("username"),
                 queued_message="Запуск doall поставлен в очередь",
             )
+            if _has_telegram_mini_session():
+                log_telegram_audit_event(
+                    "mini_run_doall",
+                    details=f"task_id={task.id}",
+                )
             return task_accepted_response(
                 task,
                 "Скрипт doall запущен в фоне.",

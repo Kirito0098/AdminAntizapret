@@ -1,7 +1,7 @@
 # routes/settings_antizapret.py
 
 import re
-from flask import jsonify, request, current_app
+from flask import jsonify, request, current_app, session
 
 from config.antizapret_params import ANTIZAPRET_PARAMS
 
@@ -92,6 +92,23 @@ def init_antizapret(app_or_bp):
             if changes > 0:
                 with open(FILE_PATH, "w", encoding="utf-8") as f:
                     f.writelines(new_lines)
+
+            has_mini_session = bool(
+                session.get("telegram_mini_auth")
+                and session.get("telegram_mini_username")
+                and session.get("telegram_mini_username") == session.get("username")
+            )
+            if changes > 0 and has_mini_session:
+                logger_callback = current_app.config.get("TELEGRAM_AUDIT_LOGGER")
+                if callable(logger_callback):
+                    changed_keys = sorted(desired.keys())
+                    sample = ",".join(changed_keys[:8])
+                    if len(changed_keys) > 8:
+                        sample += ",..."
+                    logger_callback(
+                        "mini_antizapret_settings_update",
+                        details=f"changes={changes} keys={sample}",
+                    )
 
             return jsonify({
                 "success": True,

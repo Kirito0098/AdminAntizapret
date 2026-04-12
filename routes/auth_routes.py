@@ -29,6 +29,7 @@ def register_auth_routes(
     user_model,
     touch_active_web_session,
     remove_active_web_session,
+    log_telegram_audit_event,
     app_name="AdminAntizapret",
 ):
     def _get_remember_me_days():
@@ -277,16 +278,32 @@ def register_auth_routes(
         payload = {k: v for k, v in request.args.items()}
         verified, error_message = _verify_telegram_auth(payload)
         if not verified:
+            log_telegram_audit_event(
+                "telegram_login_failed",
+                details=error_message or "verification_failed",
+                telegram_id=(payload.get("id") or "").strip(),
+            )
             flash(error_message or "Ошибка Telegram авторизации.", "error")
             return redirect(url_for("login"))
 
         telegram_id = (payload.get("id") or "").strip()
         user = user_model.query.filter_by(telegram_id=telegram_id).first()
         if not user:
+            log_telegram_audit_event(
+                "telegram_login_unlinked",
+                details="telegram_id_not_bound",
+                telegram_id=telegram_id,
+            )
             flash("Этот Telegram аккаунт не привязан ни к одному пользователю панели.", "error")
             return redirect(url_for("login"))
 
         _finish_telegram_login(user, mini=False)
+        log_telegram_audit_event(
+            "telegram_login_success",
+            details="web_login",
+            actor_username=user.username,
+            telegram_id=telegram_id,
+        )
 
         return redirect(url_for("index"))
 
@@ -304,6 +321,10 @@ def register_auth_routes(
         init_data = request.args.get("init_data", "")
         verified, error_message, payload = _verify_telegram_webapp_init_data(init_data)
         if not verified:
+            log_telegram_audit_event(
+                "telegram_mini_login_failed",
+                details=error_message or "mini_verification_failed",
+            )
             flash(error_message or "Ошибка Telegram Mini App авторизации.", "error")
             return redirect(url_for("login"))
 
@@ -312,6 +333,11 @@ def register_auth_routes(
         telegram_display_name = (payload or {}).get("telegram_display_name", "")
         user = user_model.query.filter_by(telegram_id=telegram_id).first()
         if not user:
+            log_telegram_audit_event(
+                "telegram_mini_login_unlinked",
+                details="telegram_id_not_bound",
+                telegram_id=telegram_id,
+            )
             flash("Этот Telegram аккаунт не привязан ни к одному пользователю панели.", "error")
             return redirect(url_for("login"))
 
@@ -321,6 +347,12 @@ def register_auth_routes(
             telegram_id=telegram_id,
             telegram_username=telegram_username,
             telegram_display_name=telegram_display_name,
+        )
+        log_telegram_audit_event(
+            "telegram_mini_login_success",
+            details="mini_app_login",
+            actor_username=user.username,
+            telegram_id=telegram_id,
         )
 
         next_url = (request.args.get("next") or "").strip()

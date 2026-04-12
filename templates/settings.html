@@ -1258,19 +1258,6 @@
       <h2>Telegram авторизация</h2>
 
       <div class="card settings-inline-card-mb">
-        <h3>Ссылка на Mini App</h3>
-        <p class="help-text">Эту ссылку можно отправить в Telegram и открыть как web-приложение.</p>
-        <div class="miniapp-link-row">
-          <input type="text" id="tg-mini-link-input" class="miniapp-link-input"
-            value="{{ url_for('tg_mini_open', _external=True) }}" readonly />
-          <button type="button" id="copy-tg-mini-link-btn" class="button save-button miniapp-link-copy-btn">
-            Копировать
-          </button>
-        </div>
-        <p id="copy-tg-mini-link-status" class="help-text miniapp-link-status" aria-live="polite"></p>
-      </div>
-
-      <div class="card settings-inline-card-mb">
         <h3>Вход в панель через Telegram</h3>
         <form method="POST" class="settings-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
@@ -1313,6 +1300,78 @@
 
           <button type="submit" class="button save-button">Сохранить Telegram авторизацию</button>
         </form>
+      </div>
+
+      <div class="card settings-inline-card-mb">
+        <h3>Ссылка на Mini App</h3>
+        <p class="help-text miniapp-link-lead">Эту ссылку можно отправить в Telegram и открыть как web-приложение.</p>
+        <div class="miniapp-link-panel info-box">
+          <div class="form-group miniapp-link-group">
+            <label for="tg-mini-link-input">Ссылка запуска</label>
+            <div class="miniapp-link-row">
+              <input type="text" id="tg-mini-link-input" class="miniapp-link-input"
+                value="{{ url_for('tg_mini_open', _external=True) }}" readonly />
+              <button type="button" id="copy-tg-mini-link-btn" class="button save-button miniapp-link-copy-btn">
+                Скопировать
+              </button>
+            </div>
+          </div>
+          <div class="miniapp-link-actions">
+            <span class="miniapp-link-hint">Можно закрепить эту ссылку в меню бота через BotFather.</span>
+          </div>
+        </div>
+        <p id="copy-tg-mini-link-status" class="help-text miniapp-link-status" aria-live="polite"></p>
+
+        <div class="info-box miniapp-link-guide">
+          <h4>Как добавить через BotFather</h4>
+          <ol>
+            <li>Откройте @BotFather в Telegram и выберите вашего бота.</li>
+            <li>Откройте Bot Settings -> Menu Button (или используйте команду /setmenubutton).</li>
+            <li>Выберите бота, вставьте ссылку запуска Mini App из поля выше и сохраните.</li>
+            <li>Откройте чат с ботом и проверьте кнопку Menu/Launch.</li>
+          </ol>
+        </div>
+
+        <div class="info-box miniapp-link-warning">
+          <h4>Важно для Telegram Mini App</h4>
+          <p>Mini App будет работать только при одном из вариантов:</p>
+          <ul>
+            <li>Свой домен + HTTPS-сертификат Let's Encrypt.</li>
+            <li>Nginx reverse proxy + HTTPS-сертификат Let's Encrypt.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card settings-inline-card-mb">
+        <h3>Журнал Telegram Mini App</h3>
+        <p class="help-text">Последние действия пользователей в Mini App: авторизация, запрос/создание конфигов и
+          изменения настроек.</p>
+        {% if telegram_mini_audit_logs %}
+        <div class="users-list qr-links-log-list">
+          <table class="qr-links-log-table">
+            <thead>
+              <tr>
+                <th class="settings-inline-table-head">Время (UTC)</th>
+                <th class="settings-inline-table-head">Пользователь</th>
+                <th class="settings-inline-table-head">TG ID</th>
+                <th class="settings-inline-table-head">Событие</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in telegram_mini_audit_logs %}
+              <tr>
+                <td class="settings-inline-table-cell-nowrap">{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td class="settings-inline-table-cell">{{ row.actor_username or 'неизвестно' }}</td>
+                <td class="settings-inline-table-cell">{{ row.telegram_id or '-' }}</td>
+                <td class="settings-inline-table-cell" title="{{ row.event_type }}">{{ row.event_display }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="no-data">Событий пока нет</p>
+        {% endif %}
       </div>
     </div>
 
