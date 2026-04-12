@@ -657,8 +657,6 @@ document.addEventListener("DOMContentLoaded", function () {
                         cert_days: row.getAttribute("data-cert-days") || "",
                         download_vpn_url: row.getAttribute("data-download-vpn-url") || "",
                         download_az_url: row.getAttribute("data-download-az-url") || "",
-                        qr_vpn_url: row.getAttribute("data-qr-vpn-url") || "",
-                        qr_az_url: row.getAttribute("data-qr-az-url") || "",
                     };
                 });
             });
@@ -735,16 +733,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
 
                 const secondaryActions = [];
-                if (row.qr_vpn_url) {
-                    secondaryActions.push(
-                        '<a class="tg-mini-btn tg-mini-btn-ghost tg-mini-btn-compact" target="_blank" rel="noopener" href="' + escapeHtml(row.qr_vpn_url) + '">QR VPN</a>'
-                    );
-                }
-                if (row.qr_az_url) {
-                    secondaryActions.push(
-                        '<a class="tg-mini-btn tg-mini-btn-ghost tg-mini-btn-compact" target="_blank" rel="noopener" href="' + escapeHtml(row.qr_az_url) + '">QR AZ</a>'
-                    );
-                }
 
                 let meta = "";
                 if (isAdmin && state.mainProtocol === "openvpn" && row.cert_state) {
