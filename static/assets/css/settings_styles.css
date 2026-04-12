@@ -1219,3 +1219,31 @@
     text-align: center;
   }
 }
+
+/* MiniApp event styling in action logs */
+.miniapp-event {
+  background: var(--theme-muted-alpha-04, rgba(0, 188, 212, 0.04));
+}
+
+.miniapp-event:hover {
+  background: var(--theme-muted-alpha-08, rgba(0, 188, 212, 0.08));
+}
+
+.miniapp-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  margin-right: 6px;
+  background: linear-gradient(135deg, rgba(0, 188, 212, 0.2), rgba(33, 150, 243, 0.2));
+  border: 1px solid rgba(0, 188, 212, 0.4);
+  border-radius: 4px;
+  font-size: 0.75em;
+  font-weight: 600;
+  color: #00bcd4;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.miniapp-badge:hover {
+  background: linear-gradient(135deg, rgba(0, 188, 212, 0.3), rgba(33, 150, 243, 0.3));
+}
+

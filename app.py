@@ -365,7 +365,8 @@ def _log_qr_event(event_type, token_row=None, details=None):
 
 
 def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_username=None, telegram_id=None):
-    """Writes Telegram/Mini App audit events without affecting primary workflow."""
+    """Writes Telegram/Mini App audit events without affecting primary workflow.
+    Also logs to UserActionLog with 'miniapp:' prefix to show in main action logs."""
     try:
         username = str(actor_username or session.get("username") or "").strip() or None
         actor_user_id = None
@@ -394,6 +395,26 @@ def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_
             )
         )
         db.session.commit()
+        
+        # Also log to UserActionLog with miniapp tag
+        try:
+            db.session.add(
+                UserActionLog(
+                    actor_user_id=actor_user_id,
+                    actor_username=username,
+                    event_type=f"miniapp:{str(event_type or 'unknown')[:59]}",  # Prefix with 'miniapp:' (max 64 chars)
+                    target_type="telegram_miniapp",
+                    target_name=(str(config_name or "").strip()[:255] or None),
+                    status="success",
+                    details=(str(details or "")[:255] or None),
+                    remote_addr=(remote_addr or None),
+                    user_agent=(user_agent or None),
+                )
+            )
+            db.session.commit()
+        except Exception as e2:
+            db.session.rollback()
+            app.logger.warning("Не удалось записать событие Telegram audit в UserActionLog: %s", e2)
     except Exception as e:
         db.session.rollback()
         app.logger.warning("Не удалось записать событие Telegram audit: %s", e)

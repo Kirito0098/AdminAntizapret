@@ -6,3 +6,4 @@ instance/
 *.added
 logs/
 .venv/
+.qwen/

@@ -272,6 +272,14 @@ def register_settings_routes(
             "settings_antizapret_update": "Изменение настроек Antizapret",
         }
         event_key = str(event_type or "").strip()
+        
+        # Handle miniapp: prefixed events
+        if event_key.startswith("miniapp:"):
+            original_event = event_key[8:]  # Strip 'miniapp:' prefix
+            # Use the mini app event label mapping
+            mini_label = _mini_event_label(original_event)
+            return mini_label
+        
         if event_key in mapping:
             return mapping[event_key]
         fallback = event_key.replace("_", " ").strip()
@@ -283,6 +291,12 @@ def register_settings_routes(
         target_kind = str(target_type or "").strip()
         details_value = str(details or "").strip()
         detail_map = _parse_mini_details_kv(details_value)
+
+        # Handle miniapp: prefixed events
+        if event_key.startswith("miniapp:"):
+            original_event = event_key[8:]  # Strip 'miniapp:' prefix
+            # Use the mini app event details mapping
+            return _mini_event_details_label(original_event, details_value)
 
         if event_key == "settings_qr_max_downloads_update":
             value = detail_map.get("value")
@@ -342,6 +356,9 @@ def register_settings_routes(
             if target_type:
                 target_display = f"{target_display} ({target_type})" if target_name else target_type
 
+            # Check if this is a miniapp-sourced event
+            is_miniapp = event_type.startswith("miniapp:")
+
             view_rows.append(
                 {
                     "created_at": row.created_at,
@@ -358,6 +375,7 @@ def register_settings_routes(
                     "status": str(getattr(row, "status", "") or "").strip() or "success",
                     "details": str(getattr(row, "details", "") or "").strip() or "-",
                     "remote_addr": getattr(row, "remote_addr", None),
+                    "is_miniapp": is_miniapp,
                 }
             )
         return view_rows
