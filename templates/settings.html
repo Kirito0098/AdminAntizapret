@@ -40,6 +40,10 @@
         <i class="icon">🔧</i>
         <span>Обслуживание</span>
       </li>
+      <li class="menu-item" data-tab="action-logs">
+        <i class="icon">🧾</i>
+        <span>Логи действий</span>
+      </li>
     </ul>
     <div id="update-button-container" class="settings-inline-pad-sm">
       <button id="update-system" class="button update-button">
@@ -1364,6 +1368,42 @@
                 <td class="settings-inline-table-cell">{{ row.actor_username or 'неизвестно' }}</td>
                 <td class="settings-inline-table-cell">{{ row.telegram_id or '-' }}</td>
                 <td class="settings-inline-table-cell" title="{{ row.event_type }}">{{ row.event_display }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="no-data">Событий пока нет</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ═══════════════ Логи действий ═══════════════ -->
+    <div id="action-logs" class="content-tab">
+      <h2>Логи действий</h2>
+      <div class="card settings-inline-card-mb">
+        <h3>Журнал действий пользователей</h3>
+        <p class="help-text">Последние 300 операций: изменения настроек, создание/удаление конфигов и скачивания.</p>
+
+        {% if user_action_audit_logs %}
+        <div class="users-list qr-links-log-list">
+          <table class="qr-links-log-table action-audit-log-table">
+            <thead>
+              <tr>
+                <th class="settings-inline-table-head">Время (UTC)</th>
+                <th class="settings-inline-table-head">Пользователь</th>
+                <th class="settings-inline-table-head">Действие</th>
+                <th class="settings-inline-table-head">IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in user_action_audit_logs %}
+              <tr>
+                <td class="settings-inline-table-cell-nowrap">{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td class="settings-inline-table-cell">{{ row.actor_username or 'system/anonymous' }}</td>
+                <td class="settings-inline-table-cell" title="{{ row.event_type }}">{{ row.event_display }}</td>
+                <td class="settings-inline-table-cell">{{ row.remote_addr or '-' }}</td>
               </tr>
               {% endfor %}
             </tbody>

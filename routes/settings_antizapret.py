@@ -93,6 +93,19 @@ def init_antizapret(app_or_bp):
                 with open(FILE_PATH, "w", encoding="utf-8") as f:
                     f.writelines(new_lines)
 
+                user_action_logger = current_app.config.get("USER_ACTION_AUDIT_LOGGER")
+                if callable(user_action_logger):
+                    changed_keys = sorted(desired.keys())
+                    sample = ",".join(changed_keys[:8])
+                    if len(changed_keys) > 8:
+                        sample += ",..."
+                    user_action_logger(
+                        "settings_antizapret_update",
+                        target_type="antizapret",
+                        target_name="setup",
+                        details=f"changes={changes} keys={sample}",
+                    )
+
             has_mini_session = bool(
                 session.get("telegram_mini_auth")
                 and session.get("telegram_mini_username")

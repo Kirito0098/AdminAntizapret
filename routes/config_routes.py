@@ -54,6 +54,7 @@ def register_config_routes(
     get_public_download_enabled,
     set_public_download_enabled,
     log_telegram_audit_event,
+    log_user_action_event,
 ):
     def _build_short_download_name(file_path):
         base = os.path.basename(file_path)
@@ -541,6 +542,12 @@ def register_config_routes(
                 abort(404, description="Файл не найден")
 
             base = os.path.basename(file_path)
+            log_user_action_event(
+                "config_download",
+                target_type=str(token_row.config_type or "config"),
+                target_name=base,
+                details="channel=qr_one_time",
+            )
             return send_from_directory(
                 os.path.dirname(file_path),
                 base,
@@ -573,6 +580,12 @@ def register_config_routes(
         try:
             base = os.path.basename(file_path)
             download_name = _build_short_download_name(file_path)
+            log_user_action_event(
+                "config_download",
+                target_type=str(get_config_type(file_path) or "config"),
+                target_name=base,
+                details=f"channel=web filename={download_name}",
+            )
             return send_from_directory(
                 os.path.dirname(file_path),
                 base,
@@ -749,6 +762,13 @@ def register_config_routes(
         if not filename:
             abort(404)
 
+        log_user_action_event(
+            "config_download",
+            target_type="public",
+            target_name=filename,
+            details=f"channel=public router={router}",
+        )
+
         return send_from_directory("/root/antizapret/result", filename, as_attachment=True)
 
     @app.route("/toggle_public_download", methods=["POST"])
@@ -765,6 +785,12 @@ def register_config_routes(
         env_value = "true" if next_state else "false"
         set_env_value("PUBLIC_DOWNLOAD_ENABLED", env_value)
         os.environ["PUBLIC_DOWNLOAD_ENABLED"] = env_value
+        log_user_action_event(
+            "settings_public_download_toggle",
+            target_type="public_download",
+            target_name="PUBLIC_DOWNLOAD_ENABLED",
+            details=f"enabled={1 if next_state else 0}",
+        )
 
         flash(
             "Публичный доступ к файлам включен." if next_state else "Публичный доступ к файлам выключен.",

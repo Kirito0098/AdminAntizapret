@@ -43,6 +43,7 @@ from core.models import (
     TelegramMiniAuditLog,
     TrafficSessionState,
     User,
+    UserActionLog,
     UserTrafficSample,
     UserTrafficStat,
     UserTrafficStatProtocol,
@@ -398,7 +399,48 @@ def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_
         app.logger.warning("Не удалось записать событие Telegram audit: %s", e)
 
 
+def _log_user_action_event(
+    event_type,
+    *,
+    target_type=None,
+    target_name=None,
+    details=None,
+    status="success",
+    actor_username=None,
+):
+    """Writes user action audit events without affecting primary workflow."""
+    try:
+        username = str(actor_username or session.get("username") or "").strip() or None
+        actor_user_id = None
+        if username:
+            actor = User.query.filter_by(username=username).first()
+            if actor:
+                actor_user_id = actor.id
+
+        remote_addr = ((request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",", 1)[0]).strip()
+        user_agent = (request.headers.get("User-Agent") or "")[:255]
+
+        db.session.add(
+            UserActionLog(
+                actor_user_id=actor_user_id,
+                actor_username=username,
+                event_type=str(event_type or "unknown")[:64],
+                target_type=(str(target_type or "").strip()[:32] or None),
+                target_name=(str(target_name or "").strip()[:255] or None),
+                status=(str(status or "success").strip()[:16] or "success"),
+                details=(str(details or "")[:255] or None),
+                remote_addr=(remote_addr or None),
+                user_agent=(user_agent or None),
+            )
+        )
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.warning("Не удалось записать событие UserAction audit: %s", e)
+
+
 app.config["TELEGRAM_AUDIT_LOGGER"] = _log_telegram_audit_event
+app.config["USER_ACTION_AUDIT_LOGGER"] = _log_user_action_event
 
 
 background_task_service = BackgroundTaskService(

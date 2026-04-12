@@ -75,6 +75,22 @@ class TelegramMiniAuditLog(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 
 
+class UserActionLog(db.Model):
+    __tablename__ = "user_action_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    actor_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True, index=True)
+    actor_username = db.Column(db.String(80), nullable=True, index=True)
+    event_type = db.Column(db.String(64), nullable=False, index=True)
+    target_type = db.Column(db.String(32), nullable=True, index=True)
+    target_name = db.Column(db.String(255), nullable=True, index=True)
+    status = db.Column(db.String(16), nullable=False, default="success", index=True)
+    details = db.Column(db.String(255), nullable=True)
+    remote_addr = db.Column(db.String(64), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+
 class ViewerConfigAccess(db.Model):
     __tablename__ = "viewer_config_access"
 

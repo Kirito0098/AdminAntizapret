@@ -16,6 +16,7 @@ def register_settings_routes(
     active_web_session_model,
     qr_download_audit_log_model,
     telegram_mini_audit_log_model,
+    user_action_log_model,
     ip_restriction,
     ip_manager,
     collect_all_openvpn_files_for_access,
@@ -36,6 +37,7 @@ def register_settings_routes(
     set_active_web_session_settings,
     get_public_download_enabled,
     log_telegram_audit_event,
+    log_user_action_event,
 ):
     def _has_telegram_mini_session():
         return bool(
@@ -238,6 +240,128 @@ def register_settings_routes(
             )
         return view_rows
 
+    def _user_action_event_label(event_type):
+        mapping = {
+            "config_create": "Создание конфига",
+            "config_delete": "Удаление конфига",
+            "config_recreate": "Пересоздание конфига",
+            "config_action": "Действие с конфигом",
+            "config_download": "Скачивание конфига",
+            "settings_port_update": "Изменение порта панели",
+            "settings_qr_ttl_update": "Изменение TTL одноразовой ссылки",
+            "settings_qr_max_downloads_update": "Изменение лимита скачиваний QR-ссылки",
+            "settings_qr_pin_clear": "Очистка PIN одноразовой ссылки",
+            "settings_qr_pin_update": "Изменение PIN одноразовой ссылки",
+            "settings_public_download_toggle": "Переключение публичного скачивания",
+            "settings_nightly_update": "Изменение настроек ночного рестарта",
+            "settings_telegram_auth_update": "Изменение Telegram-авторизации",
+            "settings_user_create": "Создание пользователя",
+            "settings_user_telegram_update": "Изменение Telegram ID пользователя",
+            "settings_user_delete": "Удаление пользователя",
+            "settings_user_role_update": "Изменение роли пользователя",
+            "settings_user_password_update": "Смена пароля пользователя",
+            "settings_ip_add": "Добавление IP-ограничения",
+            "settings_ip_remove": "Удаление IP-ограничения",
+            "settings_ip_clear": "Сброс IP-ограничений",
+            "settings_ip_bulk_enable": "Массовое включение IP-ограничений",
+            "settings_ip_add_from_file": "Добавление IP из файла",
+            "settings_ip_file_toggle": "Изменение статуса IP-файла",
+            "settings_restart_service": "Запуск перезапуска службы",
+            "settings_viewer_access_grant": "Выдача доступа viewer",
+            "settings_viewer_access_revoke": "Отзыв доступа viewer",
+            "settings_antizapret_update": "Изменение настроек Antizapret",
+        }
+        event_key = str(event_type or "").strip()
+        if event_key in mapping:
+            return mapping[event_key]
+        fallback = event_key.replace("_", " ").strip()
+        return fallback.capitalize() if fallback else "Событие"
+
+    def _user_action_event_display(event_type, target_name, target_type, details):
+        event_key = str(event_type or "").strip()
+        target_value = str(target_name or "").strip()
+        target_kind = str(target_type or "").strip()
+        details_value = str(details or "").strip()
+        detail_map = _parse_mini_details_kv(details_value)
+
+        if event_key == "settings_qr_max_downloads_update":
+            value = detail_map.get("value")
+            if value:
+                return f"Изменение лимита скачиваний QR-ссылки: увеличение до {value}"
+            return "Изменение лимита скачиваний QR-ссылки"
+
+        if event_key == "settings_qr_ttl_update":
+            value = detail_map.get("value")
+            if value:
+                return f"Изменение TTL одноразовой ссылки: до {value} секунд"
+            return "Изменение TTL одноразовой ссылки"
+
+        if event_key == "settings_port_update":
+            value = detail_map.get("value")
+            if value:
+                return f"Изменение порта панели: до {value}"
+            return "Изменение порта панели"
+
+        if event_key == "settings_public_download_toggle":
+            enabled = detail_map.get("enabled")
+            if enabled == "1":
+                return "Публичное скачивание: включено"
+            if enabled == "0":
+                return "Публичное скачивание: выключено"
+            return "Переключение публичного скачивания"
+
+        if event_key == "config_download":
+            if target_value:
+                return f"Скачивание конфига: {target_value}"
+            return "Скачивание конфига"
+
+        if event_key in {"config_create", "config_delete", "config_recreate", "config_action"} and target_value:
+            return f"{_user_action_event_label(event_key)}: {target_value}"
+
+        if event_key in {
+            "settings_user_create",
+            "settings_user_delete",
+            "settings_user_role_update",
+            "settings_user_password_update",
+            "settings_user_telegram_update",
+        } and target_value:
+            return f"{_user_action_event_label(event_key)}: {target_value}"
+
+        if target_value and target_kind in {"ip_restriction", "ip_file"}:
+            return f"{_user_action_event_label(event_key)}: {target_value}"
+
+        return _user_action_event_label(event_key)
+
+    def _build_user_action_audit_view(rows):
+        view_rows = []
+        for row in rows or []:
+            event_type = str(getattr(row, "event_type", "") or "").strip()
+            target_type = str(getattr(row, "target_type", "") or "").strip()
+            target_name = str(getattr(row, "target_name", "") or "").strip()
+            target_display = target_name or "-"
+            if target_type:
+                target_display = f"{target_display} ({target_type})" if target_name else target_type
+
+            view_rows.append(
+                {
+                    "created_at": row.created_at,
+                    "actor_username": row.actor_username,
+                    "event_type": event_type,
+                    "event_label": _user_action_event_label(event_type),
+                    "event_display": _user_action_event_display(
+                        event_type,
+                        target_name,
+                        target_type,
+                        getattr(row, "details", None),
+                    ),
+                    "target_display": target_display,
+                    "status": str(getattr(row, "status", "") or "").strip() or "success",
+                    "details": str(getattr(row, "details", "") or "").strip() or "-",
+                    "remote_addr": getattr(row, "remote_addr", None),
+                }
+            )
+        return view_rows
+
     def _build_tg_mini_settings_payload():
         nightly_idle_restart_enabled, nightly_idle_restart_cron = get_nightly_idle_restart_settings()
         active_web_session_ttl_seconds, active_web_session_touch_interval_seconds = get_active_web_session_settings()
@@ -269,6 +393,12 @@ def register_settings_routes(
                 set_env_value("APP_PORT", new_port)
                 os.environ["APP_PORT"] = new_port
                 flash("Порт успешно изменён. Перезапуск службы...", "success")
+                log_user_action_event(
+                    "settings_port_update",
+                    target_type="app",
+                    target_name="APP_PORT",
+                    details=f"value={new_port}",
+                )
 
                 try:
                     if platform.system() == "Linux":
@@ -286,6 +416,12 @@ def register_settings_routes(
                         set_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", str(ttl_value))
                         os.environ["QR_DOWNLOAD_TOKEN_TTL_SECONDS"] = str(ttl_value)
                         flash("TTL одноразовой QR-ссылки обновлен", "success")
+                        log_user_action_event(
+                            "settings_qr_ttl_update",
+                            target_type="qr",
+                            target_name="QR_DOWNLOAD_TOKEN_TTL_SECONDS",
+                            details=f"value={ttl_value}",
+                        )
                     else:
                         flash("TTL QR-ссылки должен быть в диапазоне 60..3600 секунд", "error")
                 else:
@@ -297,6 +433,12 @@ def register_settings_routes(
                     set_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", max_downloads_raw)
                     os.environ["QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS"] = max_downloads_raw
                     flash("Лимит скачиваний одноразовой ссылки обновлен", "success")
+                    log_user_action_event(
+                        "settings_qr_max_downloads_update",
+                        target_type="qr",
+                        target_name="QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS",
+                        details=f"value={max_downloads_raw}",
+                    )
                 else:
                     flash("Лимит скачиваний должен быть одним из значений: 1, 3 или 5", "error")
 
@@ -306,11 +448,22 @@ def register_settings_routes(
                 set_env_value("QR_DOWNLOAD_PIN", "")
                 os.environ["QR_DOWNLOAD_PIN"] = ""
                 flash("PIN для QR-ссылок очищен", "success")
+                log_user_action_event(
+                    "settings_qr_pin_clear",
+                    target_type="qr",
+                    target_name="QR_DOWNLOAD_PIN",
+                )
             elif pin_raw:
                 if pin_raw.isdigit() and 4 <= len(pin_raw) <= 12:
                     set_env_value("QR_DOWNLOAD_PIN", pin_raw)
                     os.environ["QR_DOWNLOAD_PIN"] = pin_raw
                     flash("PIN для QR-ссылок обновлен", "success")
+                    log_user_action_event(
+                        "settings_qr_pin_update",
+                        target_type="qr",
+                        target_name="QR_DOWNLOAD_PIN",
+                        details=f"length={len(pin_raw)}",
+                    )
                 else:
                     flash("PIN должен содержать только цифры и иметь длину от 4 до 12", "error")
 
@@ -380,6 +533,16 @@ def register_settings_routes(
                         flash("Настройки ночного рестарта сохранены", "success")
                     else:
                         flash(cron_msg, "error")
+                    log_user_action_event(
+                        "settings_nightly_update",
+                        target_type="maintenance",
+                        target_name="nightly_idle_restart",
+                        details=(
+                            f"enabled={1 if nightly_enabled else 0} "
+                            f"cron={cron_expr} ttl={ttl_value} touch={touch_value}"
+                        ),
+                        status="success" if cron_ok else "warning",
+                    )
 
             if request.form.get("telegram_auth_action") == "save":
                 tg_username_raw = request.form.get("telegram_auth_bot_username", "")
@@ -425,6 +588,15 @@ def register_settings_routes(
                             flash("Токен сохранен, но Telegram логин выключен: не заполнен username бота.", "info")
                     else:
                         flash("Telegram логин выключен (токен бота пустой).", "success")
+                    log_user_action_event(
+                        "settings_telegram_auth_update",
+                        target_type="telegram_auth",
+                        target_name=(tg_username or "-"),
+                        details=(
+                            f"max_age={tg_max_age_value} "
+                            f"token_set={1 if bool(token_to_apply) else 0}"
+                        ),
+                    )
 
             username = request.form.get("username")
             password = request.form.get("password")
@@ -454,6 +626,12 @@ def register_settings_routes(
                         db.session.add(user)
                         db.session.commit()
                         flash(f"Пользователь '{username}' ({role}) успешно добавлен!", "success")
+                        log_user_action_event(
+                            "settings_user_create",
+                            target_type="user",
+                            target_name=username,
+                            details=f"role={role} telegram_id={normalized_telegram_id or '-'}",
+                        )
 
             change_telegram_username = request.form.get("change_telegram_username")
             if change_telegram_username:
@@ -490,6 +668,12 @@ def register_settings_routes(
                                 f"Telegram ID пользователя '{change_telegram_username}' очищен",
                                 "success",
                             )
+                        log_user_action_event(
+                            "settings_user_telegram_update",
+                            target_type="user",
+                            target_name=change_telegram_username,
+                            details=f"telegram_id={normalized_telegram_id or '-'}",
+                        )
 
             delete_username = request.form.get("delete_username")
             if delete_username:
@@ -501,6 +685,11 @@ def register_settings_routes(
                         db.session.delete(user)
                         db.session.commit()
                         flash(f"Пользователь '{delete_username}' успешно удалён!", "success")
+                        log_user_action_event(
+                            "settings_user_delete",
+                            target_type="user",
+                            target_name=delete_username,
+                        )
                     else:
                         flash(f"Пользователь '{delete_username}' не найден!", "error")
 
@@ -517,6 +706,12 @@ def register_settings_routes(
                         role_user.role = new_role
                         db.session.commit()
                         flash(f"Роль пользователя '{change_role_username}' изменена на '{new_role}'!", "success")
+                        log_user_action_event(
+                            "settings_user_role_update",
+                            target_type="user",
+                            target_name=change_role_username,
+                            details=f"role={new_role}",
+                        )
                     else:
                         flash(f"Пользователь '{change_role_username}' не найден!", "error")
 
@@ -531,6 +726,11 @@ def register_settings_routes(
                         pw_user.set_password(new_password)
                         db.session.commit()
                         flash(f"Пароль пользователя '{change_password_username}' изменён!", "success")
+                        log_user_action_event(
+                            "settings_user_password_update",
+                            target_type="user",
+                            target_name=change_password_username,
+                        )
                     else:
                         flash(f"Пользователь '{change_password_username}' не найден!", "error")
 
@@ -541,6 +741,11 @@ def register_settings_routes(
                 if new_ip:
                     if ip_restriction.add_ip(new_ip):
                         flash(f"IP {new_ip} добавлен", "success")
+                        log_user_action_event(
+                            "settings_ip_add",
+                            target_type="ip_restriction",
+                            target_name=new_ip,
+                        )
                     else:
                         flash("Неверный формат IP", "error")
 
@@ -549,12 +754,22 @@ def register_settings_routes(
                 if ip_to_remove:
                     if ip_restriction.remove_ip(ip_to_remove):
                         flash(f"IP {ip_to_remove} удален", "success")
+                        log_user_action_event(
+                            "settings_ip_remove",
+                            target_type="ip_restriction",
+                            target_name=ip_to_remove,
+                        )
                     else:
                         flash("IP не найден", "error")
 
             elif ip_action == "clear_all_ips":
                 ip_restriction.clear_all()
                 flash("Все IP ограничения сброшены (доступ разрешен всем)", "success")
+                log_user_action_event(
+                    "settings_ip_clear",
+                    target_type="ip_restriction",
+                    target_name="all",
+                )
 
             elif ip_action == "enable_ips":
                 ips_text = request.form.get("ips_text", "").strip()
@@ -563,6 +778,13 @@ def register_settings_routes(
                     for ip in ips_text.split(","):
                         ip_restriction.add_ip(ip.strip())
                     flash("IP ограничения включены", "success")
+                    entries_count = len([ip for ip in ips_text.split(",") if ip.strip()])
+                    log_user_action_event(
+                        "settings_ip_bulk_enable",
+                        target_type="ip_restriction",
+                        target_name="bulk",
+                        details=f"entries={entries_count}",
+                    )
                 else:
                     flash("Укажите хотя бы один IP-адрес", "error")
 
@@ -574,6 +796,12 @@ def register_settings_routes(
                     try:
                         added_count = ip_manager.add_from_file(ip_file)
                         flash(f"Добавлено {added_count} IP из файла {ip_file}", "success")
+                        log_user_action_event(
+                            "settings_ip_add_from_file",
+                            target_type="ip_file",
+                            target_name=ip_file,
+                            details=f"count={added_count}",
+                        )
                     except FileNotFoundError:
                         flash("Файл не найден", "error")
                     except Exception as e:
@@ -591,6 +819,12 @@ def register_settings_routes(
                         else:
                             cnt = ip_manager.disable_file(ip_file)
                             flash(f"Удалено {cnt} IP из файла {ip_file}", "success")
+                        log_user_action_event(
+                            "settings_ip_file_toggle",
+                            target_type="ip_file",
+                            target_name=ip_file,
+                            details=f"action={file_action} count={cnt}",
+                        )
                     except FileNotFoundError:
                         flash("Файл не найден", "error")
                     except Exception as e:
@@ -611,6 +845,12 @@ def register_settings_routes(
                     flash(
                         f"Перезапуск службы запущен в фоне (task: {task.id[:8]}). Обновите страницу через 10-20 секунд.",
                         "info",
+                    )
+                    log_user_action_event(
+                        "settings_restart_service",
+                        target_type="service",
+                        target_name="admin-antizapret.service",
+                        details=f"task_id={task.id}",
                     )
                 except Exception as e:
                     flash(f"Ошибка запуска фонового перезапуска: {str(e)}", "error")
@@ -647,6 +887,10 @@ def register_settings_routes(
             telegram_mini_audit_log_model.created_at.desc()
         ).limit(200).all()
         telegram_mini_audit_view = _build_telegram_mini_audit_view(telegram_mini_audit_logs)
+        user_action_logs = user_action_log_model.query.order_by(
+            user_action_log_model.created_at.desc()
+        ).limit(300).all()
+        user_action_audit_view = _build_user_action_audit_view(user_action_logs)
         users = user_model.query.all()
         viewer_users = user_model.query.filter_by(role="viewer").all()
 
@@ -706,6 +950,7 @@ def register_settings_routes(
             active_web_sessions_count=active_web_sessions_count,
             qr_download_audit_logs=qr_download_audit_logs,
             telegram_mini_audit_logs=telegram_mini_audit_view,
+            user_action_audit_logs=user_action_audit_view,
         )
 
     @app.route("/api/tg-mini/settings", methods=["GET"])
@@ -755,6 +1000,15 @@ def register_settings_routes(
                 log_telegram_audit_event(
                     "mini_settings_port",
                     details=f"port={port_value} restart={1 if bool(data.get('restart_service', True)) else 0}",
+                )
+                log_user_action_event(
+                    "settings_port_update",
+                    target_type="app",
+                    target_name="APP_PORT",
+                    details=(
+                        f"value={port_value} via=tg-mini "
+                        f"restart={1 if bool(data.get('restart_service', True)) else 0}"
+                    ),
                 )
 
                 return jsonify(
@@ -843,6 +1097,15 @@ def register_settings_routes(
                         f"time={nightly_time_raw or '-'} ttl={ttl_value} touch={touch_value}"
                     ),
                 )
+                log_user_action_event(
+                    "settings_nightly_update",
+                    target_type="maintenance",
+                    target_name="nightly_idle_restart",
+                    details=(
+                        f"enabled={1 if nightly_enabled else 0} cron={cron_expr} "
+                        f"ttl={ttl_value} touch={touch_value} via=tg-mini"
+                    ),
+                )
 
                 return jsonify(
                     {
@@ -890,6 +1153,15 @@ def register_settings_routes(
                         f"token_updated={1 if tg_token_raw is not None else 0}"
                     ),
                 )
+                log_user_action_event(
+                    "settings_telegram_auth_update",
+                    target_type="telegram_auth",
+                    target_name=(tg_username or "-"),
+                    details=(
+                        f"max_age={tg_max_age_value} "
+                        f"token_updated={1 if tg_token_raw is not None else 0} via=tg-mini"
+                    ),
+                )
 
                 return jsonify(
                     {
@@ -909,6 +1181,12 @@ def register_settings_routes(
                 log_telegram_audit_event(
                     "mini_restart_service",
                     details=f"task_id={task.id}",
+                )
+                log_user_action_event(
+                    "settings_restart_service",
+                    target_type="service",
+                    target_name="admin-antizapret.service",
+                    details=f"task_id={task.id} via=tg-mini",
                 )
                 return jsonify(
                     {

@@ -831,20 +831,23 @@
 
 #qr-settings,
 #maintenance,
-#telegram-auth {
+#telegram-auth,
+#action-logs {
   color: var(--theme-text-primary, rgba(255, 255, 255, 0.95));
 }
 
 #qr-settings > h2,
 #maintenance > h2,
-#telegram-auth > h2 {
+#telegram-auth > h2,
+#action-logs > h2 {
   color: var(--theme-text-main, #fff);
   margin-bottom: 1rem;
 }
 
 #qr-settings .card,
 #maintenance .card,
-#telegram-auth .card {
+#telegram-auth .card,
+#action-logs .card {
   background: var(--theme-logs-surface, rgba(8, 14, 17, 0.78));
   border: 1px solid var(--theme-primary-alpha-24, rgba(84, 168, 133, 0.24));
   border-radius: 14px;
@@ -854,7 +857,8 @@
 
 #qr-settings .card h3,
 #maintenance .card h3,
-#telegram-auth .card h3 {
+#telegram-auth .card h3,
+#action-logs .card h3 {
   margin: 0 0 0.9rem;
   padding-bottom: 0.65rem;
   border-bottom: 1px solid var(--theme-primary-alpha-20, rgba(121, 184, 163, 0.2));
@@ -891,17 +895,54 @@
 
 #qr-settings .help-text,
 #maintenance .help-text,
-#telegram-auth .help-text {
+#telegram-auth .help-text,
+#action-logs .help-text {
   color: var(--theme-text-secondary, rgba(255, 255, 255, 0.7));
 }
 
 #qr-settings .info-box,
 #maintenance .info-box,
-#telegram-auth .info-box {
+#telegram-auth .info-box,
+#action-logs .info-box {
   border: 1px solid var(--theme-glass-border, rgba(255, 255, 255, 0.1));
   background: var(--theme-muted-alpha-02, rgba(255, 255, 255, 0.02));
   border-radius: 10px;
   padding: 0.85rem 0.95rem;
+}
+
+#action-logs .action-audit-log-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+#action-logs .action-audit-log-table th,
+#action-logs .action-audit-log-table td {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+#action-logs .action-audit-log-table th:nth-child(1),
+#action-logs .action-audit-log-table td:nth-child(1) {
+  width: 155px;
+}
+
+#action-logs .action-audit-log-table th:nth-child(2),
+#action-logs .action-audit-log-table td:nth-child(2) {
+  width: 130px;
+}
+
+#action-logs .action-audit-log-table th:nth-child(4),
+#action-logs .action-audit-log-table td:nth-child(4) {
+  width: 110px;
+}
+
+@media (max-width: 1100px) {
+  #action-logs .action-audit-log-table {
+    table-layout: auto;
+  }
 }
 
 #telegram-auth .miniapp-link-row {

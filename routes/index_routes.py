@@ -20,6 +20,7 @@ def register_index_routes(
     script_executor,
     sync_wireguard_peer_cache_from_configs,
     log_telegram_audit_event,
+    log_user_action_event,
 ):
     def _has_telegram_mini_session():
         return bool(
@@ -261,6 +262,21 @@ def register_index_routes(
                     config_name=client_name,
                     details=f"option={option} cert_days={cert_expire or '-'}",
                 )
+
+            user_action_events = {
+                "1": ("config_create", "openvpn"),
+                "2": ("config_delete", "openvpn"),
+                "4": ("config_create", "wireguard"),
+                "5": ("config_delete", "wireguard"),
+                "7": ("config_recreate", "wireguard"),
+            }
+            event_type, target_type = user_action_events.get(str(option), ("config_action", "config"))
+            log_user_action_event(
+                event_type,
+                target_type=target_type,
+                target_name=client_name,
+                details=f"option={option} cert_days={cert_expire or '-'}",
+            )
 
             return jsonify(
                 {
