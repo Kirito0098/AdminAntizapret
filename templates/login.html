@@ -133,12 +133,33 @@
         }
 
         const nextUrl = "{{ (request.args.get('next') or url_for('tg_mini_app')) | e }}";
-        const authUrl =
-          "{{ url_for('auth_telegram_mini') }}" +
-          "?next=" + encodeURIComponent(nextUrl) +
-          "&init_data=" + encodeURIComponent(initData);
+        const csrfToken = "{{ csrf_token() | e }}";
 
-        window.location.replace(authUrl);
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "{{ url_for('auth_telegram_mini') }}";
+        form.style.display = "none";
+
+        const nextInput = document.createElement("input");
+        nextInput.type = "hidden";
+        nextInput.name = "next";
+        nextInput.value = nextUrl;
+        form.appendChild(nextInput);
+
+        const initDataInput = document.createElement("input");
+        initDataInput.type = "hidden";
+        initDataInput.name = "init_data";
+        initDataInput.value = initData;
+        form.appendChild(initDataInput);
+
+        const csrfInput = document.createElement("input");
+        csrfInput.type = "hidden";
+        csrfInput.name = "csrf_token";
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        document.body.appendChild(form);
+        form.submit();
       } catch (_error) {
         // Оставляем обычную форму входа как fallback.
       }

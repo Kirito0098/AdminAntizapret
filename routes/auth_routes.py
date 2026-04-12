@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import os
 import json
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urlsplit
 from datetime import timedelta
 
 from flask import (
@@ -54,6 +54,20 @@ def register_auth_routes(
 
     def _is_telegram_auth_enabled():
         return bool(_get_telegram_bot_username() and _get_telegram_bot_token())
+
+    def _safe_internal_next_url(raw_next_url, default_endpoint="tg_mini_app"):
+        value = (raw_next_url or "").strip()
+        if not value:
+            return url_for(default_endpoint)
+
+        parsed = urlsplit(value)
+        if parsed.scheme or parsed.netloc:
+            return url_for(default_endpoint)
+
+        if not value.startswith("/") or value.startswith("//"):
+            return url_for(default_endpoint)
+
+        return value
 
     def _verify_telegram_auth(payload):
         bot_token = _get_telegram_bot_token()
@@ -307,7 +321,7 @@ def register_auth_routes(
 
         return redirect(url_for("index"))
 
-    @app.route("/auth/telegram-mini", methods=["GET"])
+    @app.route("/auth/telegram-mini", methods=["POST"])
     def auth_telegram_mini():
         if ip_restriction.is_enabled():
             client_ip = ip_restriction.get_client_ip()
@@ -318,7 +332,7 @@ def register_auth_routes(
             flash("Telegram авторизация не настроена на сервере.", "error")
             return redirect(url_for("login"))
 
-        init_data = request.args.get("init_data", "")
+        init_data = request.form.get("init_data", "")
         verified, error_message, payload = _verify_telegram_webapp_init_data(init_data)
         if not verified:
             log_telegram_audit_event(
@@ -355,9 +369,7 @@ def register_auth_routes(
             telegram_id=telegram_id,
         )
 
-        next_url = (request.args.get("next") or "").strip()
-        if not next_url.startswith("/"):
-            next_url = url_for("tg_mini_app")
+        next_url = _safe_internal_next_url(request.form.get("next", ""))
         return redirect(next_url)
 
     @app.route("/logout")

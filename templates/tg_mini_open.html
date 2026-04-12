@@ -63,6 +63,7 @@
         (function () {
             const status = document.getElementById("status");
             const targetUrl = "{{ url_for('tg_mini_app') }}";
+            const csrfToken = "{{ csrf_token() | e }}";
 
             function setStatus(text) {
                 if (status) {
@@ -87,11 +88,32 @@
                 }
 
                 setStatus("Авторизация... перенаправляем");
-                const authUrl =
-                    "{{ url_for('auth_telegram_mini') }}" +
-                    "?next=" + encodeURIComponent(targetUrl) +
-                    "&init_data=" + encodeURIComponent(initData);
-                window.location.replace(authUrl);
+
+                const form = document.createElement("form");
+                form.method = "POST";
+                form.action = "{{ url_for('auth_telegram_mini') }}";
+                form.style.display = "none";
+
+                const nextInput = document.createElement("input");
+                nextInput.type = "hidden";
+                nextInput.name = "next";
+                nextInput.value = targetUrl;
+                form.appendChild(nextInput);
+
+                const initDataInput = document.createElement("input");
+                initDataInput.type = "hidden";
+                initDataInput.name = "init_data";
+                initDataInput.value = initData;
+                form.appendChild(initDataInput);
+
+                const csrfInput = document.createElement("input");
+                csrfInput.type = "hidden";
+                csrfInput.name = "csrf_token";
+                csrfInput.value = csrfToken;
+                form.appendChild(csrfInput);
+
+                document.body.appendChild(form);
+                form.submit();
             } catch (_error) {
                 setStatus("Ошибка запуска mini-авторизации. Откройте Mini App из Telegram.");
             }

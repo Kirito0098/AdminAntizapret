@@ -641,7 +641,9 @@ def register_settings_routes(
                         flash("Срок действия Telegram авторизации должен быть в диапазоне 30..86400 секунд", "error")
                         has_tg_error = True
 
-                token_to_apply = ""
+                existing_token = (get_env_value("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip()
+                token_to_apply = existing_token
+                token_updated = False
                 if (tg_token_raw or "").strip():
                     tg_token, token_error = _normalize_telegram_bot_token(tg_token_raw)
                     if token_error:
@@ -649,6 +651,7 @@ def register_settings_routes(
                         has_tg_error = True
                     else:
                         token_to_apply = tg_token
+                        token_updated = True
 
                 if not has_tg_error:
                     set_env_value("TELEGRAM_AUTH_BOT_USERNAME", tg_username)
@@ -656,8 +659,9 @@ def register_settings_routes(
                     os.environ["TELEGRAM_AUTH_BOT_USERNAME"] = tg_username
                     os.environ["TELEGRAM_AUTH_MAX_AGE_SECONDS"] = str(tg_max_age_value)
 
-                    set_env_value("TELEGRAM_AUTH_BOT_TOKEN", token_to_apply)
-                    os.environ["TELEGRAM_AUTH_BOT_TOKEN"] = token_to_apply
+                    if token_updated:
+                        set_env_value("TELEGRAM_AUTH_BOT_TOKEN", token_to_apply)
+                        os.environ["TELEGRAM_AUTH_BOT_TOKEN"] = token_to_apply
 
                     if token_to_apply:
                         if tg_username:
@@ -672,7 +676,8 @@ def register_settings_routes(
                         target_name=(tg_username or "-"),
                         details=(
                             f"max_age={tg_max_age_value} "
-                            f"token_set={1 if bool(token_to_apply) else 0}"
+                            f"token_set={1 if bool(token_to_apply) else 0} "
+                            f"token_updated={1 if token_updated else 0}"
                         ),
                     )
 
