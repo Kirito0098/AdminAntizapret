@@ -411,12 +411,22 @@ def register_config_routes(
                 banned_clients.discard(client_name)
 
             write_banned_clients(banned_clients)
-            if _has_telegram_mini_session():
+            is_tg_mini_action = _has_telegram_mini_session()
+            details_text = f"blocked={1 if should_block else 0}"
+            if is_tg_mini_action:
                 log_telegram_audit_event(
                     "mini_openvpn_block_toggle",
                     config_name=client_name,
-                    details=f"blocked={1 if should_block else 0}",
+                    details=details_text,
                 )
+                details_text += " via=tg-mini"
+
+            log_user_action_event(
+                "openvpn_client_block_toggle",
+                target_type="openvpn",
+                target_name=client_name,
+                details=details_text,
+            )
             return jsonify(
                 {
                     "success": True,
@@ -665,6 +675,12 @@ def register_config_routes(
                 config_name=file_name,
                 details=f"kind={config_kind}",
             )
+            log_user_action_event(
+                "config_send_telegram",
+                target_type=str(config_kind or "config"),
+                target_name=file_name,
+                details=f"kind={config_kind} via=tg-mini",
+            )
             return jsonify(
                 {
                     "success": True,
@@ -678,6 +694,13 @@ def register_config_routes(
                 config_name=file_name,
                 details=str(e),
             )
+            log_user_action_event(
+                "config_send_telegram",
+                target_type=str(config_kind or "config"),
+                target_name=file_name,
+                details="result=failed via=tg-mini",
+                status="error",
+            )
             return jsonify({"success": False, "message": str(e)}), 502
         except Exception as e:
             app.logger.exception("Ошибка отправки конфига в Telegram: %s", e)
@@ -685,6 +708,13 @@ def register_config_routes(
                 "mini_send_config_failed",
                 config_name=file_name,
                 details="internal_error",
+            )
+            log_user_action_event(
+                "config_send_telegram",
+                target_type=str(config_kind or "config"),
+                target_name=file_name,
+                details="result=failed via=tg-mini",
+                status="error",
             )
             return jsonify({"success": False, "message": "Внутренняя ошибка отправки в Telegram"}), 500
 
@@ -724,6 +754,12 @@ def register_config_routes(
                 "mini_check_bot_delivery",
                 details="ok",
             )
+            log_user_action_event(
+                "telegram_bot_delivery_check",
+                target_type="telegram",
+                target_name="bot_delivery",
+                details="result=ok via=tg-mini",
+            )
             return jsonify(
                 {
                     "success": True,
@@ -745,12 +781,26 @@ def register_config_routes(
                 "mini_check_bot_delivery_failed",
                 details=error_text,
             )
+            log_user_action_event(
+                "telegram_bot_delivery_check",
+                target_type="telegram",
+                target_name="bot_delivery",
+                details="result=failed via=tg-mini",
+                status="error",
+            )
             return jsonify({"success": False, "message": user_message}), 400
         except Exception as e:
             app.logger.exception("Ошибка проверки связи mini app с Telegram bot: %s", e)
             log_telegram_audit_event(
                 "mini_check_bot_delivery_failed",
                 details="internal_error",
+            )
+            log_user_action_event(
+                "telegram_bot_delivery_check",
+                target_type="telegram",
+                target_name="bot_delivery",
+                details="result=failed via=tg-mini",
+                status="error",
             )
             return jsonify({"success": False, "message": "Внутренняя ошибка проверки Telegram"}), 500
 
@@ -920,11 +970,21 @@ def register_config_routes(
                 created_by_username=session.get("username"),
                 queued_message="Запуск doall поставлен в очередь",
             )
-            if _has_telegram_mini_session():
+            is_tg_mini_action = _has_telegram_mini_session()
+            details_text = f"task_id={task.id}"
+            if is_tg_mini_action:
                 log_telegram_audit_event(
                     "mini_run_doall",
-                    details=f"task_id={task.id}",
+                    details=details_text,
                 )
+                details_text += " via=tg-mini"
+
+            log_user_action_event(
+                "settings_run_doall",
+                target_type="maintenance",
+                target_name="doall",
+                details=details_text,
+            )
             return task_accepted_response(
                 task,
                 "Скрипт doall запущен в фоне.",

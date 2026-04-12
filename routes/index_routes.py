@@ -249,7 +249,8 @@ def register_index_routes(
                         e,
                     )
 
-            if _has_telegram_mini_session():
+            is_tg_mini_action = _has_telegram_mini_session()
+            if is_tg_mini_action:
                 option_events = {
                     "1": "mini_create_openvpn_config",
                     "2": "mini_delete_openvpn_config",
@@ -271,11 +272,14 @@ def register_index_routes(
                 "7": ("config_recreate", "wireguard"),
             }
             event_type, target_type = user_action_events.get(str(option), ("config_action", "config"))
+            details_text = f"option={option} cert_days={cert_expire or '-'}"
+            if is_tg_mini_action:
+                details_text += " via=tg-mini"
             log_user_action_event(
                 event_type,
                 target_type=target_type,
                 target_name=client_name,
-                details=f"option={option} cert_days={cert_expire or '-'}",
+                details=details_text,
             )
 
             return jsonify(

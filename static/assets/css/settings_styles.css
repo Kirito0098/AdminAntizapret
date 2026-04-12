@@ -1247,3 +1247,62 @@
   background: linear-gradient(135deg, rgba(0, 188, 212, 0.3), rgba(33, 150, 243, 0.3));
 }
 
+.log-source-row {
+  transition: background-color 0.18s ease;
+  vertical-align: middle;
+}
+
+.action-with-source {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.4;
+}
+
+.action-text {
+  display: inline;
+  flex: 1;
+}
+
+.log-source-badge {
+  display: inline-block;
+  vertical-align: baseline;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.7em;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+
+.log-source-badge-miniapp {
+  color: #00bcd4;
+  border-color: rgba(0, 188, 212, 0.45);
+  background: linear-gradient(135deg, rgba(0, 188, 212, 0.2), rgba(33, 150, 243, 0.2));
+}
+
+.log-source-badge-web {
+  color: #6aa5ff;
+  border-color: rgba(106, 165, 255, 0.4);
+  background: rgba(106, 165, 255, 0.12);
+}
+
+.log-source-badge-qr {
+  color: #ffb15a;
+  border-color: rgba(255, 177, 90, 0.42);
+  background: rgba(255, 177, 90, 0.12);
+}
+
+.log-source-badge-public {
+  color: #7fd89c;
+  border-color: rgba(127, 216, 156, 0.42);
+  background: rgba(127, 216, 156, 0.12);
+}
+
+.log-source-badge-api {
+  color: #c7a1ff;
+  border-color: rgba(199, 161, 255, 0.45);
+  background: rgba(199, 161, 255, 0.12);
+}

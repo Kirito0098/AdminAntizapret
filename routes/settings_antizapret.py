@@ -89,6 +89,12 @@ def init_antizapret(app_or_bp):
                     new_lines.append(f"{env}={val}\n")
                     changes += 1
 
+            has_mini_session = bool(
+                session.get("telegram_mini_auth")
+                and session.get("telegram_mini_username")
+                and session.get("telegram_mini_username") == session.get("username")
+            )
+
             if changes > 0:
                 with open(FILE_PATH, "w", encoding="utf-8") as f:
                     f.writelines(new_lines)
@@ -99,18 +105,16 @@ def init_antizapret(app_or_bp):
                     sample = ",".join(changed_keys[:8])
                     if len(changed_keys) > 8:
                         sample += ",..."
+                    details_text = f"changes={changes} keys={sample}"
+                    if has_mini_session:
+                        details_text += " via=tg-mini"
                     user_action_logger(
                         "settings_antizapret_update",
                         target_type="antizapret",
                         target_name="setup",
-                        details=f"changes={changes} keys={sample}",
+                        details=details_text,
                     )
 
-            has_mini_session = bool(
-                session.get("telegram_mini_auth")
-                and session.get("telegram_mini_username")
-                and session.get("telegram_mini_username") == session.get("username")
-            )
             if changes > 0 and has_mini_session:
                 logger_callback = current_app.config.get("TELEGRAM_AUDIT_LOGGER")
                 if callable(logger_callback):

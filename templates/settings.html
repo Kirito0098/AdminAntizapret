@@ -1399,14 +1399,15 @@
             </thead>
             <tbody>
               {% for row in user_action_audit_logs %}
-              <tr{% if row.is_miniapp %} class="miniapp-event"{% endif %}>
+              <tr
+                class="log-source-row log-source-{{ row.source_kind }}{% if row.is_miniapp %} miniapp-event{% endif %}">
                 <td class="settings-inline-table-cell-nowrap">{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                 <td class="settings-inline-table-cell">{{ row.actor_username or 'system/anonymous' }}</td>
-                <td class="settings-inline-table-cell" title="{{ row.event_type }}">
-                  {% if row.is_miniapp %}
-                  <span class="miniapp-badge" title="Действие выполнено через Telegram Mini App">📱 MiniApp</span>
-                  {% endif %}
-                  {{ row.event_display }}
+                <td class="settings-inline-table-cell action-with-source" title="{{ row.event_type }}">
+                  <span class="log-source-badge log-source-badge-{{ row.source_kind }}" title="Источник действия">
+                    {{ row.source_label }}
+                  </span>
+                  <span class="action-text">{{ row.event_display }}</span>
                 </td>
                 <td class="settings-inline-table-cell">{{ row.remote_addr or '-' }}</td>
               </tr>

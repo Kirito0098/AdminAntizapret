@@ -134,17 +134,19 @@ def register_settings_routes(
         fallback = event_key.replace("_", " ").strip()
         return fallback.capitalize() if fallback else "Событие"
 
-    def _mini_event_details_label(event_type, details):
+    def _mini_event_details_label(event_type, details, config_name=None):
         event_key = str(event_type or "").strip()
         details_value = str(details or "").strip()
-        if not details_value:
-            return "-"
-
+        config_value = str(config_name or "").strip()
         detail_map = _parse_mini_details_kv(details_value)
 
         if event_key == "mini_send_config":
             protocol = _mini_protocol_label(detail_map.get("kind"))
-            return f"Тип конфига: {protocol}"
+            config_label = config_value or "-"
+            return f"Тип конфига: {protocol}; конфиг: {config_label}"
+
+        if not details_value:
+            return "-"
 
         if event_key == "mini_send_config_failed":
             return f"Причина: {details_value}"
@@ -235,10 +237,33 @@ def register_settings_routes(
                     "event_label": base_event_label,
                     "event_display": event_display,
                     "details_raw": details_raw,
-                    "details_label": _mini_event_details_label(event_type, details_raw),
+                    "details_label": _mini_event_details_label(event_type, details_raw, config_name),
                 }
             )
         return view_rows
+
+    def _resolve_user_action_source(event_type, details):
+        event_key = str(event_type or "").strip().lower()
+        detail_map = _parse_mini_details_kv(details)
+        via = str(detail_map.get("via") or "").strip().lower()
+        channel = str(detail_map.get("channel") or "").strip().lower()
+
+        if event_key.startswith("miniapp:") or via in {"tg-mini", "tg_mini", "miniapp", "mini-app"}:
+            return "miniapp", "📱 MiniApp"
+
+        if channel in {"qr_one_time", "qr", "one_time"}:
+            return "qr", "🔗 QR"
+
+        if channel in {"public", "public_download"}:
+            return "public", "🌍 Public"
+
+        if channel in {"api", "rest", "webapi"}:
+            return "api", "🔌 API"
+
+        if channel in {"web", "panel", "ui"}:
+            return "web", "🖥 Панель"
+
+        return "web", "🖥 Панель"
 
     def _user_action_event_label(event_type):
         mapping = {
@@ -247,6 +272,9 @@ def register_settings_routes(
             "config_recreate": "Пересоздание конфига",
             "config_action": "Действие с конфигом",
             "config_download": "Скачивание конфига",
+            "config_send_telegram": "Отправка конфига в Telegram",
+            "telegram_bot_delivery_check": "Проверка связи с Telegram-ботом",
+            "openvpn_client_block_toggle": "Изменение статуса OpenVPN-клиента",
             "settings_port_update": "Изменение порта панели",
             "settings_qr_ttl_update": "Изменение TTL одноразовой ссылки",
             "settings_qr_max_downloads_update": "Изменение лимита скачиваний QR-ссылки",
@@ -267,19 +295,20 @@ def register_settings_routes(
             "settings_ip_add_from_file": "Добавление IP из файла",
             "settings_ip_file_toggle": "Изменение статуса IP-файла",
             "settings_restart_service": "Запуск перезапуска службы",
+            "settings_run_doall": "Применение изменений (doall)",
             "settings_viewer_access_grant": "Выдача доступа viewer",
             "settings_viewer_access_revoke": "Отзыв доступа viewer",
             "settings_antizapret_update": "Изменение настроек Antizapret",
         }
         event_key = str(event_type or "").strip()
-        
+
         # Handle miniapp: prefixed events
         if event_key.startswith("miniapp:"):
             original_event = event_key[8:]  # Strip 'miniapp:' prefix
             # Use the mini app event label mapping
             mini_label = _mini_event_label(original_event)
             return mini_label
-        
+
         if event_key in mapping:
             return mapping[event_key]
         fallback = event_key.replace("_", " ").strip()
@@ -296,7 +325,7 @@ def register_settings_routes(
         if event_key.startswith("miniapp:"):
             original_event = event_key[8:]  # Strip 'miniapp:' prefix
             # Use the mini app event details mapping
-            return _mini_event_details_label(original_event, details_value)
+            return _mini_event_details_label(original_event, details_value, target_value)
 
         if event_key == "settings_qr_max_downloads_update":
             value = detail_map.get("value")
@@ -329,6 +358,35 @@ def register_settings_routes(
                 return f"Скачивание конфига: {target_value}"
             return "Скачивание конфига"
 
+        if event_key == "config_send_telegram":
+            if target_value:
+                return f"Отправка конфига в Telegram: {target_value}"
+            return "Отправка конфига в Telegram"
+
+        if event_key == "telegram_bot_delivery_check":
+            result = str(detail_map.get("result") or "").strip().lower()
+            if result == "ok":
+                return "Проверка связи с Telegram-ботом: успешно"
+            if result == "failed":
+                return "Проверка связи с Telegram-ботом: ошибка"
+            return "Проверка связи с Telegram-ботом"
+
+        if event_key == "openvpn_client_block_toggle":
+            blocked_state = str(detail_map.get("blocked") or "").strip()
+            if blocked_state == "1":
+                return f"OpenVPN-клиент: блокировка включена ({target_value or '-'})"
+            if blocked_state == "0":
+                return f"OpenVPN-клиент: блокировка выключена ({target_value or '-'})"
+            if target_value:
+                return f"Изменение статуса OpenVPN-клиента: {target_value}"
+            return "Изменение статуса OpenVPN-клиента"
+
+        if event_key == "settings_run_doall":
+            task_id = str(detail_map.get("task_id") or "").strip()
+            if task_id:
+                return f"Применение изменений (doall): задача {task_id}"
+            return "Применение изменений (doall)"
+
         if event_key in {"config_create", "config_delete", "config_recreate", "config_action"} and target_value:
             return f"{_user_action_event_label(event_key)}: {target_value}"
 
@@ -356,8 +414,8 @@ def register_settings_routes(
             if target_type:
                 target_display = f"{target_display} ({target_type})" if target_name else target_type
 
-            # Check if this is a miniapp-sourced event
-            is_miniapp = event_type.startswith("miniapp:")
+            source_kind, source_label = _resolve_user_action_source(event_type, getattr(row, "details", None))
+            is_miniapp = source_kind == "miniapp"
 
             view_rows.append(
                 {
@@ -376,6 +434,8 @@ def register_settings_routes(
                     "details": str(getattr(row, "details", "") or "").strip() or "-",
                     "remote_addr": getattr(row, "remote_addr", None),
                     "is_miniapp": is_miniapp,
+                    "source_kind": source_kind,
+                    "source_label": source_label,
                 }
             )
         return view_rows
