@@ -373,42 +373,43 @@
       <!-- WARP -->
       <p class="config-description">Исходящий трафик VPN:</p>
       <div class="config-grid">
-        <div class="config-item server-item">
-          <label class="toggle-wrapper">
-            <span class="toggle-label">
-              <span class="config-item-title">Cloudflare WARP for all VPN
-                <span class="tag-server">Server</span>
+        <div class="config-column">
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Cloudflare WARP for Antizapret
+                  <span class="tag-server">Server</span>
+                </span>
               </span>
-            </span>
-            <div class="toggle-switch">
-              <input type="checkbox" id="ANTIZAPRET_WARP-toggle" class="toggle-input" />
-              <span class="toggle-slider"></span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="ANTIZAPRET_WARP-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(ANTIZAPRET_WARP)</span> Отправка трафика Antizapret
+              через Cloudflare WARP
             </div>
-          </label>
-          <div class="config-item-tooltip">
-            <span class="config-param">(ANTIZAPRET_WARP)</span> Отправка трафика Antizapret
-            через Cloudflare WARP
           </div>
         </div>
-      </div>
-
-      <div class="config-item">
-        <label class="config-label">
-          <span class="config-text">
-            <span class="config-title">Cloudflare WARP для VPN исходящего</span>
-            <span class="config-subtitle">VPN_WARP</span>
-            <span class="tag-server">Server</span>
-          </span>
-          <span class="config-label-end">
-          </span>
-          <div class="toggle-switch">
-            <input type="checkbox" id="VPN_WARP-toggle" class="toggle-input" />
-            <span class="toggle-slider"></span>
+        <div class="config-column">
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Cloudflare WARP for VPN outbound
+                  <span class="tag-server">Server</span>
+                </span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="VPN_WARP-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(VPN_WARP)</span> Отправка исходящего VPN трафика
+              через Cloudflare WARP
+            </div>
           </div>
-        </label>
-        <div class="config-item-tooltip">
-          <span class="config-param">(VPN_WARP)</span> Отправка исходящего VPN трафика
-          через Cloudflare WARP
         </div>
       </div>
     </div>
