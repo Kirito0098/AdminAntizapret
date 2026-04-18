@@ -6,7 +6,9 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime
+from typing import Callable
 
 from flask import (
     abort,
@@ -52,13 +54,24 @@ def register_config_routes(
     enqueue_background_task,
     task_run_doall,
     task_accepted_response,
+    io_executor,
     set_env_value,
     get_public_download_enabled,
     set_public_download_enabled,
     log_telegram_audit_event,
     log_user_action_event,
-):
-    def _build_short_download_name(file_path):
+) -> None:
+    def _run_io_bound(callback: Callable, *, timeout: int):
+        if io_executor is None:
+            return callback()
+
+        future = io_executor.submit(callback)
+        try:
+            return future.result(timeout=timeout)
+        except FutureTimeoutError as e:
+            raise ValueError("Операция Telegram API превысила лимит ожидания") from e
+
+    def _build_short_download_name(file_path: str) -> str:
         base = os.path.basename(file_path)
         pattern = re.compile(
             r"^(?P<prefix>antizapret|vpn)-(?P<client>[\w\-]+?)(?:_(?P<id>[\w\-]+))?(?:-\([^)]+\))?(?:-(?P<proto>udp|tcp))?(?:-(?P<suffix>wg|am))?\.(?P<ext>ovpn|conf)$",
@@ -98,7 +111,12 @@ def register_config_routes(
             }
         ), 403
 
-    def _telegram_bot_api_json(bot_token, method_name, params=None, timeout=20):
+    def _telegram_bot_api_json(
+        bot_token: str,
+        method_name: str,
+        params: dict | None = None,
+        timeout: int = 20,
+    ) -> dict:
         api_url = f"https://api.telegram.org/bot{bot_token}/{method_name}"
         payload = urllib.parse.urlencode(params or {}).encode("utf-8")
         request_obj = urllib.request.Request(
@@ -108,9 +126,12 @@ def register_config_routes(
             method="POST",
         )
 
-        try:
+        def _request_callback():
             with urllib.request.urlopen(request_obj, timeout=timeout) as response:
-                response_bytes = response.read()
+                return response.read()
+
+        try:
+            response_bytes = _run_io_bound(_request_callback, timeout=max(timeout + 2, 5))
         except urllib.error.HTTPError as e:
             error_payload_raw = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
             try:
@@ -337,7 +358,13 @@ def register_config_routes(
 
         return caption
 
-    def _send_document_via_telegram_bot(bot_token, chat_id, file_path, caption="", telegram_filename=""):
+    def _send_document_via_telegram_bot(
+        bot_token: str,
+        chat_id: str,
+        file_path: str,
+        caption: str = "",
+        telegram_filename: str = "",
+    ) -> dict:
         api_url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
         filename = (telegram_filename or "").strip() or os.path.basename(file_path)
         content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
@@ -376,9 +403,12 @@ def register_config_routes(
             method="POST",
         )
 
-        try:
+        def _upload_callback():
             with urllib.request.urlopen(request_obj, timeout=35) as response:
-                response_bytes = response.read()
+                return response.read()
+
+        try:
+            response_bytes = _run_io_bound(_upload_callback, timeout=40)
         except urllib.error.HTTPError as e:
             error_payload_raw = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
             try:

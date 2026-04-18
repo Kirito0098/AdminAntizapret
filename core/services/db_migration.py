@@ -43,6 +43,11 @@ class DatabaseMigrationService:
                             "CREATE UNIQUE INDEX IF NOT EXISTS uq_user_telegram_id ON \"user\" (telegram_id)"
                         )
                     )
+                    conn.execute(
+                        text(
+                            "CREATE INDEX IF NOT EXISTS ix_user_role ON \"user\" (role)"
+                        )
+                    )
                     conn.commit()
 
                 if insp.has_table("user_traffic_stat"):
@@ -68,6 +73,28 @@ class DatabaseMigrationService:
                         for col_name, alter_sql in sample_missing.items():
                             if col_name not in sample_cols:
                                 conn.execute(text(alter_sql))
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_user_traffic_sample_common_name_created_at "
+                                "ON user_traffic_sample (common_name, created_at)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_user_traffic_sample_created_at_common_name_protocol_type "
+                                "ON user_traffic_sample (created_at, common_name, protocol_type)"
+                            )
+                        )
+                        conn.commit()
+
+                if insp.has_table("background_task"):
+                    with self.db.engine.connect() as conn:
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_background_task_task_type_status_created_at "
+                                "ON background_task (task_type, status, created_at)"
+                            )
+                        )
                         conn.commit()
 
                 if insp.has_table("qr_download_token"):

@@ -12,7 +12,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
     telegram_id = db.Column(db.String(32), unique=True, nullable=True, index=True)
-    role = db.Column(db.String(20), nullable=False, default="admin")
+    role = db.Column(db.String(20), nullable=False, default="admin", index=True)
     allowed_configs = db.relationship(
         "ViewerConfigAccess",
         backref="user",
@@ -174,6 +174,20 @@ class UserTrafficSample(db.Model):
     delta_sent = db.Column(db.BigInteger, nullable=False, default=0)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 
+    __table_args__ = (
+        db.Index(
+            "ix_user_traffic_sample_common_name_created_at",
+            "common_name",
+            "created_at",
+        ),
+        db.Index(
+            "ix_user_traffic_sample_created_at_common_name_protocol_type",
+            "created_at",
+            "common_name",
+            "protocol_type",
+        ),
+    )
+
 
 class OpenVPNPeerInfoCache(db.Model):
     __tablename__ = "openvpn_peer_info_cache"
@@ -267,6 +281,15 @@ class BackgroundTask(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
     started_at = db.Column(db.DateTime, nullable=True)
     finished_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.Index(
+            "ix_background_task_task_type_status_created_at",
+            "task_type",
+            "status",
+            "created_at",
+        ),
+    )
 
 
 class LogsDashboardCache(db.Model):

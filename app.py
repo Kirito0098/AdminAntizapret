@@ -20,11 +20,17 @@ import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
 import shlex
+from threading import RLock
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from concurrent.futures import ThreadPoolExecutor
+
+try:
+    from flask_limiter import Limiter
+except ImportError:
+    Limiter = None
 
 #Импорт файла с параметрами
 from utils.ip_restriction import ip_restriction
@@ -105,6 +111,23 @@ sock = Sock(app)
 ip_restriction.init_app(app)
 init_antizapret(app)
 
+
+def _rate_limit_key_func():
+    forwarded_for = (request.headers.get("X-Forwarded-For", "") or "").split(",", 1)[0].strip()
+    if forwarded_for:
+        return forwarded_for
+    return request.remote_addr or "127.0.0.1"
+
+
+limiter = None
+if Limiter is not None:
+    limiter = Limiter(
+        key_func=_rate_limit_key_func,
+        app=app,
+        default_limits=[],
+        storage_uri="memory://",
+    )
+
 #   hostname/public_download/
 RESULT_DIR_FILES = {
     "keenetic": "keenetic-wireguard-routes.txt",
@@ -113,16 +136,28 @@ RESULT_DIR_FILES = {
     "tplink": "tp-link-openvpn-routes.txt"
 }
 
-PUBLIC_DOWNLOAD_ENABLED = os.getenv("PUBLIC_DOWNLOAD_ENABLED", "false").lower() == "true"
+_runtime_state_lock = RLock()
+_runtime_state = {
+    "PUBLIC_DOWNLOAD_ENABLED": os.getenv("PUBLIC_DOWNLOAD_ENABLED", "false").lower() == "true",
+}
+
+
+def _runtime_get(key, default=None):
+    with _runtime_state_lock:
+        return _runtime_state.get(key, default)
+
+
+def _runtime_set(key, value):
+    with _runtime_state_lock:
+        _runtime_state[key] = value
 
 
 def _get_public_download_enabled():
-    return PUBLIC_DOWNLOAD_ENABLED
+    return bool(_runtime_get("PUBLIC_DOWNLOAD_ENABLED", False))
 
 
 def _set_public_download_enabled(value):
-    global PUBLIC_DOWNLOAD_ENABLED
-    PUBLIC_DOWNLOAD_ENABLED = bool(value)
+    _runtime_set("PUBLIC_DOWNLOAD_ENABLED", bool(value))
 
 try:
     BACKGROUND_TASK_WORKERS = max(1, int(os.getenv("BACKGROUND_TASK_WORKERS", "2")))
@@ -133,6 +168,16 @@ BACKGROUND_TASK_MAX_OUTPUT_CHARS = 12000
 background_task_executor = ThreadPoolExecutor(
     max_workers=BACKGROUND_TASK_WORKERS,
     thread_name_prefix="adminantizapret-task",
+)
+
+try:
+    IO_BOUND_WORKERS = max(2, int(os.getenv("IO_BOUND_WORKERS", "8")))
+except (TypeError, ValueError):
+    IO_BOUND_WORKERS = 8
+
+io_bound_executor = ThreadPoolExecutor(
+    max_workers=IO_BOUND_WORKERS,
+    thread_name_prefix="adminantizapret-io",
 )
 
 env_file_service = EnvFileService(ENV_FILE_PATH)
@@ -589,32 +634,40 @@ TRAFFIC_SYNC_CRON_MARKER = runtime_settings["TRAFFIC_SYNC_CRON_MARKER"]
 TRAFFIC_SYNC_CRON_EXPR = runtime_settings["TRAFFIC_SYNC_CRON_EXPR"]
 TRAFFIC_SYNC_ENABLED = runtime_settings["TRAFFIC_SYNC_ENABLED"]
 NIGHTLY_IDLE_RESTART_MARKER = runtime_settings["NIGHTLY_IDLE_RESTART_MARKER"]
-NIGHTLY_IDLE_RESTART_CRON_EXPR = runtime_settings["NIGHTLY_IDLE_RESTART_CRON_EXPR"]
-NIGHTLY_IDLE_RESTART_ENABLED = runtime_settings["NIGHTLY_IDLE_RESTART_ENABLED"]
-ACTIVE_WEB_SESSION_TTL_SECONDS = runtime_settings["ACTIVE_WEB_SESSION_TTL_SECONDS"]
-ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS = runtime_settings["ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS"]
+_runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", runtime_settings["NIGHTLY_IDLE_RESTART_CRON_EXPR"])
+_runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", runtime_settings["NIGHTLY_IDLE_RESTART_ENABLED"])
+_runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", runtime_settings["ACTIVE_WEB_SESSION_TTL_SECONDS"])
+_runtime_set(
+    "ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS",
+    runtime_settings["ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS"],
+)
 
 
 def _get_nightly_idle_restart_settings():
-    return NIGHTLY_IDLE_RESTART_ENABLED, NIGHTLY_IDLE_RESTART_CRON_EXPR
+    return (
+        bool(_runtime_get("NIGHTLY_IDLE_RESTART_ENABLED", True)),
+        str(_runtime_get("NIGHTLY_IDLE_RESTART_CRON_EXPR", "0 4 * * *") or "0 4 * * *"),
+    )
 
 
 def _set_nightly_idle_restart_settings(enabled, cron_expr):
-    global NIGHTLY_IDLE_RESTART_ENABLED
-    global NIGHTLY_IDLE_RESTART_CRON_EXPR
-    NIGHTLY_IDLE_RESTART_ENABLED = bool(enabled)
-    NIGHTLY_IDLE_RESTART_CRON_EXPR = (cron_expr or "0 4 * * *").strip()
+    _runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", bool(enabled))
+    _runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", (cron_expr or "0 4 * * *").strip())
 
 
 def _get_active_web_session_settings():
-    return ACTIVE_WEB_SESSION_TTL_SECONDS, ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS
+    return (
+        int(_runtime_get("ACTIVE_WEB_SESSION_TTL_SECONDS", 180)),
+        int(_runtime_get("ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS", 30)),
+    )
 
 
 def _set_active_web_session_settings(ttl_seconds, touch_interval_seconds):
-    global ACTIVE_WEB_SESSION_TTL_SECONDS
-    global ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS
-    ACTIVE_WEB_SESSION_TTL_SECONDS = max(30, int(ttl_seconds))
-    ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS = max(1, int(touch_interval_seconds))
+    _runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", max(30, int(ttl_seconds)))
+    _runtime_set(
+        "ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS",
+        max(1, int(touch_interval_seconds)),
+    )
 
 LOGS_DASHBOARD_CACHE_TTL_SECONDS = runtime_settings["LOGS_DASHBOARD_CACHE_TTL_SECONDS"]
 STATUS_LOG_FILES = runtime_settings["STATUS_LOG_FILES"]
