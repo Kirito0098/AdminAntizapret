@@ -28,6 +28,7 @@ from sqlalchemy import case
 from werkzeug.exceptions import HTTPException
 
 from core.services.request_user import get_current_user
+from core.services.telegram_mini_session import enforce_telegram_mini_session, has_telegram_mini_session
 
 
 def register_config_routes(
@@ -94,22 +95,11 @@ def register_config_routes(
             return f"{base_name}-{proto}.{ext}"
         return f"{base_name}.{ext}"
 
-    def _has_telegram_mini_session():
-        return bool(
-            session.get("telegram_mini_auth")
-            and session.get("telegram_mini_username")
-            and session.get("telegram_mini_username") == session.get("username")
-        )
+    def _has_telegram_mini_session() -> bool:
+        return has_telegram_mini_session(session)
 
     def _enforce_telegram_mini_api_access():
-        if _has_telegram_mini_session():
-            return None
-        return jsonify(
-            {
-                "success": False,
-                "message": "Доступ к Mini App API разрешён только из Telegram Mini App.",
-            }
-        ), 403
+        return enforce_telegram_mini_session(session, api_request=True)
 
     def _telegram_bot_api_json(
         bot_token: str,

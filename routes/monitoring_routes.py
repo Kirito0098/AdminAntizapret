@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 
 from flask import jsonify, make_response, redirect, render_template, request, session, url_for
 
+from core.services.telegram_mini_session import enforce_telegram_mini_session, has_telegram_mini_session
+
 
 def register_monitoring_routes(
     app,
@@ -27,29 +29,15 @@ def register_monitoring_routes(
     user_traffic_sample_model,
     human_bytes,
 ):
-    def _has_telegram_mini_session():
-        return bool(
-            session.get("telegram_mini_auth")
-            and session.get("telegram_mini_username")
-            and session.get("telegram_mini_username") == session.get("username")
-        )
+    def _has_telegram_mini_session() -> bool:
+        return has_telegram_mini_session(session)
 
     def _enforce_telegram_mini_session():
-        if _has_telegram_mini_session():
-            return None
-
-        if request.path.startswith("/api/"):
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "message": "Доступ к Mini App API разрешён только из Telegram Mini App.",
-                    }
-                ),
-                403,
-            )
-
-        return redirect(url_for("tg_mini_open"))
+        return enforce_telegram_mini_session(
+            session,
+            api_request=request.path.startswith("/api/"),
+            redirect_endpoint="tg_mini_open",
+        )
 
     @app.route("/server_monitor", methods=["GET"])
     @auth_manager.login_required

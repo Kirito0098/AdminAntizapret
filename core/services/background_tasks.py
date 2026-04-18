@@ -2,8 +2,14 @@ import os
 import secrets
 import subprocess
 from datetime import datetime
+from typing import Any, Callable, Protocol
 
 from flask import jsonify, url_for
+
+
+class BackgroundTaskCallable(Protocol):
+    def __call__(self) -> dict[str, str] | None:
+        ...
 
 
 class BackgroundTaskService:
@@ -24,13 +30,13 @@ class BackgroundTaskService:
         self.max_output_chars = max_output_chars
         self.app_root = app_root
 
-    def trim_background_task_text(self, value):
+    def trim_background_task_text(self, value: str | None) -> str:
         text = (value or "").strip()
         if len(text) <= self.max_output_chars:
             return text
         return text[: self.max_output_chars] + "\n...[truncated]"
 
-    def serialize_background_task(self, task):
+    def serialize_background_task(self, task: Any) -> dict[str, Any]:
         return {
             "task_id": task.id,
             "task_type": task.task_type,
@@ -43,7 +49,7 @@ class BackgroundTaskService:
             "finished_at": task.finished_at.isoformat() if task.finished_at else None,
         }
 
-    def update_background_task(self, task_id, **fields):
+    def update_background_task(self, task_id: str, **fields: Any) -> None:
         with self.app.app_context():
             task = self.db.session.get(self.background_task_model, task_id)
             if not task:
@@ -54,7 +60,7 @@ class BackgroundTaskService:
 
             self.db.session.commit()
 
-    def run_background_task(self, task_id, task_callable):
+    def run_background_task(self, task_id: str, task_callable: BackgroundTaskCallable) -> None:
         self.update_background_task(
             task_id,
             status="running",
@@ -88,7 +94,13 @@ class BackgroundTaskService:
                 error=self.trim_background_task_text(str(e)),
             )
 
-    def enqueue_background_task(self, task_type, task_callable, created_by_username=None, queued_message=None):
+    def enqueue_background_task(
+        self,
+        task_type: str,
+        task_callable: BackgroundTaskCallable,
+        created_by_username: str | None = None,
+        queued_message: str | None = None,
+    ) -> Any:
         task = self.background_task_model(
             id=secrets.token_hex(16),
             task_type=task_type,
@@ -102,7 +114,12 @@ class BackgroundTaskService:
         self.executor.submit(self.run_background_task, task.id, task_callable)
         return task
 
-    def task_accepted_response(self, task, message, status_endpoint="api_task_status"):
+    def task_accepted_response(
+        self,
+        task: Any,
+        message: str,
+        status_endpoint: str = "api_task_status",
+    ) -> tuple[Any, int]:
         payload = self.serialize_background_task(task)
         payload.update(
             {
@@ -114,7 +131,12 @@ class BackgroundTaskService:
         )
         return jsonify(payload), 202
 
-    def run_checked_command(self, args, cwd=None, timeout=120):
+    def run_checked_command(
+        self,
+        args: list[str],
+        cwd: str | None = None,
+        timeout: int = 120,
+    ) -> tuple[str, str]:
         result = subprocess.run(
             args,
             cwd=cwd,
@@ -131,7 +153,10 @@ class BackgroundTaskService:
             )
         return stdout, stderr
 
-    def task_run_doall(self, sync_wireguard_peer_cache_callback=None):
+    def task_run_doall(
+        self,
+        sync_wireguard_peer_cache_callback: Callable[..., Any] | None = None,
+    ) -> dict[str, str]:
         stdout, stderr = self.run_checked_command(["/root/antizapret/doall.sh"], timeout=900)
         if sync_wireguard_peer_cache_callback is not None:
             try:
@@ -148,7 +173,7 @@ class BackgroundTaskService:
             "output": combined,
         }
 
-    def task_restart_service(self):
+    def task_restart_service(self) -> dict[str, str]:
         stdout, stderr = self.run_checked_command(
             ["/opt/AdminAntizapret/script_sh/adminpanel.sh", "--restart"],
             timeout=120,
@@ -159,8 +184,8 @@ class BackgroundTaskService:
             "output": combined,
         }
 
-    def task_update_system(self):
-        output_parts = []
+    def task_update_system(self) -> dict[str, str]:
+        output_parts: list[str] = []
         repo_dir = self.app_root
         pip_path = os.path.join(self.app_root, "venv", "bin", "pip")
         if not os.path.exists(pip_path):

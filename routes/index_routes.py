@@ -4,6 +4,7 @@ import subprocess
 from flask import jsonify, render_template, request, session
 
 from core.services.request_user import get_current_user
+from core.services.telegram_mini_session import has_telegram_mini_session
 
 
 def register_index_routes(
@@ -24,12 +25,8 @@ def register_index_routes(
     log_telegram_audit_event,
     log_user_action_event,
 ):
-    def _has_telegram_mini_session():
-        return bool(
-            session.get("telegram_mini_auth")
-            and session.get("telegram_mini_username")
-            and session.get("telegram_mini_username") == session.get("username")
-        )
+    def _has_telegram_mini_session() -> bool:
+        return has_telegram_mini_session(session)
 
     def _resolve_group_and_files(idx_user):
         group = session.get("openvpn_group", "GROUP_UDP\\TCP")

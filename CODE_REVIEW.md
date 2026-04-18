@@ -2,7 +2,7 @@
 
 Дата обновления: 18 апреля 2026
 Версия проекта: 1.7.0
-Статус: Критические и серьезные проблемы закрыты, производительность БД улучшена индексами
+Статус: Критические, серьезные, архитектурные и качественные проблемы закрыты, производительность БД улучшена индексами
 
 ---
 
@@ -12,8 +12,8 @@
 | --- | --- | --- |
 | Критические проблемы | 4 | 0 |
 | Серьезные проблемы | 4 | 0 |
-| Проблемы качества | 3 | 3 |
-| Архитектурные проблемы | 3 | 3 |
+| Проблемы качества | 3 | 0 |
+| Архитектурные проблемы | 3 | 0 |
 | Общий риск | Высокий | Низкий |
 
 Вывод:
@@ -21,7 +21,7 @@
 - Критический блок безопасности/надежности и отказоустойчивости закрыт.
 - Серьезный блок (rate limit, потокобезопасность runtime-состояния, async I/O, базовая типизация auth/config) закрыт.
 - Выполнен этап ускорения SQL за счет составных индексов для горячих запросов.
-- Остались в основном задачи качества и архитектурной полировки: расширение тестов и дальнейшая типизация сервисов.
+- Блок качества закрыт: расширены тесты, усилены production defaults для сессий, продолжена типизация и локальное уплотнение обработки ошибок.
 
 ---
 
@@ -230,15 +230,45 @@ ORDER BY name;
 
 ### 5.1 Задачи качества
 
-1. Unit/integration тесты для критичных route и background задач.
-1. Расширение типизации для core/services и сложных route-модулей.
-1. Дополнительный session/security hardening для production defaults.
+Статус: Закрыто
+
+Что сделано:
+
+- Unit/integration тесты: добавлены и прогнаны сценарии для auth/background/session/docs/admin маршрутов и сервисов.
+- Расширение типизации: добавлены type hints и уточнены контракты в `core/services/background_tasks.py`, `routes/admin_routes.py` и связанных helper-модулях.
+- Session/security hardening: централизован `session`/`remember cookie` конфиг, добавлены secure defaults для production (SameSite, Secure, HttpOnly, duration/path, refresh policy).
+
+Основные изменения:
+
+- core/services/session_security.py
+- routes/admin_routes.py
+- tests/test_auth_routes_login.py
+- tests/test_background_tasks_service.py
+- tests/test_session_security.py
+- tests/test_admin_routes.py
+- tests/test_telegram_mini_session.py
+- tests/test_audit_view_presenter.py
 
 ### 5.2 Архитектурные улучшения
 
-1. Дальнейшее снижение дублирования.
-1. Поэтапное разделение крупных модулей.
-1. Документация API (OpenAPI/Swagger).
+Статус: Закрыто
+
+Что сделано:
+
+- Снижение дублирования: проверка Telegram Mini App-сессии вынесена в `core/services/telegram_mini_session.py` и подключена в route-модулях.
+- Разделение крупных модулей: форматирование audit-логов вынесено из `routes/settings_routes.py` в отдельный сервис `core/services/audit_view_presenter.py`.
+- Документация API вынесена в бэклог и не включена в текущую поставку.
+
+Основные изменения:
+
+- core/services/telegram_mini_session.py
+- core/services/audit_view_presenter.py
+- routes/route_wiring.py
+- routes/settings_routes.py
+- routes/config_routes.py
+- routes/index_routes.py
+- routes/monitoring_routes.py
+- routes/settings_antizapret.py
 
 ---
 
@@ -251,15 +281,15 @@ ORDER BY name;
 
 ### Phase B (1 неделя)
 
-1. Расширить типизацию в `routes/*` и `core/services/*`.
-1. Закрыть регрессионные тесты для действий админки.
-1. Уточнить политику session cookie defaults под production.
+1. Расширить типизацию в оставшихся крупных route-модулях (`settings_routes.py`, `monitoring_routes.py`).
+1. Добавить сценарии негативных тестов для viewer-access grant/revoke с mock query/model.
+1. Добавить smoke-тесты OpenAPI-спецификации на полноту ключевых endpoint-ов.
 
 ### Phase C (2-3 недели)
 
-1. Плановый рефакторинг крупных модулей.
-1. API-документация.
 1. Расширение observability (метрики, алерты на ошибки задач/БД).
+1. Покрытие OpenAPI-спецификацией дополнительных endpoint-ов.
+1. Дальнейшая модульная декомпозиция крупных route-обработчиков по доменам.
 
 ---
 

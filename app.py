@@ -87,6 +87,7 @@ from core.services import (
     TrafficPersistenceService,
     register_current_user_context_processor,
 )
+from core.services.session_security import build_session_security_config
 
 # Абсолютный путь к корню приложения и .env (не зависит от рабочего каталога процесса).
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -101,10 +102,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 if not app.secret_key:
     raise ValueError("SECRET_KEY is not set in .env!")
-app.config['SESSION_COOKIE_NAME'] = 'AdminAntizapretSession'
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+app.config.update(build_session_security_config(os.environ))
 
 csrf = CSRFProtect(app)
 sock = Sock(app)

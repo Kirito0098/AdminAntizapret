@@ -40,7 +40,15 @@ def register_auth_routes(
         return limiter.limit(rule)
 
     def _get_remember_me_days() -> int:
-        raw_value = (os.getenv("REMEMBER_ME_DAYS", "30") or "").strip()
+        configured_value = app.config.get("REMEMBER_ME_DAYS")
+        if isinstance(configured_value, int):
+            return max(1, min(configured_value, 365))
+
+        if configured_value is None:
+            raw_value = (os.getenv("REMEMBER_ME_DAYS", "30") or "").strip()
+        else:
+            raw_value = str(configured_value).strip()
+
         try:
             return max(1, min(int(raw_value), 365))
         except (TypeError, ValueError):

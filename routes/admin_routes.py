@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from flask import jsonify, request, session
 
@@ -22,10 +23,13 @@ def register_admin_routes(
     task_restart_service,
     task_accepted_response,
     log_user_action_event,
-):
+) -> None:
+    def _error_response(message: str, status_code: int = 400):
+        return jsonify({"success": False, "message": message}), status_code
+
     @app.route("/check_updates", methods=["GET"])
     @auth_manager.admin_required
-    def check_updates():
+    def check_updates() -> tuple[dict[str, Any], int]:
         try:
             run_checked_command(["git", "fetch", "origin", "main", "--quiet"], cwd=app_root, timeout=30)
             local_commit, _ = run_checked_command(["git", "rev-parse", "HEAD"], cwd=app_root, timeout=10)
@@ -35,7 +39,7 @@ def register_admin_routes(
                 return {"update_available": True, "message": "Доступно обновление!"}, 200
             return {"update_available": False, "message": "У вас последняя версия"}, 200
 
-        except Exception:
+        except (RuntimeError, OSError, ValueError):
             return {
                 "update_available": False,
                 "message": "Не удалось проверить обновления",
@@ -52,18 +56,15 @@ def register_admin_routes(
                 queued_message="Обновление системы поставлено в очередь",
             )
             return task_accepted_response(task, "Обновление системы запущено в фоне.")
-        except Exception:
-            return {
-                "success": False,
-                "message": "Не удалось запустить фоновое обновление",
-            }, 500
+        except (RuntimeError, OSError, ValueError):
+            return _error_response("Не удалось запустить фоновое обновление", 500)
 
     @app.route("/api/tasks/<task_id>", methods=["GET"])
     @auth_manager.admin_required
-    def api_task_status(task_id):
+    def api_task_status(task_id: str):
         task = db.session.get(background_task_model, task_id)
         if not task:
-            return jsonify({"success": False, "message": "Задача не найдена"}), 404
+            return _error_response("Задача не найдена", 404)
 
         payload = serialize_background_task(task)
         payload["success"] = True
@@ -71,10 +72,10 @@ def register_admin_routes(
 
     @app.route("/api/logs_dashboard_refresh_status/<task_id>", methods=["GET"])
     @auth_manager.login_required
-    def api_logs_dashboard_refresh_status(task_id):
+    def api_logs_dashboard_refresh_status(task_id: str):
         task = db.session.get(background_task_model, task_id)
         if not task or task.task_type != "logs_dashboard_refresh":
-            return jsonify({"success": False, "message": "Задача обновления dashboard не найдена"}), 404
+            return _error_response("Задача обновления dashboard не найдена", 404)
 
         return jsonify(
             {
@@ -98,16 +99,16 @@ def register_admin_routes(
                 queued_message="Перезапуск службы поставлен в очередь",
             )
             return task_accepted_response(task, "Перезапуск службы запущен в фоне.")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError) as e:
             app.logger.error("Ошибка: %s", e)
-            return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
+            return _error_response(f"Ошибка: {str(e)}", 500)
 
     @app.route("/api/viewer-access", methods=["POST"])
     @auth_manager.admin_required
     def api_viewer_access():
         data = request.get_json()
         if not data:
-            return jsonify({"success": False, "message": "Неверный запрос"}), 400
+            return _error_response("Неверный запрос", 400)
 
         user_id = data.get("user_id")
         config_name = data.get("config_name")
@@ -115,15 +116,15 @@ def register_admin_routes(
         action = data.get("action")
 
         if not all([user_id, config_name, config_type, action]):
-            return jsonify({"success": False, "message": "Неверные параметры"}), 400
+            return _error_response("Неверные параметры", 400)
 
         allowed_config_types = {"openvpn", "wg", "amneziawg"}
         if config_type not in allowed_config_types:
-            return jsonify({"success": False, "message": "Неверный тип конфигурации"}), 400
+            return _error_response("Неверный тип конфигурации", 400)
 
         target_user = db.session.get(user_model, user_id)
         if not target_user or target_user.role != "viewer":
-            return jsonify({"success": False, "message": "Пользователь не найден или не является viewer"}), 404
+            return _error_response("Пользователь не найден или не является viewer", 404)
 
         target_config_names = [config_name]
         if config_type in allowed_config_types:
@@ -175,6 +176,6 @@ def register_admin_routes(
                 details=f"configs={len(target_config_names)} group={config_name}",
             )
         else:
-            return jsonify({"success": False, "message": "Неверное действие"}), 400
+            return _error_response("Неверное действие", 400)
 
         return jsonify({"success": True})
