@@ -25,6 +25,8 @@ from flask import (
 from sqlalchemy import case
 from werkzeug.exceptions import HTTPException
 
+from core.services.request_user import get_current_user
+
 
 def register_config_routes(
     app,
@@ -113,7 +115,7 @@ def register_config_routes(
             error_payload_raw = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
             try:
                 error_payload = json.loads(error_payload_raw) if error_payload_raw else {}
-            except Exception:
+            except (TypeError, ValueError):
                 error_payload = {}
             message = error_payload.get("description") or f"Telegram API error: HTTP {e.code}"
             raise ValueError(message)
@@ -122,7 +124,7 @@ def register_config_routes(
 
         try:
             parsed = json.loads(response_bytes.decode("utf-8", errors="replace"))
-        except Exception:
+        except ValueError:
             raise ValueError("Telegram API вернул некорректный ответ")
 
         if not parsed.get("ok"):
@@ -175,6 +177,14 @@ def register_config_routes(
             return "wireguard"
 
         return "openvpn"
+
+    def _validate_editor_content(content):
+        value = content or ""
+        if "\x00" in value:
+            return False, "Содержимое файла содержит недопустимый нулевой байт"
+        if len(value.encode("utf-8")) > 1024 * 1024:
+            return False, "Содержимое файла превышает допустимый размер 1 MiB"
+        return True, ""
 
     def _build_platform_instruction_caption(file_name, device_platform, config_kind):
         name = file_name or "config.ovpn"
@@ -373,7 +383,7 @@ def register_config_routes(
             error_payload_raw = e.read().decode("utf-8", errors="replace") if hasattr(e, "read") else ""
             try:
                 error_payload = json.loads(error_payload_raw) if error_payload_raw else {}
-            except Exception:
+            except (TypeError, ValueError):
                 error_payload = {}
             message = error_payload.get("description") or f"Telegram API error: HTTP {e.code}"
             raise ValueError(message)
@@ -382,7 +392,7 @@ def register_config_routes(
 
         try:
             payload = json.loads(response_bytes.decode("utf-8", errors="replace"))
-        except Exception:
+        except ValueError:
             raise ValueError("Telegram API вернул некорректный ответ")
 
         if not payload.get("ok"):
@@ -466,7 +476,7 @@ def register_config_routes(
   <style>
     body { font-family: sans-serif; background: #101722; color: #e6edf3; margin: 0; }
     .wrap { max-width: 420px; margin: 60px auto; padding: 24px; border-radius: 12px; background: #162133; }
-    h2 { margin-top: 0; }
+        h2 { margin-top: 0; }
     input { width: 100%; box-sizing: border-box; padding: 12px; border-radius: 8px; border: 1px solid #2d3d56; background: #0f1725; color: #fff; }
     button { margin-top: 12px; width: 100%; padding: 12px; border: none; border-radius: 8px; background: #2c84ff; color: #fff; cursor: pointer; }
     .hint { color: #9fb3c8; font-size: 0.92rem; margin-top: 8px; }
@@ -475,9 +485,9 @@ def register_config_routes(
 </head>
 <body>
   <div class="wrap">
-    <h2>PIN для скачивания</h2>
-        <form method="POST" autocomplete="off">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <h2>PIN для скачивания</h2>
+                <form method="POST" autocomplete="off">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <input type="password" name="pin" inputmode="numeric" pattern="[0-9]*" placeholder="Введите PIN" autofocus required />
       <button type="submit">Скачать файл</button>
     </form>
@@ -566,16 +576,13 @@ def register_config_routes(
             )
         except HTTPException:
             raise
-        except Exception as e:
-            print(f"Аларм! ошибка: {str(e)}")
-            abort(500)
 
     @app.route("/download/<file_type>/<path:filename>")
     @auth_manager.login_required
     @file_validator.validate_file
     def download(file_path, clean_name):
         _ = clean_name
-        user = user_model.query.filter_by(username=session["username"]).first()
+        user = get_current_user(user_model)
         if user and user.role == "viewer":
             cfg_type = get_config_type(file_path)
             if cfg_type not in ("openvpn", "wg", "amneziawg"):
@@ -587,24 +594,20 @@ def register_config_routes(
             if not access:
                 abort(403)
 
-        try:
-            base = os.path.basename(file_path)
-            download_name = _build_short_download_name(file_path)
-            log_user_action_event(
-                "config_download",
-                target_type=str(get_config_type(file_path) or "config"),
-                target_name=base,
-                details=f"channel=web filename={download_name}",
-            )
-            return send_from_directory(
-                os.path.dirname(file_path),
-                base,
-                as_attachment=True,
-                download_name=download_name,
-            )
-        except Exception as e:
-            print(f"Аларм! ошибка: {e}")
-            abort(500)
+        base = os.path.basename(file_path)
+        download_name = _build_short_download_name(file_path)
+        log_user_action_event(
+            "config_download",
+            target_type=str(get_config_type(file_path) or "config"),
+            target_name=base,
+            details=f"channel=web filename={download_name}",
+        )
+        return send_from_directory(
+            os.path.dirname(file_path),
+            base,
+            as_attachment=True,
+            download_name=download_name,
+        )
 
     @app.route("/api/tg-mini/send-config", methods=["POST"])
     @auth_manager.login_required
@@ -613,7 +616,7 @@ def register_config_routes(
         if denied is not None:
             return denied
 
-        user = user_model.query.filter_by(username=session.get("username")).first()
+        user = get_current_user(user_model)
         if not user:
             return jsonify({"success": False, "message": "Пользователь не найден"}), 403
 
@@ -702,7 +705,7 @@ def register_config_routes(
                 status="error",
             )
             return jsonify({"success": False, "message": str(e)}), 502
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             app.logger.exception("Ошибка отправки конфига в Telegram: %s", e)
             log_telegram_audit_event(
                 "mini_send_config_failed",
@@ -725,7 +728,7 @@ def register_config_routes(
         if denied is not None:
             return denied
 
-        user = user_model.query.filter_by(username=session.get("username")).first()
+        user = get_current_user(user_model)
         if not user:
             return jsonify({"success": False, "message": "Пользователь не найден"}), 403
 
@@ -789,7 +792,7 @@ def register_config_routes(
                 status="error",
             )
             return jsonify({"success": False, "message": user_message}), 400
-        except Exception as e:
+        except (OSError, RuntimeError) as e:
             app.logger.exception("Ошибка проверки связи mini app с Telegram bot: %s", e)
             log_telegram_audit_event(
                 "mini_check_bot_delivery_failed",
@@ -856,7 +859,7 @@ def register_config_routes(
     @file_validator.validate_file
     def generate_qr(file_path, clean_name):
         _ = clean_name
-        user = user_model.query.filter_by(username=session["username"]).first()
+        user = get_current_user(user_model)
         if user and user.role == "viewer":
             cfg_type = get_config_type(file_path)
             if cfg_type not in ("openvpn", "wg", "amneziawg"):
@@ -867,49 +870,45 @@ def register_config_routes(
             ).first()
             if not access:
                 abort(403)
+        with open(file_path, "r") as file:
+            config_text = file.read()
+
+        config_type = get_config_type(file_path)
+        force_download_url_qr = (
+            config_type == "amneziawg" and len(config_text.encode("utf-8")) > 2200
+        )
+
+        if force_download_url_qr:
+            download_url = create_one_time_download_url(file_path)
+            img_byte_arr = qr_generator.generate_qr_for_download_url(download_url)
+            response = send_file(img_byte_arr, mimetype="image/png")
+            response.headers["X-QR-Mode"] = "download-url"
+            response.headers["X-QR-Message-Code"] = "CONFIG_TOO_LARGE_USE_DOWNLOAD"
+            response.headers["X-QR-Download-Url"] = download_url
+            return response
+
         try:
-            with open(file_path, "r") as file:
-                config_text = file.read()
-
-            config_type = get_config_type(file_path)
-            force_download_url_qr = (
-                config_type == "amneziawg" and len(config_text.encode("utf-8")) > 2200
-            )
-
-            if force_download_url_qr:
+            img_byte_arr = qr_generator.generate_qr_code(config_text)
+            response = send_file(img_byte_arr, mimetype="image/png")
+            response.headers["X-QR-Mode"] = "config"
+            return response
+        except ValueError as qr_error:
+            if "слишком длинная" in str(qr_error):
                 download_url = create_one_time_download_url(file_path)
                 img_byte_arr = qr_generator.generate_qr_for_download_url(download_url)
                 response = send_file(img_byte_arr, mimetype="image/png")
                 response.headers["X-QR-Mode"] = "download-url"
-                response.headers["X-QR-Message-Code"] = "CONFIG_TOO_LARGE_USE_DOWNLOAD"
+                response.headers["X-QR-Message-Code"] = "CONFIG_OVERFLOW_USE_DOWNLOAD"
                 response.headers["X-QR-Download-Url"] = download_url
                 return response
-
-            try:
-                img_byte_arr = qr_generator.generate_qr_code(config_text)
-                response = send_file(img_byte_arr, mimetype="image/png")
-                response.headers["X-QR-Mode"] = "config"
-                return response
-            except ValueError as qr_error:
-                if "слишком длинная" in str(qr_error):
-                    download_url = create_one_time_download_url(file_path)
-                    img_byte_arr = qr_generator.generate_qr_for_download_url(download_url)
-                    response = send_file(img_byte_arr, mimetype="image/png")
-                    response.headers["X-QR-Mode"] = "download-url"
-                    response.headers["X-QR-Message-Code"] = "CONFIG_OVERFLOW_USE_DOWNLOAD"
-                    response.headers["X-QR-Download-Url"] = download_url
-                    return response
-                raise
-        except Exception as e:
-            print(f"Аларм! ошибка: {str(e)}")
-            abort(500)
+            raise
 
     @app.route("/generate_one_time_download/<file_type>/<path:filename>")
     @auth_manager.login_required
     @file_validator.validate_file
     def generate_one_time_download(file_path, clean_name):
         _ = clean_name
-        user = user_model.query.filter_by(username=session["username"]).first()
+        user = get_current_user(user_model)
         if not user or user.role != "admin":
             return jsonify({"success": False, "message": "Доступ запрещён."}), 403
 
@@ -925,9 +924,6 @@ def register_config_routes(
             raise
         except ValueError as e:
             return jsonify({"success": False, "message": str(e)}), 400
-        except Exception as e:
-            print(f"Аларм! ошибка: {str(e)}")
-            abort(500)
 
     @app.route("/edit-files", methods=["GET", "POST"])
     @auth_manager.admin_required
@@ -935,6 +931,9 @@ def register_config_routes(
         if request.method == "POST":
             file_type = request.form.get("file_type")
             content = request.form.get("content", "")
+            content_ok, content_error = _validate_editor_content(content)
+            if not content_ok:
+                return jsonify({"success": False, "message": content_error}), 400
 
             if file_editor.update_file_content(file_type, content):
                 try:
@@ -948,7 +947,7 @@ def register_config_routes(
                         task,
                         "Файл сохранен. Применение изменений выполняется в фоне.",
                     )
-                except Exception as e:
+                except (RuntimeError, ValueError, OSError) as e:
                     return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
             return jsonify({"success": False, "message": "Неверный тип файла."}), 400
@@ -989,5 +988,5 @@ def register_config_routes(
                 task,
                 "Скрипт doall запущен в фоне.",
             )
-        except Exception as e:
+        except (RuntimeError, ValueError, OSError) as e:
             return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500

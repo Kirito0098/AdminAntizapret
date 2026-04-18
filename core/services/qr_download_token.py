@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 
 from flask import request, session, url_for
 
+from core.services.request_user import get_current_user, get_user_by_username
+
 
 class QrDownloadTokenService:
     def __init__(
@@ -57,7 +59,7 @@ class QrDownloadTokenService:
         creator_id = None
         username = session.get("username")
         if username:
-            user = self.user_model.query.filter_by(username=username).first()
+            user = get_current_user(self.user_model)
             if user:
                 creator_id = user.id
 
@@ -106,7 +108,7 @@ class QrDownloadTokenService:
             username = session.get("username")
             actor_user_id = None
             if username:
-                actor = self.user_model.query.filter_by(username=username).first()
+                actor = get_user_by_username(self.user_model, username)
                 if actor:
                     actor_user_id = actor.id
 

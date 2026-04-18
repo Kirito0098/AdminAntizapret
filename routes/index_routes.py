@@ -3,6 +3,8 @@ import subprocess
 
 from flask import jsonify, render_template, request, session
 
+from core.services.request_user import get_current_user
+
 
 def register_index_routes(
     app,
@@ -141,7 +143,7 @@ def register_index_routes(
     @app.route("/api/index-client-details", methods=["GET"])
     @auth_manager.login_required
     def api_index_client_details():
-        idx_user = user_model.query.filter_by(username=session["username"]).first()
+        idx_user = get_current_user(user_model)
         (
             _,
             _,
@@ -169,7 +171,7 @@ def register_index_routes(
     @auth_manager.login_required
     def index():
         if request.method == "GET":
-            idx_user = user_model.query.filter_by(username=session["username"]).first()
+            idx_user = get_current_user(user_model)
             (
                 group,
                 folders,
@@ -205,7 +207,7 @@ def register_index_routes(
                 client_details_payload={"connected": {}, "traffic": {}},
             )
 
-        post_user = user_model.query.filter_by(username=session["username"]).first()
+        post_user = get_current_user(user_model)
         if not post_user or post_user.role != "admin":
             return jsonify({"success": False, "message": "Доступ запрещён."}), 403
         try:

@@ -1,3 +1,9 @@
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+
 class FileEditor:
     def __init__(self):
         self.files = {
@@ -18,8 +24,8 @@ class FileEditor:
                 with open(self.files[file_type], "w", encoding="utf-8") as f:
                     f.write(content)
                 return True
-            except Exception as e:
-                print(f"Ошибка записи в файл: {str(e)}")
+            except OSError as e:
+                logger.exception("Ошибка записи в файл %s: %s", self.files[file_type], e)
                 return False
         return False
 

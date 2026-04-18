@@ -1,5 +1,10 @@
+import logging
+
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import text
+
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseMigrationService:
@@ -78,4 +83,4 @@ class DatabaseMigrationService:
                                 conn.execute(text(alter_sql))
                         conn.commit()
             except Exception as exc:
-                print(f"DB migration warning: {exc}")
+                logger.warning("DB migration warning: %s", exc, exc_info=True)

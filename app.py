@@ -23,7 +23,7 @@ import shlex
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from concurrent.futures import ThreadPoolExecutor
 
 #Импорт файла с параметрами
@@ -52,6 +52,7 @@ from core.models import (
     db,
 )
 from core.services.logs_dashboard_collector import collect_logs_dashboard_data as collect_logs_dashboard_data_service
+from core.services.request_user import get_user_by_username
 from core.services import (
     ActiveWebSessionService,
     AuthenticationManager,
@@ -373,7 +374,7 @@ def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_
         resolved_telegram_id = str(telegram_id or session.get("telegram_mini_id") or "").strip()
 
         if username:
-            actor = User.query.filter_by(username=username).first()
+            actor = get_user_by_username(User, username)
             if actor:
                 actor_user_id = actor.id
                 if not resolved_telegram_id:
@@ -395,7 +396,7 @@ def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_
             )
         )
         db.session.commit()
-        
+
         # Also log to UserActionLog with miniapp tag
         try:
             db.session.add(
@@ -412,10 +413,10 @@ def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_
                 )
             )
             db.session.commit()
-        except Exception as e2:
+        except SQLAlchemyError as e2:
             db.session.rollback()
             app.logger.warning("Не удалось записать событие Telegram audit в UserActionLog: %s", e2)
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         app.logger.warning("Не удалось записать событие Telegram audit: %s", e)
 
@@ -434,7 +435,7 @@ def _log_user_action_event(
         username = str(actor_username or session.get("username") or "").strip() or None
         actor_user_id = None
         if username:
-            actor = User.query.filter_by(username=username).first()
+            actor = get_user_by_username(User, username)
             if actor:
                 actor_user_id = actor.id
 
@@ -455,7 +456,7 @@ def _log_user_action_event(
             )
         )
         db.session.commit()
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         app.logger.warning("Не удалось записать событие UserAction audit: %s", e)
 
@@ -774,14 +775,14 @@ try:
     _sync_ok, _sync_msg = _ensure_traffic_sync_cron()
     if not _sync_ok:
         app.logger.warning(_sync_msg)
-except Exception as e:
+except (RuntimeError, OSError, ValueError) as e:
     app.logger.warning(f"Не удалось инициализировать cron sync трафика: {e}")
 
 try:
     _idle_restart_ok, _idle_restart_msg = _ensure_nightly_idle_restart_cron()
     if not _idle_restart_ok:
         app.logger.warning(_idle_restart_msg)
-except Exception as e:
+except (RuntimeError, OSError, ValueError) as e:
     app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
 
 
@@ -940,7 +941,7 @@ def _format_dt(dt_obj):
         return "-"
     try:
         return dt_obj.strftime("%Y-%m-%d %H:%M:%S")
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return "-"
 
 

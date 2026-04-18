@@ -1,4 +1,8 @@
 import os
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 workers = int(os.getenv('GUNICORN_WORKERS', 4))
 bind = f'{os.getenv("BIND", "0.0.0.0")}:{os.getenv("APP_PORT", "5050")}'
@@ -18,4 +22,4 @@ if os.getenv('USE_HTTPS', 'false').lower() == 'true':
     if certfile and keyfile:
         ssl_options = {'certfile': certfile, 'keyfile': keyfile}
     else:
-        print("Предупреждение: HTTPS включен, но сертификаты не найдены. Используется HTTP.")
+        logger.warning("HTTPS включен, но сертификаты не найдены. Используется HTTP.")

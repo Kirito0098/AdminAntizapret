@@ -2,7 +2,7 @@
 
 **Дата:** 18 апреля 2026
 **Версия проекта:** 1.7.0 (break-monolith рефакторинг)
-**Статус:** Продакшн с критическими проблемами для исправления
+**Статус:** Критические проблемы раздела 1 исправлены
 
 ---
 
@@ -20,7 +20,28 @@
 
 ## 🔴 **РАЗДЕЛ 1: КРИТИЧЕСКИЕ ПРОБЛЕМЫ**
 
+### ✅ Статус исправлений (обновлено: 18.04.2026)
+
+- **1.1 N+1 Query Problem:** ✅ **ИСПРАВЛЕНО**
+    Внедрён request-scoped кэш пользователя и применён в web-path:
+    `core/services/request_user.py`, `core/services/auth_manager.py`, `routes/index_routes.py`, `routes/config_routes.py`, `app.py`, `core/services/qr_download_token.py`.
+    Для CLI-операций `utils/init_db.py` добавлен локальный кэш lookup по username.
+
+- **1.2 Логирование вместо print():** ✅ **ИСПРАВЛЕНО**
+    `print()` убраны из Python-кода проекта, включая util/maintenance скрипты:
+    `routes/config_routes.py`, `core/services/file_editor.py`, `core/services/file_validator.py`, `core/services/db_migration.py`, `utils/traffic_sync.py`, `utils/nightly_idle_restart.py`, `utils/init_db.py`, `utils/backfill_traffic_split.py`, `gunicorn.conf.py`.
+
+- **1.3 Broad Exception Handlers:** ✅ **ИСПРАВЛЕНО**
+    Убраны/сузены broad handlers в критичных файлах, а для неизбежных fallback-веток оставлено структурированное логирование:
+    `routes/config_routes.py`, `app.py`, `core/services/file_validator.py`, `utils/nightly_idle_restart.py`.
+
+- **1.4 Валидация входных данных:** ✅ **ИСПРАВЛЕНО**
+    Добавлена проверка диапазона порта `1..65535` и валидация содержимого редактируемых файлов (нулевой байт, лимит 1 MiB):
+    `routes/settings_routes.py`, `routes/config_routes.py`.
+
 ### 1.1 N+1 Query Problem — Повторяющиеся database запросы
+
+**Статус:** ✅ Исправлено (см. блок статуса выше)
 
 **Местоположение:** 20+ файлов
 **Примеры строк:**
@@ -69,6 +90,8 @@ actor = get_current_user()  # Будет закэширован на время 
 ---
 
 ### 1.2 Логирование отсутствует — 50+ print() вместо logger
+
+**Статус:** ✅ Исправлено (см. блок статуса выше)
 
 **Местоположение:** Везде
 **Примеры:**
@@ -152,6 +175,8 @@ logger.error(f"Error: {str(e)}", exc_info=True)
 
 ### 1.3 Broad Exception Handlers скрывают баги
 
+**Статус:** ✅ Исправлено (см. блок статуса выше)
+
 **Местоположение:** config_routes.py, app.py
 
 **Примеры проблемного кода:**
@@ -221,6 +246,8 @@ except Exception as e:
 ---
 
 ### 1.4 Слабая валидация входных данных
+
+**Статус:** ✅ Исправлено (см. блок статуса выше)
 
 **Местоположение:** config_routes.py, settings_routes.py
 
