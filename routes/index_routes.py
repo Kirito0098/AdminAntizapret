@@ -41,10 +41,32 @@ def register_index_routes(
         openvpn_files, wg_files, amneziawg_files = request_config_file_handler.get_config_files()
 
         if idx_user and idx_user.role == "viewer":
-            allowed = {acc.config_name for acc in idx_user.allowed_configs}
-            openvpn_files = [f for f in openvpn_files if os.path.basename(f) in allowed]
-            wg_files = [f for f in wg_files if os.path.basename(f) in allowed]
-            amneziawg_files = [f for f in amneziawg_files if os.path.basename(f) in allowed]
+            allowed_by_type = {
+                "openvpn": set(),
+                "wg": set(),
+                "amneziawg": set(),
+            }
+            for access_entry in idx_user.allowed_configs:
+                cfg_type = str(getattr(access_entry, "config_type", "") or "").strip().lower()
+                cfg_name = str(getattr(access_entry, "config_name", "") or "").strip()
+                if cfg_type in allowed_by_type and cfg_name:
+                    allowed_by_type[cfg_type].add(cfg_name)
+
+            openvpn_files = [
+                file_path
+                for file_path in openvpn_files
+                if os.path.basename(file_path) in allowed_by_type["openvpn"]
+            ]
+            wg_files = [
+                file_path
+                for file_path in wg_files
+                if os.path.basename(file_path) in allowed_by_type["wg"]
+            ]
+            amneziawg_files = [
+                file_path
+                for file_path in amneziawg_files
+                if os.path.basename(file_path) in allowed_by_type["amneziawg"]
+            ]
 
         return (
             group,

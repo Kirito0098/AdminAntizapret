@@ -99,7 +99,7 @@ class ViewerConfigAccess(db.Model):
     config_type = db.Column(db.String(20), nullable=False)
     config_name = db.Column(db.String(255), nullable=False)
     __table_args__ = (
-        db.UniqueConstraint("user_id", "config_name", name="unique_user_config"),
+        db.UniqueConstraint("user_id", "config_type", "config_name", name="unique_user_config_type"),
     )
 
 

@@ -41,7 +41,22 @@ def normalize_samesite(value: str | None, *, secure_cookie: bool) -> str:
 
 def build_session_security_config(environ: Mapping[str, str]) -> dict[str, Any]:
     app_env = (environ.get("APP_ENV") or environ.get("FLASK_ENV") or "").strip().lower()
-    default_secure_cookie = app_env not in _DEV_ENV_VALUES
+    use_https_raw = environ.get("USE_HTTPS")
+    has_explicit_https_flag = use_https_raw is not None
+    has_ssl_material = bool(
+        (environ.get("SSL_CERT") or "").strip()
+        and (environ.get("SSL_KEY") or "").strip()
+    )
+
+    if has_explicit_https_flag:
+        default_secure_cookie = parse_bool_env(use_https_raw, default=False)
+    elif has_ssl_material:
+        default_secure_cookie = True
+    elif app_env in _DEV_ENV_VALUES:
+        default_secure_cookie = False
+    else:
+        # Для старых HTTP-инсталляций без USE_HTTPS избегаем silent регрессии логина.
+        default_secure_cookie = False
 
     session_cookie_secure = parse_bool_env(
         environ.get("SESSION_COOKIE_SECURE"),

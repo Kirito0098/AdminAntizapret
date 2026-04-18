@@ -609,7 +609,9 @@ def register_config_routes(
                 abort(403)
             cfg_name = os.path.basename(file_path)
             access = viewer_config_access_model.query.filter_by(
-                user_id=user.id, config_name=cfg_name
+                user_id=user.id,
+                config_type=cfg_type,
+                config_name=cfg_name,
             ).first()
             if not access:
                 abort(403)
@@ -676,7 +678,9 @@ def register_config_routes(
                 return jsonify({"success": False, "message": "Доступ запрещён"}), 403
             cfg_name = os.path.basename(file_path)
             access = viewer_config_access_model.query.filter_by(
-                user_id=user.id, config_name=cfg_name
+                user_id=user.id,
+                config_type=cfg_type,
+                config_name=cfg_name,
             ).first()
             if not access:
                 return jsonify({"success": False, "message": "Доступ к конфигу запрещён"}), 403
@@ -886,7 +890,9 @@ def register_config_routes(
                 abort(403)
             cfg_name = os.path.basename(file_path)
             access = viewer_config_access_model.query.filter_by(
-                user_id=user.id, config_name=cfg_name
+                user_id=user.id,
+                config_type=cfg_type,
+                config_name=cfg_name,
             ).first()
             if not access:
                 abort(403)

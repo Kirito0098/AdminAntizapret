@@ -106,8 +106,8 @@ def register_admin_routes(
     @app.route("/api/viewer-access", methods=["POST"])
     @auth_manager.admin_required
     def api_viewer_access():
-        data = request.get_json()
-        if not data:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or not data:
             return _error_response("Неверный запрос", 400)
 
         user_id = data.get("user_id")
@@ -144,10 +144,11 @@ def register_admin_routes(
         if action == "grant":
             existing_names = {
                 row.config_name
-                for row in viewer_config_access_model.query.filter(
-                    viewer_config_access_model.user_id == user_id,
-                    viewer_config_access_model.config_name.in_(target_config_names),
+                for row in viewer_config_access_model.query.filter_by(
+                    user_id=user_id,
+                    config_type=config_type,
                 ).all()
+                if row.config_name in target_config_names
             }
             for target_name in target_config_names:
                 if target_name in existing_names:
@@ -164,10 +165,12 @@ def register_admin_routes(
                 details=f"configs={len(target_config_names)} group={config_name}",
             )
         elif action == "revoke":
-            viewer_config_access_model.query.filter(
-                viewer_config_access_model.user_id == user_id,
-                viewer_config_access_model.config_name.in_(target_config_names),
-            ).delete(synchronize_session=False)
+            for target_name in target_config_names:
+                viewer_config_access_model.query.filter_by(
+                    user_id=user_id,
+                    config_type=config_type,
+                    config_name=target_name,
+                ).delete(synchronize_session=False)
             db.session.commit()
             log_user_action_event(
                 "settings_viewer_access_revoke",
