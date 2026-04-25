@@ -4,344 +4,482 @@
 <div id="notification" class="notification" style="display: none"></div>
 <input type="hidden" id="csrf-token-value" value="{{ csrf_token() }}" />
 
-<div class="index-container page-unified-wrapper page-unified-grid">
-  <!-- Основное содержимое с вкладками -->
-  <div class="main-content page-unified-card">
-    <!-- Панель поиска и фильтра -->
-    <div class="search-and-filter page-unified-toolbar">
-      {% if current_user and current_user.is_admin() %}
-      <div class="search-box">
-        <input type="text" id="search-clients" placeholder="🔍 Поиск по имени клиента..." class="search-input">
-        <button type="button" id="clear-search" class="clear-btn" title="Очистить поиск">✕</button>
-      </div>
-      <div class="filter-buttons">
-        <button type="button" class="filter-btn" data-filter="all">Все</button>
-        <button type="button" class="filter-btn" data-filter="active">✓ Активные</button>
-        <button type="button" class="filter-btn" data-filter="expiring">⚠ Истекают скоро</button>
-        <button type="button" class="filter-btn" data-filter="expired">✗ Истекшие</button>
-      </div>
-      {% endif %}
+{% set expiring_cert_ns = namespace(value=0) %}
+{% set expired_cert_ns = namespace(value=0) %}
+{% if cert_expiry %}
+{% for _cert_client_name, cert_info in cert_expiry.items() %}
+{% set cert_days = cert_info.get('days_left') %}
+{% if cert_days is not none and cert_days <= 0 %} {% set expired_cert_ns.value=expired_cert_ns.value + 1 %} {% elif
+  cert_days is not none and cert_days <=30 %} {% set expiring_cert_ns.value=expiring_cert_ns.value + 1 %} {% endif %} {%
+  endfor %} {% endif %} <div class="index-container page-unified-wrapper page-unified-grid sidebar-ops-layout">
+  <section class="index-ops-header-card page-unified-card">
+    <div class="index-ops-header-main">
+      <p class="index-ops-eyebrow">Операционный центр</p>
+      <h1 class="index-ops-title">Sidebar Ops Grid</h1>
+      <p class="index-ops-subtitle">Управление клиентами, сертификатами и трафиком в одном рабочем пространстве.</p>
     </div>
-
-    <!-- Вкладки протоколов -->
-    <div class="protocol-tabs page-unified-tabs">
-      <button type="button" class="tab-btn page-unified-tab-btn active" data-protocol="openvpn">
-        <span class="protocol-icon">🔒</span>
-        <span>OpenVPN</span>
-      </button>
-      <button type="button" class="tab-btn page-unified-tab-btn" data-protocol="amneziawg">
-        <span class="protocol-icon">🔐</span>
-        <span>AmneziaWG</span>
-      </button>
-      <button type="button" class="tab-btn page-unified-tab-btn" data-protocol="wireguard">
-        <span class="protocol-icon">🛡️</span>
-        <span>WireGuard</span>
-      </button>
-      {% if current_user and current_user.is_admin() %}
-      <button type="button" id="openAddClientModalBtn" class="add-client-launch-btn page-unified-tab-btn"
-        aria-haspopup="dialog" aria-controls="addClientModal">
-        <span class="protocol-icon">➕</span>
-        <span>Добавить конфигурацию</span>
-      </button>
-      {% endif %}
+    <div class="index-ops-kpi-strip">
+      <article class="index-kpi-card">
+        <span class="index-kpi-label">OpenVPN конфиги</span>
+        <strong class="index-kpi-value">{{ openvpn_files | length }}</strong>
+      </article>
+      <article class="index-kpi-card">
+        <span class="index-kpi-label">WG + AWG конфиги</span>
+        <strong class="index-kpi-value">{{ (wg_files | length) + (amneziawg_files | length) }}</strong>
+      </article>
+      <article class="index-kpi-card">
+        <span class="index-kpi-label">Истекают ≤ 30 дн.</span>
+        <strong class="index-kpi-value index-kpi-value--warn">{{ expiring_cert_ns.value }}</strong>
+      </article>
+      <article class="index-kpi-card">
+        <span class="index-kpi-label">Заблокированные CN</span>
+        <strong class="index-kpi-value index-kpi-value--danger">{{ banned_clients | length if banned_clients else 0
+          }}</strong>
+      </article>
     </div>
+  </section>
 
-    <!-- Содержимое вкладок -->
-    <div class="tab-content">
-      <!-- OpenVPN Tab -->
-      <div class="tab-pane active" id="openvpn-tab" data-protocol="openvpn">
-        <div class="protocol-controls">
-          <div class="folder-group-buttons">
-            <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display: inline;">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-              <input type="hidden" name="group" value="GROUP_UDP\TCP" />
-              <button type="submit"
-                class="folder-btn {% if current_openvpn_group == 'GROUP_UDP\\TCP' or not current_openvpn_group %}active{% endif %}">UDP
-                & TCP</button>
-            </form>
-            <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display: inline;">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-              <input type="hidden" name="group" value="GROUP_UDP" />
-              <button type="submit"
-                class="folder-btn {% if current_openvpn_group == 'GROUP_UDP' %}active{% endif %}">UDP</button>
-            </form>
-            <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display: inline;">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-              <input type="hidden" name="group" value="GROUP_TCP" />
-              <button type="submit"
-                class="folder-btn {% if current_openvpn_group == 'GROUP_TCP' %}active{% endif %}">TCP</button>
-            </form>
+  <div class="index-ops-grid">
+    <!-- Основное содержимое с вкладками -->
+    <div class="main-content page-unified-card">
+      <!-- Панель поиска и фильтра -->
+      <div class="search-and-filter page-unified-toolbar">
+        {% if current_user and current_user.is_admin() %}
+        <div class="search-box">
+          <input type="text" id="search-clients" placeholder="🔍 Поиск по имени клиента..." class="search-input">
+          <button type="button" id="clear-search" class="clear-btn" title="Очистить поиск">✕</button>
+        </div>
+        <div class="filter-buttons">
+          <button type="button" class="filter-btn" data-filter="all">Все</button>
+          <button type="button" class="filter-btn" data-filter="active">✓ Активные</button>
+          <button type="button" class="filter-btn" data-filter="expiring">⚠ Истекают скоро</button>
+          <button type="button" class="filter-btn" data-filter="expired">✗ Истекшие</button>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Вкладки протоколов -->
+      <div class="protocol-tabs page-unified-tabs">
+        <button type="button" class="tab-btn page-unified-tab-btn active" data-protocol="openvpn">
+          <span class="protocol-icon">🔒</span>
+          <span>OpenVPN</span>
+        </button>
+        <button type="button" class="tab-btn page-unified-tab-btn" data-protocol="amneziawg">
+          <span class="protocol-icon">🔐</span>
+          <span>AmneziaWG</span>
+        </button>
+        <button type="button" class="tab-btn page-unified-tab-btn" data-protocol="wireguard">
+          <span class="protocol-icon">🛡️</span>
+          <span>WireGuard</span>
+        </button>
+        {% if current_user and current_user.is_admin() %}
+        <button type="button" id="openAddClientModalBtn" class="add-client-launch-btn page-unified-tab-btn"
+          aria-haspopup="dialog" aria-controls="addClientModal">
+          <span class="protocol-icon">➕</span>
+          <span>Добавить конфигурацию</span>
+        </button>
+        {% endif %}
+      </div>
+
+      <!-- Содержимое вкладок -->
+      <div class="tab-content">
+        <!-- OpenVPN Tab -->
+        <div class="tab-pane active" id="openvpn-tab" data-protocol="openvpn">
+          <div class="protocol-controls">
+            <div class="folder-group-buttons">
+              <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="group" value="GROUP_UDP\TCP" />
+                <button type="submit"
+                  class="folder-btn {% if current_openvpn_group == 'GROUP_UDP\\TCP' or not current_openvpn_group %}active{% endif %}">UDP
+                  & TCP</button>
+              </form>
+              <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="group" value="GROUP_UDP" />
+                <button type="submit"
+                  class="folder-btn {% if current_openvpn_group == 'GROUP_UDP' %}active{% endif %}">UDP</button>
+              </form>
+              <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <input type="hidden" name="group" value="GROUP_TCP" />
+                <button type="submit"
+                  class="folder-btn {% if current_openvpn_group == 'GROUP_TCP' %}active{% endif %}">TCP</button>
+              </form>
+            </div>
+            {% if current_openvpn_group %}
+            <div class="current-group-display">
+              <span class="group-label">Текущая:</span>
+              <span class="group-value">{{ current_openvpn_group }}</span>
+            </div>
+            {% endif %}
           </div>
-          {% if current_openvpn_group %}
-          <div class="current-group-display">
-            <span class="group-label">Текущая:</span>
-            <span class="group-value">{{ current_openvpn_group }}</span>
+
+          <div class="table-wrapper">
+            <table class="config-table client-grid-table" data-protocol="openvpn">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="name">Клиент</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set openvpn_files_dict = {} %} {% for file in openvpn_files %} {% set filename = file.split('/')[-1]
+                %}
+                {% set stem = filename.rsplit('.', 1)[0] %} {% set stem_lc = stem | lower %} {% if stem_lc[:11] ==
+                'antizapret-' %} {% set kind = 'antizapret' %} {% set after_prefix = stem[11:] %} {% elif stem_lc[:4] ==
+                'vpn-' %} {% set kind = 'vpn' %} {% set after_prefix = stem[4:] %} {% else %} {% set kind = 'vpn' %} {%
+                set after_prefix = stem %} {% endif %} {% set client_name = after_prefix.split('-(')[0] %} {% if
+                client_name not in openvpn_files_dict %} {% set openvpn_files_dict = openvpn_files_dict.update({
+                client_name: {'antizapret': None, 'vpn': None} }) or openvpn_files_dict %} {% endif %} {% if kind ==
+                'antizapret' %} {% set _ = openvpn_files_dict[client_name].update({'antizapret': file}) %} {% else %} {%
+                set _ = openvpn_files_dict[client_name].update({'vpn': file}) %} {% endif %} {% endfor %} {% for
+                client_name, files in openvpn_files_dict | dictsort %}
+                {% set show_cert_meta = current_user and current_user.is_admin() %}
+                {% set cert_info = cert_expiry.get(client_name) if cert_expiry else none %}
+                {% set cert_days = cert_info.get('days_left') if cert_info else none %}
+                {% set cert_expires_at = cert_info.get('expires_at') if cert_info else none %}
+                {% set cert_state = 'active' %}
+                {% if cert_days is none %}
+                {% set cert_state = 'active' %}
+                {% elif cert_days <= 0 %} {% set cert_state='expired' %} {% elif cert_days <=30 %} {% set
+                  cert_state='expiring' %} {% endif %} {% set is_blocked=banned_clients and client_name in
+                  banned_clients %} <tr class="client-row" data-client-name="{{ client_name }}" data-protocol="openvpn"
+                  data-cert-state="{{ cert_state if show_cert_meta else 'active' }}"
+                  data-cert-days="{{ cert_days if show_cert_meta and cert_days is not none else 99999 }}"
+                  data-blocked="{{ 1 if is_blocked else 0 }}"
+                  data-can-block="{{ 1 if current_user and current_user.is_admin() else 0 }}"
+                  data-can-manage="{{ 1 if current_user and current_user.is_admin() else 0 }}" data-delete-option="2"
+                  data-download-vpn-url="{% if files['vpn'] %}{{ url_for('download', file_type='openvpn', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
+                  data-download-az-url="{% if files['antizapret'] %}{{ url_for('download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
+                  data-one-time-vpn-endpoint="{% if current_user and current_user.is_admin() and files['vpn'] %}{{ url_for('generate_one_time_download', file_type='openvpn', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
+                  data-one-time-az-endpoint="{% if current_user and current_user.is_admin() and files['antizapret'] %}{{ url_for('generate_one_time_download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) }}{% endif %}">
+                  <td class="client-name client-name-cell">
+                    <div class="client-name-main">{{ client_name }}</div>
+                    <span class="client-block-badge {% if is_blocked %}is-blocked{% else %}is-active{% endif %}">
+                      {% if is_blocked %}Заблокирован{% else %}Активный{% endif %}
+                    </span>
+                    {% if show_cert_meta %}
+                    <div class="client-cert-meta {{ cert_state }}">
+                      {% if cert_expires_at %}
+                      <div>До: {{ cert_expires_at.split(' ')[0] }}</div>
+                      {% else %}
+                      <div>До: не определено</div>
+                      {% endif %}
+                      <div>
+                        {% if cert_days is none %}
+                        Осталось: неизвестно
+                        {% elif cert_days > 0 %}
+                        Осталось: {{ cert_days }} дн.
+                        {% elif cert_days == 0 %}
+                        Осталось: сегодня истекает
+                        {% else %}
+                        Осталось: истёк
+                        {% endif %}
+                      </div>
+                    </div>
+                    {% endif %}
+                    <div class="client-card-meta">
+                      <span class="client-card-chip is-protocol">OpenVPN</span>
+                      {% if files['vpn'] %}<span class="client-card-chip is-vpn">VPN</span>{% endif %}
+                      {% if files['antizapret'] %}<span class="client-card-chip is-az">AZ</span>{% endif %}
+                    </div>
+                    <div class="client-card-hint">Открыть действия и график</div>
+                  </td>
+                  </tr>
+                  {% endfor %}
+              </tbody>
+            </table>
           </div>
-          {% endif %}
         </div>
 
-        <div class="table-wrapper">
-          <table class="config-table client-grid-table" data-protocol="openvpn">
-            <thead>
-              <tr>
-                <th class="sortable" data-sort="name">Клиент</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% set openvpn_files_dict = {} %} {% for file in openvpn_files %} {% set filename = file.split('/')[-1] %}
-              {% set stem = filename.rsplit('.', 1)[0] %} {% set stem_lc = stem | lower %} {% if stem_lc[:11] ==
-              'antizapret-' %} {% set kind = 'antizapret' %} {% set after_prefix = stem[11:] %} {% elif stem_lc[:4] ==
-              'vpn-' %} {% set kind = 'vpn' %} {% set after_prefix = stem[4:] %} {% else %} {% set kind = 'vpn' %} {%
-              set after_prefix = stem %} {% endif %} {% set client_name = after_prefix.split('-(')[0] %} {% if
-              client_name not in openvpn_files_dict %} {% set openvpn_files_dict = openvpn_files_dict.update({
-              client_name: {'antizapret': None, 'vpn': None} }) or openvpn_files_dict %} {% endif %} {% if kind ==
-              'antizapret' %} {% set _ = openvpn_files_dict[client_name].update({'antizapret': file}) %} {% else %} {%
-              set _ = openvpn_files_dict[client_name].update({'vpn': file}) %} {% endif %} {% endfor %} {% for
-              client_name, files in openvpn_files_dict | dictsort %}
-              {% set show_cert_meta = current_user and current_user.is_admin() %}
-              {% set cert_info = cert_expiry.get(client_name) if cert_expiry else none %}
-              {% set cert_days = cert_info.get('days_left') if cert_info else none %}
-              {% set cert_expires_at = cert_info.get('expires_at') if cert_info else none %}
-              {% set cert_state = 'active' %}
-              {% if cert_days is none %}
-              {% set cert_state = 'active' %}
-              {% elif cert_days <= 0 %} {% set cert_state='expired' %} {% elif cert_days <=30 %} {% set
-                cert_state='expiring' %} {% endif %} {% set is_blocked=banned_clients and client_name in banned_clients
-                %} <tr class="client-row" data-client-name="{{ client_name }}" data-protocol="openvpn"
-                data-cert-state="{{ cert_state if show_cert_meta else 'active' }}"
-                data-cert-days="{{ cert_days if show_cert_meta and cert_days is not none else 99999 }}"
-                data-blocked="{{ 1 if is_blocked else 0 }}"
-                data-can-block="{{ 1 if current_user and current_user.is_admin() else 0 }}"
-                data-can-manage="{{ 1 if current_user and current_user.is_admin() else 0 }}" data-delete-option="2"
-                data-download-vpn-url="{% if files['vpn'] %}{{ url_for('download', file_type='openvpn', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
-                data-download-az-url="{% if files['antizapret'] %}{{ url_for('download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
-                data-one-time-vpn-endpoint="{% if current_user and current_user.is_admin() and files['vpn'] %}{{ url_for('generate_one_time_download', file_type='openvpn', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
-                data-one-time-az-endpoint="{% if current_user and current_user.is_admin() and files['antizapret'] %}{{ url_for('generate_one_time_download', file_type='openvpn', filename=files['antizapret'].split('/')[-1]) }}{% endif %}">
-                <td class="client-name client-name-cell">
-                  <div class="client-name-main">{{ client_name }}</div>
-                  <span class="client-block-badge {% if is_blocked %}is-blocked{% else %}is-active{% endif %}">
-                    {% if is_blocked %}Заблокирован{% else %}Активный{% endif %}
-                  </span>
-                  {% if show_cert_meta %}
-                  <div class="client-cert-meta {{ cert_state }}">
-                    {% if cert_expires_at %}
-                    <div>До: {{ cert_expires_at.split(' ')[0] }}</div>
-                    {% else %}
-                    <div>До: не определено</div>
-                    {% endif %}
-                    <div>
-                      {% if cert_days is none %}
-                      Осталось: неизвестно
-                      {% elif cert_days > 0 %}
-                      Осталось: {{ cert_days }} дн.
-                      {% elif cert_days == 0 %}
-                      Осталось: сегодня истекает
-                      {% else %}
-                      Осталось: истёк
-                      {% endif %}
+        <!-- AmneziaWG Tab -->
+        <div class="tab-pane" id="amneziawg-tab" data-protocol="amneziawg">
+          <div class="table-wrapper">
+            <table class="config-table client-grid-table" data-protocol="amneziawg">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="name">Клиент</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set amneziawg_files_dict = {} %} {% for file in amneziawg_files %} {% set filename =
+                file.split('/')[-1] %} {% set stem = filename.rsplit('.', 1)[0] %} {% set stem_lc = stem | lower %} {%
+                if
+                stem_lc[:11] == 'antizapret-' %} {% set kind = 'antizapret' %} {% set after_prefix = stem[11:] %} {%
+                elif
+                stem_lc[:4] == 'vpn-' %} {% set kind = 'vpn' %} {% set after_prefix = stem[4:] %} {% else %} {% set kind
+                =
+                'vpn' %} {% set after_prefix = stem %} {% endif %} {% set client_name = after_prefix.split('-(')[0] %}
+                {%
+                if client_name not in amneziawg_files_dict %} {% set amneziawg_files_dict =
+                amneziawg_files_dict.update({
+                client_name: {'antizapret': None, 'vpn': None} }) or amneziawg_files_dict %} {% endif %} {% if kind ==
+                'antizapret' %} {% set _ = amneziawg_files_dict[client_name].update({'antizapret': file}) %} {% else %}
+                {%
+                set _ = amneziawg_files_dict[client_name].update({'vpn': file}) %} {% endif %} {% endfor %} {% for
+                client_name, files in amneziawg_files_dict | dictsort %}
+                <tr class="client-row" data-client-name="{{ client_name }}" data-protocol="amneziawg"
+                  data-can-manage="{{ 1 if current_user and current_user.is_admin() else 0 }}" data-delete-option="5"
+                  data-download-vpn-url="{% if files['vpn'] %}{{ url_for('download', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
+                  data-download-az-url="{% if files['antizapret'] %}{{ url_for('download', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
+                  data-qr-vpn-url="{% if files['vpn'] %}{{ url_for('generate_qr', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
+                  data-qr-az-url="{% if files['antizapret'] %}{{ url_for('generate_qr', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
+                  data-one-time-vpn-endpoint="{% if current_user and current_user.is_admin() and files['vpn'] %}{{ url_for('generate_one_time_download', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
+                  data-one-time-az-endpoint="{% if current_user and current_user.is_admin() and files['antizapret'] %}{{ url_for('generate_one_time_download', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}">
+                  <td class="client-name">
+                    <div class="client-name-main">{{ client_name }}</div>
+                    <span class="client-block-badge is-active">Активный</span>
+                    <div class="client-card-meta">
+                      <span class="client-card-chip is-protocol">AmneziaWG</span>
+                      {% if files['vpn'] %}<span class="client-card-chip is-vpn">VPN</span>{% endif %}
+                      {% if files['antizapret'] %}<span class="client-card-chip is-az">AZ</span>{% endif %}
                     </div>
-                  </div>
-                  {% endif %}
-                </td>
+                    <div class="client-card-hint">Нажмите для действий</div>
+                  </td>
                 </tr>
                 {% endfor %}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- WireGuard Tab -->
+        <div class="tab-pane" id="wireguard-tab" data-protocol="wireguard">
+          <div class="table-wrapper">
+            <table class="config-table client-grid-table" data-protocol="wg">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="name">Клиент</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set wg_files_dict = {} %} {% for file in wg_files %} {% set filename = file.split('/')[-1] %} {% set
+                stem = filename.rsplit('.', 1)[0] %} {% set stem_lc = stem | lower %} {% if stem_lc[:11] ==
+                'antizapret-'
+                %} {% set kind = 'antizapret' %} {% set after_prefix = stem[11:] %} {% elif stem_lc[:4] == 'vpn-' %} {%
+                set kind = 'vpn' %} {% set after_prefix = stem[4:] %} {% else %} {% set kind = 'vpn' %} {% set
+                after_prefix = stem %} {% endif %} {% set client_name = after_prefix.split('-(')[0] %} {% if client_name
+                not in wg_files_dict %} {% set wg_files_dict = wg_files_dict.update({ client_name: {'antizapret': None,
+                'vpn': None} }) or wg_files_dict %} {% endif %} {% if kind == 'antizapret' %} {% set _ =
+                wg_files_dict[client_name].update({'antizapret': file}) %} {% else %} {% set _ =
+                wg_files_dict[client_name].update({'vpn': file}) %} {% endif %} {% endfor %} {% for client_name, files
+                in
+                wg_files_dict | dictsort %}
+                <tr class="client-row" data-client-name="{{ client_name }}" data-protocol="wg"
+                  data-can-manage="{{ 1 if current_user and current_user.is_admin() else 0 }}" data-delete-option="5"
+                  data-download-vpn-url="{% if files['vpn'] %}{{ url_for('download', file_type='wg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
+                  data-download-az-url="{% if files['antizapret'] %}{{ url_for('download', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
+                  data-qr-vpn-url="{% if files['vpn'] %}{{ url_for('generate_qr', file_type='wg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
+                  data-qr-az-url="{% if files['antizapret'] %}{{ url_for('generate_qr', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
+                  data-one-time-vpn-endpoint="{% if current_user and current_user.is_admin() and files['vpn'] %}{{ url_for('generate_one_time_download', file_type='wg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
+                  data-one-time-az-endpoint="{% if current_user and current_user.is_admin() and files['antizapret'] %}{{ url_for('generate_one_time_download', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}">
+                  <td class="client-name">
+                    <div class="client-name-main">{{ client_name }}</div>
+                    <span class="client-block-badge is-active">Активный</span>
+                    <div class="client-card-meta">
+                      <span class="client-card-chip is-protocol">WireGuard</span>
+                      {% if files['vpn'] %}<span class="client-card-chip is-vpn">VPN</span>{% endif %}
+                      {% if files['antizapret'] %}<span class="client-card-chip is-az">AZ</span>{% endif %}
+                    </div>
+                    <div class="client-card-hint">Нажмите для действий</div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
+    </div>
 
-      <!-- AmneziaWG Tab -->
-      <div class="tab-pane" id="amneziawg-tab" data-protocol="amneziawg">
-        <div class="table-wrapper">
-          <table class="config-table client-grid-table" data-protocol="amneziawg">
-            <thead>
-              <tr>
-                <th class="sortable" data-sort="name">Клиент</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% set amneziawg_files_dict = {} %} {% for file in amneziawg_files %} {% set filename =
-              file.split('/')[-1] %} {% set stem = filename.rsplit('.', 1)[0] %} {% set stem_lc = stem | lower %} {% if
-              stem_lc[:11] == 'antizapret-' %} {% set kind = 'antizapret' %} {% set after_prefix = stem[11:] %} {% elif
-              stem_lc[:4] == 'vpn-' %} {% set kind = 'vpn' %} {% set after_prefix = stem[4:] %} {% else %} {% set kind =
-              'vpn' %} {% set after_prefix = stem %} {% endif %} {% set client_name = after_prefix.split('-(')[0] %} {%
-              if client_name not in amneziawg_files_dict %} {% set amneziawg_files_dict = amneziawg_files_dict.update({
-              client_name: {'antizapret': None, 'vpn': None} }) or amneziawg_files_dict %} {% endif %} {% if kind ==
-              'antizapret' %} {% set _ = amneziawg_files_dict[client_name].update({'antizapret': file}) %} {% else %} {%
-              set _ = amneziawg_files_dict[client_name].update({'vpn': file}) %} {% endif %} {% endfor %} {% for
-              client_name, files in amneziawg_files_dict | dictsort %}
-              <tr class="client-row" data-client-name="{{ client_name }}" data-protocol="amneziawg"
-                data-can-manage="{{ 1 if current_user and current_user.is_admin() else 0 }}" data-delete-option="5"
-                data-download-vpn-url="{% if files['vpn'] %}{{ url_for('download', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
-                data-download-az-url="{% if files['antizapret'] %}{{ url_for('download', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
-                data-qr-vpn-url="{% if files['vpn'] %}{{ url_for('generate_qr', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
-                data-qr-az-url="{% if files['antizapret'] %}{{ url_for('generate_qr', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
-                data-one-time-vpn-endpoint="{% if current_user and current_user.is_admin() and files['vpn'] %}{{ url_for('generate_one_time_download', file_type='amneziawg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
-                data-one-time-az-endpoint="{% if current_user and current_user.is_admin() and files['antizapret'] %}{{ url_for('generate_one_time_download', file_type='amneziawg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}">
-                <td class="client-name">
-                  <div class="client-name-main">{{ client_name }}</div>
-                  <span class="client-block-badge is-active">Активный</span>
-                  <div class="client-card-meta">
-                    <span class="client-card-chip is-protocol">AmneziaWG</span>
-                    {% if files['vpn'] %}<span class="client-card-chip is-vpn">VPN</span>{% endif %}
-                    {% if files['antizapret'] %}<span class="client-card-chip is-az">AZ</span>{% endif %}
-                  </div>
-                  <div class="client-card-hint">Нажмите для действий</div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+    <aside class="index-ops-rail page-unified-card" aria-label="Операционные индикаторы">
+      <section class="index-rail-section">
+        <h3 class="index-rail-title">Сигналы</h3>
+        <ul class="index-rail-metrics" role="list">
+          <li>
+            <span>OpenVPN</span>
+            <strong>{{ openvpn_files | length }}</strong>
+          </li>
+          <li>
+            <span>AmneziaWG</span>
+            <strong>{{ amneziawg_files | length }}</strong>
+          </li>
+          <li>
+            <span>WireGuard</span>
+            <strong>{{ wg_files | length }}</strong>
+          </li>
+          <li>
+            <span>Истёкшие cert</span>
+            <strong>{{ expired_cert_ns.value }}</strong>
+          </li>
+        </ul>
+      </section>
+
+      <section class="index-rail-section index-rail-section--traffic" id="indexTrafficMiniSummary" data-state="loading">
+        <h3 class="index-rail-title">Трафик (live)</h3>
+        <p id="indexTrafficMiniNote" class="index-traffic-mini-note">Загрузка данных из payload...</p>
+        <div class="index-traffic-mini-grid">
+          <article class="index-traffic-mini-card">
+            <span>Клиенты с трафиком</span>
+            <strong id="indexTrafficClientsTotal">-</strong>
+          </article>
+          <article class="index-traffic-mini-card">
+            <span>Онлайн сейчас</span>
+            <strong id="indexTrafficClientsOnline">-</strong>
+          </article>
         </div>
+        <ul class="index-traffic-mini-list" role="list">
+          <li><span>За 24 часа</span><strong id="indexTrafficTotal1d">-</strong></li>
+          <li><span>За 7 дней</span><strong id="indexTrafficTotal7d">-</strong></li>
+          <li><span>За 30 дней</span><strong id="indexTrafficTotal30d">-</strong></li>
+          <li><span>Всего VPN</span><strong id="indexTrafficTotalVpn">-</strong></li>
+          <li><span>Всего Antizapret</span><strong id="indexTrafficTotalAz">-</strong></li>
+          <li><span>Суммарно</span><strong id="indexTrafficTotalAll">-</strong></li>
+        </ul>
+      </section>
+
+      <section class="index-rail-section">
+        <h3 class="index-rail-title">Алерты</h3>
+        <div class="index-alert-stack">
+          {% if expired_cert_ns.value > 0 %}
+          <article class="index-alert-card index-alert-card--danger">
+            <h4>Сертификаты истекли</h4>
+            <p>{{ expired_cert_ns.value }} клиент(ов) требуют продления немедленно.</p>
+          </article>
+          {% endif %}
+          {% if expiring_cert_ns.value > 0 %}
+          <article class="index-alert-card index-alert-card--warn">
+            <h4>Срок истекает скоро</h4>
+            <p>{{ expiring_cert_ns.value }} клиент(ов) нужно продлить в ближайшие 30 дней.</p>
+          </article>
+          {% endif %}
+          {% if banned_clients and (banned_clients | length) > 0 %}
+          <article class="index-alert-card index-alert-card--neutral">
+            <h4>Активны блокировки</h4>
+            <p>{{ banned_clients | length }} клиент(ов) находятся в списке блокировки.</p>
+          </article>
+          {% endif %}
+          {% if expired_cert_ns.value == 0 and expiring_cert_ns.value == 0 and ((banned_clients | length) if
+          banned_clients else 0) == 0 %}
+          <article class="index-alert-card index-alert-card--ok">
+            <h4>Стабильное состояние</h4>
+            <p>Критических алертов не обнаружено.</p>
+          </article>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="index-rail-section">
+        <h3 class="index-rail-title">Подсказки оператора</h3>
+        <ul class="index-ops-checklist" role="list">
+          <li>Проверяйте вкладку OpenVPN на истекающие сертификаты ежедневно.</li>
+          <li>Для AWG/WG используйте QR или одноразовую ссылку из карточки клиента.</li>
+          <li>Фильтр статусов и поиск применяются к активной вкладке протокола.</li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+  </div>
+
+  {% if current_user and current_user.is_admin() %}
+  <div class="add-client-modal" id="addClientModal" hidden>
+    <div class="add-client-backdrop" data-add-client-close></div>
+    <div class="add-client-dialog" role="dialog" aria-modal="true" aria-labelledby="addClientModalTitle">
+      <button type="button" class="add-client-close" data-add-client-close aria-label="Закрыть">×</button>
+      <div class="add-client-header">
+        <h3 id="addClientModalTitle">Добавить конфигурацию</h3>
+        <p>Создание нового профиля OpenVPN или WireGuard/AmneziaWG.</p>
       </div>
 
-      <!-- WireGuard Tab -->
-      <div class="tab-pane" id="wireguard-tab" data-protocol="wireguard">
-        <div class="table-wrapper">
-          <table class="config-table client-grid-table" data-protocol="wg">
-            <thead>
-              <tr>
-                <th class="sortable" data-sort="name">Клиент</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% set wg_files_dict = {} %} {% for file in wg_files %} {% set filename = file.split('/')[-1] %} {% set
-              stem = filename.rsplit('.', 1)[0] %} {% set stem_lc = stem | lower %} {% if stem_lc[:11] == 'antizapret-'
-              %} {% set kind = 'antizapret' %} {% set after_prefix = stem[11:] %} {% elif stem_lc[:4] == 'vpn-' %} {%
-              set kind = 'vpn' %} {% set after_prefix = stem[4:] %} {% else %} {% set kind = 'vpn' %} {% set
-              after_prefix = stem %} {% endif %} {% set client_name = after_prefix.split('-(')[0] %} {% if client_name
-              not in wg_files_dict %} {% set wg_files_dict = wg_files_dict.update({ client_name: {'antizapret': None,
-              'vpn': None} }) or wg_files_dict %} {% endif %} {% if kind == 'antizapret' %} {% set _ =
-              wg_files_dict[client_name].update({'antizapret': file}) %} {% else %} {% set _ =
-              wg_files_dict[client_name].update({'vpn': file}) %} {% endif %} {% endfor %} {% for client_name, files in
-              wg_files_dict | dictsort %}
-              <tr class="client-row" data-client-name="{{ client_name }}" data-protocol="wg"
-                data-can-manage="{{ 1 if current_user and current_user.is_admin() else 0 }}" data-delete-option="5"
-                data-download-vpn-url="{% if files['vpn'] %}{{ url_for('download', file_type='wg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
-                data-download-az-url="{% if files['antizapret'] %}{{ url_for('download', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
-                data-qr-vpn-url="{% if files['vpn'] %}{{ url_for('generate_qr', file_type='wg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
-                data-qr-az-url="{% if files['antizapret'] %}{{ url_for('generate_qr', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
-                data-one-time-vpn-endpoint="{% if current_user and current_user.is_admin() and files['vpn'] %}{{ url_for('generate_one_time_download', file_type='wg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
-                data-one-time-az-endpoint="{% if current_user and current_user.is_admin() and files['antizapret'] %}{{ url_for('generate_one_time_download', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}">
-                <td class="client-name">
-                  <div class="client-name-main">{{ client_name }}</div>
-                  <span class="client-block-badge is-active">Активный</span>
-                  <div class="client-card-meta">
-                    <span class="client-card-chip is-protocol">WireGuard</span>
-                    {% if files['vpn'] %}<span class="client-card-chip is-vpn">VPN</span>{% endif %}
-                    {% if files['antizapret'] %}<span class="client-card-chip is-az">AZ</span>{% endif %}
-                  </div>
-                  <div class="client-card-hint">Нажмите для действий</div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+      <form method="post" id="client-form" class="add-client-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <div class="form-group add-client-option-group">
+          <label>Выберите действие:</label>
+          <input type="hidden" id="option" name="option" value="" />
+          <div class="add-client-option-buttons" role="group" aria-label="Тип новой конфигурации">
+            <button type="button" class="add-client-option-btn" data-option="1">➕ Добавить клиента OpenVPN</button>
+            <button type="button" class="add-client-option-btn" data-option="4">➕ Добавить WireGuard/AmneziaWG</button>
+          </div>
+        </div>
+
+        <div class="form-group" id="client-name-container" style="display: none">
+          <label for="client-name">Имя клиента:</label>
+          <input type="text" id="client-name" name="client-name" placeholder="client_name"
+            oninput="this.value = this.value.replace(/[^a-zA-Z0-9\_-]/g, '').slice(0, 15);" />
+        </div>
+
+        <div class="form-group" id="work-term-container" style="display: none">
+          <label for="work-term" id="cert_expire_label">Срок работы (дни):</label>
+          <input type="number" id="work-term" name="work-term" min="1" max="3650" placeholder="365"
+            oninput="this.value = this.value.replace(/[^0-9]/g, ''); if (this.value.length > 4) this.value = this.value.slice(0, 4);" />
+        </div>
+
+        <div class="add-client-actions">
+          <button type="button" class="download-button" data-add-client-close>Отмена</button>
+          <button type="submit" class="btn-primary">Создать</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="qr-modal-container" id="modalQRContainer" style="display: none">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-body">
+          <div class="qr-code-container">
+            <img id="qrImage" src="" alt="QR-код" />
+          </div>
+          <p id="qrInfoMessage" class="qr-info-message" style="display: none"></p>
+          <button id="qrCopyLinkButton" type="button" class="download-button qr-copy-link-button" style="display: none">
+            Скопировать одноразовую ссылку
+          </button>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-{% if current_user and current_user.is_admin() %}
-<div class="add-client-modal" id="addClientModal" hidden>
-  <div class="add-client-backdrop" data-add-client-close></div>
-  <div class="add-client-dialog" role="dialog" aria-modal="true" aria-labelledby="addClientModalTitle">
-    <button type="button" class="add-client-close" data-add-client-close aria-label="Закрыть">×</button>
-    <div class="add-client-header">
-      <h3 id="addClientModalTitle">Добавить конфигурацию</h3>
-      <p>Создание нового профиля OpenVPN или WireGuard/AmneziaWG.</p>
-    </div>
+  <div class="client-details-modal" id="clientDetailsModalMain" hidden>
+    <div class="client-details-backdrop" data-client-details-close></div>
+    <div class="client-details-dialog" role="dialog" aria-modal="true" aria-labelledby="clientDetailsTitleMain">
+      <button type="button" class="client-details-close" data-client-details-close aria-label="Закрыть">×</button>
 
-    <form method="post" id="client-form" class="add-client-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <div class="client-details-header">
+        <h3 id="clientDetailsTitleMain">Клиент</h3>
+        <p id="clientDetailsSummaryMain" class="client-details-summary">Загрузка...</p>
+      </div>
 
-      <div class="form-group add-client-option-group">
-        <label>Выберите действие:</label>
-        <input type="hidden" id="option" name="option" value="" />
-        <div class="add-client-option-buttons" role="group" aria-label="Тип новой конфигурации">
-          <button type="button" class="add-client-option-btn" data-option="1">➕ Добавить клиента OpenVPN</button>
-          <button type="button" class="add-client-option-btn" data-option="4">➕ Добавить WireGuard/AmneziaWG</button>
+      <section class="client-details-section client-details-actions-section">
+        <div class="client-details-section-title">Действия</div>
+        <div id="clientDetailsActionsMain" class="client-details-actions"></div>
+      </section>
+
+      <section class="client-details-section">
+        <div class="client-details-section-title">Трафик клиента (БД)</div>
+        <div id="clientDetailsTrafficQuickMain" class="client-details-quick">Загрузка...</div>
+        <div class="client-details-range" role="tablist" aria-label="Диапазон графика клиента">
+          <button type="button" class="client-details-range-btn" data-range="1h">1 час</button>
+          <button type="button" class="client-details-range-btn" data-range="24h">24 часа</button>
+          <button type="button" class="client-details-range-btn" data-range="7d">7 дней</button>
+          <button type="button" class="client-details-range-btn" data-range="30d">30 дней</button>
+          <button type="button" class="client-details-range-btn" data-range="all">За все время</button>
         </div>
-      </div>
-
-      <div class="form-group" id="client-name-container" style="display: none">
-        <label for="client-name">Имя клиента:</label>
-        <input type="text" id="client-name" name="client-name" placeholder="client_name"
-          oninput="this.value = this.value.replace(/[^a-zA-Z0-9\_-]/g, '').slice(0, 15);" />
-      </div>
-
-      <div class="form-group" id="work-term-container" style="display: none">
-        <label for="work-term" id="cert_expire_label">Срок работы (дни):</label>
-        <input type="number" id="work-term" name="work-term" min="1" max="3650" placeholder="365"
-          oninput="this.value = this.value.replace(/[^0-9]/g, ''); if (this.value.length > 4) this.value = this.value.slice(0, 4);" />
-      </div>
-
-      <div class="add-client-actions">
-        <button type="button" class="download-button" data-add-client-close>Отмена</button>
-        <button type="submit" class="btn-primary">Создать</button>
-      </div>
-    </form>
-  </div>
-</div>
-{% endif %}
-
-<div class="qr-modal-container" id="modalQRContainer" style="display: none">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-body">
-        <div class="qr-code-container">
-          <img id="qrImage" src="" alt="QR-код" />
+        <div id="clientDetailsTrafficMetaMain" class="client-details-meta">Загрузка...</div>
+        <div class="client-details-chart-wrap">
+          <canvas id="clientDetailsTrafficChartMain"></canvas>
         </div>
-        <p id="qrInfoMessage" class="qr-info-message" style="display: none"></p>
-        <button id="qrCopyLinkButton" type="button" class="download-button qr-copy-link-button" style="display: none">
-          Скопировать одноразовую ссылку
-        </button>
-      </div>
+      </section>
+
+      <section class="client-details-section">
+        <div class="client-details-section-title">Подключения (IP, устройство, версия)</div>
+        <div id="clientDetailsConnectionsMain" class="client-details-connections"></div>
+      </section>
     </div>
   </div>
-</div>
 
-<div class="client-details-modal" id="clientDetailsModalMain" hidden>
-  <div class="client-details-backdrop" data-client-details-close></div>
-  <div class="client-details-dialog" role="dialog" aria-modal="true" aria-labelledby="clientDetailsTitleMain">
-    <button type="button" class="client-details-close" data-client-details-close aria-label="Закрыть">×</button>
-
-    <div class="client-details-header">
-      <h3 id="clientDetailsTitleMain">Клиент</h3>
-      <p id="clientDetailsSummaryMain" class="client-details-summary">Загрузка...</p>
-    </div>
-
-    <section class="client-details-section client-details-actions-section">
-      <div class="client-details-section-title">Действия</div>
-      <div id="clientDetailsActionsMain" class="client-details-actions"></div>
-    </section>
-
-    <section class="client-details-section">
-      <div class="client-details-section-title">Трафик клиента (БД)</div>
-      <div id="clientDetailsTrafficQuickMain" class="client-details-quick">Загрузка...</div>
-      <div class="client-details-range" role="tablist" aria-label="Диапазон графика клиента">
-        <button type="button" class="client-details-range-btn" data-range="1h">1 час</button>
-        <button type="button" class="client-details-range-btn" data-range="24h">24 часа</button>
-        <button type="button" class="client-details-range-btn" data-range="7d">7 дней</button>
-        <button type="button" class="client-details-range-btn" data-range="30d">30 дней</button>
-        <button type="button" class="client-details-range-btn" data-range="all">За все время</button>
-      </div>
-      <div id="clientDetailsTrafficMetaMain" class="client-details-meta">Загрузка...</div>
-      <div class="client-details-chart-wrap">
-        <canvas id="clientDetailsTrafficChartMain"></canvas>
-      </div>
-    </section>
-
-    <section class="client-details-section">
-      <div class="client-details-section-title">Подключения (IP, устройство, версия)</div>
-      <div id="clientDetailsConnectionsMain" class="client-details-connections"></div>
-    </section>
-  </div>
-</div>
-
-<script id="index-client-details-data" type="application/json">{{ client_details_payload | tojson }}</script>
-{% endblock %} {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js"></script>
-<script src="{{ url_for('static', filename='assets/js/main_index_new.js') }}"></script>
-{% endblock %}
+  <script id="index-client-details-data" type="application/json">{{ client_details_payload | tojson }}</script>
+  {% endblock %} {% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='assets/js/main_index_new.js') }}"></script>
+  {% endblock %}
