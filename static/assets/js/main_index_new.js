@@ -25,8 +25,16 @@ let indexClientDetailsFetchPromise = null;
 const INDEX_CONTRAST_STORAGE_KEY = 'index_night_contrast_mode';
 
 function getThemeColor(token, fallback) {
-    const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
-    return value || fallback;
+    const bodyValue = document.body
+        ? getComputedStyle(document.body).getPropertyValue(token).trim()
+        : '';
+
+    if (bodyValue) {
+        return bodyValue;
+    }
+
+    const rootValue = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+    return rootValue || fallback;
 }
 
 // Extract cert expiry data from HTML on load
@@ -1924,18 +1932,21 @@ function initializeClientDetailsModal() {
                             data: vpnData,
                             borderColor: getThemeColor('--theme-chart-vpn-border', '#4caf50'),
                             backgroundColor: getThemeColor('--theme-chart-vpn-fill', 'rgba(76,175,80,0.12)'),
-                            borderWidth: 2,
+                            borderWidth: 2.2,
                             fill: false,
                             tension: 0.2,
+                            pointRadius: 0,
                         },
                         {
                             label: 'Antizapret',
                             data: antData,
                             borderColor: getThemeColor('--theme-chart-antizapret-border', '#f44336'),
                             backgroundColor: getThemeColor('--theme-chart-antizapret-fill', 'rgba(244,67,54,0.12)'),
-                            borderWidth: 2,
+                            borderWidth: 1.6,
+                            borderDash: [6, 4],
                             fill: false,
                             tension: 0.2,
+                            pointRadius: 0,
                         }
                     ]
                 },

@@ -14,18 +14,16 @@
   endfor %} {% endif %} <div class="index-container page-unified-wrapper page-unified-grid sidebar-ops-layout">
   <section class="index-ops-header-card page-unified-card">
     <div class="index-ops-header-main">
-      <p class="index-ops-eyebrow">Операционный центр</p>
-      <h1 class="index-ops-title">Sidebar Ops Grid</h1>
-      <p class="index-ops-subtitle">Управление клиентами, сертификатами и трафиком в одном рабочем пространстве.</p>
+      <h1 class="index-ops-subtitle">Управление клиентами, сертификатами и трафиком в одном рабочем пространстве.</h1>
     </div>
     <div class="index-ops-kpi-strip">
       <article class="index-kpi-card">
-        <span class="index-kpi-label">OpenVPN конфиги</span>
-        <strong class="index-kpi-value">{{ openvpn_files | length }}</strong>
+        <span class="index-kpi-label">OpenVPN пользователи</span>
+        <strong class="index-kpi-value">{{ openvpn_clients_count }}</strong>
       </article>
       <article class="index-kpi-card">
-        <span class="index-kpi-label">WG + AWG конфиги</span>
-        <strong class="index-kpi-value">{{ (wg_files | length) + (amneziawg_files | length) }}</strong>
+        <span class="index-kpi-label">WG + AWG пользователи</span>
+        <strong class="index-kpi-value">{{ wg_awg_clients_count }}</strong>
       </article>
       <article class="index-kpi-card">
         <span class="index-kpi-label">Истекают ≤ 30 дн.</span>
@@ -346,6 +344,22 @@
           </article>
           {% endif %}
         </div>
+      </section>
+
+      <section class="index-rail-section index-rail-section--services" aria-label="Статус служб">
+        <h3 class="index-rail-title">Статус служб</h3>
+        <ul class="index-service-status-list" role="list">
+          {% for service in service_statuses %}
+          <li class="index-service-status-item">
+            <div class="index-service-meta">
+              <span class="index-service-name">{{ service.label }}</span>
+              <span class="index-service-desc">{{ service.description }}</span>
+            </div>
+            <span class="index-service-state index-service-state--{{ service.state_class }}">{{ service.state_label
+              }}</span>
+          </li>
+          {% endfor %}
+        </ul>
       </section>
 
       <section class="index-rail-section index-rail-section--contrast" aria-label="Настройка контраста">

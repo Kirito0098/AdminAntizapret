@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 
 from flask import jsonify, render_template, request, session
@@ -159,6 +160,102 @@ def register_index_routes(
 
         return client_details_payload
 
+    def _collect_unique_client_names(file_paths):
+        unique_names = set()
+        for path in file_paths:
+            extracted_name = extract_client_name_from_config_file(path)
+            normalized_name = str(extracted_name or "").strip()
+
+            if not normalized_name:
+                # Fallback keeps KPI stable even when parser cannot detect CN in a file.
+                normalized_name = os.path.splitext(os.path.basename(path))[0].strip()
+
+            if normalized_name:
+                unique_names.add(normalized_name)
+
+        return unique_names
+
+    def _collect_service_statuses():
+        service_checks = [
+            {
+                "label": "Веб-панель",
+                "description": "Интерфейс управления (admin-antizapret)",
+                "units": ["admin-antizapret.service", "admin-antizapret"],
+            },
+            {
+                "label": "VPN ядро",
+                "description": "Основной сервис AntiZapret (antizapret)",
+                "units": ["antizapret.service", "antizapret"],
+            },
+            {
+                "label": "Nginx",
+                "description": "Прокси и HTTPS-шлюз",
+                "units": ["nginx.service", "nginx"],
+            },
+            {
+                "label": "vnStat",
+                "description": "Учёт сетевого трафика",
+                "units": ["vnstat.service", "vnstat"],
+            },
+        ]
+
+        state_map = {
+            "active": ("ok", "Работает"),
+            "activating": ("warn", "Запуск"),
+            "deactivating": ("warn", "Остановка"),
+            "inactive": ("warn", "Остановлен"),
+            "failed": ("error", "Ошибка"),
+            "unknown": ("unknown", "Не найден"),
+        }
+
+        if not shutil.which("systemctl"):
+            return [
+                {
+                    "label": item["label"],
+                    "description": item["description"],
+                    "state_class": "unknown",
+                    "state_label": "n/a",
+                }
+                for item in service_checks
+            ]
+
+        statuses = []
+        for item in service_checks:
+            detected_state = "unknown"
+
+            for unit in item["units"]:
+                try:
+                    proc = subprocess.run(
+                        ["systemctl", "is-active", unit],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        timeout=1.5,
+                    )
+                    state = (proc.stdout or "").strip().lower()
+                    if not state:
+                        state = (proc.stderr or "").strip().lower()
+
+                    if state:
+                        detected_state = state
+
+                    if state in {"active", "activating", "deactivating", "inactive", "failed"}:
+                        break
+                except Exception:
+                    detected_state = "unknown"
+
+            state_class, state_label = state_map.get(detected_state, ("unknown", "Неизвестно"))
+            statuses.append(
+                {
+                    "label": item["label"],
+                    "description": item["description"],
+                    "state_class": state_class,
+                    "state_label": state_label,
+                }
+            )
+
+        return statuses
+
     @app.route("/api/index-client-details", methods=["GET"])
     @auth_manager.login_required
     def api_index_client_details():
@@ -203,6 +300,11 @@ def register_index_routes(
             is_admin = bool(idx_user and idx_user.role == "admin")
             cert_expiry = {}
             banned_clients = set()
+            service_statuses = _collect_service_statuses()
+
+            openvpn_client_names = _collect_unique_client_names(openvpn_files)
+            wg_awg_client_names = _collect_unique_client_names(wg_files)
+            wg_awg_client_names.update(_collect_unique_client_names(amneziawg_files))
 
             if is_admin:
                 cert_expiry = request_config_file_handler.get_openvpn_cert_expiry()
@@ -221,6 +323,9 @@ def register_index_routes(
                 amneziawg_files=amneziawg_files,
                 cert_expiry=cert_expiry,
                 banned_clients=banned_clients,
+                service_statuses=service_statuses,
+                openvpn_clients_count=len(openvpn_client_names),
+                wg_awg_clients_count=len(wg_awg_client_names),
                 current_openvpn_group=group,
                 current_openvpn_folders=folders,
                 client_details_payload={"connected": {}, "traffic": {}},
