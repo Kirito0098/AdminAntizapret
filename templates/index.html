@@ -293,27 +293,6 @@
     </div>
 
     <aside class="index-ops-rail page-unified-card" aria-label="Операционные индикаторы">
-      <section class="index-rail-section">
-        <h3 class="index-rail-title">Сигналы</h3>
-        <ul class="index-rail-metrics" role="list">
-          <li>
-            <span>OpenVPN</span>
-            <strong>{{ openvpn_files | length }}</strong>
-          </li>
-          <li>
-            <span>AmneziaWG</span>
-            <strong>{{ amneziawg_files | length }}</strong>
-          </li>
-          <li>
-            <span>WireGuard</span>
-            <strong>{{ wg_files | length }}</strong>
-          </li>
-          <li>
-            <span>Истёкшие cert</span>
-            <strong>{{ expired_cert_ns.value }}</strong>
-          </li>
-        </ul>
-      </section>
 
       <section class="index-rail-section index-rail-section--traffic" id="indexTrafficMiniSummary" data-state="loading">
         <h3 class="index-rail-title">Трафик (live)</h3>
@@ -369,13 +348,12 @@
         </div>
       </section>
 
-      <section class="index-rail-section">
-        <h3 class="index-rail-title">Подсказки оператора</h3>
-        <ul class="index-ops-checklist" role="list">
-          <li>Проверяйте вкладку OpenVPN на истекающие сертификаты ежедневно.</li>
-          <li>Для AWG/WG используйте QR или одноразовую ссылку из карточки клиента.</li>
-          <li>Фильтр статусов и поиск применяются к активной вкладке протокола.</li>
-        </ul>
+      <section class="index-rail-section index-rail-section--contrast" aria-label="Настройка контраста">
+        <h3 class="index-rail-title">Режим экрана</h3>
+        <p id="indexContrastModeLabel" class="index-contrast-note">Высокий контраст для ночной эксплуатации</p>
+        <button type="button" id="indexContrastToggle" class="index-contrast-toggle" aria-pressed="true">
+          Контраст: High
+        </button>
       </section>
     </aside>
   </div>

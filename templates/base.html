@@ -15,36 +15,54 @@
 
 <body>
 
+  {% set endpoint = request.endpoint if request and request.endpoint else "" %}
+
   <script id="base-flash-messages" type="application/json">
     {{ get_flashed_messages(with_categories=True) | tojson }}
   </script>
 
-  <nav class="navigation">
-    <div class="nav-content">
-      <div class="nav-group">
-        <a href="{{ url_for('index') }}" class="nav-link">Главная</a>
-        {% if current_user and current_user.is_admin() %}
-        <a href="{{ url_for('edit_files') }}" class="nav-link">Редактировать файлы</a>
-        <a href="{{ url_for('server_monitor') }}" class="nav-link">Мониторинг сервера</a>
-        <a href="{{ url_for('logs_dashboard') }}" class="nav-link">Подключенные клиенты</a>
-        <a href="{{ url_for('settings') }}" class="nav-link">Настройки</a>
+  <div class="app-shell">
+    <nav class="navigation" aria-label="Основная навигация">
+      <div class="nav-brand">
+        <span class="nav-brand-kicker">AdminAntizapret</span>
+        <strong class="nav-brand-title">Control Panel</strong>
+      </div>
+
+      <div class="nav-content">
+        <div class="nav-group">
+          <a href="{{ url_for('index') }}" class="nav-link{% if endpoint == 'index' %} is-active{% endif %}">Главная</a>
+          {% if current_user and current_user.is_admin() %}
+          <a href="{{ url_for('edit_files') }}"
+            class="nav-link{% if endpoint == 'edit_files' %} is-active{% endif %}">Редактировать файлы</a>
+          <a href="{{ url_for('server_monitor') }}"
+            class="nav-link{% if endpoint == 'server_monitor' %} is-active{% endif %}">Мониторинг сервера</a>
+          <a href="{{ url_for('logs_dashboard') }}"
+            class="nav-link{% if endpoint == 'logs_dashboard' %} is-active{% endif %}">Подключенные клиенты</a>
+          <a href="{{ url_for('settings') }}"
+            class="nav-link{% if endpoint == 'settings' %} is-active{% endif %}">Настройки</a>
+          {% endif %}
+        </div>
+
+        {% if current_user %}
+        <div class="user-info-block">
+          <div class="user-info">
+            <span class="username">{{ current_user.username }}</span>
+            <span class="user-role {% if current_user.is_admin() %}role-admin{% else %}role-viewer{% endif %}">
+              {% if current_user.is_admin() %}Admin{% else %}Viewer{% endif %}
+            </span>
+          </div>
+          <a href="{{ url_for('logout') }}" class="nav-link nav-link-logout">Выход</a>
+        </div>
         {% endif %}
       </div>
-      {% if current_user %}
-      <div class="user-info-block">
-        <div class="user-info">
-          <span class="username">{{ current_user.username }}</span>
-          <span class="user-role {% if current_user.is_admin() %}role-admin{% else %}role-viewer{% endif %}">
-            {% if current_user.is_admin() %}Admin{% else %}Viewer{% endif %}
-          </span>
-        </div>
-        <a href="{{ url_for('logout') }}" class="nav-link">Выход</a>
-      </div>
-      {% endif %}
-    </div>
-  </nav>
+    </nav>
 
-  {% block content %}{% endblock %} {% block scripts %}{% endblock %}
+    <main class="app-main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {% block scripts %}{% endblock %}
 
   <script>
     (function () {
