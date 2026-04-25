@@ -349,14 +349,21 @@
       <section class="index-rail-section index-rail-section--services" aria-label="Статус служб">
         <h3 class="index-rail-title">Статус служб</h3>
         <ul class="index-service-status-list" role="list">
-          {% for service in service_statuses %}
-          <li class="index-service-status-item">
-            <div class="index-service-meta">
-              <span class="index-service-name">{{ service.label }}</span>
-              <span class="index-service-desc">{{ service.description }}</span>
-            </div>
-            <span class="index-service-state index-service-state--{{ service.state_class }}">{{ service.state_label
-              }}</span>
+          {% for project_group in service_statuses %}
+          <li class="index-service-project-item">
+            <div class="index-service-project-name">{{ project_group.project_label }}</div>
+            <ul class="index-service-project-services" role="list">
+              {% for service in project_group.services %}
+              <li class="index-service-status-item">
+                <div class="index-service-meta">
+                  <span class="index-service-name">{{ service.label }}</span>
+                  <span class="index-service-desc">{{ service.description }}</span>
+                </div>
+                <span class="index-service-state index-service-state--{{ service.state_class }}">{{ service.state_label
+                  }}</span>
+              </li>
+              {% endfor %}
+            </ul>
           </li>
           {% endfor %}
         </ul>
