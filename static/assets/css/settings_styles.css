@@ -1306,3 +1306,730 @@
   border-color: rgba(199, 161, 255, 0.45);
   background: rgba(199, 161, 255, 0.12);
 }
+
+/* ===== Unified Settings 2026 ===== */
+
+:root {
+  --set-bg: #10161a;
+  --set-surface: #1c2328;
+  --set-surface-soft: #222b31;
+  --set-border: #314049;
+  --set-border-strong: #4f6775;
+  --set-text: #eaf1f4;
+  --set-text-muted: #9caeb8;
+  --set-accent: #3fa083;
+  --set-accent-soft: #58b2a3;
+  --set-danger: #d5675f;
+  --set-info: #5a9dcb;
+  --set-shadow-soft: 0 12px 28px rgba(5, 10, 13, 0.28);
+  --set-shadow-hard: 0 18px 40px rgba(5, 10, 13, 0.34);
+}
+
+body {
+  background-color: var(--set-bg);
+  background-image:
+    radial-gradient(circle at 13% 8%, rgba(82, 109, 120, 0.16) 0%, transparent 44%),
+    radial-gradient(circle at 86% 14%, rgba(54, 88, 98, 0.14) 0%, transparent 42%),
+    linear-gradient(180deg, #12191d 0%, #0e1418 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+.settings-layout.page-unified-wrapper {
+  width: min(1540px, 100%);
+  margin: 1.2rem auto 2rem;
+  padding: 0 max(0.8rem, env(safe-area-inset-left)) 0
+    max(0.8rem, env(safe-area-inset-right));
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  box-sizing: border-box;
+}
+
+#openSidebar.hamburger {
+  display: none;
+  border: 1px solid var(--set-border-strong);
+  border-radius: 10px;
+  background: rgba(35, 48, 56, 0.88);
+  color: var(--set-text);
+  width: 48px;
+  height: 46px;
+  font-size: 1.45rem;
+  line-height: 1;
+  box-shadow: var(--set-shadow-soft);
+}
+
+#sidebar.settings-page-wrapper {
+  position: sticky;
+  top: 0.9rem;
+  align-self: start;
+  background:
+    radial-gradient(circle at top right, rgba(88, 178, 163, 0.12), transparent 42%),
+    linear-gradient(160deg, rgba(30, 39, 45, 0.92) 0%, rgba(24, 31, 36, 0.94) 100%);
+  border: 1px solid var(--set-border);
+  border-radius: 14px;
+  box-shadow: var(--set-shadow-hard);
+  padding: 0.75rem;
+}
+
+#sidebar .settings-layout.settings-sidebar-head {
+  display: grid;
+  gap: 0.42rem;
+  margin: 0 0 0.6rem;
+  padding: 0.72rem;
+  border-radius: 10px;
+  border: 1px solid rgba(102, 130, 143, 0.35);
+  background: rgba(26, 36, 43, 0.82);
+}
+
+.settings-sidebar-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #aac0ca;
+}
+
+.settings-sidebar-title {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.25;
+  color: #e9f2f6;
+}
+
+.settings-sidebar-text {
+  margin: 0;
+  color: #afc2cc;
+  font-size: 0.79rem;
+  line-height: 1.38;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0;
+  margin: 0;
+}
+
+#sidebar .menu-item {
+  margin: 0;
+  border: 1px solid #42545f;
+  border-radius: 0.68rem;
+  background: rgba(33, 45, 52, 0.86);
+  color: #d2e3ea;
+  font-weight: 600;
+  padding: 0.62rem 0.68rem;
+}
+
+#sidebar .menu-item:hover {
+  border-color: #6f93a6;
+  background: rgba(46, 63, 73, 0.9);
+  color: #eef5fa;
+}
+
+#sidebar .menu-item.active {
+  border-color: rgba(130, 186, 168, 0.7);
+  background: linear-gradient(
+    140deg,
+    rgba(61, 125, 152, 0.88),
+    rgba(47, 108, 133, 0.9)
+  );
+  color: #f8fffb;
+  box-shadow: 0 10px 18px rgba(6, 12, 16, 0.34);
+}
+
+#update-button-container {
+  margin-top: 0.7rem;
+  padding: 0;
+}
+
+.settings-content.page-unified-card {
+  min-width: 0;
+  border: 1px solid var(--set-border);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(88, 178, 163, 0.09), transparent 44%),
+    linear-gradient(180deg, rgba(29, 38, 45, 0.93) 0%, rgba(22, 30, 36, 0.95) 100%);
+  box-shadow: var(--set-shadow-hard);
+  padding: 0.95rem;
+}
+
+.settings-hero {
+  border: 1px solid rgba(102, 130, 143, 0.35);
+  border-radius: 12px;
+  background: rgba(26, 36, 43, 0.82);
+  padding: 0.78rem;
+  margin-bottom: 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.settings-hero-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #aac0ca;
+}
+
+.settings-hero-title {
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.25rem, 1.08rem + 0.6vw, 1.65rem);
+  color: var(--set-text);
+  line-height: 1.2;
+}
+
+.settings-hero-subtitle {
+  margin: 0.44rem 0 0;
+  color: #b5c9d3;
+  font-size: 0.88rem;
+  line-height: 1.42;
+}
+
+.settings-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.settings-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(126, 220, 184, 0.52);
+  background: rgba(63, 160, 131, 0.16);
+  color: #def6ec;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.2rem 0.56rem;
+}
+
+.content-tab > h2 {
+  margin: 0 0 0.85rem;
+  color: var(--set-text);
+  font-size: 1.24rem;
+}
+
+.config-description,
+.help-text,
+.no-data,
+.no-users,
+.settings-inline-muted-copy,
+.settings-inline-muted-note,
+.settings-inline-loading-note {
+  color: var(--set-text-muted);
+}
+
+.card,
+.config-item,
+.status-card,
+.info-box,
+.users-list {
+  border: 1px solid #40535f;
+  border-radius: 12px;
+  background: rgba(23, 32, 38, 0.9);
+  box-shadow: var(--set-shadow-soft);
+}
+
+.card h3,
+.config-item-title,
+.user-card__section h4,
+.viewer-profile-modal__block h4 {
+  color: #dceaf1;
+}
+
+.settings-form input,
+.settings-form select,
+.settings-form textarea,
+.input-field,
+.form-control,
+.viewer-config-search,
+.miniapp-link-input {
+  background: rgba(35, 48, 56, 0.84) !important;
+  border: 1px solid #4b6170 !important;
+  border-radius: 0.64rem !important;
+  color: #d7e5eb !important;
+  min-height: 40px;
+}
+
+.settings-form input:focus,
+.settings-form select:focus,
+.settings-form textarea:focus,
+.input-field:focus,
+.form-control:focus,
+.viewer-config-search:focus,
+.miniapp-link-input:focus {
+  outline: none;
+  border-color: rgba(130, 186, 168, 0.78) !important;
+  box-shadow: 0 0 0 2px rgba(130, 186, 168, 0.18) !important;
+}
+
+.button,
+.save-button,
+.add-button,
+.delete-button,
+.update-button,
+.user-action-modal__btn,
+.viewer-profile-modal button,
+.viewer-profile-modal .button {
+  border-radius: 0.68rem;
+  border: 1px solid transparent;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.save-button,
+.update-button,
+.user-action-modal__btn-confirm,
+.viewer-profile-modal .save-button,
+.viewer-profile-modal .add-button {
+  border-color: rgba(126, 220, 184, 0.64);
+  background: linear-gradient(140deg, #3d7d98 0%, #2f6c85 100%);
+  color: #f7fffb;
+}
+
+.save-button:hover,
+.update-button:hover,
+.user-action-modal__btn-confirm:hover {
+  filter: brightness(1.05);
+}
+
+.add-button {
+  border-color: rgba(131, 183, 243, 0.6);
+  background: linear-gradient(
+    140deg,
+    rgba(85, 140, 216, 0.95),
+    rgba(70, 122, 201, 0.95)
+  );
+  color: #f7fbff;
+}
+
+.delete-button,
+.user-action-modal__btn-confirm.is-danger {
+  border-color: rgba(213, 103, 95, 0.66);
+  background: rgba(104, 43, 39, 0.92);
+  color: #ffe2df;
+}
+
+.toggle-wrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  margin: 0;
+}
+
+.toggle-label {
+  margin-right: 0;
+  line-height: 1.3;
+  font-size: 0.92rem;
+  color: #d7e5eb;
+}
+
+.toggle-switch {
+  width: 52px;
+  height: 30px;
+  flex: 0 0 auto;
+}
+
+.toggle-slider {
+  border-radius: 999px;
+  background: rgba(86, 104, 114, 0.82);
+}
+
+.toggle-slider:before {
+  width: 22px;
+  height: 22px;
+  left: 4px;
+  bottom: 4px;
+  border-radius: 50%;
+  background: #eef4f6;
+}
+
+.toggle-input:checked + .toggle-slider {
+  background: linear-gradient(
+    140deg,
+    rgba(63, 160, 131, 0.92),
+    rgba(51, 128, 116, 0.92)
+  );
+}
+
+.toggle-input:checked + .toggle-slider:before {
+  transform: translateX(22px);
+}
+
+.config-grid {
+  gap: 0.9rem;
+}
+
+.config-item-tooltip {
+  color: #a9bec8;
+  border-top-color: rgba(87, 112, 124, 0.4);
+}
+
+.tag-az,
+.tag-ov,
+.tag-wg,
+.tag-server {
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+}
+
+@media (max-width: 1023px) {
+  .settings-layout.page-unified-wrapper {
+    grid-template-columns: 1fr;
+    padding-left: max(0.6rem, env(safe-area-inset-left));
+    padding-right: max(0.6rem, env(safe-area-inset-right));
+  }
+
+  #openSidebar.hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 1210;
+  }
+
+  #sidebar.settings-page-wrapper {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(320px, 88vw);
+    max-width: 88vw;
+    border-radius: 0 14px 14px 0;
+    transform: translateX(-104%);
+    transition: transform 0.26s ease;
+    z-index: 1200;
+    overflow-y: auto;
+  }
+
+  #sidebar.settings-page-wrapper.active {
+    transform: translateX(0);
+  }
+
+  .settings-content.page-unified-card {
+    padding: 0.75rem;
+  }
+
+  .settings-hero {
+    margin-top: 2.6rem;
+  }
+}
+
+@media (max-width: 760px) {
+  .settings-hero-chip {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .config-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .settings-content.page-unified-card,
+  .card,
+  .config-item,
+  .status-card,
+  .info-box {
+    border-radius: 10px;
+  }
+}
+
+/* ===== Legacy Green Cleanup (Targeted Tabs) ===== */
+
+#telegram-auth,
+#maintenance,
+#action-logs {
+  color: #d7e5eb;
+}
+
+#telegram-auth > h2,
+#maintenance > h2,
+#action-logs > h2 {
+  color: #eaf1f4;
+}
+
+#telegram-auth .card,
+#maintenance .card,
+#action-logs .card {
+  background: rgba(23, 32, 38, 0.9) !important;
+  border: 1px solid #40535f !important;
+  box-shadow: var(--set-shadow-soft);
+}
+
+#telegram-auth .card h3,
+#maintenance .card h3,
+#action-logs .card h3 {
+  color: #dceaf1 !important;
+  border-bottom: 1px solid rgba(90, 112, 126, 0.4) !important;
+}
+
+#telegram-auth .settings-form input,
+#telegram-auth .settings-form select,
+#telegram-auth .settings-form textarea,
+#telegram-auth .miniapp-link-input,
+#maintenance .settings-form input,
+#maintenance .settings-form select,
+#maintenance .settings-form textarea,
+#action-logs .settings-form input,
+#action-logs .settings-form select,
+#action-logs .settings-form textarea {
+  background: rgba(35, 48, 56, 0.84) !important;
+  border: 1px solid #4b6170 !important;
+  color: #d7e5eb !important;
+}
+
+#telegram-auth .settings-form input:focus,
+#telegram-auth .settings-form select:focus,
+#telegram-auth .settings-form textarea:focus,
+#telegram-auth .miniapp-link-input:focus,
+#maintenance .settings-form input:focus,
+#maintenance .settings-form select:focus,
+#maintenance .settings-form textarea:focus,
+#action-logs .settings-form input:focus,
+#action-logs .settings-form select:focus,
+#action-logs .settings-form textarea:focus {
+  border-color: rgba(131, 183, 243, 0.72) !important;
+  box-shadow: 0 0 0 2px rgba(131, 183, 243, 0.18) !important;
+}
+
+#telegram-auth .help-text,
+#maintenance .help-text,
+#action-logs .help-text {
+  color: #9caeb8 !important;
+}
+
+#telegram-auth .info-box,
+#maintenance .info-box,
+#action-logs .info-box {
+  border: 1px solid #42545f !important;
+  background: rgba(30, 41, 48, 0.78) !important;
+}
+
+#telegram-auth .miniapp-link-panel,
+#telegram-auth .miniapp-link-guide,
+#telegram-auth .miniapp-link-warning {
+  border: 1px solid #42545f !important;
+  background: rgba(30, 41, 48, 0.72) !important;
+}
+
+#telegram-auth .miniapp-link-group label,
+#telegram-auth .miniapp-link-guide h4,
+#telegram-auth .miniapp-link-warning h4 {
+  color: #dbe9ef !important;
+}
+
+#telegram-auth .miniapp-link-hint,
+#telegram-auth .miniapp-link-guide p,
+#telegram-auth .miniapp-link-warning p,
+#telegram-auth .miniapp-link-guide li,
+#telegram-auth .miniapp-link-warning li {
+  color: #a8bcc7 !important;
+}
+
+#telegram-auth .miniapp-link-open-btn {
+  background: rgba(76, 131, 207, 0.22) !important;
+  border: 1px solid rgba(130, 186, 246, 0.46) !important;
+  color: #e6f1f6 !important;
+}
+
+#telegram-auth .miniapp-link-open-btn:hover {
+  background: rgba(76, 131, 207, 0.3) !important;
+  border-color: rgba(146, 198, 250, 0.58) !important;
+}
+
+#telegram-auth .qr-links-log-table th,
+#telegram-auth .qr-links-log-table td,
+#action-logs .action-audit-log-table th,
+#action-logs .action-audit-log-table td {
+  border-bottom: 1px solid rgba(90, 112, 126, 0.36) !important;
+}
+
+#telegram-auth .qr-links-log-table thead th,
+#action-logs .action-audit-log-table thead th,
+#action-logs .action-audit-log-table th {
+  background: rgba(48, 66, 78, 0.62) !important;
+  color: #dbe9ef !important;
+}
+
+@media (max-width: 1100px) {
+  #telegram-auth .qr-links-log-table tr {
+    border: 1px solid rgba(90, 112, 126, 0.36) !important;
+    background: rgba(30, 41, 48, 0.7) !important;
+  }
+
+  #telegram-auth .qr-links-log-table td::before {
+    color: #dbe9ef !important;
+  }
+}
+
+/* ===== Settings Tabs Conformance (All Tabs) ===== */
+
+#antizapret-config,
+#vpn-network,
+#security,
+#telegram-auth,
+#user-management,
+#qr-settings,
+#maintenance,
+#action-logs {
+  color: #d7e5eb;
+}
+
+#antizapret-config > h2,
+#vpn-network > h2,
+#security > h2,
+#telegram-auth > h2,
+#user-management > h2,
+#qr-settings > h2,
+#maintenance > h2,
+#action-logs > h2 {
+  color: #eaf1f4 !important;
+}
+
+#antizapret-config .card,
+#vpn-network .card,
+#security .card,
+#telegram-auth .card,
+#user-management .card,
+#qr-settings .card,
+#maintenance .card,
+#action-logs .card {
+  background: rgba(23, 32, 38, 0.9) !important;
+  border: 1px solid #40535f !important;
+  border-radius: 12px !important;
+  box-shadow: var(--set-shadow-soft) !important;
+}
+
+#antizapret-config .card h3,
+#vpn-network .card h3,
+#security .card h3,
+#telegram-auth .card h3,
+#user-management .card h3,
+#qr-settings .card h3,
+#maintenance .card h3,
+#action-logs .card h3 {
+  color: #dceaf1 !important;
+  border-bottom-color: rgba(90, 112, 126, 0.4) !important;
+}
+
+#antizapret-config .help-text,
+#vpn-network .help-text,
+#security .help-text,
+#telegram-auth .help-text,
+#user-management .help-text,
+#qr-settings .help-text,
+#maintenance .help-text,
+#action-logs .help-text,
+#antizapret-config .config-item-tooltip,
+#vpn-network .config-item-tooltip,
+#security .config-item-tooltip,
+#user-management .config-item-tooltip,
+#qr-settings .config-item-tooltip,
+#maintenance .config-item-tooltip,
+#action-logs .config-item-tooltip {
+  color: #a8bcc7 !important;
+}
+
+#antizapret-config .info-box,
+#vpn-network .info-box,
+#security .info-box,
+#telegram-auth .info-box,
+#user-management .info-box,
+#qr-settings .info-box,
+#maintenance .info-box,
+#action-logs .info-box {
+  border: 1px solid #42545f !important;
+  background: rgba(30, 41, 48, 0.78) !important;
+}
+
+#antizapret-config .settings-form input,
+#antizapret-config .settings-form select,
+#antizapret-config .settings-form textarea,
+#vpn-network .settings-form input,
+#vpn-network .settings-form select,
+#vpn-network .settings-form textarea,
+#security .settings-form input,
+#security .settings-form select,
+#security .settings-form textarea,
+#telegram-auth .settings-form input,
+#telegram-auth .settings-form select,
+#telegram-auth .settings-form textarea,
+#user-management .settings-form input,
+#user-management .settings-form select,
+#user-management .settings-form textarea,
+#qr-settings .settings-form input,
+#qr-settings .settings-form select,
+#qr-settings .settings-form textarea,
+#maintenance .settings-form input,
+#maintenance .settings-form select,
+#maintenance .settings-form textarea,
+#action-logs .settings-form input,
+#action-logs .settings-form select,
+#action-logs .settings-form textarea {
+  background: rgba(35, 48, 56, 0.84) !important;
+  border: 1px solid #4b6170 !important;
+  color: #d7e5eb !important;
+}
+
+#antizapret-config .settings-form input:focus,
+#antizapret-config .settings-form select:focus,
+#antizapret-config .settings-form textarea:focus,
+#vpn-network .settings-form input:focus,
+#vpn-network .settings-form select:focus,
+#vpn-network .settings-form textarea:focus,
+#security .settings-form input:focus,
+#security .settings-form select:focus,
+#security .settings-form textarea:focus,
+#telegram-auth .settings-form input:focus,
+#telegram-auth .settings-form select:focus,
+#telegram-auth .settings-form textarea:focus,
+#user-management .settings-form input:focus,
+#user-management .settings-form select:focus,
+#user-management .settings-form textarea:focus,
+#qr-settings .settings-form input:focus,
+#qr-settings .settings-form select:focus,
+#qr-settings .settings-form textarea:focus,
+#maintenance .settings-form input:focus,
+#maintenance .settings-form select:focus,
+#maintenance .settings-form textarea:focus,
+#action-logs .settings-form input:focus,
+#action-logs .settings-form select:focus,
+#action-logs .settings-form textarea:focus {
+  border-color: rgba(131, 183, 243, 0.72) !important;
+  box-shadow: 0 0 0 2px rgba(131, 183, 243, 0.18) !important;
+}
+
+#antizapret-config .users-list,
+#vpn-network .users-list,
+#security .users-list,
+#telegram-auth .users-list,
+#user-management .users-list,
+#qr-settings .users-list,
+#maintenance .users-list,
+#action-logs .users-list {
+  border: 1px solid #42545f !important;
+  background: rgba(30, 41, 48, 0.7) !important;
+}
+
+#telegram-auth .qr-links-log-table thead th,
+#qr-settings .qr-links-log-table thead th,
+#action-logs .action-audit-log-table thead th,
+#action-logs .action-audit-log-table th {
+  background: rgba(48, 66, 78, 0.62) !important;
+  color: #dbe9ef !important;
+}
+
+#telegram-auth .qr-links-log-table th,
+#telegram-auth .qr-links-log-table td,
+#qr-settings .qr-links-log-table th,
+#qr-settings .qr-links-log-table td,
+#action-logs .action-audit-log-table th,
+#action-logs .action-audit-log-table td {
+  border-bottom: 1px solid rgba(90, 112, 126, 0.36) !important;
+}

@@ -3,10 +3,24 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/logs_dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/charts.css') }}">
 {% endblock %}
 
 {% block content %}
 <div class="logs-page-wrapper">
+
+    <section class="logs-hero logs-section" aria-label="Центр аналитики подключений">
+        <div class="logs-hero-main">
+            <p class="logs-hero-kicker">Operations Analytics</p>
+            <h1 class="logs-hero-title">Подключенные клиенты</h1>
+            <p class="logs-hero-subtitle">Единая панель наблюдаемости по сессиям, протоколам и накопленному трафику.</p>
+        </div>
+        <div class="logs-hero-status" role="list" aria-label="Статус данных">
+            <span class="logs-hero-chip" role="listitem">Auto refresh: 60s</span>
+            <span class="logs-hero-chip" role="listitem">Источник: OpenVPN + WireGuard + БД</span>
+            <span class="logs-hero-chip" role="listitem">Уникальные клиенты: {{ summary.unique_client_names }}</span>
+        </div>
+    </section>
 
     {% if cleanup_notice %}
     <section class="logs-section">

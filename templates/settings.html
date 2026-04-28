@@ -8,8 +8,12 @@
   <button class="hamburger" id="openSidebar">☰</button>
   <!-- Боковое меню -->
   <div class="settings-page-wrapper page-unified-card" id="sidebar">
-    <div class="settings-layout">
-      <h3>Настройки</h3>
+    <div class="settings-layout settings-sidebar-head">
+      <p class="settings-sidebar-kicker">Operations</p>
+      <h3 class="settings-sidebar-title">Настройки</h3>
+      <p class="settings-sidebar-text">
+        Управление сетью, безопасностью, Telegram-доступом и системным обслуживанием.
+      </p>
     </div>
     <ul class="sidebar-menu">
       <li class="menu-item active" data-tab="antizapret-config">
@@ -55,6 +59,19 @@
 
   <!-- Основное содержимое -->
   <div class="settings-content page-unified-card">
+    <section class="settings-hero" aria-label="Центр управления настройками">
+      <div class="settings-hero-main">
+        <p class="settings-hero-kicker">Control Center</p>
+        <h1 class="settings-hero-title">Settings Hub</h1>
+        <p class="settings-hero-subtitle">Единая панель настройки сетевой политики, доступа и фоновых задач.</p>
+      </div>
+      <div class="settings-hero-chips" role="list" aria-label="Ключевые зоны">
+        <span class="settings-hero-chip" role="listitem">Routing & VPN</span>
+        <span class="settings-hero-chip" role="listitem">Security & Users</span>
+        <span class="settings-hero-chip" role="listitem">Maintenance & Logs</span>
+      </div>
+    </section>
+
     <!-- ═══════════════ 1. Маршрутизация Antizapret ═══════════════ -->
     <div id="antizapret-config" class="content-tab active">
       <h2>Маршрутизация Antizapret</h2>

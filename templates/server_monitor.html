@@ -2,185 +2,184 @@
 {% block title %}Мониторинг сервера{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/server_monitor_styles.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/charts.css') }}">
 {% endblock %}
 {% block content %}
 <div class="server-monitor-wrapper page-unified-wrapper">
 
-  <!-- Кнопка обновления -->
-  <div class="refresh-control page-unified-card page-unified-card--tight">
-    <button id="refreshBtn" class="refresh-btn" title="Обновить данные">
-      <span class="refresh-icon">⟳</span>
-      <span id="refreshText">Обновить сейчас</span>
-    </button>
-    <span id="lastUpdate" class="last-update">Последнее обновление: —</span>
-  </div>
+  <section class="monitor-hero page-unified-card" aria-label="Центр мониторинга">
+    <div class="monitor-hero-main">
+      <p class="monitor-hero-kicker">Observability</p>
+      <h1 class="monitor-hero-title">Мониторинг сервера</h1>
+      <p class="monitor-hero-subtitle">CPU, память, диск и сетевой трафик в одном операционном контуре.</p>
+    </div>
+    <div class="refresh-control page-unified-card page-unified-card--tight">
+      <button id="refreshBtn" class="refresh-btn" title="Обновить данные" type="button">
+        <span class="refresh-icon">⟳</span>
+        <span id="refreshText">Обновить сейчас</span>
+      </button>
+      <span id="lastUpdate" class="last-update">Последнее обновление: —</span>
+    </div>
+  </section>
 
-  <!-- Системная информация -->
-  <div class="system-info-section page-unified-card">
-    <h2>Информация о системе</h2>
+  <section class="system-info-section page-unified-card" aria-label="Информация о системе">
+    <div class="section-head">
+      <h2>Информация о системе</h2>
+      <p>Текущая платформа и runtime-параметры узла.</p>
+    </div>
     <div class="system-info-grid">
-      <div class="system-info-item">
+      <article class="system-info-item">
         <label>ОС</label>
         <p id="systemOS">—</p>
-      </div>
-      <div class="system-info-item">
+      </article>
+      <article class="system-info-item">
         <label>Kernel</label>
         <p id="systemKernel">—</p>
-      </div>
-      <div class="system-info-item">
+      </article>
+      <article class="system-info-item">
         <label>Хостнейм</label>
         <p id="systemHostname">—</p>
-      </div>
-      <div class="system-info-item">
+      </article>
+      <article class="system-info-item">
         <label>Аптайм</label>
         <p id="systemUptime">—</p>
-      </div>
+      </article>
     </div>
-  </div>
+  </section>
 
-  <!-- Основные метрики -->
-  <div class="server-info metrics-grid page-unified-card">
-    <div class="column_serv_monitor">
-      <div class="info-item">
-        <h3>Использование CPU</h3>
-        <div class="metric-status">
-          <p id="cpu-usage" class="metric-value">{{ cpu_usage }}%</p>
-          <div id="cpu-indicator" class="status-indicator green"></div>
-        </div>
-        <canvas id="cpuChart" width="320" height="120"></canvas>
+  <section class="server-info metrics-grid" aria-label="Ключевые метрики">
+    <article class="info-item page-unified-card">
+      <h3>Использование CPU</h3>
+      <div class="metric-status">
+        <p id="cpu-usage" class="metric-value">{{ cpu_usage }}%</p>
+        <div id="cpu-indicator" class="status-indicator green"></div>
       </div>
-    </div>
-    <div class="column_serv_monitor">
-      <div class="info-item">
-        <h3>Использование памяти</h3>
-        <div class="metric-status">
-          <p id="memory-usage" class="metric-value">{{ memory_usage }}%</p>
-          <div id="memory-indicator" class="status-indicator green"></div>
-        </div>
-        <canvas id="memoryChart" width="320" height="120"></canvas>
+      <canvas id="cpuChart" width="320" height="120"></canvas>
+    </article>
+
+    <article class="info-item page-unified-card">
+      <h3>Использование памяти</h3>
+      <div class="metric-status">
+        <p id="memory-usage" class="metric-value">{{ memory_usage }}%</p>
+        <div id="memory-indicator" class="status-indicator green"></div>
       </div>
-    </div>
-    <div class="column_serv_monitor">
-      <div class="info-item">
-        <h3>Использование диска</h3>
-        <div class="metric-status">
-          <p id="disk-usage" class="metric-value">—%</p>
-          <div id="disk-indicator" class="status-indicator"></div>
-        </div>
-        <div class="disk-info">
-          <p id="disk-details">—</p>
-        </div>
+      <canvas id="memoryChart" width="320" height="120"></canvas>
+    </article>
+
+    <article class="info-item page-unified-card">
+      <h3>Использование диска</h3>
+      <div class="metric-status">
+        <p id="disk-usage" class="metric-value">—%</p>
+        <div id="disk-indicator" class="status-indicator green"></div>
       </div>
-    </div>
-    <div class="column_serv_monitor">
-      <div class="info-item">
-        <h3>Load Average</h3>
-        <div class="load-info">
-          <div class="load-item">
-            <span>1m:</span>
-            <span id="load-1m">—</span>
-          </div>
-          <div class="load-item">
-            <span>5m:</span>
-            <span id="load-5m">—</span>
-          </div>
-          <div class="load-item">
-            <span>15m:</span>
-            <span id="load-15m">—</span>
-          </div>
+      <div class="disk-info">
+        <p id="disk-details">—</p>
+      </div>
+    </article>
+
+    <article class="info-item page-unified-card">
+      <h3>Load Average</h3>
+      <div class="load-info">
+        <div class="load-item">
+          <span>1m</span>
+          <span id="load-1m">—</span>
         </div>
-        <div class="uptime-icon">
-          <svg width="40" height="40" viewBox="0 0 40 40">
-            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="3" fill="none" />
-            <path d="M20 10 v10 l7 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" />
-          </svg>
+        <div class="load-item">
+          <span>5m</span>
+          <span id="load-5m">—</span>
+        </div>
+        <div class="load-item">
+          <span>15m</span>
+          <span id="load-15m">—</span>
         </div>
       </div>
+      <div class="uptime-icon" aria-hidden="true">
+        <svg width="40" height="40" viewBox="0 0 40 40">
+          <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="3" fill="none" />
+          <path d="M20 10 v10 l7 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" />
+        </svg>
+      </div>
+    </article>
+  </section>
+
+  <section class="server-info bw-section page-unified-card" aria-label="Пропускная способность сети">
+    <div class="bw-header">
+      <h3 class="card-title">Загрузка канала</h3>
+      <p>Агрегация через vnStat по группам интерфейсов.</p>
     </div>
-  </div>
 
-  <!-- ===== Новый блок: Пропускная способность сети (vnStat) ===== -->
-  <div class="server-info bw-section page-unified-card">
-    <div class="bw-card card page-unified-card">
-      <div class="card-body">
-        <div class="bw-header">
-          <h3 class="card-title">Загрузка канала</h3>
+    <div class="bw-controls" aria-label="Настройки графика">
+      <div class="iface-buttons" role="group" aria-label="Выбор интерфейса">
+        <button class="iface-btn" data-iface="{{ iface }}" type="button">{{ iface }}</button>
+        <button class="iface-btn" data-iface="vpn" type="button">VPN ({{ (bw_iface_groups.vpn or ['vpn']) | join(', ')
+          }})</button>
+        <button class="iface-btn" data-iface="antizapret" type="button">Antizapret ({{ (bw_iface_groups.antizapret or
+          ['antizapret']) | join(', ') }})</button>
+        <button class="iface-btn" data-iface="openvpn" type="button">OpenVPN ({{ (bw_iface_groups.openvpn or ['vpn-udp',
+          'vpn-tcp', 'antizapret-udp', 'antizapret-tcp']) | join(', ') }})</button>
+        <button class="iface-btn" data-iface="wireguard" type="button">WG/AWG ({{ (bw_iface_groups.wireguard or ['vpn',
+          'antizapret']) | join(', ') }})</button>
+      </div>
 
-          <!-- Переключатели -->
-          <div class="iface-buttons" style="margin: 6px 0 10px;">
-            <button class="iface-btn" data-iface="{{ iface }}">{{ iface }}</button>
-            <button class="iface-btn" data-iface="vpn">VPN ({{ (bw_iface_groups.vpn or ['vpn']) | join(', ')
-              }})</button>
-            <button class="iface-btn" data-iface="antizapret">Antizapret ({{ (bw_iface_groups.antizapret or
-              ['antizapret']) | join(', ') }})</button>
-            <button class="iface-btn" data-iface="openvpn">OpenVPN ({{ (bw_iface_groups.openvpn or
-              ['vpn-udp', 'vpn-tcp', 'antizapret-udp', 'antizapret-tcp']) | join(', ') }})</button>
-            <button class="iface-btn" data-iface="wireguard">WG/AWG ({{ (bw_iface_groups.wireguard or
-              ['vpn', 'antizapret']) | join(', ') }})</button>
-          </div>
+      <div class="bw-range" role="tablist" aria-label="Диапазон">
+        <button class="bw-range-btn" data-range="1d" type="button">1 день</button>
+        <button class="bw-range-btn" data-range="7d" type="button">7 дней</button>
+        <button class="bw-range-btn" data-range="30d" type="button">30 дней</button>
+      </div>
 
-          <div class="bw-range" role="tablist" aria-label="Диапазон">
-            <button class="bw-range-btn" data-range="1d">1 день</button>
-            <button class="bw-range-btn" data-range="7d">7 дней</button>
-            <button class="bw-range-btn" data-range="30d">30 дней</button>
-          </div>
-        </div>
-        <div class="unit-buttons">
-          <div class="unit-buttons-MB">
-            <button class="unit-btn" data-unit="MB">Мегабайты</button>
-          </div>
-          <div class="unit-buttons-MBit">
-            <button class="unit-btn" data-unit="Mbit">Мегабиты</button>
-          </div>
-          <canvas id="bwChart" class="bw-chart"></canvas>
-        </div>
-        <div class="bw-source">
-          Источник: vnStat на интерфейсе <code id="bwIface">—</code>
-        </div>
-        <div id="network_load" class="bw-load">Загрузка...</div>
-
-        <div class="bw-stats">
-          <div class="bw-stat">
-            <h5>Интерфейс</h5>
-            <p id="network_interface">—</p>
-          </div>
-          <div class="bw-stat">
-            <h5>Текущий Rx</h5>
-            <p id="rx_bytes">—</p>
-          </div>
-          <div class="bw-stat">
-            <h5>Текущий Tx</h5>
-            <p id="tx_bytes">—</p>
-          </div>
-        </div>
-
-        <!-- Агрегаты (если сервер вернёт totals) -->
-        <div class="bw-aggregate">
-          <div class="bw-agg">
-            <h6>Входящий трафик (Rx)</h6>
-            <p id="bw-rx-1d">— за 1 день</p>
-            <p id="bw-rx-7d">— за 7 дней</p>
-            <p id="bw-rx-30d">— за 30 дней</p>
-          </div>
-
-          <div class="bw-agg">
-            <h6>Исходящий трафик (Tx)</h6>
-            <p id="bw-tx-1d">— за 1 день</p>
-            <p id="bw-tx-7d">— за 7 дней</p>
-            <p id="bw-tx-30d">— за 30 дней</p>
-          </div>
-
-          <div class="bw-agg">
-            <h6>Общий трафик (сумма Rx + Tx)</h6>
-            <p id="bw-total-1d">— за 1 день</p>
-            <p id="bw-total-7d">— за 7 дней</p>
-            <p id="bw-total-30d">— за 30 дней</p>
-          </div>
-        </div>
+      <div class="unit-buttons" role="group" aria-label="Единицы измерения">
+        <button class="unit-btn" data-unit="MB" type="button">Мегабайты</button>
+        <button class="unit-btn" data-unit="Mbit" type="button">Мегабиты</button>
       </div>
     </div>
-  </div>
-  <!-- ===== Конец нового блока ===== -->
+
+    <div class="bw-chart-wrap">
+      <canvas id="bwChart" class="bw-chart"></canvas>
+    </div>
+
+    <div class="bw-source">
+      Источник: vnStat на интерфейсе <code id="bwIface">—</code>
+    </div>
+    <div id="network_load" class="bw-load">Загрузка...</div>
+
+    <div class="bw-stats">
+      <article class="bw-stat">
+        <h5>Интерфейс</h5>
+        <p id="network_interface">—</p>
+      </article>
+      <article class="bw-stat">
+        <h5>Текущий Rx</h5>
+        <p id="rx_bytes">—</p>
+      </article>
+      <article class="bw-stat">
+        <h5>Текущий Tx</h5>
+        <p id="tx_bytes">—</p>
+      </article>
+    </div>
+
+    <div class="bw-aggregate">
+      <section class="bw-agg">
+        <h6>Входящий трафик (Rx)</h6>
+        <p id="bw-rx-1d">— за 1 день</p>
+        <p id="bw-rx-7d">— за 7 дней</p>
+        <p id="bw-rx-30d">— за 30 дней</p>
+      </section>
+
+      <section class="bw-agg">
+        <h6>Исходящий трафик (Tx)</h6>
+        <p id="bw-tx-1d">— за 1 день</p>
+        <p id="bw-tx-7d">— за 7 дней</p>
+        <p id="bw-tx-30d">— за 30 дней</p>
+      </section>
+
+      <section class="bw-agg">
+        <h6>Общий трафик (Rx + Tx)</h6>
+        <p id="bw-total-1d">— за 1 день</p>
+        <p id="bw-total-7d">— за 7 дней</p>
+        <p id="bw-total-30d">— за 30 дней</p>
+      </section>
+    </div>
+  </section>
 </div>
 {% endblock %}
 
