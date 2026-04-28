@@ -14,10 +14,6 @@
   --ef-shadow-hard: 0 16px 36px rgba(5, 10, 13, 0.34);
 }
 
-* {
-  box-sizing: border-box;
-}
-
 body {
   margin: 0;
   min-height: 100vh;
@@ -32,8 +28,10 @@ body {
 }
 
 .main-layout.editfiles-layout {
-  width: min(1600px, 100%);
-  margin: 0 auto;
+  width: min(1540px, 100%);
+  margin: 1.2rem auto 2rem;
+  padding: 0 max(0.8rem, env(safe-area-inset-left)) 0
+    max(0.8rem, env(safe-area-inset-right));
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 1rem;
@@ -42,7 +40,7 @@ body {
 
 .editfiles-sidebar {
   position: sticky;
-  top: 1rem;
+  top: 0.9rem;
   align-self: start;
   display: grid;
   gap: 0.9rem;
@@ -52,12 +50,12 @@ body {
   border: 1px solid var(--ef-border);
   border-radius: 14px;
   box-shadow: var(--ef-shadow-hard);
-  padding: 0.95rem;
+  padding: 0.75rem;
 }
 
 .editfiles-sidebar-head {
   border: 1px solid rgba(102, 130, 143, 0.38);
-  border-radius: 0.82rem;
+  border-radius: 10px;
   background: rgba(26, 36, 43, 0.82);
   padding: 0.72rem;
 }
@@ -72,16 +70,16 @@ body {
 
 .editfiles-sidebar-title {
   margin: 0.32rem 0 0;
-  font-size: 1.04rem;
+  font-size: 1.08rem;
   line-height: 1.25;
   color: #e9f2f6;
 }
 
 .editfiles-sidebar-text {
   margin: 0.42rem 0 0;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  color: #acc0ca;
+  font-size: 0.79rem;
+  line-height: 1.38;
+  color: #afc2cc;
 }
 
 .sidebar-header {
@@ -132,7 +130,7 @@ body {
 .file-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.38rem;
+  gap: 0.35rem;
   max-height: min(54vh, 620px);
   overflow: auto;
   padding-right: 0.18rem;
@@ -147,7 +145,7 @@ body {
   font-weight: 600;
   text-align: left;
   cursor: pointer;
-  padding: 0.62rem 0.72rem;
+  padding: 0.62rem 0.68rem;
   transition: all 0.2s ease;
 }
 
@@ -227,7 +225,7 @@ body {
   font-weight: 600;
   text-align: left;
   cursor: pointer;
-  padding: 0.62rem 0.72rem;
+  padding: 0.62rem 0.68rem;
   font-size: 0.8rem;
   line-height: 1.3;
   transition: all 0.2s ease;
@@ -466,6 +464,8 @@ body {
 @media (max-width: 760px) {
   .main-layout.editfiles-layout {
     width: 100%;
+    margin: 0.9rem auto 1.2rem;
+    padding: 0 0.62rem;
   }
 
   .editfiles-sidebar,

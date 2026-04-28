@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/theme.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/login_styles.css') }}" />
 
-  <title>Админпанель Claymore</title>
+  <title>Claymore Control Center</title>
   <link rel="icon" href="/static/assets/img/favicon.ico" type="image/x-icon" />
 </head>
 
@@ -23,34 +23,6 @@
     <section class="login-stage" aria-label="Страница авторизации">
       <img src="{{ url_for('static', filename='assets/img/login-bg.png') }}" alt="Фоновое изображение входа"
         class="login__img" />
-
-      <aside class="login-context" aria-label="Контекст панели">
-        <p class="login-context__eyebrow">AdminAntizapret</p>
-        <h2 class="login-context__title">Control Panel Access</h2>
-        <p class="login-context__text">
-          Единая точка входа для управления профилями OpenVPN, WireGuard и AmneziaWG в рабочем контуре
-          администрирования.
-        </p>
-        <div class="login-context-kpis">
-          <article class="login-context-kpi">
-            <span>Протоколы</span>
-            <strong>OpenVPN + WG/AWG</strong>
-          </article>
-          <article class="login-context-kpi">
-            <span>Безопасность</span>
-            <strong>CSRF + Session Guard</strong>
-          </article>
-          <article class="login-context-kpi">
-            <span>Доступ</span>
-            <strong>Web + Telegram</strong>
-          </article>
-        </div>
-        <ul class="login-context-list" role="list">
-          <li>Роли Admin/Viewer и централизованный контроль доступа к операциям.</li>
-          <li>Защищённая форма входа с капчей при повышенном числе попыток.</li>
-          <li>Поддержка Telegram Login Widget и Mini App fallback-потока.</li>
-        </ul>
-      </aside>
 
       <div class="login login--embedded">
         <script id="flash-messages" type="application/json">

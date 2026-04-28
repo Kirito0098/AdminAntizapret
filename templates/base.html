@@ -13,7 +13,8 @@
   <title>{% block title %}AdminPanel Claymore{% endblock %}</title>
 </head>
 
-<body>
+<body{% if request and request.endpoint in ['index', 'edit_files' , 'server_monitor' , 'logs_dashboard' , 'settings' ]
+  %} class="index-page-dark" {% endif %}>
 
   {% set endpoint = request.endpoint if request and request.endpoint else "" %}
 
@@ -147,6 +148,6 @@
     })();
   </script>
   {% endif %}
-</body>
+  </body>
 
 </html>
