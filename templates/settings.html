@@ -18,11 +18,11 @@
     <ul class="sidebar-menu">
       <li class="menu-item active" data-tab="antizapret-config">
         <i class="icon">🌐</i>
-        <span>Маршрутизация Antizapret</span>
+        <span>Конфигурирование Antizapret (antizapret/setup)</span>
       </li>
       <li class="menu-item" data-tab="vpn-network">
         <i class="icon">🔌</i>
-        <span>VPN и сеть</span>
+        <span>Порт панели администрирования</span>
       </li>
       <li class="menu-item" data-tab="security">
         <i class="icon">🛡️</i>
@@ -72,9 +72,9 @@
       </div>
     </section>
 
-    <!-- ═══════════════ 1. Маршрутизация Antizapret ═══════════════ -->
+    <!-- ═══════════════ 1. Конфигурирование Antizapret ═══════════════ -->
     <div id="antizapret-config" class="content-tab active">
-      <h2>Маршрутизация Antizapret</h2>
+      <h2>Конфигурирование Antizapret (antizapret/setup)</h2>
       <p class="config-description">
         Включить маршрутизацию через Antizapret для:
       </p>
@@ -262,29 +262,6 @@
         </div>
       </div>
 
-      <button id="save-config" class="button save-button">
-        Сохранить настройки
-      </button>
-      <div id="config-status" class="notification settings-inline-hidden"></div>
-    </div>
-
-    <!-- ═══════════════ 2. VPN и сеть ═══════════════ -->
-    <div id="vpn-network" class="content-tab">
-      <h2>VPN и сеть</h2>
-
-      <!-- Порт панели -->
-      <div class="card settings-inline-card-mb">
-        <h3>Порт панели администрирования</h3>
-        <form method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <div class="form-group">
-            <label for="port">Текущий порт: {{ port }}</label>
-            <input type="text" id="port" name="port" placeholder="Введите новый порт" />
-          </div>
-          <button type="submit" class="button save-button">Сохранить порт</button>
-        </form>
-      </div>
-
       <!-- Резервные порты -->
       <p class="config-description">
         Резервные OpenVPN/WireGuard/AmneziaWG-порты:
@@ -430,10 +407,112 @@
         </div>
       </div>
 
-      <button class="button save-button save-config-btn">
+      <!-- Сетевые защиты -->
+      <p class="config-description">Защита сервера:</p>
+      <div class="config-grid">
+        <div class="config-column">
+          <!-- SSH_PROTECTION -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Защита от брутфорса SSH
+                  <span class="tag-server">Server</span>
+                </span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="ssh_protection-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(SSH_PROTECTION)</span> Включить защиту
+              от перебора паролей SSH (не более 3 новых подключений в час с
+              одного IP)
+            </div>
+          </div>
+          <!-- TORRENT_GUARD -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Torrent Guard <span class="tag-server">Server</span></span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="torrent_guard-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(TORRENT_GUARD)</span> Torrent Guard —
+              если хостер запрещает торренты или присылает жалобы, эта опция
+              поможет: при обнаружении торрент-трафика VPN будет блокироваться
+              на 1 минуту
+            </div>
+          </div>
+        </div>
+        <div class="config-column">
+          <!-- ATTACK_PROTECTION -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Антискан и защита от атак
+                  <span class="tag-server">Server</span>
+                </span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="attack_protection-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(ATTACK_PROTECTION)</span> Внимание!!!
+              Защита от сетевых атак и сканирования может блокировать VPN или
+              сторонние приложения!
+            </div>
+          </div>
+          <!-- RESTRICT_FORWARD -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Ограничение форвардинга
+                  <span class="tag-server">Server</span></span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="restrict_forward-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(restrict_forward)</span> Включить
+              ограничение форвардинга — через AntiZapret VPN будет
+              маршрутизироваться только трафик к IP-адресам, которые явно
+              указаны в файлах config/forward-ips.txt и result/route-ips.txt
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button id="save-config" class="button save-button">
         Сохранить настройки
       </button>
+      <div id="config-status" class="notification settings-inline-hidden"></div>
       <div class="config-status-msg notification settings-inline-hidden"></div>
+    </div>
+
+    <!-- ═══════════════ 2. Порт панели администрирования ═══════════════ -->
+    <div id="vpn-network" class="content-tab">
+      <h2>Порт панели администрирования</h2>
+
+      <div class="card settings-inline-card-mb">
+        <h3>Порт панели администрирования</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <label for="port">Текущий порт: {{ port }}</label>
+            <input type="text" id="port" name="port" placeholder="Введите новый порт" />
+          </div>
+          <button type="submit" class="button save-button">Сохранить порт</button>
+        </form>
+      </div>
     </div>
 
     <!-- Настройки одноразовых ссылок -->
@@ -1072,95 +1151,6 @@
     <!-- ═══════════════ 3. Безопасность ═══════════════ -->
     <div id="security" class="content-tab">
       <h2>Безопасность</h2>
-
-      <!-- Сетевые защиты -->
-      <p class="config-description">Защита сервера:</p>
-      <div class="config-grid">
-        <div class="config-column">
-          <!-- SSH_PROTECTION -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Защита от брутфорса SSH
-                  <span class="tag-server">Server</span>
-                </span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="ssh_protection-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(SSH_PROTECTION)</span> Включить защиту
-              от перебора паролей SSH (не более 3 новых подключений в час с
-              одного IP)
-            </div>
-          </div>
-          <!-- TORRENT_GUARD -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Torrent Guard <span class="tag-server">Server</span></span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="torrent_guard-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(TORRENT_GUARD)</span> Torrent Guard —
-              если хостер запрещает торренты или присылает жалобы, эта опция
-              поможет: при обнаружении торрент-трафика VPN будет блокироваться
-              на 1 минуту
-            </div>
-          </div>
-        </div>
-        <div class="config-column">
-          <!-- ATTACK_PROTECTION -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Антискан и защита от атак
-                  <span class="tag-server">Server</span>
-                </span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="attack_protection-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(ATTACK_PROTECTION)</span> Внимание!!!
-              Защита от сетевых атак и сканирования может блокировать VPN или
-              сторонние приложения!
-            </div>
-          </div>
-          <!-- RESTRICT_FORWARD -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Ограничение форвардинга
-                  <span class="tag-server">Server</span></span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="restrict_forward-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(restrict_forward)</span> Включить
-              ограничение форвардинга — через AntiZapret VPN будет
-              маршрутизироваться только трафик к IP-адресам, которые явно
-              указаны в файлах config/forward-ips.txt и result/route-ips.txt
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <button class="button save-button save-config-btn settings-inline-btn-mb">
-        Сохранить настройки защиты
-      </button>
-      <div class="config-status-msg notification settings-inline-hidden"></div>
 
       <!-- IP ограничения -->
       <h2 class="settings-inline-title-mt">Управление IP ограничениями</h2>
