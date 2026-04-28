@@ -454,7 +454,7 @@
           <div class="config-item server-item">
             <label class="toggle-wrapper">
               <span class="toggle-label">
-                <span class="config-item-title">Антискан и защита от атак
+                <span class="config-item-title">Защита от атак
                   <span class="tag-server">Server</span>
                 </span>
               </span>
@@ -464,9 +464,28 @@
               </div>
             </label>
             <div class="config-item-tooltip">
-              <span class="config-param">(ATTACK_PROTECTION)</span> Внимание!!!
-              Защита от сетевых атак и сканирования может блокировать VPN или
-              сторонние приложения!
+              <span class="config-param">(ATTACK_PROTECTION)</span> Блокирует
+              подозрительную сетевую активность: превышение лимита подключений
+              и попытки подключения по нетипичным портам.
+            </div>
+          </div>
+          <!-- SCAN_PROTECTION -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Scan protection
+                  <span class="tag-server">Server</span>
+                </span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="scan_protection-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(SCAN_PROTECTION)</span> Скрывает
+              сервер от простого сканирования: отключает ответ на ping и на
+              запросы к закрытым портам.
             </div>
           </div>
           <!-- RESTRICT_FORWARD -->
