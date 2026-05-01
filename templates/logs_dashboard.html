@@ -460,13 +460,15 @@
                             <tr data-total-bytes="{{ client.total_bytes }}"
                                 data-client-protocols="{{ (client.protocols or '-') | lower }}">
                                 <td class="traffic-user-cell">
-                                    {{ client.common_name }}
-                                    {% if client.protocol_label %}
-                                    <span
-                                        class="protocol-badge {% if client.protocol_type == 'openvpn' %}protocol-badge--ovpn{% elif client.protocol_type == 'wireguard' %}protocol-badge--wg{% endif %}">
-                                        {{ client.protocol_label }}
-                                    </span>
-                                    {% endif %}
+                                    <div class="traffic-user-content">
+                                        <span class="traffic-user-name">{{ client.common_name }}</span>
+                                        {% if client.protocol_label %}
+                                        <span
+                                            class="protocol-badge {% if client.protocol_type == 'openvpn' %}protocol-badge--ovpn{% elif client.protocol_type == 'wireguard' %}protocol-badge--wg{% endif %}">
+                                            {{ client.protocol_label }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
                                 </td>
                                 <td>
                                     {% if client.is_active %}
@@ -523,13 +525,15 @@
                             <tr data-total-bytes="{{ client.total_bytes }}"
                                 data-client-protocols="{{ (client.protocols or '-') | lower }}">
                                 <td class="traffic-user-cell">
-                                    {{ client.common_name }}
-                                    {% if client.protocol_label %}
-                                    <span
-                                        class="protocol-badge {% if client.protocol_type == 'openvpn' %}protocol-badge--ovpn{% elif client.protocol_type == 'wireguard' %}protocol-badge--wg{% endif %}">
-                                        {{ client.protocol_label }}
-                                    </span>
-                                    {% endif %}
+                                    <div class="traffic-user-content">
+                                        <span class="traffic-user-name">{{ client.common_name }}</span>
+                                        {% if client.protocol_label %}
+                                        <span
+                                            class="protocol-badge {% if client.protocol_type == 'openvpn' %}protocol-badge--ovpn{% elif client.protocol_type == 'wireguard' %}protocol-badge--wg{% endif %}">
+                                            {{ client.protocol_label }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
                                 </td>
                                 <td>{{ client.total_bytes_vpn_human }}</td>
                                 <td>{{ client.total_bytes_antizapret_human }}</td>

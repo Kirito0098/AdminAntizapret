@@ -4,7 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-workers = int(os.getenv('GUNICORN_WORKERS', 4))
+workers = int(os.getenv('GUNICORN_WORKERS', 1))
 bind = f'{os.getenv("BIND", "0.0.0.0")}:{os.getenv("APP_PORT", "5050")}'
 worker_class = "gthread"
 threads = 8

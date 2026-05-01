@@ -691,15 +691,28 @@
   min-width: 156px;
 }
 
-.traffic-user-cell {
-  display: flex;
+.traffic-user-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.3rem;
-  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
-.traffic-user-cell .protocol-badge {
+.traffic-user-name {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.traffic-user-content .protocol-badge {
   flex: 0 0 auto;
+  width: 96px;
+  justify-content: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .traffic-total-header {

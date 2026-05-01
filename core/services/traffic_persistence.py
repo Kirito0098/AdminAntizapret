@@ -366,7 +366,9 @@ class TrafficPersistenceService:
             traffic_7d = int(recent.get("days_7", 0))
             traffic_30d = int(recent.get("days_30", 0))
 
-            is_active = ((row.common_name, protocol_type) in active_protocol_identities) or (row.common_name in active_names)
+            is_active = (row.common_name, protocol_type) in active_protocol_identities
+            if not active_protocol_identities:
+                is_active = row.common_name in active_names
             rows.append(
                 {
                     "common_name": row.common_name,
