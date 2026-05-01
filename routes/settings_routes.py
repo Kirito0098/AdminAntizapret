@@ -721,6 +721,71 @@ def register_settings_routes(
             user_action_audit_logs=user_action_audit_view,
         )
 
+    @app.route("/api/antizapret/ip-files", methods=["GET", "POST"])
+    @auth_manager.admin_required
+    def api_antizapret_ip_files():
+        if request.method == "GET":
+            ip_manager.sync_enabled()
+            return jsonify(
+                {
+                    "success": True,
+                    "states": {k: bool(v) for k, v in ip_manager.get_file_states().items()},
+                }
+            )
+
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            return jsonify({"success": False, "message": "Ожидается JSON-объект"}), 400
+
+        states = payload.get("states")
+        if not isinstance(states, dict):
+            return jsonify({"success": False, "message": "Ожидается поле states в формате объекта"}), 400
+
+        ip_manager.sync_enabled()
+        available_files = set(ip_manager.list_ip_files().keys())
+        current_states = {k: bool(v) for k, v in ip_manager.get_file_states().items()}
+
+        changes_count = 0
+        details = []
+
+        for ip_file, raw_state in states.items():
+            if ip_file not in available_files:
+                continue
+
+            desired_enabled = bool(raw_state)
+            current_enabled = bool(current_states.get(ip_file, False))
+            if desired_enabled == current_enabled:
+                continue
+
+            if desired_enabled:
+                affected_count = ip_manager.enable_file(ip_file)
+                action_name = "enable_file"
+            else:
+                affected_count = ip_manager.disable_file(ip_file)
+                action_name = "disable_file"
+
+            changes_count += 1
+            details.append(f"{ip_file}:{action_name}:{affected_count}")
+
+            log_user_action_event(
+                "settings_ip_file_toggle",
+                target_type="ip_file",
+                target_name=ip_file,
+                details=f"action={action_name} count={affected_count}",
+            )
+
+        refreshed_states = {k: bool(v) for k, v in ip_manager.get_file_states().items()}
+
+        return jsonify(
+            {
+                "success": True,
+                "message": "Состояние IP-файлов сохранено" if changes_count else "Изменений в IP-файлах нет",
+                "changes": changes_count,
+                "states": refreshed_states,
+                "details": details,
+            }
+        )
+
     @app.route("/api/tg-mini/settings", methods=["GET"])
     @auth_manager.admin_required
     def api_tg_mini_settings_get():

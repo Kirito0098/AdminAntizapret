@@ -64,6 +64,8 @@ document.addEventListener("DOMContentLoaded", function () {
         if (tab.id === tabId) tab.classList.add("active");
       });
       syncMainNavSettingsLinks(tabId);
+      document.body.setAttribute("data-active-settings-tab", tabId);
+      window.dispatchEvent(new CustomEvent("settings:tab-changed", { detail: { tabId } }));
     };
 
     menuItems.forEach((item) => {
@@ -223,6 +225,178 @@ document.addEventListener("DOMContentLoaded", function () {
   // Загрузка текущих настроек Antizapret
   let antizapretSchema = null;
 
+  let antizapretHasUnsavedChanges = false;
+  let antizapretNeedsApply = false;
+
+  const sectionStatusMap = {
+    unsaved: "изменено",
+    pending: "требуется применить",
+    applied: "применено",
+    idle: "актуально",
+  };
+
+  const setSectionStatus = (state, sectionName = null) => {
+    const value = sectionStatusMap[state] || sectionStatusMap.idle;
+    const selector = sectionName
+      ? `[data-section-status='${sectionName}']`
+      : "[data-section-status]";
+
+    document.querySelectorAll(selector).forEach((badge) => {
+      badge.textContent = value;
+      badge.classList.remove("state-unsaved", "state-pending", "state-applied", "state-idle");
+      badge.classList.add(`state-${state}`);
+    });
+  };
+
+  const setWorkbenchState = (state) => {
+    const value = sectionStatusMap[state] || sectionStatusMap.idle;
+    const targetIds = ["workbench-dirty-state", "sticky-dirty-status"];
+
+    targetIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = value.charAt(0).toUpperCase() + value.slice(1);
+      el.classList.remove("workbench-state-unsaved", "workbench-state-pending", "workbench-state-applied");
+      el.classList.add(`workbench-state-${state}`);
+    });
+  };
+
+  const updateActionSurface = () => {
+    const activeTabId = document.querySelector(".content-tab.active")?.id;
+    const isAntizapretTab = activeTabId === "antizapret-config";
+
+    const sticky = document.getElementById("settingsStickyActions");
+    const saveBtn = document.getElementById("sticky-save");
+    const cancelBtn = document.getElementById("sticky-cancel");
+    const applyBtn = document.getElementById("sticky-apply");
+    const topApplyBtn = document.getElementById("workbench-primary-apply");
+
+    if (sticky) {
+      sticky.hidden = !isAntizapretTab;
+    }
+
+    if (saveBtn) {
+      saveBtn.disabled = !isAntizapretTab || !antizapretHasUnsavedChanges;
+    }
+    if (cancelBtn) {
+      cancelBtn.disabled = !isAntizapretTab || !antizapretHasUnsavedChanges;
+    }
+    if (applyBtn) {
+      applyBtn.disabled = !isAntizapretTab || (!antizapretHasUnsavedChanges && !antizapretNeedsApply);
+    }
+    if (topApplyBtn) {
+      topApplyBtn.disabled = !isAntizapretTab || (!antizapretHasUnsavedChanges && !antizapretNeedsApply);
+    }
+
+    if (antizapretHasUnsavedChanges) {
+      setWorkbenchState("unsaved");
+      return;
+    }
+
+    if (antizapretNeedsApply) {
+      setWorkbenchState("pending");
+      return;
+    }
+
+    setWorkbenchState("applied");
+  };
+
+  const markAntizapretDirty = (element) => {
+    antizapretHasUnsavedChanges = true;
+    const groupSection = element?.closest("[data-antizapret-group]");
+    const sectionName = groupSection?.getAttribute("data-antizapret-group");
+    if (sectionName) {
+      setSectionStatus("unsaved", sectionName);
+    }
+    updateActionSurface();
+  };
+
+  const initAntizapretDirtyTracking = () => {
+    const root = document.getElementById("antizapret-config");
+    if (!root) return;
+
+    const controls = root.querySelectorAll("input, select, textarea");
+    controls.forEach((control) => {
+      if (control.type === "hidden") return;
+      const markDirty = () => markAntizapretDirty(control);
+      control.addEventListener("input", markDirty);
+      control.addEventListener("change", markDirty);
+    });
+  };
+
+  const initConfigItemDetails = () => {
+    const tooltips = document.querySelectorAll("#antizapret-config .config-item-tooltip");
+
+    tooltips.forEach((tooltip) => {
+      if (tooltip.parentElement?.classList.contains("config-item-details")) {
+        return;
+      }
+
+      const details = document.createElement("details");
+      details.className = "config-item-details";
+
+      const summary = document.createElement("summary");
+      summary.textContent = "Подробнее";
+      details.appendChild(summary);
+
+      tooltip.classList.add("config-item-tooltip--details");
+      tooltip.parentNode.insertBefore(details, tooltip);
+      details.appendChild(tooltip);
+    });
+  };
+
+  const collectIpFileStates = () => {
+    const states = {};
+    document.querySelectorAll(".ip-file-toggle[data-ip-file]").forEach((input) => {
+      const fileName = input.getAttribute("data-ip-file");
+      if (!fileName) return;
+      states[fileName] = Boolean(input.checked);
+    });
+    return states;
+  };
+
+  const applyIpFileStates = (states) => {
+    if (!states || typeof states !== "object") return;
+    document.querySelectorAll(".ip-file-toggle[data-ip-file]").forEach((input) => {
+      const fileName = input.getAttribute("data-ip-file");
+      if (!fileName) return;
+      if (Object.prototype.hasOwnProperty.call(states, fileName)) {
+        input.checked = Boolean(states[fileName]);
+      }
+    });
+  };
+
+  const saveIpFileStates = async () => {
+    const response = await fetch("/api/antizapret/ip-files", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": document.querySelector('input[name="csrf_token"]')?.value || "",
+      },
+      body: JSON.stringify({ states: collectIpFileStates() }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || "Ошибка сохранения состояний IP-файлов");
+    }
+
+    applyIpFileStates(payload.states || {});
+    return {
+      changes: Number(payload.changes || 0),
+      message: payload.message || "Состояния IP-файлов сохранены",
+    };
+  };
+
+  const loadIpFileStates = async () => {
+    const response = await fetch("/api/antizapret/ip-files", { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || "Ошибка загрузки состояний IP-файлов");
+    }
+    applyIpFileStates(payload.states || {});
+  };
+
   async function loadSchema() {
     try {
       const r = await fetch("/antizapret_settings_schema");
@@ -248,9 +422,49 @@ document.addEventListener("DOMContentLoaded", function () {
         el.value = v || "";
       }
     });
+
+    await loadIpFileStates();
+
+    if (!antizapretNeedsApply) {
+      setSectionStatus("idle");
+    }
+    antizapretHasUnsavedChanges = false;
+    updateActionSurface();
   }
 
-  async function saveAntizapretSettings() {
+  async function applyAntizapretChanges(statusElement) {
+    statusElement.textContent = "Применение изменений...";
+
+    const applyResponse = await fetch("/run-doall", {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": document.querySelector('input[name="csrf_token"]')
+          .value,
+      },
+    });
+
+    const applyData = await applyResponse.json();
+
+    if (applyData.queued && applyData.task_id) {
+      statusElement.textContent = "Применение запущено в фоне...";
+      const task = await pollBackgroundTask(applyData.task_id, { timeoutMs: 900000 });
+      statusElement.textContent = task.message || "Изменения успешно применены.";
+      statusElement.className = "notification notification-success";
+      return true;
+    }
+
+    if (applyData.success) {
+      statusElement.textContent = "Изменения успешно применены.";
+      statusElement.className = "notification notification-success";
+      return true;
+    }
+
+    statusElement.textContent = "Настройки сохранены, но ошибка при применении";
+    statusElement.className = "notification notification-warning";
+    return false;
+  }
+
+  async function saveAntizapretSettings({ applyChanges = false } = {}) {
     if (!antizapretSchema) await loadSchema();
     if (!antizapretSchema) return;
 
@@ -285,36 +499,72 @@ document.addEventListener("DOMContentLoaded", function () {
         throw new Error(saveData.message || "Ошибка сохранения настроек");
       }
 
-      statusElement.textContent = "Применение изменений...";
+      const ipFilesResult = await saveIpFileStates();
+      const antizapretChanges = Number(saveData.changes || 0);
+      const hasAntizapretChanges = antizapretChanges > 0;
 
-      const applyResponse = await fetch("/run-doall", {
-        method: "POST",
-        headers: {
-          "X-CSRFToken": document.querySelector('input[name="csrf_token"]')
-            .value,
-        },
-      });
+      antizapretHasUnsavedChanges = false;
 
-      const applyData = await applyResponse.json();
-
-      if (applyData.queued && applyData.task_id) {
-        statusElement.textContent = "Применение запущено в фоне...";
-        const task = await pollBackgroundTask(applyData.task_id, { timeoutMs: 900000 });
-        statusElement.textContent = task.message || "Настройки успешно сохранены и применены!";
-        statusElement.className = "notification notification-success";
-      } else if (applyData.success) {
-        statusElement.textContent = "Настройки успешно сохранены и применены!";
+      if (!applyChanges) {
+        if (hasAntizapretChanges) {
+          antizapretNeedsApply = true;
+          setSectionStatus("pending");
+          statusElement.textContent = "Настройки сохранены. Нажмите «Применить» для запуска изменений.";
+        } else {
+          setSectionStatus("applied");
+          statusElement.textContent = ipFilesResult.message || "Изменения сохранены.";
+        }
         statusElement.className = "notification notification-success";
       } else {
-        statusElement.textContent =
-          "Настройки сохранены, но ошибка при применении";
-        statusElement.className = "notification notification-warning";
+        if (hasAntizapretChanges || antizapretNeedsApply) {
+          const applied = await applyAntizapretChanges(statusElement);
+          antizapretNeedsApply = !applied;
+          setSectionStatus(applied ? "applied" : "pending");
+        } else {
+          antizapretNeedsApply = false;
+          setSectionStatus("applied");
+          statusElement.textContent = ipFilesResult.message || "Изменения сохранены.";
+          statusElement.className = "notification notification-success";
+        }
       }
     } catch (error) {
       statusElement.textContent = `Ошибка: ${error.message}`;
       statusElement.className = "notification notification-error";
       console.error("Error:", error);
     } finally {
+      updateActionSurface();
+      hideNotificationWithFx(statusElement, 5000);
+    }
+  };
+
+  const cancelAntizapretChanges = async () => {
+    await loadAntizapretSettings();
+    antizapretHasUnsavedChanges = false;
+    if (antizapretNeedsApply) {
+      setSectionStatus("pending");
+    } else {
+      setSectionStatus("idle");
+    }
+    updateActionSurface();
+  };
+
+  const applyPendingAntizapretChanges = async () => {
+    const statusElement = document.getElementById("config-status");
+    if (!statusElement) return;
+
+    statusElement.textContent = "Применение изменений...";
+    statusElement.className = "notification notification-info";
+    statusElement.style.display = "block";
+
+    try {
+      const applied = await applyAntizapretChanges(statusElement);
+      antizapretNeedsApply = !applied;
+      setSectionStatus(applied ? "applied" : "pending");
+    } catch (error) {
+      statusElement.textContent = `Ошибка: ${error.message}`;
+      statusElement.className = "notification notification-error";
+    } finally {
+      updateActionSurface();
       hideNotificationWithFx(statusElement, 5000);
     }
   };
@@ -591,13 +841,45 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   // Запуск
+  initConfigItemDetails();
   initMenu();
   initUserActionPopups();
-  document
-    .getElementById("save-config")
-    ?.addEventListener("click", saveAntizapretSettings);
+  initAntizapretDirtyTracking();
+
+  document.getElementById("sticky-save")?.addEventListener("click", () => {
+    saveAntizapretSettings({ applyChanges: false });
+  });
+
+  document.getElementById("sticky-cancel")?.addEventListener("click", () => {
+    cancelAntizapretChanges();
+  });
+
+  document.getElementById("sticky-apply")?.addEventListener("click", () => {
+    if (antizapretHasUnsavedChanges) {
+      saveAntizapretSettings({ applyChanges: true });
+      return;
+    }
+    if (antizapretNeedsApply) {
+      applyPendingAntizapretChanges();
+    }
+  });
+
+  document.getElementById("workbench-primary-apply")?.addEventListener("click", () => {
+    if (antizapretHasUnsavedChanges) {
+      saveAntizapretSettings({ applyChanges: true });
+      return;
+    }
+    if (antizapretNeedsApply) {
+      applyPendingAntizapretChanges();
+    }
+  });
+
+  window.addEventListener("settings:tab-changed", () => {
+    updateActionSurface();
+  });
+
   document.querySelectorAll(".save-config-btn").forEach(btn => {
-    btn.addEventListener("click", saveAntizapretSettings);
+    btn.addEventListener("click", () => saveAntizapretSettings({ applyChanges: false }));
   });
   window.addEventListener("resize", handleResize);
   window.addEventListener("orientationchange", handleOrientationChange);
@@ -614,6 +896,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Проверяем обновления при загрузке
   checkForUpdates();
+  updateActionSurface();
 });
 // Обработка перезапуска службы
 document
@@ -697,26 +980,3 @@ document.addEventListener(
   true
 );
 
-document.addEventListener('DOMContentLoaded', () => {
-  const hamburger = document.getElementById('openSidebar');
-  const sidebar = document.getElementById('sidebar');
-
-  if (!hamburger || !sidebar) return;
-
-  // Открытие/закрытие по клику на гамбургер
-  hamburger.addEventListener('click', (e) => {
-    e.stopPropagation();
-    sidebar.classList.toggle('active');
-    document.body.classList.toggle('menu-open', sidebar.classList.contains('active'));
-  });
-
-  // Закрытие по клику вне меню
-  document.addEventListener('click', (e) => {
-    if (sidebar.classList.contains('active') &&
-      !sidebar.contains(e.target) &&
-      !hamburger.contains(e.target)) {
-      sidebar.classList.remove('active');
-      document.body.classList.remove('menu-open');
-    }
-  });
-});
