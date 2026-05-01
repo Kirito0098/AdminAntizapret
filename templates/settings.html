@@ -539,10 +539,21 @@
       <h2>Одноразовые ссылки</h2>
       <form method="POST" class="settings-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <div class="form-group">
-          <label for="qr_download_token_ttl_seconds">TTL одноразовой ссылки (секунд)</label>
-          <input type="number" id="qr_download_token_ttl_seconds" name="qr_download_token_ttl_seconds" min="60"
-            max="3600" step="1" value="{{ qr_download_token_ttl_seconds }}" placeholder="60..3600" />
+        <div class="form-group settings-range-control">
+          <div class="settings-range-control__head">
+            <label for="qr_download_token_ttl_seconds">TTL одноразовой ссылки (секунд)</label>
+            <output class="settings-range-control__value" data-slider-value-for="qr_download_token_ttl_seconds">
+              {{ qr_download_token_ttl_seconds }} сек
+            </output>
+          </div>
+          <input type="range" id="qr_download_token_ttl_seconds_slider" min="60" max="3600" step="1"
+            value="{{ qr_download_token_ttl_seconds }}" data-slider-target="qr_download_token_ttl_seconds"
+            data-unit="сек" data-humanize="seconds" />
+          <div class="settings-range-control__input-row">
+            <input type="number" id="qr_download_token_ttl_seconds" name="qr_download_token_ttl_seconds" min="60"
+              max="3600" step="1" value="{{ qr_download_token_ttl_seconds }}" placeholder="60..3600" />
+            <span class="settings-range-control__hint">Точное значение</span>
+          </div>
           <small class="help-text">Используется для ссылок вида /qr_download/&lt;token&gt;. Диапазон: 60..3600
             сек.</small>
         </div>
@@ -649,20 +660,43 @@
               при отсутствии пользователей в панели.</small>
           </div>
 
-          <div class="form-group">
-            <label for="active_web_session_ttl_seconds">Через сколько секунд без действий считать пользователя
-              неактивным</label>
-            <input type="number" id="active_web_session_ttl_seconds" name="active_web_session_ttl_seconds" min="30"
-              max="86400" step="1" value="{{ active_web_session_ttl_seconds }}" />
+          <div class="form-group settings-range-control">
+            <div class="settings-range-control__head">
+              <label for="active_web_session_ttl_seconds">Через сколько секунд без действий считать пользователя
+                неактивным</label>
+              <output class="settings-range-control__value" data-slider-value-for="active_web_session_ttl_seconds">
+                {{ active_web_session_ttl_seconds }} сек
+              </output>
+            </div>
+            <input type="range" id="active_web_session_ttl_seconds_slider" min="30" max="86400" step="1"
+              value="{{ active_web_session_ttl_seconds }}" data-slider-target="active_web_session_ttl_seconds"
+              data-unit="сек" data-humanize="seconds" />
+            <div class="settings-range-control__input-row">
+              <input type="number" id="active_web_session_ttl_seconds" name="active_web_session_ttl_seconds" min="30"
+                max="86400" step="1" value="{{ active_web_session_ttl_seconds }}" />
+              <span class="settings-range-control__hint">Точное значение</span>
+            </div>
             <small class="help-text">Обычно достаточно 180 секунд.</small>
           </div>
 
-          <div class="form-group">
-            <label for="active_web_session_touch_interval_seconds">Как часто обновлять отметку активности
-              (секунд)</label>
-            <input type="number" id="active_web_session_touch_interval_seconds"
-              name="active_web_session_touch_interval_seconds" min="1" max="3600" step="1"
-              value="{{ active_web_session_touch_interval_seconds }}" />
+          <div class="form-group settings-range-control">
+            <div class="settings-range-control__head">
+              <label for="active_web_session_touch_interval_seconds">Как часто обновлять отметку активности
+                (секунд)</label>
+              <output class="settings-range-control__value"
+                data-slider-value-for="active_web_session_touch_interval_seconds">
+                {{ active_web_session_touch_interval_seconds }} сек
+              </output>
+            </div>
+            <input type="range" id="active_web_session_touch_interval_seconds_slider" min="1" max="3600" step="1"
+              value="{{ active_web_session_touch_interval_seconds }}"
+              data-slider-target="active_web_session_touch_interval_seconds" data-unit="сек" data-humanize="seconds" />
+            <div class="settings-range-control__input-row">
+              <input type="number" id="active_web_session_touch_interval_seconds"
+                name="active_web_session_touch_interval_seconds" min="1" max="3600" step="1"
+                value="{{ active_web_session_touch_interval_seconds }}" />
+              <span class="settings-range-control__hint">Точное значение</span>
+            </div>
             <small class="help-text">Чем меньше значение, тем точнее статус активности. Обычно 30 секунд.</small>
           </div>
 
@@ -1169,27 +1203,80 @@
 
     <!-- ═══════════════ 3. Безопасность ═══════════════ -->
     <div id="security" class="content-tab">
-      <h2>Безопасность</h2>
+      <h2>Безопасность — управление IP ограничениями</h2>
 
-      <!-- IP ограничения -->
-      <h2 class="settings-inline-title-mt">Управление IP ограничениями</h2>
-
-      <div class="status-card">
-        <h3>Текущий статус</h3>
+      <!-- ROW 1: Статус (2 кол) | Примеры (1 кол, rowspan 2) -->
+      <div class="status-card security-card-main">
         <div class="status-indicator {% if ip_enabled %}status-enabled{% else %}status-disabled{% endif %}">
           {% if ip_enabled %} 🔒 IP ограничения ВКЛЮЧЕНЫ {% else %} 🔓 IP
           ограничения ВЫКЛЮЧЕНЫ (доступ всем) {% endif %}
         </div>
-        <p>Ваш текущий IP: <strong>{{ current_ip }}</strong></p>
-        <p class="help-text">
-          {% if ip_enabled %} Доступ к панели разрешен только с указанных
-          IP-адресов. {% else %} Доступ к панели разрешен со всех IP-адресов. {%
-          endif %}
-        </p>
+        {% set quick_toggle_ip = current_ip or '127.0.0.1' %}
+        <div class="security-master-toggle">
+          <div class="security-master-toggle__text">
+            <strong>Быстрый переключатель доступа</strong>
+            <small class="help-text">
+              {% if ip_enabled %}
+              Выключение снимет все ограничения IP.
+              {% else %}
+              Включение добавит только текущий IP: {{ quick_toggle_ip }}.
+              {% endif %}
+            </small>
+          </div>
+          {% if ip_enabled %}
+          <form method="POST" class="settings-inline-form-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="ip_action" value="clear_all_ips" />
+            <label class="toggle-wrapper security-master-toggle__switch">
+              <div class="toggle-switch">
+                <input type="checkbox" class="toggle-input" checked
+                  onchange="if (!confirm('Выключить IP ограничения и разрешить доступ всем?')) { this.checked = true; return; } this.form.submit();" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </form>
+          {% else %}
+          <form method="POST" class="settings-inline-form-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="ip_action" value="enable_ips" />
+            <input type="hidden" name="ips_text" value="{{ quick_toggle_ip }}" />
+            <label class="toggle-wrapper security-master-toggle__switch">
+              <div class="toggle-switch">
+                <input type="checkbox" class="toggle-input"
+                  onchange="if (!this.checked) return; if (!confirm('Включить IP ограничения только для текущего IP {{ quick_toggle_ip }}?')) { this.checked = false; return; } this.form.submit();" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </form>
+          {% endif %}
+        </div>
+        <p class="security-current-ip">Ваш IP: <strong>{{ current_ip }}</strong></p>
       </div>
 
-      <!-- Список разрешенных IP -->
-      <div class="card">
+      <!-- Примеры (1 кол, справа, rowspan 2) -->
+      <div class="card security-card-examples">
+        <details class="security-examples-details" open>
+          <summary>Примеры формата IP</summary>
+          <div class="examples">
+            <div class="example">
+              <h4>Один IP</h4>
+              <pre><code>{{ current_ip }}</code></pre>
+            </div>
+            <div class="example">
+              <h4>Подсеть</h4>
+              <pre><code>192.168.1.0/24</code></pre>
+            </div>
+            <div class="example">
+              <h4>Несколько через запятую</h4>
+              <pre><code>10.0.0.1, 10.0.0.2, 192.168.1.0/24</code></pre>
+            </div>
+          </div>
+          <p class="help-text security-examples-note">Неполный адрес <code>192.168.1</code> — ошибка.</p>
+        </details>
+      </div>
+
+      <!-- ROW 2: Таблица IP (2 кол) | Примеры продолжаются -->
+      <div class="card security-card-main">
         <h3>Разрешенные IP-адреса</h3>
         {% if allowed_ips %}
         <div class="ip-list">
@@ -1232,8 +1319,8 @@
         {% endif %}
       </div>
 
-      <!-- Добавить IP -->
-      <div class="card">
+      <!-- ROW 3: Добавить IP (1 кол) + Быстрая настройка (2 кол) -->
+      <div class="card security-card-sidebar">
         <h3>Добавить IP-адрес</h3>
         <form method="POST" class="settings-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
@@ -1246,62 +1333,28 @@
               <code>192.168.1.0/24</code> (вся подсеть)
             </small>
           </div>
-          <button type="submit" name="ip_action" value="add_ip" class="button add-button">
+          <button type="submit" name="ip_action" value="add_ip" class="button add-button full-width">
             Добавить IP
           </button>
         </form>
       </div>
 
-      <!-- Быстрая настройка -->
-      <div class="card">
-        <h3>Быстрая настройка</h3>
+      <div class="card security-card-main">
+        <h3>Заменить список IP</h3>
         <form method="POST" class="settings-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <div class="form-group">
-            <label for="ips_text">Включить ограничения с IP (через запятую)</label>
-            <textarea id="ips_text" name="ips_text" rows="3" placeholder="127.0.0.1,::1,192.168.1.0/24,10.0.0.1"
+            <label for="ips_text">Новый список через запятую</label>
+            <textarea id="ips_text" name="ips_text" rows="3" placeholder="127.0.0.1, ::1, 192.168.1.0/24, 10.0.0.1"
               class="full-width"></textarea>
-            <small class="help-text">
-              Укажите IP-адреса через запятую. Существующий список будет
-              заменен.
-            </small>
+            <small class="help-text">Полностью заменит текущий список и включит ограничения.</small>
           </div>
-          <button type="submit" name="ip_action" value="enable_ips" class="button save-button">
-            Включить ограничения
-          </button>
-        </form>
-
-        <form method="POST" class="settings-form settings-inline-form-mt">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <button type="submit" name="ip_action" value="clear_all_ips" class="button delete-button full-width"
-            onclick="return confirm('Вы уверены? Это удалит все IP-адреса и разрешит доступ всем.')">
-            🗑️ Выключить все ограничения (разрешить всем)
+          <button type="submit" name="ip_action" value="enable_ips" class="button save-button full-width">
+            Применить список
           </button>
         </form>
       </div>
 
-      <!-- Примеры -->
-      <div class="card">
-        <h3>Примеры использования</h3>
-        <div class="examples">
-          <div class="example">
-            <h4>✅ Разрешить доступ только с офиса:</h4>
-            <pre><code>192.168.1.0/24,10.0.0.100</code></pre>
-          </div>
-          <div class="example">
-            <h4>✅ Разрешить доступ только с вашего IP:</h4>
-            <pre><code>{{ current_ip }}</code></pre>
-          </div>
-          <div class="example">
-            <h4>✅ Разрешить несколько доверенных IP:</h4>
-            <pre><code>192.168.1.100,192.168.1.101,10.0.0.0/24</code></pre>
-          </div>
-          <div class="example">
-            <h4>❌ Ошибка (неправильный формат):</h4>
-            <pre><code>192.168.1  # неполный адрес</code></pre>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- ═══════════════ Telegram авторизация ═══════════════ -->
@@ -1331,10 +1384,21 @@
             </small>
           </div>
 
-          <div class="form-group">
-            <label for="telegram_auth_max_age_seconds">Макс. возраст Telegram авторизации (секунд)</label>
-            <input type="number" id="telegram_auth_max_age_seconds" name="telegram_auth_max_age_seconds" min="30"
-              max="86400" step="1" value="{{ telegram_auth_max_age_seconds }}" />
+          <div class="form-group settings-range-control">
+            <div class="settings-range-control__head">
+              <label for="telegram_auth_max_age_seconds">Макс. возраст Telegram авторизации (секунд)</label>
+              <output class="settings-range-control__value" data-slider-value-for="telegram_auth_max_age_seconds">
+                {{ telegram_auth_max_age_seconds }} сек
+              </output>
+            </div>
+            <input type="range" id="telegram_auth_max_age_seconds_slider" min="30" max="86400" step="1"
+              value="{{ telegram_auth_max_age_seconds }}" data-slider-target="telegram_auth_max_age_seconds"
+              data-unit="сек" data-humanize="seconds" />
+            <div class="settings-range-control__input-row">
+              <input type="number" id="telegram_auth_max_age_seconds" name="telegram_auth_max_age_seconds" min="30"
+                max="86400" step="1" value="{{ telegram_auth_max_age_seconds }}" />
+              <span class="settings-range-control__hint">Точное значение</span>
+            </div>
             <small class="help-text">Рекомендуемое значение: 300 секунд.</small>
           </div>
 

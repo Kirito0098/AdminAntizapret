@@ -20,7 +20,8 @@ class IPRestriction:
         """Инициализация с приложением Flask"""
         self.app = app
         if self.env_file_path is None:
-            self.env_file_path = Path(app.root_path).parent / ".env"
+            # Flask root_path already points to project root in this app layout.
+            self.env_file_path = Path(app.root_path) / ".env"
 
         # Регистрируем обработчик ошибок 403
         @app.errorhandler(403)

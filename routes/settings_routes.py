@@ -2,6 +2,7 @@ import os
 import platform
 import re
 import subprocess
+import ipaddress
 from datetime import datetime, timedelta
 
 from flask import flash, jsonify, redirect, render_template, request, session, url_for
@@ -71,6 +72,17 @@ def register_settings_routes(
         if not re.fullmatch(r"^[0-9]{6,12}:[A-Za-z0-9_-]{20,}$", value):
             return None, "Неверный формат токена Telegram-бота"
         return value, None
+
+    def _normalize_ip_entry(raw_value):
+        value = (raw_value or "").strip()
+        if not value:
+            return None
+        try:
+            if "/" in value:
+                return str(ipaddress.ip_network(value, strict=False))
+            return str(ipaddress.ip_address(value))
+        except ValueError:
+            return None
 
     def _nightly_time_from_cron(cron_expr):
         value = (cron_expr or "").strip()
@@ -508,17 +520,39 @@ def register_settings_routes(
             elif ip_action == "enable_ips":
                 ips_text = request.form.get("ips_text", "").strip()
                 if ips_text:
-                    ip_restriction.clear_all()
-                    for ip in ips_text.split(","):
-                        ip_restriction.add_ip(ip.strip())
-                    flash("IP ограничения включены", "success")
-                    entries_count = len([ip for ip in ips_text.split(",") if ip.strip()])
-                    log_user_action_event(
-                        "settings_ip_bulk_enable",
-                        target_type="ip_restriction",
-                        target_name="bulk",
-                        details=f"entries={entries_count}",
-                    )
+                    raw_entries = [ip.strip() for ip in ips_text.split(",") if ip.strip()]
+                    normalized_entries = []
+                    invalid_entries = []
+
+                    for raw_entry in raw_entries:
+                        normalized_entry = _normalize_ip_entry(raw_entry)
+                        if normalized_entry is None:
+                            invalid_entries.append(raw_entry)
+                        else:
+                            normalized_entries.append(normalized_entry)
+
+                    if invalid_entries:
+                        invalid_preview = ", ".join(invalid_entries[:5])
+                        if len(invalid_entries) > 5:
+                            invalid_preview += ", ..."
+                        flash(
+                            f"Обнаружены некорректные IP/подсети: {invalid_preview}. Исправьте список и повторите.",
+                            "error",
+                        )
+                    elif not normalized_entries:
+                        flash("Укажите хотя бы один корректный IP-адрес", "error")
+                    else:
+                        unique_entries = sorted(set(normalized_entries))
+                        ip_restriction.allowed_ips = set(unique_entries)
+                        ip_restriction.enabled = True
+                        ip_restriction.save_to_env()
+                        flash("IP ограничения включены", "success")
+                        log_user_action_event(
+                            "settings_ip_bulk_enable",
+                            target_type="ip_restriction",
+                            target_name="bulk",
+                            details=f"entries={len(unique_entries)}",
+                        )
                 else:
                     flash("Укажите хотя бы один IP-адрес", "error")
 

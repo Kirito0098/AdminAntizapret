@@ -13,10 +13,10 @@
   <title>{% block title %}AdminPanel Claymore{% endblock %}</title>
 </head>
 
-<body{% if request and request.endpoint in ['index', 'edit_files' , 'server_monitor' , 'logs_dashboard' , 'settings' ]
-  %} class="index-page-dark" {% endif %}>
+{% set endpoint = request.endpoint if request and request.endpoint else "" %}
 
-  {% set endpoint = request.endpoint if request and request.endpoint else "" %}
+<body
+  class="{% if endpoint in ['index', 'edit_files', 'server_monitor', 'logs_dashboard', 'settings'] %}index-page-dark{% endif %}{% if endpoint == 'settings' %} settings-nav-merged{% endif %}">
 
   <script id="base-flash-messages" type="application/json">
     {{ get_flashed_messages(with_categories=True) | tojson }}
@@ -39,8 +39,33 @@
             class="nav-link{% if endpoint == 'server_monitor' %} is-active{% endif %}">Мониторинг сервера</a>
           <a href="{{ url_for('logs_dashboard') }}"
             class="nav-link{% if endpoint == 'logs_dashboard' %} is-active{% endif %}">Подключенные клиенты</a>
-          <a href="{{ url_for('settings') }}"
-            class="nav-link{% if endpoint == 'settings' %} is-active{% endif %}">Настройки</a>
+
+          <div class="nav-settings-group{% if endpoint == 'settings' %} is-open{% endif %}">
+            <a href="{{ url_for('settings') }}"
+              class="nav-link nav-link-settings{% if endpoint == 'settings' %} is-active{% endif %}">
+              <span>Настройки</span>
+              <span class="nav-settings-caret" aria-hidden="true">▾</span>
+            </a>
+
+            <div class="nav-settings-submenu" aria-label="Разделы настроек">
+              <a href="{{ url_for('settings', _anchor='antizapret-config') }}" class="nav-sublink"
+                data-settings-tab="antizapret-config">Конфигурирование</a>
+              <a href="{{ url_for('settings', _anchor='vpn-network') }}" class="nav-sublink"
+                data-settings-tab="vpn-network">Порт панели</a>
+              <a href="{{ url_for('settings', _anchor='security') }}" class="nav-sublink"
+                data-settings-tab="security">Безопасность</a>
+              <a href="{{ url_for('settings', _anchor='telegram-auth') }}" class="nav-sublink"
+                data-settings-tab="telegram-auth">Telegram авторизация</a>
+              <a href="{{ url_for('settings', _anchor='user-management') }}" class="nav-sublink"
+                data-settings-tab="user-management">Пользователи и доступ</a>
+              <a href="{{ url_for('settings', _anchor='qr-settings') }}" class="nav-sublink"
+                data-settings-tab="qr-settings">Одноразовые ссылки</a>
+              <a href="{{ url_for('settings', _anchor='maintenance') }}" class="nav-sublink"
+                data-settings-tab="maintenance">Обслуживание</a>
+              <a href="{{ url_for('settings', _anchor='action-logs') }}" class="nav-sublink"
+                data-settings-tab="action-logs">Логи действий</a>
+            </div>
+          </div>
           {% endif %}
         </div>
 
@@ -148,6 +173,6 @@
     })();
   </script>
   {% endif %}
-  </body>
+</body>
 
 </html>

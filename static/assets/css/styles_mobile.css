@@ -381,6 +381,19 @@
     padding-bottom: 0.18rem;
   }
 
+  .nav-settings-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+    flex: 0 0 auto;
+  }
+
+  .nav-settings-group.is-open .nav-settings-submenu {
+    max-height: none;
+    opacity: 1;
+    transform: none;
+  }
+
   .nav-link {
     white-space: nowrap;
     font-size: 0.82rem;
@@ -414,6 +427,11 @@
     padding-bottom: 0;
   }
 
+  .nav-settings-group {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
   .nav-link {
     text-align: center;
     white-space: normal;
@@ -421,6 +439,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .nav-sublink {
+    min-height: 30px;
+    font-size: 0.75rem;
+    justify-content: center;
+    padding-left: 0.46rem;
+    padding-right: 0.46rem;
   }
 
   .user-info-block {
