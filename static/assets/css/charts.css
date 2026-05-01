@@ -1,0 +1,96 @@
+:root {
+  --chart-font-family: "Segoe UI", "DejaVu Sans", "Liberation Sans", Arial, sans-serif;
+  --chart-font-size: 12px;
+  --chart-surface: rgba(20, 29, 34, 0.9);
+  --chart-border: #42545f;
+  --chart-radius: 0.82rem;
+}
+
+.chart-card {
+  min-height: 306px;
+}
+
+.chart-canvas-wrap,
+.traffic-chart-wrap,
+.client-modal-chart-wrap,
+.bw-chart-wrap {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--chart-border);
+  background: var(--chart-surface);
+}
+
+.chart-canvas-wrap {
+  height: 250px;
+  border-radius: var(--chart-radius);
+}
+
+.traffic-chart-wrap {
+  height: 320px;
+  border-radius: 0.7rem;
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.08);
+}
+
+.client-modal-chart-wrap {
+  height: 280px;
+  border-radius: 8px;
+}
+
+.bw-chart-wrap {
+  border-radius: var(--chart-radius);
+  padding: 0.56rem;
+}
+
+.chart-canvas-wrap canvas,
+.traffic-chart-wrap canvas,
+.client-modal-chart-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.bw-chart {
+  width: 100% !important;
+  height: 330px !important;
+  display: block;
+}
+
+.info-item canvas {
+  margin-top: auto;
+  width: 100% !important;
+  max-width: none;
+  height: 108px !important;
+  border: 1px solid #3e4f5a;
+  border-radius: 0.72rem;
+  background: rgba(21, 30, 35, 0.88);
+}
+
+@media (max-width: 760px) {
+  .bw-chart {
+    height: 250px !important;
+  }
+
+  .traffic-chart-wrap {
+    height: 270px;
+  }
+
+  .client-modal-chart-wrap {
+    height: 240px;
+  }
+}
+
+@media (max-width: 430px) {
+  .chart-card {
+    min-height: 255px;
+  }
+
+  .chart-canvas-wrap {
+    height: 210px;
+  }
+
+  .traffic-chart-wrap {
+    height: 230px;
+  }
+}

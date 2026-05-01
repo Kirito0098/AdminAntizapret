@@ -20,11 +20,17 @@ import hashlib
 import secrets
 from datetime import datetime, timezone, timedelta
 import shlex
+from threading import RLock
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from concurrent.futures import ThreadPoolExecutor
+
+try:
+    from flask_limiter import Limiter
+except ImportError:
+    Limiter = None
 
 #Импорт файла с параметрами
 from utils.ip_restriction import ip_restriction
@@ -52,6 +58,7 @@ from core.models import (
     db,
 )
 from core.services.logs_dashboard_collector import collect_logs_dashboard_data as collect_logs_dashboard_data_service
+from core.services.request_user import get_user_by_username
 from core.services import (
     ActiveWebSessionService,
     AuthenticationManager,
@@ -80,6 +87,7 @@ from core.services import (
     TrafficPersistenceService,
     register_current_user_context_processor,
 )
+from core.services.session_security import build_session_security_config
 
 # Абсолютный путь к корню приложения и .env (не зависит от рабочего каталога процесса).
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -94,15 +102,29 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 if not app.secret_key:
     raise ValueError("SECRET_KEY is not set in .env!")
-app.config['SESSION_COOKIE_NAME'] = 'AdminAntizapretSession'
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['SESSION_COOKIE_SECURE'] = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+app.config.update(build_session_security_config(os.environ))
 
 csrf = CSRFProtect(app)
 sock = Sock(app)
 ip_restriction.init_app(app)
 init_antizapret(app)
+
+
+def _rate_limit_key_func():
+    forwarded_for = (request.headers.get("X-Forwarded-For", "") or "").split(",", 1)[0].strip()
+    if forwarded_for:
+        return forwarded_for
+    return request.remote_addr or "127.0.0.1"
+
+
+limiter = None
+if Limiter is not None:
+    limiter = Limiter(
+        key_func=_rate_limit_key_func,
+        app=app,
+        default_limits=[],
+        storage_uri="memory://",
+    )
 
 #   hostname/public_download/
 RESULT_DIR_FILES = {
@@ -112,16 +134,28 @@ RESULT_DIR_FILES = {
     "tplink": "tp-link-openvpn-routes.txt"
 }
 
-PUBLIC_DOWNLOAD_ENABLED = os.getenv("PUBLIC_DOWNLOAD_ENABLED", "false").lower() == "true"
+_runtime_state_lock = RLock()
+_runtime_state = {
+    "PUBLIC_DOWNLOAD_ENABLED": os.getenv("PUBLIC_DOWNLOAD_ENABLED", "false").lower() == "true",
+}
+
+
+def _runtime_get(key, default=None):
+    with _runtime_state_lock:
+        return _runtime_state.get(key, default)
+
+
+def _runtime_set(key, value):
+    with _runtime_state_lock:
+        _runtime_state[key] = value
 
 
 def _get_public_download_enabled():
-    return PUBLIC_DOWNLOAD_ENABLED
+    return bool(_runtime_get("PUBLIC_DOWNLOAD_ENABLED", False))
 
 
 def _set_public_download_enabled(value):
-    global PUBLIC_DOWNLOAD_ENABLED
-    PUBLIC_DOWNLOAD_ENABLED = bool(value)
+    _runtime_set("PUBLIC_DOWNLOAD_ENABLED", bool(value))
 
 try:
     BACKGROUND_TASK_WORKERS = max(1, int(os.getenv("BACKGROUND_TASK_WORKERS", "2")))
@@ -132,6 +166,16 @@ BACKGROUND_TASK_MAX_OUTPUT_CHARS = 12000
 background_task_executor = ThreadPoolExecutor(
     max_workers=BACKGROUND_TASK_WORKERS,
     thread_name_prefix="adminantizapret-task",
+)
+
+try:
+    IO_BOUND_WORKERS = max(2, int(os.getenv("IO_BOUND_WORKERS", "8")))
+except (TypeError, ValueError):
+    IO_BOUND_WORKERS = 8
+
+io_bound_executor = ThreadPoolExecutor(
+    max_workers=IO_BOUND_WORKERS,
+    thread_name_prefix="adminantizapret-io",
 )
 
 env_file_service = EnvFileService(ENV_FILE_PATH)
@@ -373,7 +417,7 @@ def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_
         resolved_telegram_id = str(telegram_id or session.get("telegram_mini_id") or "").strip()
 
         if username:
-            actor = User.query.filter_by(username=username).first()
+            actor = get_user_by_username(User, username)
             if actor:
                 actor_user_id = actor.id
                 if not resolved_telegram_id:
@@ -395,7 +439,7 @@ def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_
             )
         )
         db.session.commit()
-        
+
         # Also log to UserActionLog with miniapp tag
         try:
             db.session.add(
@@ -412,10 +456,10 @@ def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_
                 )
             )
             db.session.commit()
-        except Exception as e2:
+        except SQLAlchemyError as e2:
             db.session.rollback()
             app.logger.warning("Не удалось записать событие Telegram audit в UserActionLog: %s", e2)
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         app.logger.warning("Не удалось записать событие Telegram audit: %s", e)
 
@@ -434,7 +478,7 @@ def _log_user_action_event(
         username = str(actor_username or session.get("username") or "").strip() or None
         actor_user_id = None
         if username:
-            actor = User.query.filter_by(username=username).first()
+            actor = get_user_by_username(User, username)
             if actor:
                 actor_user_id = actor.id
 
@@ -455,7 +499,7 @@ def _log_user_action_event(
             )
         )
         db.session.commit()
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.session.rollback()
         app.logger.warning("Не удалось записать событие UserAction audit: %s", e)
 
@@ -588,32 +632,40 @@ TRAFFIC_SYNC_CRON_MARKER = runtime_settings["TRAFFIC_SYNC_CRON_MARKER"]
 TRAFFIC_SYNC_CRON_EXPR = runtime_settings["TRAFFIC_SYNC_CRON_EXPR"]
 TRAFFIC_SYNC_ENABLED = runtime_settings["TRAFFIC_SYNC_ENABLED"]
 NIGHTLY_IDLE_RESTART_MARKER = runtime_settings["NIGHTLY_IDLE_RESTART_MARKER"]
-NIGHTLY_IDLE_RESTART_CRON_EXPR = runtime_settings["NIGHTLY_IDLE_RESTART_CRON_EXPR"]
-NIGHTLY_IDLE_RESTART_ENABLED = runtime_settings["NIGHTLY_IDLE_RESTART_ENABLED"]
-ACTIVE_WEB_SESSION_TTL_SECONDS = runtime_settings["ACTIVE_WEB_SESSION_TTL_SECONDS"]
-ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS = runtime_settings["ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS"]
+_runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", runtime_settings["NIGHTLY_IDLE_RESTART_CRON_EXPR"])
+_runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", runtime_settings["NIGHTLY_IDLE_RESTART_ENABLED"])
+_runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", runtime_settings["ACTIVE_WEB_SESSION_TTL_SECONDS"])
+_runtime_set(
+    "ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS",
+    runtime_settings["ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS"],
+)
 
 
 def _get_nightly_idle_restart_settings():
-    return NIGHTLY_IDLE_RESTART_ENABLED, NIGHTLY_IDLE_RESTART_CRON_EXPR
+    return (
+        bool(_runtime_get("NIGHTLY_IDLE_RESTART_ENABLED", True)),
+        str(_runtime_get("NIGHTLY_IDLE_RESTART_CRON_EXPR", "0 4 * * *") or "0 4 * * *"),
+    )
 
 
 def _set_nightly_idle_restart_settings(enabled, cron_expr):
-    global NIGHTLY_IDLE_RESTART_ENABLED
-    global NIGHTLY_IDLE_RESTART_CRON_EXPR
-    NIGHTLY_IDLE_RESTART_ENABLED = bool(enabled)
-    NIGHTLY_IDLE_RESTART_CRON_EXPR = (cron_expr or "0 4 * * *").strip()
+    _runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", bool(enabled))
+    _runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", (cron_expr or "0 4 * * *").strip())
 
 
 def _get_active_web_session_settings():
-    return ACTIVE_WEB_SESSION_TTL_SECONDS, ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS
+    return (
+        int(_runtime_get("ACTIVE_WEB_SESSION_TTL_SECONDS", 180)),
+        int(_runtime_get("ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS", 30)),
+    )
 
 
 def _set_active_web_session_settings(ttl_seconds, touch_interval_seconds):
-    global ACTIVE_WEB_SESSION_TTL_SECONDS
-    global ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS
-    ACTIVE_WEB_SESSION_TTL_SECONDS = max(30, int(ttl_seconds))
-    ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS = max(1, int(touch_interval_seconds))
+    _runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", max(30, int(ttl_seconds)))
+    _runtime_set(
+        "ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS",
+        max(1, int(touch_interval_seconds)),
+    )
 
 LOGS_DASHBOARD_CACHE_TTL_SECONDS = runtime_settings["LOGS_DASHBOARD_CACHE_TTL_SECONDS"]
 STATUS_LOG_FILES = runtime_settings["STATUS_LOG_FILES"]
@@ -774,14 +826,14 @@ try:
     _sync_ok, _sync_msg = _ensure_traffic_sync_cron()
     if not _sync_ok:
         app.logger.warning(_sync_msg)
-except Exception as e:
+except (RuntimeError, OSError, ValueError) as e:
     app.logger.warning(f"Не удалось инициализировать cron sync трафика: {e}")
 
 try:
     _idle_restart_ok, _idle_restart_msg = _ensure_nightly_idle_restart_cron()
     if not _idle_restart_ok:
         app.logger.warning(_idle_restart_msg)
-except Exception as e:
+except (RuntimeError, OSError, ValueError) as e:
     app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
 
 
@@ -940,7 +992,7 @@ def _format_dt(dt_obj):
         return "-"
     try:
         return dt_obj.strftime("%Y-%m-%d %H:%M:%S")
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return "-"
 
 

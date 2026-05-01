@@ -2,6 +2,8 @@ from functools import wraps
 
 from flask import flash, jsonify, redirect, request, session, url_for
 
+from core.services.request_user import get_current_user
+
 
 class AuthenticationManager:
     def __init__(self, user_model, ip_restriction_service):
@@ -36,7 +38,7 @@ class AuthenticationManager:
             if "username" not in session:
                 flash("Пожалуйста, войдите в систему.", "info")
                 return redirect(url_for("login"))
-            user = self.user_model.query.filter_by(username=session["username"]).first()
+            user = get_current_user(self.user_model)
             if not user or user.role != "admin":
                 if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
                     return jsonify({"success": False, "message": "Доступ запрещён (403)"}), 403

@@ -5,12 +5,15 @@ import os
 import sqlite3
 import subprocess
 import sys
+import logging
 from pathlib import Path
 
 from dotenv import dotenv_values
 
 
 SQLITE_TIMEOUT_SECONDS = 10
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_bool(raw, default=False):
@@ -28,7 +31,7 @@ def _parse_int(raw, default):
         if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
             value = value[1:-1]
         return int(value)
-    except Exception:
+    except (TypeError, ValueError):
         return default
 
 
@@ -124,7 +127,7 @@ def main():
         default=True,
     )
     if not enabled:
-        print("nightly idle restart disabled")
+        logger.info("nightly idle restart disabled")
         return 0
 
     ttl_seconds = _parse_int(
@@ -143,35 +146,36 @@ def main():
 
     db_path = _resolve_db_path(app_root)
     if not db_path.exists():
-        print(f"db not found: {db_path}")
+        logger.info("db not found: %s", db_path)
         return 0
 
     try:
         conn = _connect_db(db_path)
         try:
             if not _table_exists(conn, "active_web_session"):
-                print("active_web_session table not found, skip restart")
+                logger.info("active_web_session table not found, skip restart")
                 return 0
 
             _cleanup_stale_rows(conn, ttl_seconds)
             active_count = _count_active_sessions(conn, ttl_seconds)
             if active_count > 0:
-                print(f"skip restart: active sessions = {active_count}")
+                logger.info("skip restart: active sessions = %s", active_count)
                 return 0
         finally:
             conn.close()
 
         _restart_service(service_name)
-        print(f"service restarted: {service_name}")
+        logger.info("service restarted: %s", service_name)
         return 0
     except subprocess.CalledProcessError as exc:
         err = (exc.stderr or exc.stdout or str(exc)).strip()
-        print(f"restart failed: {err}", file=sys.stderr)
+        logger.error("restart failed: %s", err)
         return 1
     except Exception as exc:
-        print(f"nightly idle restart failed: {exc}", file=sys.stderr)
+        logger.exception("nightly idle restart failed: %s", exc)
         return 1
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     sys.exit(main())

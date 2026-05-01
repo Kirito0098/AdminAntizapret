@@ -335,3 +335,130 @@
     overflow-x: auto;
   }
 }
+
+/* Sidebar shell nav overrides */
+@media (max-width: 1023px) {
+  .app-shell {
+    flex-direction: column;
+    max-width: none;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  .navigation {
+    width: 100%;
+    flex-basis: auto;
+    height: auto;
+    position: sticky;
+    top: 0;
+    max-height: none;
+    overflow: visible;
+    align-self: stretch;
+    border-radius: 0;
+    border-right: none;
+    border-bottom: 1px solid rgba(113, 143, 158, 0.3);
+    padding: 0.65rem;
+    gap: 0.55rem;
+  }
+
+  .nav-brand {
+    padding: 0.52rem 0.58rem;
+  }
+
+  .nav-brand-title {
+    font-size: 0.9rem;
+  }
+
+  .nav-content {
+    gap: 0.5rem;
+  }
+
+  .nav-group {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.44rem;
+    overflow-x: auto;
+    padding-bottom: 0.18rem;
+  }
+
+  .nav-settings-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+    flex: 0 0 auto;
+  }
+
+  .nav-settings-group.is-open .nav-settings-submenu {
+    max-height: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .nav-link {
+    white-space: nowrap;
+    font-size: 0.82rem;
+    padding: 0.46rem 0.58rem;
+  }
+
+  .user-info-block {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0;
+  }
+
+  .user-info {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .app-main {
+    padding: 0.68rem 0.7rem 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .nav-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow-x: visible;
+    padding-bottom: 0;
+  }
+
+  .nav-settings-group {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .nav-link {
+    text-align: center;
+    white-space: normal;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-sublink {
+    min-height: 30px;
+    font-size: 0.75rem;
+    justify-content: center;
+    padding-left: 0.46rem;
+    padding-right: 0.46rem;
+  }
+
+  .user-info-block {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .user-info {
+    justify-content: center;
+  }
+
+  .nav-link-logout {
+    text-align: center;
+  }
+}

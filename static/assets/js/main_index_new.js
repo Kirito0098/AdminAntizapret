@@ -22,10 +22,19 @@ let sortOrder = 'asc';
 let clientExpiry = {};
 let indexClientDetailsCache = null;
 let indexClientDetailsFetchPromise = null;
+const INDEX_CONTRAST_STORAGE_KEY = 'index_night_contrast_mode';
 
 function getThemeColor(token, fallback) {
-    const value = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
-    return value || fallback;
+    const bodyValue = document.body
+        ? getComputedStyle(document.body).getPropertyValue(token).trim()
+        : '';
+
+    if (bodyValue) {
+        return bodyValue;
+    }
+
+    const rootValue = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+    return rootValue || fallback;
 }
 
 // Extract cert expiry data from HTML on load
@@ -65,6 +74,12 @@ function syncClientBlockedBadge(row) {
 
 // ============ UI INITIALIZATION ============
 function initializeUI() {
+    if (document.body) {
+        document.body.classList.add('index-page-dark');
+    }
+
+    initializeIndexContrastMode();
+
     extractCertExpiryData();
 
     // Set first tab active
@@ -76,6 +91,53 @@ function initializeUI() {
     if (allFilterButton) {
         allFilterButton.classList.add('active');
     }
+
+    initializeIndexTrafficMiniSummary();
+}
+
+function initializeIndexContrastMode() {
+    if (!document.body) {
+        return;
+    }
+
+    const toggleButton = document.getElementById('indexContrastToggle');
+    const labelNode = document.getElementById('indexContrastModeLabel');
+    const storedMode = localStorage.getItem(INDEX_CONTRAST_STORAGE_KEY);
+
+    let contrastMode = storedMode === 'normal' ? 'normal' : 'high';
+
+    const applyMode = () => {
+        const isHigh = contrastMode === 'high';
+
+        document.body.classList.toggle('index-night-contrast', isHigh);
+        document.body.classList.toggle('index-night-soft', !isHigh);
+
+        if (labelNode) {
+            labelNode.textContent = isHigh
+                ? 'Высокий контраст для ночной эксплуатации'
+                : 'Мягкий контраст для длительной работы';
+        }
+
+        if (toggleButton) {
+            toggleButton.textContent = isHigh ? 'Контраст: High' : 'Контраст: Soft';
+            toggleButton.setAttribute('aria-pressed', isHigh ? 'true' : 'false');
+            toggleButton.classList.toggle('is-high', isHigh);
+            toggleButton.classList.toggle('is-soft', !isHigh);
+        }
+    };
+
+    applyMode();
+
+    if (!toggleButton || toggleButton.dataset.bound === '1') {
+        return;
+    }
+
+    toggleButton.dataset.bound = '1';
+    toggleButton.addEventListener('click', () => {
+        contrastMode = contrastMode === 'high' ? 'normal' : 'high';
+        localStorage.setItem(INDEX_CONTRAST_STORAGE_KEY, contrastMode);
+        applyMode();
+    });
 }
 
 // ============ FORM LOGIC ============
@@ -320,6 +382,8 @@ async function refreshMainContent() {
     if (optionSelect && (optionSelect.value === '2' || optionSelect.value === '5')) {
         populateClientSelect(optionSelect.value);
     }
+
+    initializeIndexTrafficMiniSummary(true);
 }
 
 // ============ TAB SWITCHING ============
@@ -583,6 +647,8 @@ function initializeOpenVpnGroupSwitching() {
                 if (currentTab === 'openvpn') {
                     filterTable();
                 }
+
+                initializeIndexTrafficMiniSummary(true);
 
                 showNotification('Группа OpenVPN обновлена', 'success');
             } catch (error) {
@@ -965,6 +1031,125 @@ async function loadIndexClientDetailsPayload(force = false) {
         });
 
     return indexClientDetailsFetchPromise;
+}
+
+function humanBytesForRail(value) {
+    let size = Number(value || 0);
+    if (!Number.isFinite(size) || size < 0) {
+        size = 0;
+    }
+
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let unitIndex = 0;
+
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex += 1;
+    }
+
+    if (unitIndex === 0) {
+        return `${Math.round(size)} ${units[unitIndex]}`;
+    }
+
+    const precision = size >= 100 ? 0 : (size >= 10 ? 1 : 2);
+    return `${size.toFixed(precision)} ${units[unitIndex]}`;
+}
+
+function setIndexRailSummaryLoading(message) {
+    const section = document.getElementById('indexTrafficMiniSummary');
+    const noteNode = document.getElementById('indexTrafficMiniNote');
+    if (!section) {
+        return;
+    }
+
+    section.dataset.state = 'loading';
+    if (noteNode) {
+        noteNode.textContent = message || 'Загрузка данных из payload...';
+    }
+}
+
+function renderIndexTrafficMiniSummary(payload) {
+    const section = document.getElementById('indexTrafficMiniSummary');
+    if (!section) {
+        return;
+    }
+
+    const noteNode = document.getElementById('indexTrafficMiniNote');
+    const setText = (id, value) => {
+        const node = document.getElementById(id);
+        if (node) {
+            node.textContent = value;
+        }
+    };
+
+    const trafficEntries = Object.values((payload && payload.traffic) || {});
+    const connectedEntries = Object.values((payload && payload.connected) || {});
+
+    const totals = {
+        traffic1d: 0,
+        traffic7d: 0,
+        traffic30d: 0,
+        totalVpn: 0,
+        totalAz: 0,
+        totalAll: 0,
+    };
+
+    trafficEntries.forEach((entry) => {
+        totals.traffic1d += Number(entry && entry.traffic_1d ? entry.traffic_1d : 0);
+        totals.traffic7d += Number(entry && entry.traffic_7d ? entry.traffic_7d : 0);
+        totals.traffic30d += Number(entry && entry.traffic_30d ? entry.traffic_30d : 0);
+        totals.totalVpn += Number(entry && entry.total_bytes_vpn ? entry.total_bytes_vpn : 0);
+        totals.totalAz += Number(entry && entry.total_bytes_antizapret ? entry.total_bytes_antizapret : 0);
+        totals.totalAll += Number(entry && entry.total_bytes ? entry.total_bytes : 0);
+    });
+
+    const onlineClients = connectedEntries.filter((entry) => Number(entry && entry.sessions ? entry.sessions : 0) > 0).length;
+    const trackedClients = trafficEntries.length;
+
+    section.dataset.state = trackedClients > 0 ? 'ready' : 'empty';
+    if (noteNode) {
+        noteNode.textContent = trackedClients > 0
+            ? `Обновлено: клиентов в статистике ${trackedClients}, онлайн ${onlineClients}.`
+            : 'В payload пока нет накопленной статистики трафика.';
+    }
+
+    setText('indexTrafficClientsTotal', String(trackedClients));
+    setText('indexTrafficClientsOnline', String(onlineClients));
+    setText('indexTrafficTotal1d', humanBytesForRail(totals.traffic1d));
+    setText('indexTrafficTotal7d', humanBytesForRail(totals.traffic7d));
+    setText('indexTrafficTotal30d', humanBytesForRail(totals.traffic30d));
+    setText('indexTrafficTotalVpn', humanBytesForRail(totals.totalVpn));
+    setText('indexTrafficTotalAz', humanBytesForRail(totals.totalAz));
+    setText('indexTrafficTotalAll', humanBytesForRail(totals.totalAll));
+}
+
+async function initializeIndexTrafficMiniSummary(force = false) {
+    const section = document.getElementById('indexTrafficMiniSummary');
+    if (!section) {
+        return;
+    }
+
+    setIndexRailSummaryLoading('Загрузка данных из payload...');
+
+    let payload = getIndexClientDetailsPayload();
+    const hasLocalData = hasClientDetailsData(payload);
+
+    if (force || !hasLocalData) {
+        try {
+            payload = await loadIndexClientDetailsPayload(force);
+        } catch (error) {
+            section.dataset.state = 'error';
+            const noteNode = document.getElementById('indexTrafficMiniNote');
+            if (noteNode) {
+                noteNode.textContent = error && error.message
+                    ? `Не удалось загрузить сводку: ${error.message}`
+                    : 'Не удалось загрузить сводку трафика.';
+            }
+            return;
+        }
+    }
+
+    renderIndexTrafficMiniSummary(payload);
 }
 
 function escapeHtml(value) {
@@ -1747,18 +1932,21 @@ function initializeClientDetailsModal() {
                             data: vpnData,
                             borderColor: getThemeColor('--theme-chart-vpn-border', '#4caf50'),
                             backgroundColor: getThemeColor('--theme-chart-vpn-fill', 'rgba(76,175,80,0.12)'),
-                            borderWidth: 2,
+                            borderWidth: 2.2,
                             fill: false,
                             tension: 0.2,
+                            pointRadius: 0,
                         },
                         {
                             label: 'Antizapret',
                             data: antData,
                             borderColor: getThemeColor('--theme-chart-antizapret-border', '#f44336'),
                             backgroundColor: getThemeColor('--theme-chart-antizapret-fill', 'rgba(244,67,54,0.12)'),
-                            borderWidth: 2,
+                            borderWidth: 1.6,
+                            borderDash: [6, 4],
                             fill: false,
                             tension: 0.2,
+                            pointRadius: 0,
                         }
                     ]
                 },

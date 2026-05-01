@@ -6,6 +6,7 @@ import os
 import json
 from urllib.parse import parse_qsl, urlsplit
 from datetime import timedelta
+from typing import Any, Callable
 
 from flask import (
     jsonify,
@@ -25,37 +26,51 @@ def register_auth_routes(
     auth_manager,
     captcha_generator,
     ip_restriction,
+    limiter,
     db,
     user_model,
     touch_active_web_session,
     remove_active_web_session,
     log_telegram_audit_event,
-    app_name="AdminAntizapret",
-):
-    def _get_remember_me_days():
-        raw_value = (os.getenv("REMEMBER_ME_DAYS", "30") or "").strip()
+    app_name: str = "AdminAntizapret",
+) -> None:
+    def _limit(rule: str) -> Callable:
+        if limiter is None:
+            return lambda fn: fn
+        return limiter.limit(rule)
+
+    def _get_remember_me_days() -> int:
+        configured_value = app.config.get("REMEMBER_ME_DAYS")
+        if isinstance(configured_value, int):
+            return max(1, min(configured_value, 365))
+
+        if configured_value is None:
+            raw_value = (os.getenv("REMEMBER_ME_DAYS", "30") or "").strip()
+        else:
+            raw_value = str(configured_value).strip()
+
         try:
             return max(1, min(int(raw_value), 365))
         except (TypeError, ValueError):
             return 30
 
-    def _get_telegram_bot_username():
+    def _get_telegram_bot_username() -> str:
         return (os.getenv("TELEGRAM_AUTH_BOT_USERNAME", "") or "").strip()
 
-    def _get_telegram_bot_token():
+    def _get_telegram_bot_token() -> str:
         return (os.getenv("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip()
 
-    def _get_telegram_auth_max_age_seconds():
+    def _get_telegram_auth_max_age_seconds() -> int:
         raw_value = (os.getenv("TELEGRAM_AUTH_MAX_AGE_SECONDS", "300") or "").strip()
         try:
             return max(30, min(int(raw_value), 86400))
         except (TypeError, ValueError):
             return 300
 
-    def _is_telegram_auth_enabled():
+    def _is_telegram_auth_enabled() -> bool:
         return bool(_get_telegram_bot_username() and _get_telegram_bot_token())
 
-    def _safe_internal_next_url(raw_next_url, default_endpoint="tg_mini_app"):
+    def _safe_internal_next_url(raw_next_url: str, default_endpoint: str = "tg_mini_app") -> str:
         value = (raw_next_url or "").strip()
         if not value:
             return url_for(default_endpoint)
@@ -69,7 +84,7 @@ def register_auth_routes(
 
         return value
 
-    def _verify_telegram_auth(payload):
+    def _verify_telegram_auth(payload: dict[str, str]) -> tuple[bool, str | None]:
         bot_token = _get_telegram_bot_token()
         if not bot_token:
             return False, "Telegram авторизация не настроена (нет токена бота)."
@@ -112,7 +127,9 @@ def register_auth_routes(
 
         return True, None
 
-    def _verify_telegram_webapp_init_data(init_data_raw):
+    def _verify_telegram_webapp_init_data(
+        init_data_raw: str,
+    ) -> tuple[bool, str | None, dict[str, str] | None]:
         bot_token = _get_telegram_bot_token()
         if not bot_token:
             return False, "Telegram авторизация не настроена (нет токена бота).", None
@@ -191,13 +208,13 @@ def register_auth_routes(
         return True, None, payload
 
     def _finish_telegram_login(
-        user,
+        user: Any,
         *,
-        mini=False,
-        telegram_id="",
-        telegram_username="",
-        telegram_display_name="",
-    ):
+        mini: bool = False,
+        telegram_id: str = "",
+        telegram_username: str = "",
+        telegram_display_name: str = "",
+    ) -> None:
         session["username"] = user.username
         session["user_role"] = user.role
         session["auth_sid"] = secrets.token_hex(16)
@@ -227,6 +244,7 @@ def register_auth_routes(
             app.logger.warning("Не удалось обновить активную сессию при Telegram логине: %s", e)
 
     @app.route("/login", methods=["GET", "POST"])
+    @_limit("15 per minute;120 per hour")
     def login():
         if ip_restriction.is_enabled():
             client_ip = ip_restriction.get_client_ip()
@@ -279,6 +297,7 @@ def register_auth_routes(
         )
 
     @app.route("/auth/telegram", methods=["GET"])
+    @_limit("30 per minute;300 per hour")
     def auth_telegram():
         if ip_restriction.is_enabled():
             client_ip = ip_restriction.get_client_ip()
@@ -322,6 +341,7 @@ def register_auth_routes(
         return redirect(url_for("index"))
 
     @app.route("/auth/telegram-mini", methods=["POST"])
+    @_limit("30 per minute;300 per hour")
     def auth_telegram_mini():
         if ip_restriction.is_enabled():
             client_ip = ip_restriction.get_client_ip()

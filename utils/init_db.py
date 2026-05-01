@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 import os
 import re
 import sys
@@ -12,6 +13,31 @@ from werkzeug.security import generate_password_hash
 
 
 USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+logger = logging.getLogger(__name__)
+_USER_CACHE = {}
+
+
+def _out(message):
+    logger.info(message)
+
+
+def _err(message):
+    logger.error(message)
+
+
+def _get_user_by_username(username):
+    normalized = (username or "").strip()
+    if not normalized:
+        return None
+    if normalized not in _USER_CACHE:
+        _USER_CACHE[normalized] = User.query.filter_by(username=normalized).first()
+    return _USER_CACHE[normalized]
+
+
+def _invalidate_user_cache(username):
+    normalized = (username or "").strip()
+    if normalized:
+        _USER_CACHE.pop(normalized, None)
 
 
 def _is_valid_username(username):
@@ -37,34 +63,25 @@ def _resolve_password(args, legacy_password=None):
         password_sources += 1
 
     if password_sources > 1:
-        print(
-            "Используйте только один источник пароля: legacy PASSWORD, --password или --password-stdin.",
-            file=sys.stderr,
-        )
+        _err("Используйте только один источник пароля: legacy PASSWORD, --password или --password-stdin.")
         return None
 
     if legacy_password is not None:
-        print(
-            "Предупреждение: передача пароля позиционным аргументом устарела и небезопасна.",
-            file=sys.stderr,
-        )
+        _err("Предупреждение: передача пароля позиционным аргументом устарела и небезопасна.")
         return legacy_password
 
     if args.password is not None:
-        print(
-            "Предупреждение: --password может быть виден в списке процессов.",
-            file=sys.stderr,
-        )
+        _err("Предупреждение: --password может быть виден в списке процессов.")
         return args.password
 
     if args.password_stdin:
         password = _read_password_from_stdin()
         if password is None:
-            print("Не удалось прочитать пароль из stdin.", file=sys.stderr)
+            _err("Не удалось прочитать пароль из stdin.")
         return password
 
     if not sys.stdin.isatty():
-        print("Для неинтерактивного режима используйте --password-stdin.", file=sys.stderr)
+        _err("Для неинтерактивного режима используйте --password-stdin.")
         return None
 
     return _prompt_password_with_confirm()
@@ -74,33 +91,33 @@ def _prompt_password_with_confirm():
     while True:
         password = getpass("Введите пароль: ").strip()
         if len(password) < 8:
-            print("Пароль должен содержать минимум 8 символов!")
+            _out("Пароль должен содержать минимум 8 символов!")
             continue
 
         password_confirm = getpass("Повторите пароль: ").strip()
         if password != password_confirm:
-            print("Пароли не совпадают!")
+            _out("Пароли не совпадают!")
             continue
 
         return password
 
 
 def create_admin():
-    print("\nСоздание администратора")
-    print("---------------------")
+    _out("\nСоздание администратора")
+    _out("---------------------")
 
     while True:
         username = input("Введите логин администратора: ").strip()
         if not username:
-            print("Логин не может быть пустым!")
+            _out("Логин не может быть пустым!")
             continue
 
         if not _is_valid_username(username):
-            print("Логин может содержать только буквы, цифры, '-' и '_'!")
+            _out("Логин может содержать только буквы, цифры, '-' и '_'!")
             continue
 
-        if User.query.filter_by(username=username).first():
-            print(f"Пользователь '{username}' уже существует!")
+        if _get_user_by_username(username):
+            _out(f"Пользователь '{username}' уже существует!")
             continue
 
         break
@@ -111,65 +128,67 @@ def create_admin():
 
 
 def add_user(username, password, role='admin'):
-    if User.query.filter_by(username=username).first():
-        print(f"Пользователь '{username}' уже существует!")
+    if _get_user_by_username(username):
+        _out(f"Пользователь '{username}' уже существует!")
         return False
 
     if role not in ('admin', 'viewer'):
         role = 'admin'
 
     if not _is_valid_username(username):
-        print("Логин может содержать только буквы, цифры, '-' и '_'!")
+        _out("Логин может содержать только буквы, цифры, '-' и '_'!")
         return False
 
     if len(password) < 8:
-        print("Пароль должен содержать минимум 8 символов!")
+        _out("Пароль должен содержать минимум 8 символов!")
         return False
 
     user = User(username=username, role=role)
     user.password_hash = generate_password_hash(password)
     db.session.add(user)
     db.session.commit()
-    print(f"Пользователь '{username}' ({role}) успешно добавлен!")
+    _invalidate_user_cache(username)
+    _out(f"Пользователь '{username}' ({role}) успешно добавлен!")
     return True
 
 
 def delete_user(username):
-    user = User.query.filter_by(username=username).first()
+    user = _get_user_by_username(username)
     if not user:
-        print(f"Пользователь '{username}' не найден!")
+        _out(f"Пользователь '{username}' не найден!")
         return False
 
     db.session.delete(user)
     db.session.commit()
-    print(f"Пользователь '{username}' успешно удалён!")
+    _invalidate_user_cache(username)
+    _out(f"Пользователь '{username}' успешно удалён!")
     return True
 
 
 def check_user(username):
-    return User.query.filter_by(username=username).first() is not None
+    return _get_user_by_username(username) is not None
 
 
 def list_users():
     users = User.query.all()
     if not users:
-        print("Нет зарегистрированных пользователей.")
+        _out("Нет зарегистрированных пользователей.")
         return True
 
-    print("Список пользователей:")
+    _out("Список пользователей:")
     for user in users:
-        print(f"- {user.username} [{getattr(user, 'role', 'admin')}]")
+        _out(f"- {user.username} [{getattr(user, 'role', 'admin')}]")
     return True
 
 
 def _resolve_add_user_payload(args):
     if len(args.add_user) not in (1, 2):
-        print("--add-user принимает USERNAME или USERNAME PASSWORD (legacy).", file=sys.stderr)
+        _err("--add-user принимает USERNAME или USERNAME PASSWORD (legacy).")
         return None, None
 
     username = args.add_user[0].strip()
     if not username:
-        print("Логин не может быть пустым!", file=sys.stderr)
+        _err("Логин не может быть пустым!")
         return None, None
 
     legacy_password = args.add_user[1] if len(args.add_user) == 2 else None
@@ -181,6 +200,7 @@ def _resolve_add_user_payload(args):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description='Управление пользователями AdminAntizapret')
     parser.add_argument(
         '--add-user',
@@ -218,7 +238,7 @@ if __name__ == "__main__":
         else:
             # Оригинальное интерактивное создание администратора
             if User.query.count() == 0:
-                print("В системе нет пользователей")
+                _out("В системе нет пользователей")
                 username, password = create_admin()
 
                 admin = User(username=username, role='admin')
@@ -226,11 +246,11 @@ if __name__ == "__main__":
                 db.session.add(admin)
                 db.session.commit()
 
-                print(f"\nСоздан администратор: {username}")
+                _out(f"\nСоздан администратор: {username}")
             else:
-                print("\nВ базе уже есть пользователи:")
+                _out("\nВ базе уже есть пользователи:")
                 for user in User.query.all():
-                    print(f"- {user.username} [{getattr(user, 'role', 'admin')}]")
+                    _out(f"- {user.username} [{getattr(user, 'role', 'admin')}]")
 
                 choice = input("\nСоздать нового администратора? (y/n): ").lower()
                 if choice == 'y':
@@ -241,6 +261,6 @@ if __name__ == "__main__":
                     db.session.add(admin)
                     db.session.commit()
 
-                    print(f"\nСоздан новый администратор: {username}")
+                    _out(f"\nСоздан новый администратор: {username}")
 
-    print("\nГотово! База данных инициализирована.")
+    _out("\nГотово! База данных инициализирована.")

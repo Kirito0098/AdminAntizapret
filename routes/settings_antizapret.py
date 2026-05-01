@@ -4,6 +4,7 @@ import re
 from flask import jsonify, request, current_app, session
 
 from config.antizapret_params import ANTIZAPRET_PARAMS
+from core.services.telegram_mini_session import has_telegram_mini_session
 
 FILE_PATH = "/root/antizapret/setup"
 
@@ -89,11 +90,7 @@ def init_antizapret(app_or_bp):
                     new_lines.append(f"{env}={val}\n")
                     changes += 1
 
-            has_mini_session = bool(
-                session.get("telegram_mini_auth")
-                and session.get("telegram_mini_username")
-                and session.get("telegram_mini_username") == session.get("username")
-            )
+            has_mini_session = has_telegram_mini_session(session)
 
             if changes > 0:
                 with open(FILE_PATH, "w", encoding="utf-8") as f:

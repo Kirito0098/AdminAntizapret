@@ -162,6 +162,8 @@ const routesPanel = document.getElementById('routes-panel');
 function switchPanel(activeBtn, inactiveBtn, showPanel, hidePanel) {
     activeBtn.classList.add('active');
     inactiveBtn.classList.remove('active');
+    activeBtn.setAttribute('aria-selected', 'true');
+    inactiveBtn.setAttribute('aria-selected', 'false');
     showPanel.style.display = 'block';
     hidePanel.style.display = 'none';
 }

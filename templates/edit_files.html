@@ -8,18 +8,24 @@
 
 <div id="notification" class="notification" hidden aria-live="polite"></div>
 
-<div class="main-layout page-unified-wrapper page-unified-grid">
-  <!-- Тёмная боковая панель -->
-  <aside class="left-sidebar page-unified-card">
+<div class="main-layout page-unified-wrapper page-unified-grid editfiles-layout">
+  <aside class="left-sidebar page-unified-card editfiles-sidebar" aria-label="Панель управления файлами">
+    <div class="editfiles-sidebar-head">
+      <p class="editfiles-sidebar-kicker">Operations</p>
+      <h2 class="editfiles-sidebar-title">Редактор списков</h2>
+      <p class="editfiles-sidebar-text">Управление файлами маршрутизации, исключениями и публичной раздачей маршрутов.
+      </p>
+    </div>
+
     <div class="sidebar-header">
-      <div class="toggle-buttons">
-        <button id="btn-lists" class="toggle-btn active">Списки</button>
-        <button id="btn-routes" class="toggle-btn">Маршруты</button>
+      <div class="toggle-buttons" role="tablist" aria-label="Режимы редактирования">
+        <button id="btn-lists" class="toggle-btn active" type="button" aria-selected="true">Списки</button>
+        <button id="btn-routes" class="toggle-btn" type="button" aria-selected="false">Маршруты</button>
       </div>
-      <div id="lists-panel">
-        <nav class="file-nav">
+      <div id="lists-panel" class="editfiles-panel">
+        <nav class="file-nav" aria-label="Списки файлов">
           {% for file_type, content in file_contents.items() %}
-          <button class="nav-item {% if loop.first %}active{% endif %}" data-file="{{ file_type }}"
+          <button class="nav-item {% if loop.first %}active{% endif %}" data-file="{{ file_type }}" type="button"
             title="{{ file_type }}">
             <span class="label">
               {% if file_type == "include_hosts" %}
@@ -49,15 +55,15 @@
         </nav>
 
         <div class="sidebar-bottom">
-          <button id="run-doall" class="btn btn-update">
+          <button id="run-doall" class="btn btn-update" type="button">
             Обновить списки
           </button>
         </div>
       </div>
 
-      <div id="routes-panel" style="display:none;">
+      <div id="routes-panel" class="editfiles-panel" style="display:none;">
         <div class="routes-buttons">
-          <form action="{{ url_for('toggle_public_download') }}" method="post" style="margin-bottom: 10px;">
+          <form action="{{ url_for('toggle_public_download') }}" method="post" class="route-public-toggle-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() | e }}">
             <input type="hidden" name="enabled" value="{{ 'false' if public_download_enabled else 'true' }}">
             <input type="hidden" name="return_to" value="edit_files">
@@ -107,16 +113,21 @@
           {% endif %}
         </div>
       </div>
+    </div>
+
+    <div class="editfiles-sidebar-note" role="note">
+      Выберите список слева, внесите изменения и сохраните. Массовое обновление применяет все изменения одной задачей.
+    </div>
   </aside>
 
-  <!-- Основная область -->
-  <main class="right-content">
+  <main class="right-content editfiles-main">
     <div class="editor-card page-unified-card">
       {% for file_type, content in file_contents.items() %}
       <form class="edit-form" id="form-{{ file_type | e }}" method="post" action="/edit-files" {% if not loop.first
         %}hidden{% endif %}>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() | e }}">
         <input type="hidden" name="file_type" value="{{ file_type | e }}">
+
         <div class="editor-header">
           <h1>
             {% if file_type == "include_hosts" %}
@@ -141,7 +152,14 @@
             Редактирование файла: {{ file_type | replace('_', ' ') | replace('-', ' ') | title }}
             {% endif %}
           </h1>
+          <p class="editor-subtitle">Формат: по одному домену или IP в строке. Комментарии допускаются через #.</p>
         </div>
+
+        <div class="editor-toolbar" aria-hidden="true">
+          <span class="editor-chip">{{ file_type | replace('_', ' ') | replace('-', ' ') | upper }}</span>
+          <span class="editor-hint">Сохранение запускает фоновую задачу применения.</span>
+        </div>
+
         <textarea name="content" class="code-area" spellcheck="false" rows="22"
           placeholder="# Один адрес / IP на строку&#10;# Примеры:&#10;example.com&#10;*.blocked.ru&#10;192.168.1.1&#10;# комментарии начинаются с #">{{ content | e if content else '' }}</textarea>
 

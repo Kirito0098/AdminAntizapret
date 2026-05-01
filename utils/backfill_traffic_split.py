@@ -15,6 +15,7 @@ By default runs in dry-run mode.
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 
@@ -24,6 +25,9 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from app import app, db, UserTrafficStat  # noqa: E402
+
+
+logger = logging.getLogger(__name__)
 
 
 def _row_missing_parts(row: UserTrafficStat) -> tuple[int, int]:
@@ -67,7 +71,7 @@ def backfill(apply_changes: bool, include_mixed_antizapret: bool = False) -> int
         if has_antizapret_data and not include_mixed_antizapret:
             # Conservative rule: if Antizapret already has values, skip auto-distribution.
             skipped_nonzero_antizapret += 1
-            print(
+            logger.info(
                 f"SKIP {row.common_name}: missing_rx={missing_rx}, missing_tx={missing_tx}, "
                 f"ant_rx={ant_rx}, ant_tx={ant_tx}"
             )
@@ -92,7 +96,7 @@ def backfill(apply_changes: bool, include_mixed_antizapret: bool = False) -> int
         after_ant_rx = before_ant_rx + add_ant_rx
         after_ant_tx = before_ant_tx + add_ant_tx
 
-        print(
+        logger.info(
             f"{'APPLY' if apply_changes else 'DRY'} {row.common_name}: "
             f"vpn_rx {before_vpn_rx} -> {after_vpn_rx}, "
             f"vpn_tx {before_vpn_tx} -> {after_vpn_tx}, "
@@ -114,12 +118,13 @@ def backfill(apply_changes: bool, include_mixed_antizapret: bool = False) -> int
     if apply_changes and pending_updates > 0:
         db.session.commit()
 
-    print(f"Affected rows: {affected}")
-    print(f"Skipped rows (non-zero antizapret split): {skipped_nonzero_antizapret}")
+    logger.info("Affected rows: %s", affected)
+    logger.info("Skipped rows (non-zero antizapret split): %s", skipped_nonzero_antizapret)
     return affected
 
 
 def main() -> int:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(
         description="Backfill VPN/Antizapret split traffic counters from total counters"
     )

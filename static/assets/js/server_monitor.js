@@ -22,6 +22,17 @@ document.addEventListener("DOMContentLoaded", () => {
     miniGrid: getThemeColor("--theme-chart-grid-monitor", "#444"),
   };
 
+  const chartTypography = {
+    family: getThemeColor("--chart-font-family", "Segoe UI, DejaVu Sans, Liberation Sans, Arial, sans-serif"),
+    size: parseInt(getThemeColor("--chart-font-size", "12px"), 10) || 12,
+  };
+
+  if (typeof Chart !== "undefined") {
+    Chart.defaults.font.family = chartTypography.family;
+    Chart.defaults.font.size = chartTypography.size;
+    Chart.defaults.color = chartColors.legend;
+  }
+
   const defaultIfaceGroups = {
     vpn: ["vpn", "vpn-udp", "vpn-tcp"],
     antizapret: ["antizapret", "antizapret-udp", "antizapret-tcp"],
@@ -258,9 +269,24 @@ document.addEventListener("DOMContentLoaded", () => {
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
+        normalized: true,
         interaction: { mode: "index", intersect: false },
         plugins: {
-          legend: { position: "bottom", labels: { color: chartColors.legend } },
+          legend: {
+            position: "bottom",
+            labels: {
+              color: chartColors.legend,
+              boxWidth: 16,
+              boxHeight: 10,
+              padding: 14,
+              font: {
+                family: chartTypography.family,
+                size: Math.max(chartTypography.size - 1, 11),
+                weight: "600",
+              },
+            },
+          },
           tooltip: {
             callbacks: {
               label: (ctx2) => {
@@ -273,12 +299,41 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         scales: {
           y: {
-            title: { display: true, text: yTitle },
-            ticks: { color: chartColors.axisY, callback: isRateMode ? undefined : (v) => fmtVolume(v, currentUnit) },
+            title: {
+              display: true,
+              text: yTitle,
+              color: chartColors.axisY,
+              font: {
+                family: chartTypography.family,
+                size: Math.max(chartTypography.size - 1, 11),
+                weight: "600",
+              },
+            },
+            ticks: {
+              color: chartColors.axisY,
+              callback: isRateMode ? undefined : (v) => fmtVolume(v, currentUnit),
+              maxTicksLimit: 8,
+              font: {
+                family: chartTypography.family,
+                size: Math.max(chartTypography.size - 1, 11),
+              },
+            },
             grid: { color: chartColors.gridStrong },
           },
           x: {
-            ticks: { color: chartColors.axisX, autoSkip: true, maxTicksLimit: currentRange === "1d" ? 24 : 10 },
+            ticks: {
+              color: chartColors.axisX,
+              autoSkip: true,
+              maxTicksLimit: currentRange === "1d" ? 14 : 10,
+              maxRotation: 0,
+              minRotation: 0,
+              padding: 8,
+              font: {
+                family: chartTypography.family,
+                size: Math.max(chartTypography.size - 1, 11),
+                weight: "500",
+              },
+            },
             grid: { color: chartColors.gridSoft },
           },
         },

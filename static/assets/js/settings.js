@@ -42,11 +42,28 @@ document.addEventListener("DOMContentLoaded", function () {
     const menuItems = document.querySelectorAll(".menu-item");
     const contentTabs = document.querySelectorAll(".content-tab");
 
+    const syncMainNavSettingsLinks = (tabId) => {
+      const links = document.querySelectorAll(".nav-sublink[data-settings-tab]");
+      if (!links.length) return;
+
+      let hasActive = false;
+      links.forEach((link) => {
+        const isActive = link.getAttribute("data-settings-tab") === tabId;
+        link.classList.toggle("is-active", isActive);
+        if (isActive) hasActive = true;
+      });
+
+      if (!hasActive && links.length) {
+        links[0].classList.add("is-active");
+      }
+    };
+
     const activateTab = (tabId) => {
       contentTabs.forEach((tab) => {
         tab.classList.remove("active");
         if (tab.id === tabId) tab.classList.add("active");
       });
+      syncMainNavSettingsLinks(tabId);
     };
 
     menuItems.forEach((item) => {
@@ -59,7 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
           activateTab(tabId);
         }
 
-        if (tabId === "antizapret-config" || tabId === "vpn-network" || tabId === "security") {
+        if (tabId === "antizapret-config") {
           loadAntizapretSettings();
         }
       });
@@ -73,6 +90,19 @@ document.addEventListener("DOMContentLoaded", function () {
       const activeMenuItem = document.querySelector(".menu-item.active");
       (activeMenuItem || menuItems[0]).click();
     }
+
+    window.addEventListener("hashchange", () => {
+      const tabId = (window.location.hash || "").replace(/^#/, "").trim();
+      if (!tabId) return;
+
+      const hashMenuItem = document.querySelector(`.menu-item[data-tab='${tabId}']`);
+      if (hashMenuItem) {
+        hashMenuItem.click();
+        return;
+      }
+
+      syncMainNavSettingsLinks(tabId);
+    });
   };
 
   const createUserActionConfirm = () => {
@@ -372,6 +402,119 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   };
 
+  const initSettingsRangeControls = () => {
+    const formatSecondsHuman = (rawSeconds) => {
+      const seconds = Number(rawSeconds);
+      if (!Number.isFinite(seconds) || seconds < 0) {
+        return "";
+      }
+
+      if (seconds < 60) {
+        return `${seconds} сек`;
+      }
+
+      if (seconds < 3600) {
+        const mins = Math.floor(seconds / 60);
+        const restSeconds = seconds % 60;
+        return restSeconds > 0 ? `${mins} мин ${restSeconds} сек` : `${mins} мин`;
+      }
+
+      if (seconds < 86400) {
+        const hours = Math.floor(seconds / 3600);
+        const restMins = Math.floor((seconds % 3600) / 60);
+        return restMins > 0 ? `${hours} ч ${restMins} мин` : `${hours} ч`;
+      }
+
+      const days = Math.floor(seconds / 86400);
+      const restHours = Math.floor((seconds % 86400) / 3600);
+      return restHours > 0 ? `${days} д ${restHours} ч` : `${days} д`;
+    };
+
+    const controls = document.querySelectorAll("input[type='range'][data-slider-target]");
+    controls.forEach((slider) => {
+      const targetId = slider.getAttribute("data-slider-target");
+      if (!targetId) return;
+
+      const input = document.getElementById(targetId);
+      const valueBadge = document.querySelector(`[data-slider-value-for='${targetId}']`);
+      if (!input) return;
+
+      const unit = slider.getAttribute("data-unit") || "";
+      const humanize = slider.getAttribute("data-humanize") || "";
+      const min = Number(slider.min);
+      const max = Number(slider.max);
+
+      const clamp = (raw) => {
+        const numeric = Number(raw);
+        if (!Number.isFinite(numeric)) {
+          return Number.isFinite(min) ? min : 0;
+        }
+
+        if (Number.isFinite(min) && numeric < min) {
+          return min;
+        }
+        if (Number.isFinite(max) && numeric > max) {
+          return max;
+        }
+        return numeric;
+      };
+
+      const renderLabel = (rawValue) => {
+        const numericValue = clamp(rawValue);
+        const base = unit ? `${numericValue} ${unit}` : String(numericValue);
+
+        if (humanize === "seconds") {
+          const human = formatSecondsHuman(numericValue);
+          if (human && human !== base) {
+            return `${base} (${human})`;
+          }
+        }
+
+        return base;
+      };
+
+      const applyValue = (rawValue, source) => {
+        const normalized = clamp(rawValue);
+        slider.value = String(normalized);
+        input.value = String(normalized);
+
+        if (valueBadge) {
+          valueBadge.textContent = renderLabel(normalized);
+        }
+
+        if (source === "input") {
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      };
+
+      const initialValue = (input.value || "").trim() || slider.value;
+      applyValue(initialValue, "init");
+
+      slider.addEventListener("input", () => {
+        applyValue(slider.value, "slider");
+      });
+
+      slider.addEventListener("change", () => {
+        applyValue(slider.value, "slider");
+      });
+
+      input.addEventListener("input", () => {
+        const raw = (input.value || "").trim();
+        if (!raw) return;
+        applyValue(raw, "input");
+      });
+
+      input.addEventListener("change", () => {
+        const raw = (input.value || "").trim();
+        if (!raw) {
+          applyValue(slider.value, "input");
+          return;
+        }
+        applyValue(raw, "input");
+      });
+    });
+  };
+
   // === ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ СИСТЕМЫ ===
   const updateSystem = async () => {
     const statusElement = document.getElementById("update-status");
@@ -459,6 +602,7 @@ document.addEventListener("DOMContentLoaded", function () {
   window.addEventListener("resize", handleResize);
   window.addEventListener("orientationchange", handleOrientationChange);
   initMiniAppLinkCopy();
+  initSettingsRangeControls();
 
   if (history.pushState) {
     document.querySelectorAll(".menu-item[data-tab]").forEach((link) => {

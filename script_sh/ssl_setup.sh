@@ -146,6 +146,8 @@ setup_letsencrypt() {
 				read -r -p "Использовать существующие сертификаты? (y/n): " use_existing
 				if [[ "$use_existing" =~ ^[Yy]$ ]]; then
 					set_env_value "USE_HTTPS" "true"
+					set_env_value "SESSION_COOKIE_SECURE" "true"
+					set_env_value "WTF_CSRF_SSL_STRICT" "true"
 					set_env_value "SSL_CERT" "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 					set_env_value "SSL_KEY" "/etc/letsencrypt/live/$DOMAIN/privkey.pem"
 					set_env_value "DOMAIN" "$DOMAIN"
@@ -328,6 +330,8 @@ EOF
 
 	# Запись в базу пути скриптов Let's Encript и названия домена
 	set_env_value "USE_HTTPS" "true"
+	set_env_value "SESSION_COOKIE_SECURE" "true"
+	set_env_value "WTF_CSRF_SSL_STRICT" "true"
 	set_env_value "SSL_CERT" "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 	set_env_value "SSL_KEY" "/etc/letsencrypt/live/$DOMAIN/privkey.pem"
 	set_env_value "DOMAIN" "$DOMAIN"
@@ -358,6 +362,8 @@ setup_custom_certs() {
 	fi
 
 	set_env_value "USE_HTTPS" "true"
+	set_env_value "SESSION_COOKIE_SECURE" "true"
+	set_env_value "WTF_CSRF_SSL_STRICT" "true"
 	set_env_value "SSL_CERT" "$CERT_PATH"
 	set_env_value "SSL_KEY" "$KEY_PATH"
 	set_env_value "DOMAIN" "$DOMAIN"
@@ -378,6 +384,8 @@ setup_selfsigned() {
 		-subj "/CN=$(hostname)" >/dev/null 2>&1
 
 	set_env_value "USE_HTTPS" "true"
+	set_env_value "SESSION_COOKIE_SECURE" "true"
+	set_env_value "WTF_CSRF_SSL_STRICT" "true"
 	set_env_value "SSL_CERT" "/etc/ssl/certs/admin-antizapret.crt"
 	set_env_value "SSL_KEY" "/etc/ssl/private/admin-antizapret.key"
 	unset_env_value "DOMAIN"
@@ -394,12 +402,27 @@ configure_http() {
 	set_env_value "SECRET_KEY" "$SECRET_KEY"
 	set_env_value "APP_PORT" "$APP_PORT"
 	set_env_value "USE_HTTPS" "false"
+	set_env_value "SESSION_COOKIE_SECURE" "false"
+	set_env_value "WTF_CSRF_SSL_STRICT" "false"
 	unset_env_value "SSL_CERT"
 	unset_env_value "SSL_KEY"
 	unset_env_value "DOMAIN"
 	unset_env_value "BIND"
 
 	echo "${GREEN}HTTP соединение настроено на порту $APP_PORT!${NC}"
+}
+
+apply_nginx_reverse_proxy_env() {
+	local domain="$1"
+
+	set_env_value "USE_HTTPS" "false"
+	set_env_value "SESSION_COOKIE_SECURE" "true"
+	set_env_value "WTF_CSRF_SSL_STRICT" "true"
+	set_env_value "DOMAIN" "$domain"
+	set_env_value "BIND" "127.0.0.1"
+	set_env_value "TRUSTED_PROXY_IPS" "127.0.0.1,::1"
+	unset_env_value "SSL_CERT"
+	unset_env_value "SSL_KEY"
 }
 
 setup_nginx_letsencrypt() {
@@ -537,12 +560,7 @@ EOF
 
 	systemctl enable --now snap.certbot.renew.timer 2>/dev/null || true
 
-	set_env_value "USE_HTTPS" "false"
-	set_env_value "DOMAIN" "$DOMAIN"
-	set_env_value "BIND" "127.0.0.1"
-	set_env_value "TRUSTED_PROXY_IPS" "127.0.0.1,::1"
-	unset_env_value "SSL_CERT"
-	unset_env_value "SSL_KEY"
+	apply_nginx_reverse_proxy_env "$DOMAIN"
 
 	echo "${YELLOW}Nginx с Let's Encrypt успешно настроен для $DOMAIN!${NC}"
 	echo "${YELLOW}Конфиг сохранён как: $NGINX_CONF_FILE${NC}"

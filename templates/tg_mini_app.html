@@ -9,8 +9,16 @@
 <div class="tg-mini-shell" id="tgMiniApp"
     data-is-admin="{% if current_user and current_user.is_admin() %}1{% else %}0{% endif %}">
     <header class="tg-mini-header">
-        <div class="tg-mini-brand">AdminAntizapret Mini</div>
+        <div class="tg-mini-headline">
+            <p class="tg-mini-kicker">Telegram Workspace</p>
+            <div class="tg-mini-brand">AdminAntizapret Mini</div>
+        </div>
         <p class="tg-mini-subtitle">Быстрый доступ к Dashboard и настройкам в Telegram</p>
+        <div class="tg-mini-header-chips" role="list" aria-label="Ключевые зоны mini app">
+            <span class="tg-mini-header-chip" role="listitem">Clients</span>
+            <span class="tg-mini-header-chip" role="listitem">Analytics</span>
+            <span class="tg-mini-header-chip" role="listitem">Settings</span>
+        </div>
         <div class="tg-mini-identity" aria-live="polite">
             <span class="tg-mini-identity-item">Панель: <strong>{{ panel_username or '-' }}</strong></span>
             {% if telegram_mini_tg_username %}

@@ -1,8 +1,12 @@
 import os
+import logging
 from functools import wraps
 
 from flask import abort
 from werkzeug.exceptions import HTTPException
+
+
+logger = logging.getLogger(__name__)
 
 
 class FileValidator:
@@ -33,8 +37,8 @@ class FileValidator:
                 abort(404, description="Файл не найден")
             except HTTPException:
                 raise
-            except Exception as e:
-                print(f"Аларм! ошибка: {str(e)}")
+            except OSError as e:
+                logger.exception("Ошибка валидации файла: %s", e)
                 abort(500)
 
         return wrapper

@@ -8,17 +8,21 @@
   <button class="hamburger" id="openSidebar">☰</button>
   <!-- Боковое меню -->
   <div class="settings-page-wrapper page-unified-card" id="sidebar">
-    <div class="settings-layout">
-      <h3>Настройки</h3>
+    <div class="settings-layout settings-sidebar-head">
+      <p class="settings-sidebar-kicker">Operations</p>
+      <h3 class="settings-sidebar-title">Настройки</h3>
+      <p class="settings-sidebar-text">
+        Управление сетью, безопасностью, Telegram-доступом и системным обслуживанием.
+      </p>
     </div>
     <ul class="sidebar-menu">
       <li class="menu-item active" data-tab="antizapret-config">
         <i class="icon">🌐</i>
-        <span>Маршрутизация Antizapret</span>
+        <span>Конфигурирование Antizapret (antizapret/setup)</span>
       </li>
       <li class="menu-item" data-tab="vpn-network">
         <i class="icon">🔌</i>
-        <span>VPN и сеть</span>
+        <span>Порт панели администрирования</span>
       </li>
       <li class="menu-item" data-tab="security">
         <i class="icon">🛡️</i>
@@ -55,9 +59,22 @@
 
   <!-- Основное содержимое -->
   <div class="settings-content page-unified-card">
-    <!-- ═══════════════ 1. Маршрутизация Antizapret ═══════════════ -->
+    <section class="settings-hero" aria-label="Центр управления настройками">
+      <div class="settings-hero-main">
+        <p class="settings-hero-kicker">Control Center</p>
+        <h1 class="settings-hero-title">Settings Hub</h1>
+        <p class="settings-hero-subtitle">Единая панель настройки сетевой политики, доступа и фоновых задач.</p>
+      </div>
+      <div class="settings-hero-chips" role="list" aria-label="Ключевые зоны">
+        <span class="settings-hero-chip" role="listitem">Routing & VPN</span>
+        <span class="settings-hero-chip" role="listitem">Security & Users</span>
+        <span class="settings-hero-chip" role="listitem">Maintenance & Logs</span>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 1. Конфигурирование Antizapret ═══════════════ -->
     <div id="antizapret-config" class="content-tab active">
-      <h2>Маршрутизация Antizapret</h2>
+      <h2>Конфигурирование Antizapret (antizapret/setup)</h2>
       <p class="config-description">
         Включить маршрутизацию через Antizapret для:
       </p>
@@ -245,29 +262,6 @@
         </div>
       </div>
 
-      <button id="save-config" class="button save-button">
-        Сохранить настройки
-      </button>
-      <div id="config-status" class="notification settings-inline-hidden"></div>
-    </div>
-
-    <!-- ═══════════════ 2. VPN и сеть ═══════════════ -->
-    <div id="vpn-network" class="content-tab">
-      <h2>VPN и сеть</h2>
-
-      <!-- Порт панели -->
-      <div class="card settings-inline-card-mb">
-        <h3>Порт панели администрирования</h3>
-        <form method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <div class="form-group">
-            <label for="port">Текущий порт: {{ port }}</label>
-            <input type="text" id="port" name="port" placeholder="Введите новый порт" />
-          </div>
-          <button type="submit" class="button save-button">Сохранить порт</button>
-        </form>
-      </div>
-
       <!-- Резервные порты -->
       <p class="config-description">
         Резервные OpenVPN/WireGuard/AmneziaWG-порты:
@@ -413,10 +407,131 @@
         </div>
       </div>
 
-      <button class="button save-button save-config-btn">
+      <!-- Сетевые защиты -->
+      <p class="config-description">Защита сервера:</p>
+      <div class="config-grid">
+        <div class="config-column">
+          <!-- SSH_PROTECTION -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Защита от брутфорса SSH
+                  <span class="tag-server">Server</span>
+                </span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="ssh_protection-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(SSH_PROTECTION)</span> Включить защиту
+              от перебора паролей SSH (не более 3 новых подключений в час с
+              одного IP)
+            </div>
+          </div>
+          <!-- TORRENT_GUARD -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Torrent Guard <span class="tag-server">Server</span></span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="torrent_guard-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(TORRENT_GUARD)</span> Torrent Guard —
+              если хостер запрещает торренты или присылает жалобы, эта опция
+              поможет: при обнаружении торрент-трафика VPN будет блокироваться
+              на 1 минуту
+            </div>
+          </div>
+        </div>
+        <div class="config-column">
+          <!-- ATTACK_PROTECTION -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Защита от атак
+                  <span class="tag-server">Server</span>
+                </span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="attack_protection-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(ATTACK_PROTECTION)</span> Блокирует
+              подозрительную сетевую активность: превышение лимита подключений
+              и попытки подключения по нетипичным портам.
+            </div>
+          </div>
+          <!-- SCAN_PROTECTION -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Scan protection
+                  <span class="tag-server">Server</span>
+                </span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="scan_protection-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(SCAN_PROTECTION)</span> Скрывает
+              сервер от простого сканирования: отключает ответ на ping и на
+              запросы к закрытым портам.
+            </div>
+          </div>
+          <!-- RESTRICT_FORWARD -->
+          <div class="config-item server-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Ограничение форвардинга
+                  <span class="tag-server">Server</span></span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="restrict_forward-toggle" class="toggle-input" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(restrict_forward)</span> Включить
+              ограничение форвардинга — через AntiZapret VPN будет
+              маршрутизироваться только трафик к IP-адресам, которые явно
+              указаны в файлах config/forward-ips.txt и result/route-ips.txt
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button id="save-config" class="button save-button">
         Сохранить настройки
       </button>
+      <div id="config-status" class="notification settings-inline-hidden"></div>
       <div class="config-status-msg notification settings-inline-hidden"></div>
+    </div>
+
+    <!-- ═══════════════ 2. Порт панели администрирования ═══════════════ -->
+    <div id="vpn-network" class="content-tab">
+      <h2>Порт панели администрирования</h2>
+
+      <div class="card settings-inline-card-mb">
+        <h3>Порт панели администрирования</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <label for="port">Текущий порт: {{ port }}</label>
+            <input type="text" id="port" name="port" placeholder="Введите новый порт" />
+          </div>
+          <button type="submit" class="button save-button">Сохранить порт</button>
+        </form>
+      </div>
     </div>
 
     <!-- Настройки одноразовых ссылок -->
@@ -424,10 +539,21 @@
       <h2>Одноразовые ссылки</h2>
       <form method="POST" class="settings-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <div class="form-group">
-          <label for="qr_download_token_ttl_seconds">TTL одноразовой ссылки (секунд)</label>
-          <input type="number" id="qr_download_token_ttl_seconds" name="qr_download_token_ttl_seconds" min="60"
-            max="3600" step="1" value="{{ qr_download_token_ttl_seconds }}" placeholder="60..3600" />
+        <div class="form-group settings-range-control">
+          <div class="settings-range-control__head">
+            <label for="qr_download_token_ttl_seconds">TTL одноразовой ссылки (секунд)</label>
+            <output class="settings-range-control__value" data-slider-value-for="qr_download_token_ttl_seconds">
+              {{ qr_download_token_ttl_seconds }} сек
+            </output>
+          </div>
+          <input type="range" id="qr_download_token_ttl_seconds_slider" min="60" max="3600" step="1"
+            value="{{ qr_download_token_ttl_seconds }}" data-slider-target="qr_download_token_ttl_seconds"
+            data-unit="сек" data-humanize="seconds" />
+          <div class="settings-range-control__input-row">
+            <input type="number" id="qr_download_token_ttl_seconds" name="qr_download_token_ttl_seconds" min="60"
+              max="3600" step="1" value="{{ qr_download_token_ttl_seconds }}" placeholder="60..3600" />
+            <span class="settings-range-control__hint">Точное значение</span>
+          </div>
           <small class="help-text">Используется для ссылок вида /qr_download/&lt;token&gt;. Диапазон: 60..3600
             сек.</small>
         </div>
@@ -534,20 +660,43 @@
               при отсутствии пользователей в панели.</small>
           </div>
 
-          <div class="form-group">
-            <label for="active_web_session_ttl_seconds">Через сколько секунд без действий считать пользователя
-              неактивным</label>
-            <input type="number" id="active_web_session_ttl_seconds" name="active_web_session_ttl_seconds" min="30"
-              max="86400" step="1" value="{{ active_web_session_ttl_seconds }}" />
+          <div class="form-group settings-range-control">
+            <div class="settings-range-control__head">
+              <label for="active_web_session_ttl_seconds">Через сколько секунд без действий считать пользователя
+                неактивным</label>
+              <output class="settings-range-control__value" data-slider-value-for="active_web_session_ttl_seconds">
+                {{ active_web_session_ttl_seconds }} сек
+              </output>
+            </div>
+            <input type="range" id="active_web_session_ttl_seconds_slider" min="30" max="86400" step="1"
+              value="{{ active_web_session_ttl_seconds }}" data-slider-target="active_web_session_ttl_seconds"
+              data-unit="сек" data-humanize="seconds" />
+            <div class="settings-range-control__input-row">
+              <input type="number" id="active_web_session_ttl_seconds" name="active_web_session_ttl_seconds" min="30"
+                max="86400" step="1" value="{{ active_web_session_ttl_seconds }}" />
+              <span class="settings-range-control__hint">Точное значение</span>
+            </div>
             <small class="help-text">Обычно достаточно 180 секунд.</small>
           </div>
 
-          <div class="form-group">
-            <label for="active_web_session_touch_interval_seconds">Как часто обновлять отметку активности
-              (секунд)</label>
-            <input type="number" id="active_web_session_touch_interval_seconds"
-              name="active_web_session_touch_interval_seconds" min="1" max="3600" step="1"
-              value="{{ active_web_session_touch_interval_seconds }}" />
+          <div class="form-group settings-range-control">
+            <div class="settings-range-control__head">
+              <label for="active_web_session_touch_interval_seconds">Как часто обновлять отметку активности
+                (секунд)</label>
+              <output class="settings-range-control__value"
+                data-slider-value-for="active_web_session_touch_interval_seconds">
+                {{ active_web_session_touch_interval_seconds }} сек
+              </output>
+            </div>
+            <input type="range" id="active_web_session_touch_interval_seconds_slider" min="1" max="3600" step="1"
+              value="{{ active_web_session_touch_interval_seconds }}"
+              data-slider-target="active_web_session_touch_interval_seconds" data-unit="сек" data-humanize="seconds" />
+            <div class="settings-range-control__input-row">
+              <input type="number" id="active_web_session_touch_interval_seconds"
+                name="active_web_session_touch_interval_seconds" min="1" max="3600" step="1"
+                value="{{ active_web_session_touch_interval_seconds }}" />
+              <span class="settings-range-control__hint">Точное значение</span>
+            </div>
             <small class="help-text">Чем меньше значение, тем точнее статус активности. Обычно 30 секунд.</small>
           </div>
 
@@ -1054,116 +1203,80 @@
 
     <!-- ═══════════════ 3. Безопасность ═══════════════ -->
     <div id="security" class="content-tab">
-      <h2>Безопасность</h2>
+      <h2>Безопасность — управление IP ограничениями</h2>
 
-      <!-- Сетевые защиты -->
-      <p class="config-description">Защита сервера:</p>
-      <div class="config-grid">
-        <div class="config-column">
-          <!-- SSH_PROTECTION -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Защита от брутфорса SSH
-                  <span class="tag-server">Server</span>
-                </span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="ssh_protection-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(SSH_PROTECTION)</span> Включить защиту
-              от перебора паролей SSH (не более 3 новых подключений в час с
-              одного IP)
-            </div>
-          </div>
-          <!-- TORRENT_GUARD -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Torrent Guard <span class="tag-server">Server</span></span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="torrent_guard-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(TORRENT_GUARD)</span> Torrent Guard —
-              если хостер запрещает торренты или присылает жалобы, эта опция
-              поможет: при обнаружении торрент-трафика VPN будет блокироваться
-              на 1 минуту
-            </div>
-          </div>
-        </div>
-        <div class="config-column">
-          <!-- ATTACK_PROTECTION -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Антискан и защита от атак
-                  <span class="tag-server">Server</span>
-                </span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="attack_protection-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(ATTACK_PROTECTION)</span> Внимание!!!
-              Защита от сетевых атак и сканирования может блокировать VPN или
-              сторонние приложения!
-            </div>
-          </div>
-          <!-- RESTRICT_FORWARD -->
-          <div class="config-item server-item">
-            <label class="toggle-wrapper">
-              <span class="toggle-label">
-                <span class="config-item-title">Ограничение форвардинга
-                  <span class="tag-server">Server</span></span>
-              </span>
-              <div class="toggle-switch">
-                <input type="checkbox" id="restrict_forward-toggle" class="toggle-input" />
-                <span class="toggle-slider"></span>
-              </div>
-            </label>
-            <div class="config-item-tooltip">
-              <span class="config-param">(restrict_forward)</span> Включить
-              ограничение форвардинга — через AntiZapret VPN будет
-              маршрутизироваться только трафик к IP-адресам, которые явно
-              указаны в файлах config/forward-ips.txt и result/route-ips.txt
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <button class="button save-button save-config-btn settings-inline-btn-mb">
-        Сохранить настройки защиты
-      </button>
-      <div class="config-status-msg notification settings-inline-hidden"></div>
-
-      <!-- IP ограничения -->
-      <h2 class="settings-inline-title-mt">Управление IP ограничениями</h2>
-
-      <div class="status-card">
-        <h3>Текущий статус</h3>
+      <!-- ROW 1: Статус (2 кол) | Примеры (1 кол, rowspan 2) -->
+      <div class="status-card security-card-main">
         <div class="status-indicator {% if ip_enabled %}status-enabled{% else %}status-disabled{% endif %}">
           {% if ip_enabled %} 🔒 IP ограничения ВКЛЮЧЕНЫ {% else %} 🔓 IP
           ограничения ВЫКЛЮЧЕНЫ (доступ всем) {% endif %}
         </div>
-        <p>Ваш текущий IP: <strong>{{ current_ip }}</strong></p>
-        <p class="help-text">
-          {% if ip_enabled %} Доступ к панели разрешен только с указанных
-          IP-адресов. {% else %} Доступ к панели разрешен со всех IP-адресов. {%
-          endif %}
-        </p>
+        {% set quick_toggle_ip = current_ip or '127.0.0.1' %}
+        <div class="security-master-toggle">
+          <div class="security-master-toggle__text">
+            <strong>Быстрый переключатель доступа</strong>
+            <small class="help-text">
+              {% if ip_enabled %}
+              Выключение снимет все ограничения IP.
+              {% else %}
+              Включение добавит только текущий IP: {{ quick_toggle_ip }}.
+              {% endif %}
+            </small>
+          </div>
+          {% if ip_enabled %}
+          <form method="POST" class="settings-inline-form-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="ip_action" value="clear_all_ips" />
+            <label class="toggle-wrapper security-master-toggle__switch">
+              <div class="toggle-switch">
+                <input type="checkbox" class="toggle-input" checked
+                  onchange="if (!confirm('Выключить IP ограничения и разрешить доступ всем?')) { this.checked = true; return; } this.form.submit();" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </form>
+          {% else %}
+          <form method="POST" class="settings-inline-form-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="ip_action" value="enable_ips" />
+            <input type="hidden" name="ips_text" value="{{ quick_toggle_ip }}" />
+            <label class="toggle-wrapper security-master-toggle__switch">
+              <div class="toggle-switch">
+                <input type="checkbox" class="toggle-input"
+                  onchange="if (!this.checked) return; if (!confirm('Включить IP ограничения только для текущего IP {{ quick_toggle_ip }}?')) { this.checked = false; return; } this.form.submit();" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </form>
+          {% endif %}
+        </div>
+        <p class="security-current-ip">Ваш IP: <strong>{{ current_ip }}</strong></p>
       </div>
 
-      <!-- Список разрешенных IP -->
-      <div class="card">
+      <!-- Примеры (1 кол, справа, rowspan 2) -->
+      <div class="card security-card-examples">
+        <details class="security-examples-details" open>
+          <summary>Примеры формата IP</summary>
+          <div class="examples">
+            <div class="example">
+              <h4>Один IP</h4>
+              <pre><code>{{ current_ip }}</code></pre>
+            </div>
+            <div class="example">
+              <h4>Подсеть</h4>
+              <pre><code>192.168.1.0/24</code></pre>
+            </div>
+            <div class="example">
+              <h4>Несколько через запятую</h4>
+              <pre><code>10.0.0.1, 10.0.0.2, 192.168.1.0/24</code></pre>
+            </div>
+          </div>
+          <p class="help-text security-examples-note">Неполный адрес <code>192.168.1</code> — ошибка.</p>
+        </details>
+      </div>
+
+      <!-- ROW 2: Таблица IP (2 кол) | Примеры продолжаются -->
+      <div class="card security-card-main">
         <h3>Разрешенные IP-адреса</h3>
         {% if allowed_ips %}
         <div class="ip-list">
@@ -1206,8 +1319,8 @@
         {% endif %}
       </div>
 
-      <!-- Добавить IP -->
-      <div class="card">
+      <!-- ROW 3: Добавить IP (1 кол) + Быстрая настройка (2 кол) -->
+      <div class="card security-card-sidebar">
         <h3>Добавить IP-адрес</h3>
         <form method="POST" class="settings-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
@@ -1220,62 +1333,28 @@
               <code>192.168.1.0/24</code> (вся подсеть)
             </small>
           </div>
-          <button type="submit" name="ip_action" value="add_ip" class="button add-button">
+          <button type="submit" name="ip_action" value="add_ip" class="button add-button full-width">
             Добавить IP
           </button>
         </form>
       </div>
 
-      <!-- Быстрая настройка -->
-      <div class="card">
-        <h3>Быстрая настройка</h3>
+      <div class="card security-card-main">
+        <h3>Заменить список IP</h3>
         <form method="POST" class="settings-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <div class="form-group">
-            <label for="ips_text">Включить ограничения с IP (через запятую)</label>
-            <textarea id="ips_text" name="ips_text" rows="3" placeholder="127.0.0.1,::1,192.168.1.0/24,10.0.0.1"
+            <label for="ips_text">Новый список через запятую</label>
+            <textarea id="ips_text" name="ips_text" rows="3" placeholder="127.0.0.1, ::1, 192.168.1.0/24, 10.0.0.1"
               class="full-width"></textarea>
-            <small class="help-text">
-              Укажите IP-адреса через запятую. Существующий список будет
-              заменен.
-            </small>
+            <small class="help-text">Полностью заменит текущий список и включит ограничения.</small>
           </div>
-          <button type="submit" name="ip_action" value="enable_ips" class="button save-button">
-            Включить ограничения
-          </button>
-        </form>
-
-        <form method="POST" class="settings-form settings-inline-form-mt">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <button type="submit" name="ip_action" value="clear_all_ips" class="button delete-button full-width"
-            onclick="return confirm('Вы уверены? Это удалит все IP-адреса и разрешит доступ всем.')">
-            🗑️ Выключить все ограничения (разрешить всем)
+          <button type="submit" name="ip_action" value="enable_ips" class="button save-button full-width">
+            Применить список
           </button>
         </form>
       </div>
 
-      <!-- Примеры -->
-      <div class="card">
-        <h3>Примеры использования</h3>
-        <div class="examples">
-          <div class="example">
-            <h4>✅ Разрешить доступ только с офиса:</h4>
-            <pre><code>192.168.1.0/24,10.0.0.100</code></pre>
-          </div>
-          <div class="example">
-            <h4>✅ Разрешить доступ только с вашего IP:</h4>
-            <pre><code>{{ current_ip }}</code></pre>
-          </div>
-          <div class="example">
-            <h4>✅ Разрешить несколько доверенных IP:</h4>
-            <pre><code>192.168.1.100,192.168.1.101,10.0.0.0/24</code></pre>
-          </div>
-          <div class="example">
-            <h4>❌ Ошибка (неправильный формат):</h4>
-            <pre><code>192.168.1  # неполный адрес</code></pre>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- ═══════════════ Telegram авторизация ═══════════════ -->
@@ -1305,10 +1384,21 @@
             </small>
           </div>
 
-          <div class="form-group">
-            <label for="telegram_auth_max_age_seconds">Макс. возраст Telegram авторизации (секунд)</label>
-            <input type="number" id="telegram_auth_max_age_seconds" name="telegram_auth_max_age_seconds" min="30"
-              max="86400" step="1" value="{{ telegram_auth_max_age_seconds }}" />
+          <div class="form-group settings-range-control">
+            <div class="settings-range-control__head">
+              <label for="telegram_auth_max_age_seconds">Макс. возраст Telegram авторизации (секунд)</label>
+              <output class="settings-range-control__value" data-slider-value-for="telegram_auth_max_age_seconds">
+                {{ telegram_auth_max_age_seconds }} сек
+              </output>
+            </div>
+            <input type="range" id="telegram_auth_max_age_seconds_slider" min="30" max="86400" step="1"
+              value="{{ telegram_auth_max_age_seconds }}" data-slider-target="telegram_auth_max_age_seconds"
+              data-unit="сек" data-humanize="seconds" />
+            <div class="settings-range-control__input-row">
+              <input type="number" id="telegram_auth_max_age_seconds" name="telegram_auth_max_age_seconds" min="30"
+                max="86400" step="1" value="{{ telegram_auth_max_age_seconds }}" />
+              <span class="settings-range-control__hint">Точное значение</span>
+            </div>
             <small class="help-text">Рекомендуемое значение: 300 секунд.</small>
           </div>
 
