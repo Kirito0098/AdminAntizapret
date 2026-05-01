@@ -604,6 +604,26 @@ img {
 }
 
 /*=============== BREAKPOINTS ===============*/
+@media (min-width: 1600px) {
+  .login-shell {
+    width: min(680px, 94vw);
+    padding: 1.4rem;
+  }
+
+  .login-stage {
+    gap: 1.25rem;
+  }
+
+  .login__form {
+    width: min(100%, 520px);
+    padding: 1.5rem 1.3rem 1.2rem;
+  }
+
+  .login-context {
+    padding: 1.15rem;
+  }
+}
+
 @media (max-width: 1080px) {
   .login-stage {
     grid-template-columns: minmax(0, 1fr);
@@ -656,6 +676,13 @@ img {
 @media (max-width: 460px) {
   .login-context-kpis {
     grid-template-columns: 1fr;
+  }
+
+  .notification {
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    max-width: none;
   }
 }
 

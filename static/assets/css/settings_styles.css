@@ -2404,7 +2404,10 @@ body {
 
 /* ===== Settings submenu integrated into main sidebar ===== */
 
-body.settings-nav-merged #openSidebar.hamburger,
+body.settings-nav-merged #openSidebar.hamburger {
+  display: none !important;
+}
+
 body.settings-nav-merged #sidebar.settings-page-wrapper {
   display: none !important;
 }
@@ -2469,6 +2472,10 @@ body.settings-nav-merged .settings-content.page-unified-card {
 }
 
 @media (max-width: 1023px) {
+  body.settings-nav-merged #sidebar.settings-page-wrapper {
+    display: block !important;
+  }
+
   #sidebar.settings-page-wrapper {
     position: relative !important;
     inset: auto !important;
@@ -2733,6 +2740,31 @@ body.settings-nav-merged .settings-content.page-unified-card {
 }
 
 @media (max-width: 1023px) {
+  body.settings-nav-merged .navigation .nav-settings-group {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  body.settings-nav-merged .navigation .nav-settings-submenu,
+  body.settings-nav-merged
+    .navigation
+    .nav-settings-group.is-open
+    .nav-settings-submenu {
+    display: none !important;
+    max-height: 0 !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    transform: none !important;
+  }
+
+  body.settings-nav-merged .navigation .nav-link-settings {
+    justify-content: center;
+  }
+
+  body.settings-nav-merged .navigation .nav-link-settings .nav-settings-caret {
+    display: none;
+  }
+
   .settings-workbench {
     grid-template-columns: 1fr;
   }
@@ -2746,14 +2778,39 @@ body.settings-nav-merged .settings-content.page-unified-card {
     top: 0.45rem;
     flex-direction: column;
     align-items: stretch;
+    overflow: hidden;
   }
 
   .settings-sticky-actions__buttons {
     width: 100%;
     justify-content: stretch;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.44rem;
   }
 
   .settings-sticky-actions__buttons .button {
-    flex: 1;
+    flex: 0 0 auto;
+    min-width: 0;
+    width: 100%;
+    white-space: normal;
+    padding: 0.56rem 0.5rem;
+    font-size: 0.88rem;
+    line-height: 1.2;
+  }
+}
+
+@media (max-width: 760px) {
+  .settings-sticky-actions {
+    position: static;
+    top: auto;
+  }
+
+  .settings-sticky-actions__buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-sticky-actions__buttons #sticky-apply {
+    grid-column: 1 / -1;
   }
 }

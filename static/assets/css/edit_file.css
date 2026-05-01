@@ -436,6 +436,17 @@ body {
   }
 }
 
+@media (min-width: 1920px) {
+  .main-layout.editfiles-layout {
+    width: min(1820px, 95%);
+    grid-template-columns: 360px minmax(0, 1fr);
+  }
+
+  .code-area {
+    min-height: 66vh;
+  }
+}
+
 @media (max-width: 1280px) {
   .main-layout.editfiles-layout {
     grid-template-columns: 290px minmax(0, 1fr);

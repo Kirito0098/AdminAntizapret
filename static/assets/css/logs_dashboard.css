@@ -32,6 +32,30 @@
   color: var(--theme-text-primary, #eafdf6);
 }
 
+@media (min-width: 1600px) {
+  .logs-page-wrapper {
+    width: min(1720px, 95%);
+  }
+
+  .logs-summary-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .client-cards-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 2160px) {
+  .logs-page-wrapper {
+    width: min(1880px, 94%);
+  }
+
+  .client-cards-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .logs-section {
   background: var(--theme-logs-surface, rgba(8, 14, 17, 0.78));
   border: 1px solid var(--theme-primary-alpha-24, rgba(84, 168, 133, 0.24));

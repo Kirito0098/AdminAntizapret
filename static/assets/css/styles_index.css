@@ -3858,6 +3858,31 @@ body.client-details-modal-open {
     font-size: 0.7rem;
   }
 
+  @media (min-width: 1600px) {
+    .index-container {
+      width: min(1720px, 95%);
+      margin-inline: auto;
+    }
+
+    .index-ops-grid {
+      grid-template-columns: minmax(0, 1fr) 380px;
+      gap: 1rem;
+    }
+
+    .config-table.client-grid-table tbody {
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    }
+  }
+
+  @media (min-width: 2160px) {
+    .index-container {
+      width: min(1880px, 94%);
+    }
+
+    .index-ops-grid {
+      grid-template-columns: minmax(0, 1fr) 420px;
+    }
+  }
   .client-details-dialog {
     width: 100%;
     max-height: 92vh;

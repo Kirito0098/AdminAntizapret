@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Доступ ограничен</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles_mobile.css') }}">
     <style>
         * {
             margin: 0;
@@ -283,6 +284,34 @@
 
             .lock-icon {
                 font-size: 50px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .container {
+                padding: 16px;
+                border-radius: 14px;
+            }
+
+            .ip-address {
+                font-size: 1.06rem;
+                letter-spacing: 0.4px;
+                padding: 12px;
+            }
+        }
+
+        @media (min-width: 1600px) {
+            .container {
+                max-width: 760px;
+                padding: 48px;
+            }
+
+            h1 {
+                font-size: 2.8rem;
+            }
+
+            .subtitle {
+                font-size: 1.28rem;
             }
         }
 

@@ -1212,6 +1212,27 @@ body {
   background: var(--tg2-danger);
 }
 
+@media (min-width: 1600px) {
+  .tg-mini-shell {
+    max-width: 1660px;
+    padding-inline: 18px;
+  }
+
+  .tg-mini-cards {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .tg-mini-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 2160px) {
+  .tg-mini-shell {
+    max-width: 1820px;
+  }
+}
+
 @media (max-width: 1100px) {
   .tg-mini-shell {
     padding-inline: 10px;

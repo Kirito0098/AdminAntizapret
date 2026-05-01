@@ -464,6 +464,28 @@ body {
   font-weight: 700;
 }
 
+@media (min-width: 1600px) {
+  .server-monitor-wrapper.page-unified-wrapper {
+    width: min(1720px, 95%);
+  }
+
+  .metrics-grid,
+  .system-info-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .bw-stats,
+  .bw-aggregate {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 2160px) {
+  .server-monitor-wrapper.page-unified-wrapper {
+    width: min(1880px, 94%);
+  }
+}
+
 @media (max-width: 1160px) {
   .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
