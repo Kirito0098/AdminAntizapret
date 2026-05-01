@@ -38,6 +38,8 @@
               Разрешить прямой доступ (без проверки)
               {% elif file_type == "exclude-ips" %}
               Исключить IP из VPN
+              {% elif file_type == "drop-ips" %}
+              Жестко запретить форвардинг IPv4 CIDR
               {% elif file_type == "forward-ips" %}
               Только эти IP через VPN
               {% elif file_type == "include-adblock-hosts" %}
@@ -140,6 +142,8 @@
             Исключение IPv4-адресов из проверки защиты от сканирования и сетевых атак
             {% elif file_type == "exclude-ips" %}
             Исключение IPv4-адресов из маршрутизации через AntiZapret VPN
+            {% elif file_type == "drop-ips" %}
+            Жесткий запрет форвардинга через AntiZapret VPN и полный VPN (IPv4 CIDR)
             {% elif file_type == "forward-ips" %}
             Добавление IPv4-адресов неявно разрешённых для маршрутизации через AntiZapret VPN
             {% elif file_type == "include-adblock-hosts" %}
@@ -152,7 +156,14 @@
             Редактирование файла: {{ file_type | replace('_', ' ') | replace('-', ' ') | title }}
             {% endif %}
           </h1>
-          <p class="editor-subtitle">Формат: по одному домену или IP в строке. Комментарии допускаются через #.</p>
+          <p class="editor-subtitle">
+            {% if file_type == "drop-ips" %}
+            Формат: по одной IPv4-подсети или адресу в CIDR на строку (например, 149.154.160.0/20). Эти сети всегда
+            запрещены для форвардинга через VPN. Комментарии допускаются через #.
+            {% else %}
+            Формат: по одному домену или IP в строке. Комментарии допускаются через #.
+            {% endif %}
+          </p>
         </div>
 
         <div class="editor-toolbar" aria-hidden="true">

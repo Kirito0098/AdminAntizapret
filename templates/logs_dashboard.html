@@ -16,7 +16,7 @@
             <p class="logs-hero-subtitle">Единая панель наблюдаемости по сессиям, протоколам и накопленному трафику.</p>
         </div>
         <div class="logs-hero-status" role="list" aria-label="Статус данных">
-            <span class="logs-hero-chip" role="listitem">Auto refresh: 60s</span>
+            <span class="logs-hero-chip" role="listitem">Table refresh: 60s</span>
             <span class="logs-hero-chip" role="listitem">Источник: OpenVPN + WireGuard + БД</span>
             <span class="logs-hero-chip" role="listitem">Уникальные клиенты: {{ summary.unique_client_names }}</span>
         </div>
@@ -425,6 +425,16 @@
                     </div>
                     {% endif %}
                 </div>
+                <div class="logs-inline-filters">
+                    <label class="logs-inline-control logs-inline-control--switch"
+                        for="persistedTrafficOnlineOnlyToggle">
+                        <span class="logs-inline-switch-text">Показывать только онлайн</span>
+                        <input type="checkbox" id="persistedTrafficOnlineOnlyToggle" class="logs-inline-switch-input" />
+                        <span class="logs-inline-switch-ui" aria-hidden="true">
+                            <span class="logs-inline-switch-thumb"></span>
+                        </span>
+                    </label>
+                </div>
                 <p class="traffic-table-hint">
                     Простая сводка: сколько интернета использовал каждый пользователь и где именно (обычный VPN или
                     Antizapret).
@@ -458,6 +468,7 @@
                             {% if persisted_traffic_rows %}
                             {% for client in persisted_traffic_rows %}
                             <tr data-total-bytes="{{ client.total_bytes }}"
+                                data-is-active="{% if client.is_active %}1{% else %}0{% endif %}"
                                 data-client-protocols="{{ (client.protocols or '-') | lower }}">
                                 <td class="traffic-user-cell">
                                     <div class="traffic-user-content">
@@ -858,31 +869,64 @@
             setChartsCollapsed(!chartsGrid.classList.contains('is-collapsed'));
         });
     }
-
-    const refreshIntervalMs = 60000;
-    setInterval(function () {
-        if (document.visibilityState !== 'visible') {
-            return;
-        }
-        window.location.reload();
-    }, refreshIntervalMs);
     }) ();
 </script>
 {% endif %}
 
-{% if not openvpn_logging_enabled %}
 <script>
     (function () {
         const refreshIntervalMs = 60000;
-        setInterval(function () {
-            if (document.visibilityState !== 'visible') {
+        const trafficPaneSelector = '.logs-tab-pane[data-tab-pane="traffic"]';
+        const trafficTableSelectors = ['#persistedTrafficTable', '#deletedPersistedTrafficTable'];
+
+        function isTrafficPaneActive() {
+            const trafficPane = document.querySelector(trafficPaneSelector);
+            return !trafficPane || trafficPane.classList.contains('is-active');
+        }
+
+        async function refreshTrafficTables() {
+            if (document.visibilityState !== 'visible' || !isTrafficPaneActive()) {
                 return;
             }
-            window.location.reload();
+
+            try {
+                const response = await fetch(window.location.pathname + window.location.search, {
+                    cache: 'no-store',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const html = await response.text();
+                const parser = new DOMParser();
+                const nextDocument = parser.parseFromString(html, 'text/html');
+                let hasUpdates = false;
+
+                trafficTableSelectors.forEach(function (selector) {
+                    const currentTbody = document.querySelector(`${selector} tbody`);
+                    const nextTbody = nextDocument.querySelector(`${selector} tbody`);
+                    if (!currentTbody || !nextTbody) {
+                        return;
+                    }
+                    currentTbody.innerHTML = nextTbody.innerHTML;
+                    hasUpdates = true;
+                });
+
+                if (hasUpdates) {
+                    window.dispatchEvent(new CustomEvent('logsDashboardTrafficTablesUpdated'));
+                }
+            } catch (err) {
+                // Keep silent to avoid noisy UI if network hiccups occur.
+            }
+        }
+
+        setInterval(function () {
+            refreshTrafficTables();
         }, refreshIntervalMs);
     })();
 </script>
-{% endif %}
 
 {% if cache_meta and cache_meta.is_stale and cache_meta.refresh_in_progress and cache_meta.refresh_task_id %}
 <script>
@@ -1048,6 +1092,18 @@
             minute: '2-digit'
         });
 
+        function formatLocalDateTimeCells() {
+            document.querySelectorAll('.local-datetime[data-datetime]').forEach(function (cell) {
+                const raw = cell.getAttribute('data-datetime') || cell.textContent;
+                const parsed = parseServerDateTime(raw);
+                if (!parsed) {
+                    return;
+                }
+                cell.textContent = dtFormatter.format(parsed);
+                cell.title = `UTC: ${String(raw).trim()}`;
+            });
+        }
+
         const trafficLabelFormatters = {
             minute5: new Intl.DateTimeFormat(undefined, {
                 hour: '2-digit',
@@ -1090,15 +1146,7 @@
             });
         }
 
-        document.querySelectorAll('.local-datetime[data-datetime]').forEach(function (cell) {
-            const raw = cell.getAttribute('data-datetime') || cell.textContent;
-            const parsed = parseServerDateTime(raw);
-            if (!parsed) {
-                return;
-            }
-            cell.textContent = dtFormatter.format(parsed);
-            cell.title = `UTC: ${String(raw).trim()}`;
-        });
+        formatLocalDateTimeCells();
 
         function humanBytes(value) {
             let size = Number(value || 0);
@@ -1125,9 +1173,11 @@
         const storageClientKey = 'logs_dashboard_selected_client';
         const storageRangeKey = 'logs_dashboard_selected_range';
         const storageTrafficProtocolKey = 'logs_dashboard_traffic_protocol_filter';
+        const storagePersistedOnlineOnlyKey = 'logs_dashboard_persisted_online_only';
         const chartPane = chartCanvas ? chartCanvas.closest('.logs-tab-pane') : null;
         const persistedTrafficTable = document.getElementById('persistedTrafficTable');
         const deletedPersistedTrafficTable = document.getElementById('deletedPersistedTrafficTable');
+        const persistedTrafficOnlineOnlyToggle = document.getElementById('persistedTrafficOnlineOnlyToggle');
 
         if (!clientInput || !clientCombobox || !clientClearButton || !clientToggle || !clientDropdown || !clientList || !rangeButtons.length || !chartCanvas || !chartMeta || typeof Chart === 'undefined') {
             return;
@@ -1177,6 +1227,11 @@
         }
         if (trafficProtocolFilter && Array.from(trafficProtocolFilter.options).some(opt => opt.value === currentTrafficProtocol)) {
             trafficProtocolFilter.value = currentTrafficProtocol;
+        }
+
+        let showPersistedOnlineOnly = localStorage.getItem(storagePersistedOnlineOnlyKey) === '1';
+        if (persistedTrafficOnlineOnlyToggle) {
+            persistedTrafficOnlineOnlyToggle.checked = showPersistedOnlineOnly;
         }
 
         function setActiveRangeButtons() {
@@ -1322,7 +1377,10 @@
 
             if (persistedTrafficTable) {
                 persistedTrafficTable.querySelectorAll('tbody tr[data-total-bytes]').forEach(function (row) {
-                    const visible = protocolMatches(row.getAttribute('data-client-protocols') || '', currentTrafficProtocol);
+                    const protocolVisible = protocolMatches(row.getAttribute('data-client-protocols') || '', currentTrafficProtocol);
+                    const isOnline = row.getAttribute('data-is-active') === '1';
+                    const onlineVisible = !showPersistedOnlineOnly || isOnline;
+                    const visible = protocolVisible && onlineVisible;
                     row.style.display = visible ? '' : 'none';
                 });
             }
@@ -1567,6 +1625,17 @@
                 loadClientChart(currentSelectedClient || clientInput.value);
             });
         }
+        if (persistedTrafficOnlineOnlyToggle) {
+            persistedTrafficOnlineOnlyToggle.addEventListener('change', function () {
+                showPersistedOnlineOnly = !!persistedTrafficOnlineOnlyToggle.checked;
+                localStorage.setItem(storagePersistedOnlineOnlyKey, showPersistedOnlineOnly ? '1' : '0');
+                applyTrafficProtocolFilter(false);
+            });
+        }
+        window.addEventListener('logsDashboardTrafficTablesUpdated', function () {
+            formatLocalDateTimeCells();
+            applyTrafficProtocolFilter(false);
+        });
         rangeButtons.forEach(btn => {
             btn.addEventListener('click', function () {
                 currentRange = btn.dataset.range || '7d';

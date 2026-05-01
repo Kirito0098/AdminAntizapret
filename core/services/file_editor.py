@@ -12,6 +12,7 @@ class FileEditor:
             "include_ips": "/root/antizapret/config/include-ips.txt",
             "allow-ips": "/root/antizapret/config/allow-ips.txt",
             "exclude-ips": "/root/antizapret/config/exclude-ips.txt",
+            "drop-ips": "/root/antizapret/config/drop-ips.txt",
             "forward-ips": "/root/antizapret/config/forward-ips.txt",
             "include-adblock-hosts": "/root/antizapret/config/include-adblock-hosts.txt",
             "exclude-adblock-hosts": "/root/antizapret/config/exclude-adblock-hosts.txt",

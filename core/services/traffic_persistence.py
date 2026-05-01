@@ -450,24 +450,29 @@ class TrafficPersistenceService:
         if not target_name:
             return False, "Не указано имя клиента."
 
+        normalized_target_name = target_name.lower()
+
+        def _normalized_equals(column):
+            return self.db.func.lower(self.db.func.trim(column)) == normalized_target_name
+
         try:
             deleted_samples = self.user_traffic_sample_model.query.filter(
-                self.user_traffic_sample_model.common_name == target_name
+                _normalized_equals(self.user_traffic_sample_model.common_name)
             ).delete(synchronize_session=False)
             deleted_sessions = self.traffic_session_state_model.query.filter(
-                self.traffic_session_state_model.common_name == target_name
+                _normalized_equals(self.traffic_session_state_model.common_name)
             ).delete(synchronize_session=False)
             deleted_stats = self.user_traffic_stat_model.query.filter(
-                self.user_traffic_stat_model.common_name == target_name
+                _normalized_equals(self.user_traffic_stat_model.common_name)
             ).delete(synchronize_session=False)
             deleted_protocol_stats = self.user_traffic_stat_protocol_model.query.filter(
-                self.user_traffic_stat_protocol_model.common_name == target_name
+                _normalized_equals(self.user_traffic_stat_protocol_model.common_name)
             ).delete(synchronize_session=False)
             deleted_peer_cache = self.openvpn_peer_info_cache_model.query.filter(
-                self.openvpn_peer_info_cache_model.client_name == target_name
+                _normalized_equals(self.openvpn_peer_info_cache_model.client_name)
             ).delete(synchronize_session=False)
             deleted_peer_history = self.openvpn_peer_info_history_model.query.filter(
-                self.openvpn_peer_info_history_model.client_name == target_name
+                _normalized_equals(self.openvpn_peer_info_history_model.client_name)
             ).delete(synchronize_session=False)
 
             self.db.session.commit()
