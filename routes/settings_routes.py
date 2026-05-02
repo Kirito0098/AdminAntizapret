@@ -737,6 +737,48 @@ def register_settings_routes(
         if not isinstance(payload, dict):
             return jsonify({"success": False, "message": "Ожидается JSON-объект"}), 400
 
+        action = str(payload.get("action") or "").strip().lower()
+        if action == "sync_with_list":
+            ip_manager.sync_enabled()
+            sync_result = ip_manager.sync_enabled_from_list()
+            refreshed_states = {k: bool(v) for k, v in ip_manager.get_file_states().items()}
+
+            synced_files = int(sync_result.get("synced_files", 0))
+            updated_files = int(sync_result.get("updated_files", 0))
+            missing_sources = [str(item) for item in (sync_result.get("missing_sources") or [])]
+
+            details_parts = [f"synced={synced_files}", f"updated={updated_files}"]
+            if missing_sources:
+                details_parts.append(f"missing={','.join(missing_sources[:5])}")
+
+            log_user_action_event(
+                "settings_ip_files_sync",
+                target_type="ip_file",
+                target_name="all_enabled",
+                details=" ".join(details_parts),
+            )
+
+            if missing_sources:
+                message = (
+                    f"Сверка завершена: синхронизировано {synced_files}, обновлено {updated_files}. "
+                    f"Не найдены исходные файлы: {', '.join(missing_sources)}"
+                )
+            else:
+                message = (
+                    f"Сверка завершена: синхронизировано {synced_files}, обновлено {updated_files}."
+                )
+
+            return jsonify(
+                {
+                    "success": True,
+                    "message": message,
+                    "synced_files": synced_files,
+                    "updated_files": updated_files,
+                    "missing_sources": missing_sources,
+                    "states": refreshed_states,
+                }
+            )
+
         states = payload.get("states")
         if not isinstance(states, dict):
             return jsonify({"success": False, "message": "Ожидается поле states в формате объекта"}), 400

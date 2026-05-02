@@ -1666,6 +1666,21 @@ body {
   gap: 0.9rem;
 }
 
+.ip-files-actions {
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+
+.ip-files-actions .ip-files-sync-btn {
+  border-color: rgba(103, 131, 145, 0.62);
+  background: linear-gradient(140deg, rgba(54, 72, 82, 0.94), rgba(44, 60, 70, 0.94));
+  color: #dce8ee;
+}
+
+.ip-files-actions .ip-files-sync-btn:hover {
+  filter: brightness(1.08);
+}
+
 .config-item-tooltip {
   color: #a9bec8;
   border-top-color: rgba(87, 112, 124, 0.4);

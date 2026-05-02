@@ -397,6 +397,25 @@ document.addEventListener("DOMContentLoaded", function () {
     applyIpFileStates(payload.states || {});
   };
 
+  const syncIpFilesFromList = async () => {
+    const response = await fetch("/api/antizapret/ip-files", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": document.querySelector('input[name="csrf_token"]')?.value || "",
+      },
+      body: JSON.stringify({ action: "sync_with_list" }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || "Ошибка сверки IP-файлов");
+    }
+
+    applyIpFileStates(payload.states || {});
+    return payload;
+  };
+
   async function loadSchema() {
     try {
       const r = await fetch("/antizapret_settings_schema");
@@ -871,6 +890,37 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (antizapretNeedsApply) {
       applyPendingAntizapretChanges();
+    }
+  });
+
+  document.getElementById("ip-files-sync-btn")?.addEventListener("click", async () => {
+    const statusElement = document.getElementById("config-status");
+    if (!statusElement) return;
+
+    statusElement.textContent = "Сверка IP-файлов...";
+    statusElement.className = "notification notification-info";
+    statusElement.style.display = "block";
+
+    try {
+      const result = await syncIpFilesFromList();
+      statusElement.textContent = result.message || "Сверка IP-файлов завершена.";
+
+      if ((result.missing_sources || []).length > 0) {
+        statusElement.className = "notification notification-warning";
+      } else {
+        statusElement.className = "notification notification-success";
+      }
+
+      if (!antizapretHasUnsavedChanges) {
+        setSectionStatus(antizapretNeedsApply ? "pending" : "applied", "routing");
+      }
+    } catch (error) {
+      statusElement.textContent = `Ошибка: ${error.message}`;
+      statusElement.className = "notification notification-error";
+      console.error("IP files sync error:", error);
+    } finally {
+      updateActionSurface();
+      hideNotificationWithFx(statusElement, 7000);
     }
   });
 

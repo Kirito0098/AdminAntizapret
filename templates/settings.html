@@ -209,6 +209,11 @@
         </div>
 
         <p class="config-description">Файлы IP-списков</p>
+        <p class="config-description">
+          Также поддерживаются пользовательские файлы в <code>/root/antizapret/config</code> по маскам
+          <code>*include-ips.txt</code> и <code>*exclude-ips.txt</code>, например
+          <code>AP-amazon-include-ips.txt</code>.
+        </p>
         {% if ip_files %}
         <div class="config-grid">
           {% for filename, file_info in ip_files.items() %}
@@ -228,6 +233,11 @@
             </div>
           </div>
           {% endfor %}
+        </div>
+        <div class="ip-files-actions">
+          <button id="ip-files-sync-btn" type="button" class="button ip-files-sync-btn">
+            Сверить файлы из списка и синхронизировать
+          </button>
         </div>
         {% else %}
         <p class="no-data">Нет доступных файлов</p>
