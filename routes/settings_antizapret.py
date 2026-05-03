@@ -96,6 +96,7 @@ def init_antizapret(app_or_bp):
                 with open(FILE_PATH, "w", encoding="utf-8") as f:
                     f.writelines(new_lines)
 
+            if changes > 0:
                 user_action_logger = current_app.config.get("USER_ACTION_AUDIT_LOGGER")
                 if callable(user_action_logger):
                     changed_keys = sorted(desired.keys())

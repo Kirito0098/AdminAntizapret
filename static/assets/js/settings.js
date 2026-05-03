@@ -416,6 +416,1106 @@ document.addEventListener("DOMContentLoaded", function () {
     return payload;
   };
 
+  const getCidrStatusElement = () => document.getElementById("cidr-update-status");
+
+  const setCidrStatus = (message, level = "info") => {
+    const statusElement = getCidrStatusElement();
+    if (!statusElement) return;
+    statusElement.textContent = message;
+    statusElement.className = `notification notification-${level}`;
+    statusElement.style.display = "block";
+    hideNotificationWithFx(statusElement, 9000);
+  };
+
+  const CIDR_BUSY_SELECTOR = [
+    "#cidr-select-all",
+    "#cidr-clear-all",
+    "#cidr-refresh-regions",
+    "#cidr-update-selected",
+    "#cidr-update-all",
+    "#cidr-rollback-selected",
+    "#cidr-rollback-all",
+    "#cidr-preset-europe",
+    "#cidr-preset-europe-asia",
+    "#cidr-preset-eu-na",
+    "#cidr-preset-americas",
+    "#cidr-preset-asia-focus",
+    "#cidr-preset-gov-global",
+    "#cidr-preset-all-fallback",
+    "#cidr-preset-all-no-ru",
+    "#cidr-games-select-all",
+    "#cidr-games-clear-all",
+    "#cidr-sync-games-hosts",
+    "#cidr-games-search-input",
+    "#cidr-save-total-limit",
+  ].join(", ");
+
+  const cidrProgressState = {
+    timerId: null,
+    stageIndex: 0,
+    percent: 0,
+  };
+
+  const getCidrProgressElements = () => ({
+    section: document.getElementById("cidr-update"),
+    container: document.getElementById("cidr-progress"),
+    label: document.getElementById("cidr-progress-label"),
+    stage: document.getElementById("cidr-progress-stage"),
+    percent: document.getElementById("cidr-progress-percent"),
+    fill: document.getElementById("cidr-progress-fill"),
+    track: document.getElementById("cidr-progress-track"),
+  });
+
+  const setCidrBusy = (isBusy) => {
+    const section = document.getElementById("cidr-update");
+    if (!section) return;
+
+    section.classList.toggle("cidr-busy", Boolean(isBusy));
+    section.querySelectorAll(CIDR_BUSY_SELECTOR).forEach((node) => {
+      node.disabled = Boolean(isBusy);
+    });
+
+    section.querySelectorAll(
+      ".cidr-region-checkbox, .cidr-scope-checkbox, .cidr-game-checkbox, #cidr-include-non-geo-fallback, #cidr-strict-geo-filter, #cidr-exclude-ru-cidrs, #cidr-total-limit-input"
+    ).forEach((node) => {
+      node.disabled = Boolean(isBusy);
+    });
+  };
+
+  const renderCidrProgress = ({ percent, stageText }) => {
+    const elements = getCidrProgressElements();
+    if (!elements.container) return;
+
+    const safePercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    if (elements.fill) {
+      elements.fill.style.width = `${safePercent}%`;
+    }
+    if (elements.percent) {
+      elements.percent.textContent = `${safePercent}%`;
+    }
+    if (elements.stage && stageText) {
+      elements.stage.textContent = stageText;
+    }
+    if (elements.track) {
+      elements.track.setAttribute("aria-valuenow", String(safePercent));
+      elements.track.setAttribute("aria-valuetext", `${safePercent}%`);
+    }
+  };
+
+  const stopCidrProgressTimer = () => {
+    if (!cidrProgressState.timerId) return;
+    window.clearInterval(cidrProgressState.timerId);
+    cidrProgressState.timerId = null;
+  };
+
+  const startCidrProgress = (labelText = "Выполняется операция...", options = {}) => {
+    const simulated = options.simulated !== false;
+    const elements = getCidrProgressElements();
+    if (!elements.container) return;
+
+    stopCidrProgressTimer();
+    cidrProgressState.percent = 4;
+    cidrProgressState.stageIndex = 0;
+
+    elements.container.hidden = false;
+    if (elements.label) {
+      elements.label.textContent = labelText;
+    }
+
+    const stageTexts = [
+      "Подготовка запроса...",
+      "Получение данных от источников...",
+      "Фильтрация и объединение CIDR...",
+      "Сохранение результатов...",
+    ];
+
+    renderCidrProgress({
+      percent: cidrProgressState.percent,
+      stageText: stageTexts[cidrProgressState.stageIndex],
+    });
+
+    if (!simulated) {
+      return;
+    }
+
+    cidrProgressState.timerId = window.setInterval(() => {
+      const delta = Math.floor(Math.random() * 4) + 2;
+      cidrProgressState.percent = Math.min(92, cidrProgressState.percent + delta);
+
+      if (cidrProgressState.percent >= 30) {
+        cidrProgressState.stageIndex = Math.max(cidrProgressState.stageIndex, 1);
+      }
+      if (cidrProgressState.percent >= 55) {
+        cidrProgressState.stageIndex = Math.max(cidrProgressState.stageIndex, 2);
+      }
+      if (cidrProgressState.percent >= 78) {
+        cidrProgressState.stageIndex = Math.max(cidrProgressState.stageIndex, 3);
+      }
+
+      renderCidrProgress({
+        percent: cidrProgressState.percent,
+        stageText: stageTexts[cidrProgressState.stageIndex],
+      });
+    }, 500);
+  };
+
+  const finishCidrProgress = ({ success = true, stageText = "Готово" } = {}) => {
+    const elements = getCidrProgressElements();
+    if (!elements.container) return;
+
+    stopCidrProgressTimer();
+    renderCidrProgress({ percent: 100, stageText });
+
+    if (elements.label) {
+      elements.label.textContent = success ? "Операция завершена" : "Операция завершена с ошибкой";
+    }
+
+    window.setTimeout(() => {
+      elements.container.hidden = true;
+    }, success ? 1400 : 2200);
+  };
+
+  const getSelectedCidrRegions = () => {
+    const selected = [];
+    document.querySelectorAll(".cidr-region-checkbox:checked").forEach((input) => {
+      const value = (input.value || "").trim();
+      if (value) selected.push(value);
+    });
+    return selected;
+  };
+
+  const setAllCidrRegionsChecked = (checked) => {
+    document.querySelectorAll(".cidr-region-checkbox").forEach((input) => {
+      input.checked = Boolean(checked);
+    });
+  };
+
+  const getSelectedCidrGames = () => {
+    return Array.from(document.querySelectorAll(".cidr-game-checkbox:checked"))
+      .map((input) => (input.value || "").trim().toLowerCase())
+      .filter(Boolean);
+  };
+
+  const setAllCidrGamesChecked = (checked) => {
+    document.querySelectorAll(".cidr-game-checkbox").forEach((input) => {
+      input.checked = Boolean(checked);
+    });
+  };
+
+  const getCidrEstimatePlaceholder = () => {
+    const strictGeoFilter = Boolean(document.getElementById("cidr-strict-geo-filter")?.checked);
+    return strictGeoFilter ? "Под фильтр (strict): —" : "Под фильтр: —";
+  };
+
+  const renderCidrEstimateModeBadge = (strictGeoFilter) => {
+    const badge = document.getElementById("cidr-estimate-mode-badge");
+    if (!badge) return;
+    badge.hidden = !strictGeoFilter;
+  };
+
+  const renderCidrMeta = () => {
+    const selectedProvidersCount = getSelectedCidrRegions().length;
+    const { regionScopes, includeNonGeoFallback, excludeRuCidrs, includeGameKeys, strictGeoFilter } = getCidrRegionSettings();
+
+    const providersEl = document.getElementById("cidr-meta-selected-providers");
+    const scopesEl = document.getElementById("cidr-meta-selected-scopes");
+    const fallbackEl = document.getElementById("cidr-meta-fallback-state");
+    const strictEl = document.getElementById("cidr-meta-strict-state");
+    const ruExclusionEl = document.getElementById("cidr-meta-ru-exclusion-state");
+    const gamesSelectedEl = document.getElementById("cidr-meta-games-selected");
+
+    if (providersEl) providersEl.textContent = String(selectedProvidersCount);
+    if (scopesEl) scopesEl.textContent = String(regionScopes.length);
+    if (fallbackEl) fallbackEl.textContent = includeNonGeoFallback ? "on" : "off";
+    if (strictEl) strictEl.textContent = strictGeoFilter ? "on" : "off";
+    if (ruExclusionEl) ruExclusionEl.textContent = regionScopes.includes("all") && excludeRuCidrs ? "on" : "off";
+    if (gamesSelectedEl) gamesSelectedEl.textContent = String(includeGameKeys.length);
+    renderCidrEstimateModeBadge(strictGeoFilter);
+  };
+
+  const renderCidrResultDetails = (result) => {
+    const panel = document.getElementById("cidr-result-panel");
+    if (!panel) return;
+
+    const updated = Array.isArray(result?.updated) ? result.updated : [];
+    const skipped = Array.isArray(result?.skipped) ? result.skipped : [];
+    const failed = Array.isArray(result?.failed) ? result.failed : [];
+
+    const updatedCountEl = document.getElementById("cidr-result-updated-count");
+    const skippedCountEl = document.getElementById("cidr-result-skipped-count");
+    const failedCountEl = document.getElementById("cidr-result-failed-count");
+    if (updatedCountEl) updatedCountEl.textContent = String(updated.length);
+    if (skippedCountEl) skippedCountEl.textContent = String(skipped.length);
+    if (failedCountEl) failedCountEl.textContent = String(failed.length);
+
+    const updatedListEl = document.getElementById("cidr-result-updated-list");
+    const skippedListEl = document.getElementById("cidr-result-skipped-list");
+    const failedListEl = document.getElementById("cidr-result-failed-list");
+
+    if (updatedListEl) {
+      updatedListEl.innerHTML = updated.length
+        ? updated.map((item) => `<li>${item.file}: ${item.cidr_count} CIDR (${item.source || "source"})</li>`).join("")
+        : '<li class="no-data">Нет обновленных файлов</li>';
+    }
+
+    if (skippedListEl) {
+      skippedListEl.innerHTML = skipped.length
+        ? skipped.map((item) => `<li>${item.file}: ${item.reason || "skipped"}</li>`).join("")
+        : '<li class="no-data">Нет пропущенных файлов</li>';
+    }
+
+    if (failedListEl) {
+      failedListEl.innerHTML = failed.length
+        ? failed.map((item) => `<li>${item.file}: ${item.error || "error"}</li>`).join("")
+        : '<li class="no-data">Нет ошибок</li>';
+    }
+
+    const timeEl = document.getElementById("cidr-result-timestamp");
+    if (timeEl) {
+      const now = new Date();
+      timeEl.textContent = `Последний запуск: ${now.toLocaleString()}`;
+    }
+
+    panel.hidden = false;
+  };
+
+  const getCidrRegionSettings = () => {
+    let selected = Array.from(document.querySelectorAll(".cidr-scope-checkbox:checked"))
+      .map((input) => (input.value || "").trim().toLowerCase())
+      .filter(Boolean);
+
+    if (!selected.length) {
+      selected = ["all"];
+    } else if (selected.includes("all") && selected.length > 1) {
+      selected = ["all"];
+    }
+
+    const includeNonGeoFallback = Boolean(
+      document.getElementById("cidr-include-non-geo-fallback")?.checked
+    );
+    const excludeRuCidrs = Boolean(document.getElementById("cidr-exclude-ru-cidrs")?.checked);
+    const includeGameKeys = getSelectedCidrGames();
+    const strictGeoFilter = Boolean(document.getElementById("cidr-strict-geo-filter")?.checked);
+
+    return {
+      regionScopes: selected,
+      includeNonGeoFallback,
+      excludeRuCidrs,
+      includeGameKeys,
+      strictGeoFilter,
+    };
+  };
+
+  const applyCidrRegionPreset = ({
+    scopes = ["all"],
+    includeNonGeoFallback = false,
+    excludeRuCidrs = false,
+    includeGameKeys = null,
+    strictGeoFilter = false,
+    label = "",
+  } = {}) => {
+    const fallbackToggle = document.getElementById("cidr-include-non-geo-fallback");
+    const excludeRuToggle = document.getElementById("cidr-exclude-ru-cidrs");
+    const strictToggle = document.getElementById("cidr-strict-geo-filter");
+    const checkboxes = Array.from(document.querySelectorAll(".cidr-scope-checkbox"));
+    const gameCheckboxes = Array.from(document.querySelectorAll(".cidr-game-checkbox"));
+
+    if (checkboxes.length) {
+      const normalizedScopes = Array.isArray(scopes) && scopes.length ? scopes : ["all"];
+      const effectiveScopes = normalizedScopes.includes("all") ? ["all"] : normalizedScopes;
+      const wanted = new Set(effectiveScopes);
+
+      checkboxes.forEach((input) => {
+        input.checked = wanted.has((input.value || "").trim().toLowerCase());
+      });
+    }
+
+    if (fallbackToggle) {
+      fallbackToggle.checked = Boolean(includeNonGeoFallback);
+    }
+
+    if (excludeRuToggle) {
+      excludeRuToggle.checked = Boolean(excludeRuCidrs);
+    }
+
+    if (Array.isArray(includeGameKeys) && gameCheckboxes.length) {
+      const wantedGames = new Set(includeGameKeys.map((key) => String(key || "").trim().toLowerCase()).filter(Boolean));
+      gameCheckboxes.forEach((input) => {
+        input.checked = wantedGames.has(String(input.value || "").trim().toLowerCase());
+      });
+    }
+
+    if (strictToggle) {
+      strictToggle.checked = Boolean(strictGeoFilter);
+    }
+
+    if (label) {
+      setCidrStatus(`Применен пресет: ${label}`, "info");
+    }
+
+    renderCidrMeta();
+  };
+
+  const renderCidrRegions = (regions) => {
+    const grid = document.getElementById("cidr-regions-grid");
+    if (!grid) return;
+
+    if (!Array.isArray(regions) || !regions.length) {
+      grid.innerHTML = '<p class="no-data">Нет доступных CIDR-регионов</p>';
+      return;
+    }
+
+    const html = regions.map((item) => {
+      const region = String(item.region || item.file || "Неизвестно");
+      const fileName = String(item.file || "");
+      const desc = String(item.description || "");
+      const supportsGeo = Boolean(item.supports_geo_filter);
+      const geoBadgeClass = supportsGeo ? "cidr-region-badge" : "cidr-region-badge cidr-region-badge--muted";
+      const geoBadgeText = supportsGeo ? "Geo-фильтр: да" : "Geo-фильтр: нет";
+      return `
+        <label class="cidr-region-card" data-cidr-file="${fileName}">
+          <input type="checkbox" class="cidr-region-checkbox" value="${fileName}" />
+          <span class="cidr-region-title">${region}</span>
+          <span class="cidr-region-file">${fileName}</span>
+          <small class="cidr-region-desc">${desc}</small>
+          <span class="${geoBadgeClass}">${geoBadgeText}</span>
+          <small class="cidr-region-estimate" data-cidr-estimate-for="${fileName}">Под фильтр: —</small>
+        </label>
+      `;
+    }).join("");
+
+    grid.innerHTML = html;
+  };
+
+  const renderCidrGameFilters = (gameFilters) => {
+    const container = document.getElementById("cidr-game-filters");
+    if (!container) return;
+
+    const selectedBeforeRender = new Set(getSelectedCidrGames());
+
+    if (!Array.isArray(gameFilters) || !gameFilters.length) {
+      container.innerHTML = '<p class="no-data">Игровые фильтры недоступны</p>';
+      return;
+    }
+
+    container.innerHTML = gameFilters.map((item) => {
+      const key = String(item?.key || "").trim().toLowerCase();
+      const title = String(item?.title || key || "Игра");
+      const checked = selectedBeforeRender.has(key) ? "checked" : "";
+      return `
+        <label class="cidr-scope-chip cidr-game-chip">
+          <input type="checkbox" class="cidr-game-checkbox" value="${key}" ${checked} />
+          <span>${title}</span>
+        </label>
+      `;
+    }).join("");
+
+    applyCidrGameSearchFilter();
+  };
+
+  const applyCidrGameSearchFilter = () => {
+    const searchInput = document.getElementById("cidr-games-search-input");
+    const metaElement = document.getElementById("cidr-games-search-meta");
+    const chips = Array.from(document.querySelectorAll("#cidr-game-filters .cidr-game-chip"));
+    if (!chips.length) {
+      if (metaElement) metaElement.textContent = "Показано игр: 0/0";
+      return;
+    }
+
+    const query = String(searchInput?.value || "").trim().toLowerCase();
+    let visibleCount = 0;
+
+    chips.forEach((chip) => {
+      const title = String(chip.querySelector("span")?.textContent || "").trim().toLowerCase();
+      const value = String(chip.querySelector(".cidr-game-checkbox")?.value || "").trim().toLowerCase();
+      const matches = !query || title.includes(query) || value.includes(query);
+      chip.hidden = !matches;
+      if (matches) visibleCount += 1;
+    });
+
+    if (metaElement) {
+      metaElement.textContent = `Показано игр: ${visibleCount}/${chips.length}`;
+    }
+  };
+
+  const resetCidrEstimateBadges = () => {
+    const placeholder = getCidrEstimatePlaceholder();
+    document.querySelectorAll(".cidr-region-estimate").forEach((el) => {
+      el.textContent = placeholder;
+      el.classList.remove("cidr-region-estimate--ok", "cidr-region-estimate--warn", "cidr-region-estimate--error");
+      el.removeAttribute("title");
+    });
+  };
+
+  const setCidrEstimateBadge = (fileName, text, level = "ok", titleText = "") => {
+    if (!fileName) return;
+
+    const badge = Array.from(document.querySelectorAll(".cidr-region-estimate")).find(
+      (node) => String(node.getAttribute("data-cidr-estimate-for") || "") === String(fileName)
+    );
+    if (!badge) return;
+
+    badge.textContent = text;
+    badge.classList.remove("cidr-region-estimate--ok", "cidr-region-estimate--warn", "cidr-region-estimate--error");
+    badge.classList.add(`cidr-region-estimate--${level}`);
+    if (titleText) {
+      badge.setAttribute("title", titleText);
+    } else {
+      badge.removeAttribute("title");
+    }
+  };
+
+  const renderCidrEstimatePreview = (payload) => {
+    resetCidrEstimateBadges();
+    const { strictGeoFilter } = getCidrRegionSettings();
+    const estimatePrefix = strictGeoFilter ? "Под фильтр (strict)" : "Под фильтр";
+
+    const estimated = Array.isArray(payload?.estimated) ? payload.estimated : [];
+    const skipped = Array.isArray(payload?.skipped) ? payload.skipped : [];
+    const failed = Array.isArray(payload?.failed) ? payload.failed : [];
+
+    estimated.forEach((item) => {
+      const count = Number(item?.cidr_count || 0);
+      const source = String(item?.source || "source");
+      setCidrEstimateBadge(
+        item?.file,
+        `${estimatePrefix}: ${count} CIDR`,
+        "ok",
+        `Источник: ${source}`
+      );
+    });
+
+    skipped.forEach((item) => {
+      const reason = String(item?.reason || "skipped");
+      setCidrEstimateBadge(item?.file, `${estimatePrefix}: пропуск (${reason})`, "warn");
+    });
+
+    failed.forEach((item) => {
+      const errorText = String(item?.error || "error");
+      setCidrEstimateBadge(item?.file, `${estimatePrefix}: ошибка источника`, "error", errorText);
+    });
+  };
+
+  const fetchCidrRegions = async () => {
+    const response = await fetch("/api/cidr-lists", { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || "Не удалось получить список CIDR-регионов");
+    }
+    renderCidrRegions(payload.regions || []);
+    renderCidrGameFilters(payload.game_filters || []);
+
+    const totalLimitInput = document.getElementById("cidr-total-limit-input");
+    const totalLimitValue = Number(payload?.settings?.openvpn_route_total_cidr_limit || 0);
+    if (totalLimitInput && Number.isFinite(totalLimitValue) && totalLimitValue > 0) {
+      totalLimitInput.value = String(totalLimitValue);
+    }
+
+    renderCidrMeta();
+    resetCidrEstimateBadges();
+    return payload;
+  };
+
+  const runCidrAction = async ({
+    action,
+    regions,
+    regionScopes = ["all"],
+    includeNonGeoFallback = false,
+    excludeRuCidrs = false,
+    includeGameKeys = [],
+    strictGeoFilter = false,
+    openvpnRouteTotalCidrLimit = null,
+  }) => {
+    const response = await fetch("/api/cidr-lists", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": document.querySelector('input[name="csrf_token"]')?.value || "",
+      },
+      body: JSON.stringify({
+        action,
+        regions,
+        region_scopes: regionScopes,
+        include_non_geo_fallback: includeNonGeoFallback,
+        exclude_ru_cidrs: excludeRuCidrs,
+        include_game_hosts: Array.isArray(includeGameKeys) && includeGameKeys.length > 0,
+        include_game_keys: includeGameKeys,
+        strict_geo_filter: strictGeoFilter,
+        openvpn_route_total_cidr_limit: openvpnRouteTotalCidrLimit,
+      }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || "Ошибка операции с CIDR-списками");
+    }
+    return payload;
+  };
+
+  const pollCidrTask = async (taskId, options = {}) => {
+    const intervalMs = options.intervalMs || 1200;
+    const timeoutMs = options.timeoutMs || 1800000;
+    const onProgress = typeof options.onProgress === "function" ? options.onProgress : null;
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const response = await fetch(`/api/cidr-lists/task/${encodeURIComponent(taskId)}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ошибка запроса статуса CIDR-задачи (HTTP ${response.status})`);
+      }
+
+      const task = await response.json();
+      if (!task.success) {
+        throw new Error(task.message || "Не удалось получить статус CIDR-задачи");
+      }
+
+      if (onProgress) {
+        onProgress(task);
+      }
+
+      if (task.status === "completed") {
+        return task.result || task;
+      }
+
+      if (task.status === "failed") {
+        throw new Error(task.error || task.message || "CIDR-задача завершилась с ошибкой");
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    throw new Error("Превышено время ожидания CIDR-задачи");
+  };
+
+  const executeCidrLongAction = async ({
+    action,
+    regions,
+    regionScopes,
+    includeNonGeoFallback,
+    excludeRuCidrs,
+    includeGameKeys,
+    strictGeoFilter,
+    progressLabel,
+  }) => {
+    startCidrProgress(progressLabel || "Выполняется операция...", { simulated: false });
+
+    try {
+      const queued = await runCidrAction({
+        action,
+        regions,
+        regionScopes,
+        includeNonGeoFallback,
+        excludeRuCidrs,
+        includeGameKeys,
+        strictGeoFilter,
+      });
+
+      if (!queued?.queued || !queued?.task_id) {
+        finishCidrProgress({ success: true, stageText: "Операция завершена" });
+        return queued;
+      }
+
+      const result = await pollCidrTask(queued.task_id, {
+        onProgress: (task) => {
+          const percent = Number(task.progress_percent || 0);
+          const stageText = String(task.progress_stage || task.message || "Выполняется операция");
+          renderCidrProgress({ percent, stageText });
+        },
+      });
+
+      finishCidrProgress({ success: true, stageText: "Операция завершена" });
+      return result;
+    } catch (error) {
+      finishCidrProgress({ success: false, stageText: "Операция завершилась с ошибкой" });
+      throw error;
+    }
+  };
+
+  const initCidrUpdateControls = () => {
+    const section = document.getElementById("cidr-update");
+    if (!section) return;
+
+    let regionsLoaded = false;
+    let estimateTimer = null;
+    let estimateRequestSeq = 0;
+
+    const ensureLoaded = async () => {
+      if (regionsLoaded) return;
+      await fetchCidrRegions();
+      regionsLoaded = true;
+    };
+
+    const refreshCidrEstimatePreview = async () => {
+      await ensureLoaded();
+      const requestId = ++estimateRequestSeq;
+      const { regionScopes, includeNonGeoFallback, excludeRuCidrs, includeGameKeys, strictGeoFilter } = getCidrRegionSettings();
+
+      try {
+        const result = await runCidrAction({
+          action: "estimate",
+          regions: [],
+          regionScopes,
+          includeNonGeoFallback,
+          excludeRuCidrs,
+          includeGameKeys,
+          strictGeoFilter,
+        });
+        if (requestId !== estimateRequestSeq) return { stale: true };
+        renderCidrEstimatePreview(result);
+        return { stale: false };
+      } catch (error) {
+        if (requestId !== estimateRequestSeq) {
+          return { stale: true };
+        }
+        throw error;
+      }
+    };
+
+    const scheduleCidrEstimateRefresh = (delay = 280) => {
+      if (estimateTimer) {
+        window.clearTimeout(estimateTimer);
+      }
+      estimateTimer = window.setTimeout(async () => {
+        const renderEstimateError = (error) => {
+          resetCidrEstimateBadges();
+          const { strictGeoFilter } = getCidrRegionSettings();
+          const estimatePrefix = strictGeoFilter ? "Под фильтр (strict)" : "Под фильтр";
+          document.querySelectorAll(".cidr-region-estimate").forEach((el) => {
+            el.textContent = `${estimatePrefix}: недоступно`;
+            el.classList.remove("cidr-region-estimate--ok", "cidr-region-estimate--warn");
+            el.classList.add("cidr-region-estimate--error");
+            el.setAttribute("title", error.message || "estimate error");
+          });
+        };
+
+        try {
+          const result = await refreshCidrEstimatePreview();
+          if (result?.stale) return;
+        } catch (error) {
+          // A single retry helps when upstream providers respond slowly.
+          try {
+            const retryResult = await refreshCidrEstimatePreview();
+            if (retryResult?.stale) return;
+          } catch (retryError) {
+            renderEstimateError(retryError || error);
+          }
+        }
+      }, delay);
+    };
+
+    document.getElementById("cidr-select-all")?.addEventListener("click", () => {
+      setAllCidrRegionsChecked(true);
+      renderCidrMeta();
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-clear-all")?.addEventListener("click", () => {
+      setAllCidrRegionsChecked(false);
+      renderCidrMeta();
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-games-select-all")?.addEventListener("click", () => {
+      setAllCidrGamesChecked(true);
+      renderCidrMeta();
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-games-clear-all")?.addEventListener("click", () => {
+      setAllCidrGamesChecked(false);
+      renderCidrMeta();
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-games-search-input")?.addEventListener("input", () => {
+      applyCidrGameSearchFilter();
+    });
+
+    document.getElementById("cidr-save-total-limit")?.addEventListener("click", async () => {
+      try {
+        setCidrBusy(true);
+        const input = document.getElementById("cidr-total-limit-input");
+        const rawValue = String(input?.value || "").trim();
+
+        if (!/^\d+$/.test(rawValue)) {
+          setCidrStatus("Лимит CIDR должен быть целым числом", "warning");
+          return;
+        }
+
+        const limitValue = Number(rawValue);
+        if (!Number.isFinite(limitValue) || limitValue <= 0 || limitValue > 200000) {
+          setCidrStatus("Лимит CIDR должен быть в диапазоне 1..200000", "warning");
+          return;
+        }
+
+        startCidrProgress("Сохранение лимита CIDR...", { simulated: true });
+        const result = await runCidrAction({
+          action: "set_total_limit",
+          regions: [],
+          openvpnRouteTotalCidrLimit: limitValue,
+        });
+
+        if (input && Number.isFinite(Number(result?.openvpn_route_total_cidr_limit))) {
+          input.value = String(Number(result.openvpn_route_total_cidr_limit));
+        }
+
+        finishCidrProgress({ success: true, stageText: "Лимит сохранен" });
+        setCidrStatus(result?.message || "Лимит CIDR сохранен", "success");
+        scheduleCidrEstimateRefresh(50);
+      } catch (error) {
+        finishCidrProgress({ success: false, stageText: "Ошибка сохранения лимита" });
+        setCidrStatus(`Ошибка: ${error.message}`, "error");
+      } finally {
+        setCidrBusy(false);
+      }
+    });
+
+    document.getElementById("cidr-sync-games-hosts")?.addEventListener("click", async () => {
+      try {
+        setCidrBusy(true);
+        await ensureLoaded();
+        const { includeGameKeys } = getCidrRegionSettings();
+        setCidrStatus("Синхронизация include-hosts/include-ips по выбранным играм...", "info");
+        startCidrProgress("Синхронизация include-hosts/include-ips...", { simulated: true });
+
+        const result = await runCidrAction({
+          action: "sync_games_hosts",
+          regions: [],
+          includeGameKeys,
+        });
+
+        finishCidrProgress({ success: true, stageText: "include-hosts/include-ips синхронизированы" });
+
+        const info = result?.game_hosts_filter || {};
+        const ipsInfo = result?.game_ips_filter || {};
+        const selectedCount = Number(info.selected_game_count || 0);
+        const domainCount = Number(info.domain_count || 0);
+        const cidrCount = Number(ipsInfo.cidr_count || 0);
+        const changed = Boolean(info.changed || ipsInfo.changed);
+        const baseMessage = result?.message || "Игровые фильтры синхронизированы";
+        const suffix = changed
+          ? ` (игр: ${selectedCount}, доменов: ${domainCount}, CIDR: ${cidrCount})`
+          : " (изменений не было)";
+
+        setCidrStatus(`${baseMessage}${suffix}`, "success");
+        renderCidrMeta();
+      } catch (error) {
+        finishCidrProgress({ success: false, stageText: "Ошибка синхронизации include-hosts/include-ips" });
+        setCidrStatus(`Ошибка: ${error.message}`, "error");
+      } finally {
+        setCidrBusy(false);
+      }
+    });
+
+    document.getElementById("cidr-refresh-regions")?.addEventListener("click", async () => {
+      try {
+        setCidrBusy(true);
+        startCidrProgress("Обновление списка регионов...");
+        await fetchCidrRegions();
+        regionsLoaded = true;
+        finishCidrProgress({ success: true, stageText: "Список регионов обновлен" });
+        setCidrStatus("Список регионов обновлен", "success");
+        scheduleCidrEstimateRefresh(50);
+      } catch (error) {
+        finishCidrProgress({ success: false, stageText: "Ошибка обновления" });
+        setCidrStatus(`Ошибка: ${error.message}`, "error");
+      } finally {
+        setCidrBusy(false);
+      }
+    });
+
+    document.getElementById("cidr-preset-europe")?.addEventListener("click", () => {
+      applyCidrRegionPreset({
+        scopes: ["europe"],
+        includeNonGeoFallback: false,
+        strictGeoFilter: false,
+        label: "Только Европа",
+      });
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-preset-europe-asia")?.addEventListener("click", () => {
+      applyCidrRegionPreset({
+        scopes: ["europe", "asia-pacific"],
+        includeNonGeoFallback: false,
+        strictGeoFilter: false,
+        label: "Европа + Азия",
+      });
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-preset-eu-na")?.addEventListener("click", () => {
+      applyCidrRegionPreset({
+        scopes: ["europe", "north-america"],
+        includeNonGeoFallback: false,
+        strictGeoFilter: false,
+        label: "Европа + Северная Америка",
+      });
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-preset-americas")?.addEventListener("click", () => {
+      applyCidrRegionPreset({
+        scopes: ["north-america", "central-america", "south-america"],
+        includeNonGeoFallback: false,
+        strictGeoFilter: false,
+        label: "Обе Америки",
+      });
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-preset-asia-focus")?.addEventListener("click", () => {
+      applyCidrRegionPreset({
+        scopes: ["asia-east", "asia-south", "asia-southeast", "china", "oceania"],
+        includeNonGeoFallback: false,
+        strictGeoFilter: false,
+        label: "Азия расширенно",
+      });
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-preset-gov-global")?.addEventListener("click", () => {
+      applyCidrRegionPreset({
+        scopes: ["government", "china", "global"],
+        includeNonGeoFallback: true,
+        strictGeoFilter: false,
+        label: "Gov + China + Global",
+      });
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-preset-all-fallback")?.addEventListener("click", () => {
+      applyCidrRegionPreset({
+        scopes: ["all"],
+        includeNonGeoFallback: true,
+        excludeRuCidrs: false,
+        strictGeoFilter: false,
+        label: "Все + fallback",
+      });
+      scheduleCidrEstimateRefresh();
+    });
+
+    document.getElementById("cidr-preset-all-no-ru")?.addEventListener("click", () => {
+      applyCidrRegionPreset({
+        scopes: ["all"],
+        includeNonGeoFallback: false,
+        excludeRuCidrs: true,
+        strictGeoFilter: false,
+        label: "Все регионы без RU",
+      });
+      scheduleCidrEstimateRefresh();
+    });
+
+    const normalizeScopeSelection = (changedValue) => {
+      const checkboxes = Array.from(document.querySelectorAll(".cidr-scope-checkbox"));
+      if (!checkboxes.length) return;
+
+      const allCheckbox = checkboxes.find((input) => (input.value || "").trim().toLowerCase() === "all");
+      if (!allCheckbox) return;
+
+      const hasOtherChecked = checkboxes.some(
+        (input) => (input.value || "").trim().toLowerCase() !== "all" && input.checked
+      );
+
+      if (String(changedValue || "").trim().toLowerCase() === "all" && allCheckbox.checked) {
+        checkboxes.forEach((input) => {
+          if ((input.value || "").trim().toLowerCase() !== "all") {
+            input.checked = false;
+          }
+        });
+        return;
+      }
+
+      if (hasOtherChecked) {
+        allCheckbox.checked = false;
+      } else {
+        allCheckbox.checked = true;
+      }
+    };
+
+    document.getElementById("cidr-update-selected")?.addEventListener("click", async () => {
+      try {
+        setCidrBusy(true);
+        await ensureLoaded();
+        const selected = getSelectedCidrRegions();
+        if (!selected.length) {
+          setCidrStatus("Выберите хотя бы один регион", "warning");
+          return;
+        }
+        const { regionScopes, includeNonGeoFallback, excludeRuCidrs, includeGameKeys, strictGeoFilter } = getCidrRegionSettings();
+        setCidrStatus("Обновление выбранных CIDR-файлов...", "info");
+        const result = await executeCidrLongAction({
+          action: "update",
+          regions: selected,
+          regionScopes,
+          includeNonGeoFallback,
+          excludeRuCidrs,
+          includeGameKeys,
+          strictGeoFilter,
+          progressLabel: "Обновление выбранных CIDR-файлов...",
+        });
+        const updatedCount = Array.isArray(result.updated) ? result.updated.length : 0;
+        const failedCount = Array.isArray(result.failed) ? result.failed.length : 0;
+        const skippedNames = (Array.isArray(result.skipped) ? result.skipped : [])
+          .map((item) => item?.file)
+          .filter(Boolean)
+          .join(", ");
+        const failedNames = (Array.isArray(result.failed) ? result.failed : [])
+          .map((item) => item?.file)
+          .filter(Boolean)
+          .join(", ");
+        const level = failedCount > 0 || skippedNames ? "warning" : "success";
+        const details = failedNames ? ` (${failedNames})` : "";
+        const skippedDetails = skippedNames ? `; пропущено: ${skippedNames}` : "";
+        setCidrStatus(`Готово: обновлено ${updatedCount}, ошибок ${failedCount}${details}${skippedDetails}`, level);
+        renderCidrResultDetails(result);
+        scheduleCidrEstimateRefresh(50);
+      } catch (error) {
+        setCidrStatus(`Ошибка: ${error.message}`, "error");
+      } finally {
+        setCidrBusy(false);
+      }
+    });
+
+    document.getElementById("cidr-update-all")?.addEventListener("click", async () => {
+      try {
+        setCidrBusy(true);
+        await ensureLoaded();
+        const { regionScopes, includeNonGeoFallback, excludeRuCidrs, includeGameKeys, strictGeoFilter } = getCidrRegionSettings();
+        setCidrStatus("Обновление всех CIDR-файлов...", "info");
+        const result = await executeCidrLongAction({
+          action: "update",
+          regions: [],
+          regionScopes,
+          includeNonGeoFallback,
+          excludeRuCidrs,
+          includeGameKeys,
+          strictGeoFilter,
+          progressLabel: "Обновление всех CIDR-файлов...",
+        });
+        const updatedCount = Array.isArray(result.updated) ? result.updated.length : 0;
+        const failedCount = Array.isArray(result.failed) ? result.failed.length : 0;
+        const skippedNames = (Array.isArray(result.skipped) ? result.skipped : [])
+          .map((item) => item?.file)
+          .filter(Boolean)
+          .join(", ");
+        const failedNames = (Array.isArray(result.failed) ? result.failed : [])
+          .map((item) => item?.file)
+          .filter(Boolean)
+          .join(", ");
+        const level = failedCount > 0 || skippedNames ? "warning" : "success";
+        const details = failedNames ? ` (${failedNames})` : "";
+        const skippedDetails = skippedNames ? `; пропущено: ${skippedNames}` : "";
+        setCidrStatus(`Готово: обновлено ${updatedCount}, ошибок ${failedCount}${details}${skippedDetails}`, level);
+        renderCidrResultDetails(result);
+        scheduleCidrEstimateRefresh(50);
+      } catch (error) {
+        setCidrStatus(`Ошибка: ${error.message}`, "error");
+      } finally {
+        setCidrBusy(false);
+      }
+    });
+
+    document.getElementById("cidr-rollback-selected")?.addEventListener("click", async () => {
+      try {
+        setCidrBusy(true);
+        await ensureLoaded();
+        const selected = getSelectedCidrRegions();
+        if (!selected.length) {
+          setCidrStatus("Выберите хотя бы один регион", "warning");
+          return;
+        }
+        setCidrStatus("Откат выбранных CIDR-файлов...", "info");
+        const result = await executeCidrLongAction({
+          action: "rollback",
+          regions: selected,
+          progressLabel: "Откат выбранных CIDR-файлов...",
+        });
+        const restoredCount = Array.isArray(result.restored) ? result.restored.length : 0;
+        setCidrStatus(`Откат выполнен: восстановлено ${restoredCount}`, "success");
+        renderCidrResultDetails({
+          updated: (Array.isArray(result.restored) ? result.restored : []).map((file) => ({
+            file,
+            cidr_count: "-",
+            source: "baseline",
+          })),
+          skipped: [],
+          failed: [],
+        });
+        scheduleCidrEstimateRefresh(50);
+      } catch (error) {
+        setCidrStatus(`Ошибка: ${error.message}`, "error");
+      } finally {
+        setCidrBusy(false);
+      }
+    });
+
+    document.getElementById("cidr-rollback-all")?.addEventListener("click", async () => {
+      try {
+        setCidrBusy(true);
+        await ensureLoaded();
+        setCidrStatus("Откат всех CIDR-файлов к эталону...", "info");
+        const result = await executeCidrLongAction({
+          action: "rollback",
+          regions: [],
+          progressLabel: "Откат всех CIDR-файлов...",
+        });
+        const restoredCount = Array.isArray(result.restored) ? result.restored.length : 0;
+        setCidrStatus(`Откат выполнен: восстановлено ${restoredCount}`, "success");
+        renderCidrResultDetails({
+          updated: (Array.isArray(result.restored) ? result.restored : []).map((file) => ({
+            file,
+            cidr_count: "-",
+            source: "baseline",
+          })),
+          skipped: [],
+          failed: [],
+        });
+        scheduleCidrEstimateRefresh(50);
+      } catch (error) {
+        setCidrStatus(`Ошибка: ${error.message}`, "error");
+      } finally {
+        setCidrBusy(false);
+      }
+    });
+
+    section.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!target) return;
+      if (target.matches(".cidr-scope-checkbox")) {
+        normalizeScopeSelection(target.value);
+      }
+      if (
+        target.matches(".cidr-region-checkbox")
+        || target.matches(".cidr-scope-checkbox")
+        || target.matches(".cidr-game-checkbox")
+        || target.id === "cidr-include-non-geo-fallback"
+        || target.id === "cidr-exclude-ru-cidrs"
+        || target.id === "cidr-strict-geo-filter"
+      ) {
+        renderCidrMeta();
+        scheduleCidrEstimateRefresh();
+      }
+    });
+
+    window.addEventListener("settings:tab-changed", async (event) => {
+      const tabId = event?.detail?.tabId;
+      if (tabId !== "cidr-update") return;
+      try {
+        await ensureLoaded();
+        renderCidrMeta();
+        scheduleCidrEstimateRefresh(50);
+      } catch (error) {
+        setCidrStatus(`Ошибка: ${error.message}`, "error");
+      }
+    });
+
+    scheduleCidrEstimateRefresh(120);
+  };
+
   async function loadSchema() {
     try {
       const r = await fetch("/antizapret_settings_schema");
@@ -864,6 +1964,7 @@ document.addEventListener("DOMContentLoaded", function () {
   initMenu();
   initUserActionPopups();
   initAntizapretDirtyTracking();
+  initCidrUpdateControls();
 
   document.getElementById("sticky-save")?.addEventListener("click", () => {
     saveAntizapretSettings({ applyChanges: false });

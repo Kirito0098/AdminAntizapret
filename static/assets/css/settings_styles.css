@@ -2829,3 +2829,489 @@ body.settings-nav-merged .settings-content.page-unified-card {
     grid-column: 1 / -1;
   }
 }
+
+#cidr-update .cidr-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+#cidr-update .cidr-actions-row .button {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto !important;
+  max-width: max-content;
+  min-height: 42px;
+  min-width: 0;
+  padding: 0.5rem 0.86rem;
+  border-radius: 0.68rem;
+  font-size: 0.88rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+#cidr-update .cidr-actions-row .button:not(.save-button):not(.delete-button) {
+  border-color: #4b6170;
+  background: rgba(35, 48, 56, 0.86);
+  color: #d7e5eb;
+}
+
+#cidr-update .cidr-shell {
+  border: 1px solid rgba(98, 129, 144, 0.34);
+  background: linear-gradient(160deg, rgba(24, 34, 41, 0.84), rgba(18, 27, 34, 0.72));
+}
+
+#cidr-update .cidr-shell__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  gap: 0.9rem;
+  align-items: start;
+}
+
+#cidr-update .cidr-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+#cidr-update .cidr-meta-item {
+  border: 1px solid rgba(102, 130, 143, 0.32);
+  background: rgba(21, 33, 41, 0.78);
+  border-radius: 10px;
+  padding: 0.6rem 0.55rem;
+  text-align: center;
+}
+
+#cidr-update .cidr-meta-item__value {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #e4f1f7;
+}
+
+#cidr-update .cidr-meta-item__label {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.75rem;
+  color: #9eb6c2;
+}
+
+#cidr-update .cidr-control-grid {
+  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.8rem;
+}
+
+#cidr-update .cidr-control-panel {
+  border: 1px solid rgba(93, 123, 139, 0.34);
+  border-radius: 12px;
+  background: rgba(18, 28, 36, 0.64);
+  padding: 0.78rem;
+}
+
+#cidr-update .cidr-control-panel h4 {
+  margin: 0;
+  color: #dceaf1;
+  font-size: 0.94rem;
+}
+
+#cidr-update .cidr-panel-head__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#cidr-update .cidr-panel-head__hint {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(102, 130, 143, 0.28);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  color: #9db2bf;
+}
+
+#cidr-update .cidr-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(98, 190, 161, 0.45);
+  background: rgba(38, 74, 65, 0.45);
+  color: #8ee0c3;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+#cidr-update .cidr-step-badge--launch {
+  font-size: 0.62rem;
+}
+
+#cidr-update .cidr-control-panel--execution {
+  border-color: rgba(98, 190, 161, 0.36);
+  background: linear-gradient(160deg, rgba(23, 39, 37, 0.78), rgba(17, 29, 31, 0.68));
+}
+
+#cidr-update .cidr-execution-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+#cidr-update .cidr-execution-col {
+  border: 1px solid rgba(98, 129, 144, 0.3);
+  border-radius: 10px;
+  background: rgba(17, 29, 37, 0.55);
+  padding: 0.7rem;
+}
+
+#cidr-update .cidr-execution-col h5 {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #d8e8ef;
+}
+
+#cidr-update .cidr-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+#cidr-update .cidr-estimate-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(194, 168, 97, 0.52);
+  background: rgba(84, 70, 26, 0.5);
+  color: #e8d8a5;
+  border-radius: 999px;
+  padding: 0.12rem 0.5rem;
+  font-size: 0.72rem;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+}
+
+#cidr-update #cidr-region-scopes {
+  min-height: auto;
+}
+
+#cidr-update .cidr-scope-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+  align-items: stretch;
+}
+
+#cidr-update .cidr-scope-chip {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 52px;
+  border: 1px solid rgba(102, 130, 143, 0.34);
+  background: rgba(24, 36, 44, 0.66);
+  border-radius: 14px;
+  padding: 0.45rem 0.65rem;
+  color: #cfe0e8;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+
+#cidr-update .cidr-scope-chip span {
+  display: block;
+  line-height: 1.2;
+}
+
+#cidr-update .cidr-scope-chip input {
+  accent-color: #62bea1;
+  margin: 0;
+}
+
+#cidr-update .cidr-scope-chip:has(input:checked) {
+  border-color: rgba(100, 182, 152, 0.58);
+  background: rgba(34, 70, 61, 0.62);
+}
+
+#cidr-update .cidr-games-grid {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+}
+
+#cidr-update .cidr-games-search-wrap {
+  display: grid;
+  gap: 0.35rem;
+}
+
+#cidr-update .cidr-games-search-input {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(98, 126, 140, 0.45);
+  background: rgba(16, 27, 34, 0.78);
+  color: #d8e7ee;
+  padding: 0.52rem 0.72rem;
+}
+
+#cidr-update .cidr-games-search-input::placeholder {
+  color: #8ea6b1;
+}
+
+#cidr-update .cidr-games-search-input:focus {
+  outline: none;
+  border-color: rgba(109, 199, 166, 0.72);
+  box-shadow: 0 0 0 2px rgba(109, 199, 166, 0.14);
+}
+
+#cidr-update .cidr-game-chip {
+  min-height: 46px;
+}
+
+#cidr-update .cidr-actions-row--primary .button {
+  min-width: 118px;
+  padding-inline: 0.84rem;
+}
+
+#cidr-update .cidr-actions-row--primary {
+  gap: 0.5rem;
+}
+
+#cidr-update .cidr-regions-grid {
+  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.7rem;
+}
+
+#cidr-update .cidr-region-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.72rem;
+  border-radius: 10px;
+  border: 1px solid rgba(102, 130, 143, 0.36);
+  background: linear-gradient(150deg, rgba(24, 36, 44, 0.8), rgba(19, 29, 37, 0.72));
+  cursor: pointer;
+}
+
+#cidr-update .cidr-region-card:hover {
+  border-color: rgba(129, 175, 199, 0.64);
+}
+
+#cidr-update .cidr-region-card:has(.cidr-region-checkbox:checked) {
+  border-color: rgba(122, 198, 170, 0.72);
+  background: rgba(24, 49, 47, 0.64);
+}
+
+#cidr-update .cidr-region-title {
+  font-weight: 700;
+  color: #dbe9ef;
+}
+
+#cidr-update .cidr-region-file {
+  font-size: 0.8rem;
+  color: #9ab3be;
+}
+
+#cidr-update .cidr-region-desc {
+  color: #b4c7cf;
+}
+
+#cidr-update .cidr-region-badge {
+  justify-self: start;
+  margin-top: 0.1rem;
+  font-size: 0.73rem;
+  border-radius: 999px;
+  padding: 0.16rem 0.45rem;
+  color: #c7f4de;
+  border: 1px solid rgba(107, 188, 156, 0.42);
+  background: rgba(42, 89, 73, 0.42);
+}
+
+#cidr-update .cidr-region-badge--muted {
+  color: #d0d8de;
+  border-color: rgba(141, 161, 173, 0.34);
+  background: rgba(46, 61, 71, 0.46);
+}
+
+#cidr-update .cidr-region-estimate {
+  font-size: 0.74rem;
+  color: #9eb4bf;
+}
+
+#cidr-update .cidr-region-estimate--ok {
+  color: #83d8b6;
+}
+
+#cidr-update .cidr-region-estimate--warn {
+  color: #e0cd8d;
+}
+
+#cidr-update .cidr-region-estimate--error {
+  color: #e0a2a2;
+}
+
+#cidr-update #cidr-update-status {
+  margin-top: 0.8rem;
+}
+
+#cidr-update .cidr-progress {
+  margin-top: 0.8rem;
+  border: 1px solid rgba(101, 131, 145, 0.36);
+  border-radius: 12px;
+  background: rgba(20, 31, 39, 0.74);
+  padding: 0.7rem;
+}
+
+#cidr-update .cidr-progress__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  color: #d8e7ef;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+#cidr-update .cidr-progress__track {
+  margin-top: 0.45rem;
+  width: 100%;
+  height: 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(106, 136, 149, 0.45);
+  background: rgba(14, 24, 30, 0.74);
+  overflow: hidden;
+}
+
+#cidr-update .cidr-progress__fill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #5cc49f 0%, #7ea8d6 55%, #e2c06e 100%);
+  transition: width 0.35s ease;
+}
+
+#cidr-update.cidr-busy .cidr-control-panel {
+  opacity: 0.78;
+}
+
+#cidr-update .cidr-result-panel {
+  border: 1px solid rgba(100, 131, 146, 0.34);
+  border-radius: 12px;
+  background: rgba(15, 24, 30, 0.7);
+  padding: 0.8rem;
+}
+
+#cidr-update .cidr-result-panel__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+#cidr-update .cidr-result-panel__head h4 {
+  margin: 0;
+}
+
+#cidr-update .cidr-result-stats {
+  margin-top: 0.6rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+#cidr-update .cidr-result-stat {
+  border-radius: 10px;
+  border: 1px solid rgba(101, 131, 145, 0.34);
+  padding: 0.55rem;
+  text-align: center;
+  background: rgba(29, 41, 49, 0.64);
+}
+
+#cidr-update .cidr-result-stat__value {
+  display: block;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+#cidr-update .cidr-result-stat__label {
+  font-size: 0.75rem;
+  color: #9fb6c1;
+}
+
+#cidr-update .cidr-result-stat--ok {
+  border-color: rgba(91, 176, 142, 0.42);
+}
+
+#cidr-update .cidr-result-stat--warn {
+  border-color: rgba(198, 173, 97, 0.42);
+}
+
+#cidr-update .cidr-result-stat--error {
+  border-color: rgba(203, 120, 120, 0.42);
+}
+
+#cidr-update .cidr-result-columns {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+#cidr-update .cidr-result-column {
+  border: 1px solid rgba(91, 119, 133, 0.32);
+  border-radius: 10px;
+  background: rgba(20, 31, 39, 0.72);
+  padding: 0.58rem;
+}
+
+#cidr-update .cidr-result-column h5 {
+  margin: 0 0 0.45rem;
+  font-size: 0.84rem;
+  color: #d6e7ef;
+}
+
+#cidr-update .cidr-result-list {
+  margin: 0;
+  padding-left: 1rem;
+  max-height: 180px;
+  overflow: auto;
+  display: grid;
+  gap: 0.3rem;
+  color: #b8cad3;
+  font-size: 0.8rem;
+}
+
+#cidr-update .cidr-result-list li {
+  line-height: 1.25;
+}
+
+@media (max-width: 1140px) {
+  #cidr-update .cidr-shell__head,
+  #cidr-update .cidr-control-grid,
+  #cidr-update .cidr-result-columns {
+    grid-template-columns: 1fr;
+  }
+
+  #cidr-update .cidr-execution-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #cidr-update .cidr-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #cidr-update .cidr-actions-row .button {
+    min-width: 0;
+  }
+}

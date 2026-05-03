@@ -632,6 +632,10 @@ TRAFFIC_SYNC_CRON_MARKER = runtime_settings["TRAFFIC_SYNC_CRON_MARKER"]
 TRAFFIC_SYNC_CRON_EXPR = runtime_settings["TRAFFIC_SYNC_CRON_EXPR"]
 TRAFFIC_SYNC_ENABLED = runtime_settings["TRAFFIC_SYNC_ENABLED"]
 NIGHTLY_IDLE_RESTART_MARKER = runtime_settings["NIGHTLY_IDLE_RESTART_MARKER"]
+RUNTIME_BACKUP_CLEANUP_MARKER = runtime_settings["RUNTIME_BACKUP_CLEANUP_MARKER"]
+RUNTIME_BACKUP_CLEANUP_CRON_EXPR = runtime_settings["RUNTIME_BACKUP_CLEANUP_CRON_EXPR"]
+RUNTIME_BACKUP_RETENTION_HOURS = runtime_settings["RUNTIME_BACKUP_RETENTION_HOURS"]
+RUNTIME_BACKUP_ROOT = os.path.join(APP_ROOT, "ips", "runtime_backups")
 _runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", runtime_settings["NIGHTLY_IDLE_RESTART_CRON_EXPR"])
 _runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", runtime_settings["NIGHTLY_IDLE_RESTART_ENABLED"])
 _runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", runtime_settings["ACTIVE_WEB_SESSION_TTL_SECONDS"])
@@ -715,6 +719,10 @@ def _ensure_nightly_idle_restart_cron():
     return maintenance_scheduler_service.ensure_nightly_idle_restart_cron()
 
 
+def _ensure_runtime_backup_cleanup_cron():
+    return maintenance_scheduler_service.ensure_runtime_backup_cleanup_cron()
+
+
 _services = build_services(
     app=app,
     db=db,
@@ -726,6 +734,10 @@ _services = build_services(
     traffic_sync_cron_expr=TRAFFIC_SYNC_CRON_EXPR,
     traffic_sync_enabled=TRAFFIC_SYNC_ENABLED,
     nightly_idle_restart_marker=NIGHTLY_IDLE_RESTART_MARKER,
+    runtime_backup_cleanup_marker=RUNTIME_BACKUP_CLEANUP_MARKER,
+    runtime_backup_cleanup_cron_expr=RUNTIME_BACKUP_CLEANUP_CRON_EXPR,
+    runtime_backup_root=RUNTIME_BACKUP_ROOT,
+    runtime_backup_retention_hours=RUNTIME_BACKUP_RETENTION_HOURS,
     openvpn_socket_dir=OPENVPN_SOCKET_DIR,
     openvpn_socket_timeout=OPENVPN_SOCKET_TIMEOUT,
     openvpn_socket_idle_timeout=OPENVPN_SOCKET_IDLE_TIMEOUT,
@@ -835,6 +847,13 @@ try:
         app.logger.warning(_idle_restart_msg)
 except (RuntimeError, OSError, ValueError) as e:
     app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
+
+try:
+    _backup_cleanup_ok, _backup_cleanup_msg = _ensure_runtime_backup_cleanup_cron()
+    if not _backup_cleanup_ok:
+        app.logger.warning(_backup_cleanup_msg)
+except (RuntimeError, OSError, ValueError) as e:
+    app.logger.warning(f"Не удалось инициализировать cron очистки runtime_backups: {e}")
 
 
 def _normalize_traffic_protocol_scope(protocol_scope):

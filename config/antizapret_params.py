@@ -173,26 +173,26 @@ ANTIZAPRET_PARAMS = [
 IP_FILES = {
     "akamai-ips.txt": {
         "name": "Akamai",
-        "description": "Перенаправляет трафик Akamai через Antizapret, включая сайты и сервисы, использующие Akamai для доставки контента."
+        "description": "Маршрутизация сетей Akamai через Antizapret (CDN и edge-сервисы)."
     },
     "amazon-ips.txt": {
         "name": "Amazon",
-        "description": "Перенаправляет трафик Amazon через Antizapret, включая облачные сервисы и веб-сайты Amazon."
+        "description": "Маршрутизация сетей Amazon/AWS через Antizapret."
     },
     "digitalocean-ips.txt": {
         "name": "DigitalOcean",
-        "description": "Перенаправляет трафик DigitalOcean через Antizapret, включая облачные серверы и сервисы, предоставляемые DigitalOcean"
+        "description": "Маршрутизация сетей DigitalOcean через Antizapret."
     },
     "google-ips.txt": {
         "name": "Google",
-        "description": "Перенаправляет трафик Google через Antizapret, включая поисковую систему и другие сервисы Google"
+        "description": "Маршрутизация сетей Google/Google Cloud через Antizapret."
     },
     "hetzner-ips.txt": {
         "name": "Hetzner",
-        "description": "Перенаправляет трафик Hetzner через Antizapret, включая серверы и сервисы, размещенные в дата-центрах Hetzner"
+        "description": "Маршрутизация сетей Hetzner через Antizapret."
     },
     "ovh-ips.txt": {
         "name": "OVH",
-        "description": "Перенаправляет трафик OVH через Antizapret, включая серверы и сервисы, размещенные в дата-центрах OVH"
+        "description": "Маршрутизация сетей OVH через Antizapret."
     }
 }

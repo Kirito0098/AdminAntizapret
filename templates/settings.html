@@ -42,6 +42,10 @@
         <i class="icon">🔧</i>
         <span>Обслуживание</span>
       </li>
+      <li class="menu-item" data-tab="cidr-update">
+        <i class="icon">🗂️</i>
+        <span>Обновление файлов CIDR</span>
+      </li>
       <li class="menu-item" data-tab="action-logs">
         <i class="icon">🧾</i>
         <span>Логи действий</span>
@@ -205,6 +209,7 @@
                 социальные функции.
               </div>
             </div>
+
           </div>
         </div>
 
@@ -664,6 +669,342 @@
         {% else %}
         <p class="no-data">Событий пока нет</p>
         {% endif %}
+      </div>
+    </div>
+
+    <!-- ═══════════════ CIDR: Обновление файлов ═══════════════ -->
+    <div id="cidr-update" class="content-tab">
+      <h2>Обновление файлов CIDR</h2>
+      <div class="card settings-inline-card-mb cidr-shell">
+        <div class="cidr-shell__head">
+          <div>
+            <h3>Управление списками в ips/list</h3>
+            <p class="help-text">
+              Последовательность: 1) выберите провайдеров, 2) задайте геофильтр, 3) настройте режим, 4) при
+              необходимости отметьте игры, затем запустите обновление или откат.
+            </p>
+          </div>
+          <div class="cidr-meta-grid" aria-live="polite">
+            <div class="cidr-meta-item">
+              <span id="cidr-meta-selected-providers" class="cidr-meta-item__value">0</span>
+              <span class="cidr-meta-item__label">провайдеров выбрано</span>
+            </div>
+            <div class="cidr-meta-item">
+              <span id="cidr-meta-selected-scopes" class="cidr-meta-item__value">1</span>
+              <span class="cidr-meta-item__label">георегионов активно</span>
+            </div>
+            <div class="cidr-meta-item">
+              <span id="cidr-meta-fallback-state" class="cidr-meta-item__value">off</span>
+              <span class="cidr-meta-item__label">fallback без geo-меток</span>
+            </div>
+            <div class="cidr-meta-item">
+              <span id="cidr-meta-strict-state" class="cidr-meta-item__value">off</span>
+              <span class="cidr-meta-item__label">строгий geo-режим</span>
+            </div>
+            <div class="cidr-meta-item">
+              <span id="cidr-meta-ru-exclusion-state" class="cidr-meta-item__value">off</span>
+              <span class="cidr-meta-item__label">исключение RU CIDR</span>
+            </div>
+            <div class="cidr-meta-item">
+              <span id="cidr-meta-games-selected" class="cidr-meta-item__value">0</span>
+              <span class="cidr-meta-item__label">игр выбрано</span>
+            </div>
+          </div>
+        </div>
+
+        <input type="hidden" id="cidr-csrf-token" value="{{ csrf_token() }}" />
+
+        <div class="cidr-control-grid">
+          <section class="cidr-control-panel settings-inline-card-mt">
+            <div class="cidr-panel-head">
+              <div class="cidr-panel-head__title">
+                <span class="cidr-step-badge">1</span>
+                <h4>Провайдеры CIDR</h4>
+              </div>
+              <span id="cidr-estimate-mode-badge" class="cidr-estimate-mode-badge" hidden>Preview: strict</span>
+            </div>
+            <div class="cidr-regions-grid" id="cidr-regions-grid">
+              {% for item in cidr_regions %}
+              <label class="cidr-region-card" data-cidr-file="{{ item.file }}">
+                <input type="checkbox" class="cidr-region-checkbox" value="{{ item.file }}" />
+                <span class="cidr-region-title">{{ item.region }}</span>
+                <span class="cidr-region-file">{{ item.file }}</span>
+                <small class="cidr-region-desc">{{ item.description }}</small>
+                {% if item.supports_geo_filter %}
+                <span class="cidr-region-badge">Geo-фильтр: да</span>
+                {% else %}
+                <span class="cidr-region-badge cidr-region-badge--muted">Geo-фильтр: нет</span>
+                {% endif %}
+                <small class="cidr-region-estimate" data-cidr-estimate-for="{{ item.file }}">Под фильтр: —</small>
+              </label>
+              {% endfor %}
+            </div>
+            <div class="cidr-actions-row settings-inline-card-mt">
+              <button id="cidr-select-all" type="button" class="button">Выбрать все</button>
+              <button id="cidr-clear-all" type="button" class="button">Снять выбор</button>
+              <button id="cidr-refresh-regions" type="button" class="button">Обновить список регионов</button>
+            </div>
+          </section>
+
+          <section class="cidr-control-panel">
+            <div class="cidr-panel-head">
+              <div class="cidr-panel-head__title">
+                <span class="cidr-step-badge">2</span>
+                <h4>Геофильтр</h4>
+              </div>
+            </div>
+            <div class="form-group settings-inline-card-mt">
+              <label>Георегионы для обновления CIDR</label>
+              <div id="cidr-region-scopes" class="cidr-scope-grid" role="group" aria-label="Георегионы">
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="all" checked />
+                  <span>Все регионы</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="europe" />
+                  <span>Европа</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="north-america" />
+                  <span>Северная Америка</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="central-america" />
+                  <span>Центральная Америка</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="south-america" />
+                  <span>Южная Америка</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="asia-east" />
+                  <span>Восточная Азия</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="asia-south" />
+                  <span>Южная Азия</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="asia-southeast" />
+                  <span>Юго-Восточная Азия</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="asia-pacific" />
+                  <span>Азия и Океания</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="oceania" />
+                  <span>Океания</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="middle-east" />
+                  <span>Ближний Восток</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="africa" />
+                  <span>Африка</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="china" />
+                  <span>Китай</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="government" />
+                  <span>Gov/гос. облака</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="global" />
+                  <span>Global</span>
+                </label>
+              </div>
+              <small class="help-text">Отмечайте нужные регионы кликом, без Ctrl/Cmd и выпадающих списков.</small>
+            </div>
+
+            <div class="cidr-actions-row settings-inline-card-mt">
+              <button id="cidr-preset-europe" type="button" class="button">Пресет: Только Европа</button>
+              <button id="cidr-preset-europe-asia" type="button" class="button">Пресет: Европа + Азия</button>
+              <button id="cidr-preset-eu-na" type="button" class="button">Пресет: Европа + Сев. Америка</button>
+              <button id="cidr-preset-americas" type="button" class="button">Пресет: Обе Америки</button>
+              <button id="cidr-preset-asia-focus" type="button" class="button">Пресет: Азия расширенно</button>
+              <button id="cidr-preset-gov-global" type="button" class="button">Пресет: Gov + China + Global</button>
+              <button id="cidr-preset-all-fallback" type="button" class="button">Пресет: Все + fallback</button>
+              <button id="cidr-preset-all-no-ru" type="button" class="button">Пресет: Все без RU</button>
+            </div>
+          </section>
+
+          <section class="cidr-control-panel">
+            <div class="cidr-panel-head">
+              <div class="cidr-panel-head__title">
+                <span class="cidr-step-badge">3</span>
+                <h4>Игровой фильтр</h4>
+              </div>
+              <span class="cidr-panel-head__hint">необязательно</span>
+            </div>
+            <div class="form-group settings-inline-card-mt">
+              <label>Игры для принудительной маршрутизации (популярные в СНГ и мире)</label>
+              <div class="cidr-games-search-wrap settings-inline-card-mt">
+                <input id="cidr-games-search-input" type="search" class="cidr-games-search-input"
+                  placeholder="Поиск игры по названию..." autocomplete="off" />
+                <small id="cidr-games-search-meta" class="help-text">Показано игр: —</small>
+              </div>
+              <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid" role="group"
+                aria-label="Игровые фильтры">
+                {% for item in cidr_game_filters %}
+                <label class="cidr-scope-chip cidr-game-chip">
+                  <input type="checkbox" class="cidr-game-checkbox" value="{{ item.key }}" />
+                  <span>{{ item.title }}</span>
+                </label>
+                {% endfor %}
+              </div>
+              <small class="help-text">
+                Отмеченные игры добавляются в управляемые блоки include-hosts и include-ips (CIDR через DNS-резолв
+                доменов).
+              </small>
+              <div class="cidr-actions-row settings-inline-card-mt">
+                <button id="cidr-games-select-all" type="button" class="button">Выбрать все игры</button>
+                <button id="cidr-games-clear-all" type="button" class="button">Снять игры</button>
+                <button id="cidr-sync-games-hosts" type="button" class="button">Применить игры в
+                  include-hosts/include-ips</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="cidr-control-panel cidr-control-panel--execution">
+            <div class="cidr-panel-head">
+              <div class="cidr-panel-head__title">
+                <span class="cidr-step-badge">4</span>
+                <h4>Параметры обработки и запуск</h4>
+              </div>
+            </div>
+
+            <div class="cidr-execution-grid settings-inline-card-mt">
+              <div class="cidr-execution-col">
+                <h5>Параметры обработки</h5>
+                <div class="form-group settings-inline-card-mt">
+                  <label for="cidr-total-limit-input">Общий лимит CIDR (OPENVPN_ROUTE_TOTAL_CIDR_LIMIT)</label>
+                  <div class="cidr-actions-row settings-inline-card-mt">
+                    <input id="cidr-total-limit-input" type="number" min="1" step="1" class="form-control"
+                      value="{{ cidr_total_limit }}" />
+                    <button id="cidr-save-total-limit" type="button" class="button">Сохранить лимит</button>
+                  </div>
+                  <small class="help-text">
+                    Лимит применяется к сумме CIDR по всем провайдерам для estimate/update.
+                  </small>
+                </div>
+
+                <label class="toggle-wrapper settings-inline-card-mt">
+                  <span class="toggle-label">
+                    <span class="config-item-title">Fallback: включать провайдеров без geo-меток целиком</span>
+                  </span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="cidr-include-non-geo-fallback" class="toggle-input" />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+                <small class="help-text">
+                  Если включено, при геофильтре провайдеры без региональных меток не пропускаются, а обновляются
+                  полностью.
+                </small>
+
+                <label class="toggle-wrapper settings-inline-card-mt">
+                  <span class="toggle-label">
+                    <span class="config-item-title">Strict geo: исключать спорные и пограничные префиксы</span>
+                  </span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="cidr-strict-geo-filter" class="toggle-input" />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+                <small class="help-text">
+                  В строгом режиме отбрасываются CIDR с неоднозначной геопривязкой между макрорегионами.
+                </small>
+
+                <label class="toggle-wrapper settings-inline-card-mt">
+                  <span class="toggle-label">
+                    <span class="config-item-title">Исключать российские CIDR (RU) в режиме «Все регионы»</span>
+                  </span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="cidr-exclude-ru-cidrs" class="toggle-input" />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+                <small class="help-text">
+                  Если включено, при scope «Все регионы» из результата удаляются подсети, попадающие в RU country list.
+                </small>
+              </div>
+
+              <div class="cidr-execution-col cidr-execution-col--launch">
+                <h5>Запуск операции</h5>
+                <p class="help-text settings-inline-card-mt">Применить текущие настройки: обновить или откатить
+                  выбранные провайдеры.</p>
+                <div class="cidr-actions-row settings-inline-card-mt cidr-actions-row--primary">
+                  <button id="cidr-update-selected" type="button" class="button save-button">
+                    Обновить выбранные
+                  </button>
+                  <button id="cidr-update-all" type="button" class="button save-button">
+                    Обновить все CIDR
+                  </button>
+                  <button id="cidr-rollback-selected" type="button" class="button delete-button">
+                    Откатить выбранные
+                  </button>
+                  <button id="cidr-rollback-all" type="button" class="button delete-button">
+                    Откатить все к эталону
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div id="cidr-progress" class="cidr-progress settings-inline-card-mt" hidden>
+          <div class="cidr-progress__head">
+            <span id="cidr-progress-label">Выполняется операция...</span>
+            <span id="cidr-progress-percent">0%</span>
+          </div>
+          <div id="cidr-progress-track" class="cidr-progress__track" role="progressbar" aria-valuemin="0"
+            aria-valuemax="100" aria-valuenow="0" aria-valuetext="0%">
+            <div id="cidr-progress-fill" class="cidr-progress__fill"></div>
+          </div>
+          <small id="cidr-progress-stage" class="help-text">Подготовка...</small>
+        </div>
+
+        <div id="cidr-update-status" class="notification settings-inline-hidden"></div>
+
+        <section id="cidr-result-panel" class="cidr-result-panel settings-inline-card-mt" hidden>
+          <div class="cidr-result-panel__head">
+            <h4>Результат последней операции</h4>
+            <small id="cidr-result-timestamp" class="help-text"></small>
+          </div>
+          <div class="cidr-result-stats">
+            <div class="cidr-result-stat cidr-result-stat--ok">
+              <span id="cidr-result-updated-count" class="cidr-result-stat__value">0</span>
+              <span class="cidr-result-stat__label">обновлено</span>
+            </div>
+            <div class="cidr-result-stat cidr-result-stat--warn">
+              <span id="cidr-result-skipped-count" class="cidr-result-stat__value">0</span>
+              <span class="cidr-result-stat__label">пропущено</span>
+            </div>
+            <div class="cidr-result-stat cidr-result-stat--error">
+              <span id="cidr-result-failed-count" class="cidr-result-stat__value">0</span>
+              <span class="cidr-result-stat__label">ошибок</span>
+            </div>
+          </div>
+
+          <div class="cidr-result-columns">
+            <div class="cidr-result-column">
+              <h5>Обновлено</h5>
+              <ul id="cidr-result-updated-list" class="cidr-result-list"></ul>
+            </div>
+            <div class="cidr-result-column">
+              <h5>Пропущено</h5>
+              <ul id="cidr-result-skipped-list" class="cidr-result-list"></ul>
+            </div>
+            <div class="cidr-result-column">
+              <h5>Ошибки</h5>
+              <ul id="cidr-result-failed-list" class="cidr-result-list"></ul>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
 
