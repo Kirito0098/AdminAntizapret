@@ -40,10 +40,16 @@ from routes.route_wiring import register_all_routes
 from routes.settings_antizapret import init_antizapret
 from core.models import (
     ActiveWebSession,
+    AntifilterCidr,
+    AntifilterMeta,
     BackgroundTask,
+    CidrDbRefreshLog,
+    CidrPreset,
     LogsDashboardCache,
     OpenVPNPeerInfoCache,
     OpenVPNPeerInfoHistory,
+    ProviderCidr,
+    ProviderMeta,
     QrDownloadAuditLog,
     QrDownloadToken,
     TelegramMiniAuditLog,
@@ -57,6 +63,7 @@ from core.models import (
     WireGuardPeerCache,
     db,
 )
+from core.services.cidr_db_updater import CidrDbUpdaterService
 from core.services.logs_dashboard_collector import collect_logs_dashboard_data as collect_logs_dashboard_data_service
 from core.services.request_user import get_user_by_username
 from core.services import (
@@ -610,6 +617,14 @@ def _run_db_migrations():
 
 _run_db_migrations()
 
+cidr_db_updater_service = CidrDbUpdaterService(db=db)
+
+try:
+    with app.app_context():
+        cidr_db_updater_service.seed_builtin_presets()
+except Exception as _e:
+    app.logger.warning(f"Не удалось засеять встроенные CIDR-пресеты: {_e}")
+
 
 register_current_user_context_processor(app, session, User)
 
@@ -721,6 +736,10 @@ def _ensure_nightly_idle_restart_cron():
 
 def _ensure_runtime_backup_cleanup_cron():
     return maintenance_scheduler_service.ensure_runtime_backup_cleanup_cron()
+
+
+def _ensure_cidr_db_refresh_cron():
+    return maintenance_scheduler_service.ensure_cidr_db_refresh_cron()
 
 
 _services = build_services(
@@ -854,6 +873,13 @@ try:
         app.logger.warning(_backup_cleanup_msg)
 except (RuntimeError, OSError, ValueError) as e:
     app.logger.warning(f"Не удалось инициализировать cron очистки runtime_backups: {e}")
+
+try:
+    _cidr_db_ok, _cidr_db_msg = _ensure_cidr_db_refresh_cron()
+    if not _cidr_db_ok:
+        app.logger.warning(_cidr_db_msg)
+except (RuntimeError, OSError, ValueError) as e:
+    app.logger.warning(f"Не удалось инициализировать cron обновления CIDR БД: {e}")
 
 
 def _normalize_traffic_protocol_scope(protocol_scope):

@@ -301,3 +301,122 @@ class LogsDashboardCache(db.Model):
     generated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_error = db.Column(db.String(255), nullable=True)
+
+
+class ProviderCidr(db.Model):
+    __tablename__ = "provider_cidr"
+
+    id = db.Column(db.Integer, primary_key=True)
+    provider_key = db.Column(db.String(64), nullable=False, index=True)
+    cidr = db.Column(db.String(50), nullable=False)
+    region_scope = db.Column(db.String(64), nullable=True, index=True)
+    country_codes = db.Column(db.String(255), nullable=True)
+    refreshed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("provider_key", "cidr", name="uq_provider_cidr_key_cidr"),
+        db.Index("ix_provider_cidr_provider_region", "provider_key", "region_scope"),
+    )
+
+
+class ProviderMeta(db.Model):
+    __tablename__ = "provider_meta"
+
+    id = db.Column(db.Integer, primary_key=True)
+    provider_key = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    cidr_count = db.Column(db.Integer, nullable=False, default=0)
+    last_refreshed_at = db.Column(db.DateTime, nullable=True, index=True)
+    refresh_status = db.Column(db.String(16), nullable=False, default="never")
+    refresh_error = db.Column(db.String(512), nullable=True)
+    source_used = db.Column(db.String(128), nullable=True)
+    expected_asn_min = db.Column(db.Integer, nullable=False, default=0)
+    asn_count = db.Column(db.Integer, nullable=False, default=0)
+    active_asn_count = db.Column(db.Integer, nullable=False, default=0)
+    anomaly_level = db.Column(db.String(16), nullable=False, default="none", index=True)
+    anomaly_reason = db.Column(db.String(512), nullable=True)
+
+
+class ProviderAsn(db.Model):
+    __tablename__ = "provider_asn"
+
+    id = db.Column(db.Integer, primary_key=True)
+    provider_key = db.Column(db.String(64), nullable=False, index=True)
+    asn = db.Column(db.Integer, nullable=False, index=True)
+    source = db.Column(db.String(64), nullable=True)
+    active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    status = db.Column(db.String(16), nullable=False, default="ok")
+    error = db.Column(db.String(512), nullable=True)
+    prefix_count = db.Column(db.Integer, nullable=False, default=0)
+    discovered_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("provider_key", "asn", name="uq_provider_asn_key_asn"),
+        db.Index("ix_provider_asn_provider_active", "provider_key", "active"),
+    )
+
+
+class ProviderAsnSnapshot(db.Model):
+    __tablename__ = "provider_asn_snapshot"
+
+    id = db.Column(db.Integer, primary_key=True)
+    refresh_log_id = db.Column(db.Integer, db.ForeignKey("cidr_db_refresh_log.id"), nullable=False, index=True)
+    provider_key = db.Column(db.String(64), nullable=False, index=True)
+    asn = db.Column(db.Integer, nullable=False, index=True)
+    status = db.Column(db.String(16), nullable=False, default="ok")
+    prefix_count = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("refresh_log_id", "provider_key", "asn", name="uq_provider_asn_snapshot"),
+        db.Index("ix_provider_asn_snapshot_provider_refresh", "provider_key", "refresh_log_id"),
+    )
+
+
+class CidrDbRefreshLog(db.Model):
+    __tablename__ = "cidr_db_refresh_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    started_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    finished_at = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(16), nullable=False, default="running")
+    providers_updated = db.Column(db.Integer, nullable=False, default=0)
+    providers_failed = db.Column(db.Integer, nullable=False, default=0)
+    total_cidrs = db.Column(db.Integer, nullable=False, default=0)
+    error = db.Column(db.String(512), nullable=True)
+    triggered_by = db.Column(db.String(64), nullable=True)
+    details_json = db.Column(db.Text, nullable=True)
+
+
+class CidrPreset(db.Model):
+    __tablename__ = "cidr_preset"
+
+    id = db.Column(db.Integer, primary_key=True)
+    preset_key = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(500), nullable=True)
+    is_builtin = db.Column(db.Boolean, nullable=False, default=False)
+    providers_json = db.Column(db.Text, nullable=False, default="[]")
+    settings_json = db.Column(db.Text, nullable=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AntifilterCidr(db.Model):
+    """Blocked-in-Russia subnets from antifilter.download."""
+    __tablename__ = "antifilter_cidr"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cidr = db.Column(db.String(50), nullable=False, unique=True, index=True)
+
+
+class AntifilterMeta(db.Model):
+    """Single-row metadata for the antifilter CIDR dataset."""
+    __tablename__ = "antifilter_meta"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cidr_count = db.Column(db.Integer, nullable=False, default=0)
+    last_refreshed_at = db.Column(db.DateTime, nullable=True)
+    refresh_status = db.Column(db.String(16), nullable=False, default="never")
+    refresh_error = db.Column(db.Text, nullable=True)

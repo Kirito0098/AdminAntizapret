@@ -23,6 +23,8 @@ class MaintenanceSchedulerService:
         runtime_backup_retention_hours,
         is_valid_cron_expression,
         get_nightly_idle_restart_settings,
+        cidr_db_refresh_marker=None,
+        cidr_db_refresh_cron_expr=None,
     ):
         self.app_root = app_root
         self.logs_dir = logs_dir
@@ -39,6 +41,8 @@ class MaintenanceSchedulerService:
         self.runtime_backup_retention_hours = max(0, int(runtime_backup_retention_hours or 0))
         self.is_valid_cron_expression = is_valid_cron_expression
         self.get_nightly_idle_restart_settings = get_nightly_idle_restart_settings
+        self.cidr_db_refresh_marker = cidr_db_refresh_marker or "# ADMIN_ANTIZAPRET_CIDR_DB_REFRESH_CRON"
+        self.cidr_db_refresh_cron_expr = cidr_db_refresh_cron_expr or "0 2 * * *"
 
     def status_log_cleanup_command(self):
         quoted_logs_dir = shlex.quote(self.logs_dir)
@@ -189,6 +193,31 @@ class MaintenanceSchedulerService:
                 f"(хранение: {self.runtime_backup_retention_hours} ч)"
             )
         return True, "Cron очистки runtime_backups отключен"
+
+    def cidr_db_refresh_command(self):
+        python_bin = shlex.quote(self.python_executable)
+        script_path = shlex.quote(os.path.join(self.app_root, "utils", "cidr_db_refresh.py"))
+        return f"{python_bin} {script_path} >/dev/null 2>&1"
+
+    def ensure_cidr_db_refresh_cron(self):
+        lines = self.read_crontab_lines()
+        if lines is None:
+            return False, "Не удалось прочитать crontab для CIDR DB обновления."
+
+        lines = [line for line in lines if self.cidr_db_refresh_marker not in line]
+
+        if not self.is_valid_cron_expression(self.cidr_db_refresh_cron_expr):
+            return False, "Некорректное cron-выражение для обновления CIDR БД."
+
+        command = self.cidr_db_refresh_command()
+        lines.append(f"{self.cidr_db_refresh_cron_expr} {command} {self.cidr_db_refresh_marker}")
+
+        try:
+            self.write_crontab_lines(lines)
+        except Exception as e:
+            return False, f"Ошибка записи cron обновления CIDR БД: {e}"
+
+        return True, f"Cron обновления CIDR БД включен ({self.cidr_db_refresh_cron_expr})"
 
     def get_status_cleanup_schedule(self):
         lines = self.read_crontab_lines()

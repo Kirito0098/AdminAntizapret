@@ -1,3 +1,4 @@
+import bisect
 import ipaddress
 import json
 import os
@@ -5,6 +6,7 @@ import re
 import socket
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from urllib import request
 
@@ -17,7 +19,7 @@ RUNTIME_BACKUP_ROOT = os.path.join(BASE_DIR, "ips", "runtime_backups")
 RUNTIME_BACKUP_RETENTION_SECONDS = 12 * 60 * 60
 ENV_FILE_PATH = os.path.join(BASE_DIR, ".env")
 
-# Each list file can have one or more sources. The first source that yields valid CIDRs is used.
+# Each list file can have one or more sources. Successful source payloads are merged.
 PROVIDER_SOURCES = {
     "akamai-ips.txt": [
         {
@@ -53,6 +55,11 @@ PROVIDER_SOURCES = {
             "name": "ripe-as14061-geo",
             "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS14061",
             "format": "ripe_geo_json",
+        },
+        {
+            "name": "ripe-as46652-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS46652",
+            "format": "ripe_json",
         }
     ],
     "google-ips.txt": [
@@ -77,6 +84,21 @@ PROVIDER_SOURCES = {
             "name": "ripe-as24940-geo",
             "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS24940",
             "format": "ripe_geo_json",
+        },
+        {
+            "name": "ripe-as213230-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS213230",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as212317-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS212317",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as215859-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS215859",
+            "format": "ripe_json",
         }
     ],
     "ovh-ips.txt": [
@@ -89,6 +111,197 @@ PROVIDER_SOURCES = {
             "name": "ripe-as16276-geo",
             "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS16276",
             "format": "ripe_geo_json",
+        }
+    ],
+    "cloudflare-ips.txt": [
+        {
+            "name": "cloudflare-ips-v4",
+            "url": "https://www.cloudflare.com/ips-v4",
+            "format": "cidr_text",
+        },
+        {
+            "name": "ripe-as13335-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS13335",
+            "format": "ripe_json",
+        },
+    ],
+    "fastly-ips.txt": [
+        {
+            "name": "ripe-as54113-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS54113",
+            "format": "ripe_json",
+        }
+    ],
+    "azure-ips.txt": [
+        {
+            "name": "ripe-as8075-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS8075",
+            "format": "ripe_json",
+        }
+    ],
+    "oracle-ips.txt": [
+        {
+            "name": "ripe-as31898-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS31898",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as54253-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS54253",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as1219-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS1219",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as6142-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS6142",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as14544-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS14544",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as20054-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS20054",
+            "format": "ripe_json",
+        }
+    ],
+    "vultr-ips.txt": [
+        {
+            "name": "ripe-as20473-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS20473",
+            "format": "ripe_json",
+        }
+    ],
+    "contabo-ips.txt": [
+        {
+            "name": "ripe-as51167-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS51167",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as141995-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS141995",
+            "format": "ripe_json",
+        }
+    ],
+    "buyvm-ips.txt": [
+        {
+            "name": "ripe-as53667-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS53667",
+            "format": "ripe_json",
+        }
+    ],
+    "scaleway-ips.txt": [
+        {
+            "name": "ripe-as12876-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS12876",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as29447-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS29447",
+            "format": "ripe_json",
+        }
+    ],
+    "cdn77-ips.txt": [
+        {
+            "name": "ripe-as60068-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS60068",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as212238-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS212238",
+            "format": "ripe_json",
+        }
+    ],
+    "gcore-ips.txt": [
+        {
+            "name": "ripe-as199524-geo",
+            "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS199524",
+            "format": "ripe_geo_json",
+        },
+        {
+            "name": "ripe-as199524-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS199524",
+            "format": "ripe_json",
+        }
+    ],
+    "melbicom-ips.txt": [
+        {
+            "name": "ripe-as197540-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS197540",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as8849-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS8849",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as56630-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS56630",
+            "format": "ripe_json",
+        }
+    ],
+    "clouvider-ips.txt": [
+        {
+            "name": "ripe-as62240-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS62240",
+            "format": "ripe_json",
+        }
+    ],
+    "iomart-ips.txt": [
+        {
+            "name": "ripe-as20860-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS20860",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as21130-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS21130",
+            "format": "ripe_json",
+        }
+    ],
+    "creanova-ips.txt": [
+        {
+            "name": "ripe-as51765-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS51765",
+            "format": "ripe_json",
+        }
+    ],
+    "m247-ips.txt": [
+        {
+            "name": "ripe-as9009-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS9009",
+            "format": "ripe_json",
+        }
+    ],
+    "scalaxy-ips.txt": [
+        {
+            "name": "ripe-as58061-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS58061",
+            "format": "ripe_json",
+        }
+    ],
+    "zenlayer-ips.txt": [
+        {
+            "name": "ripe-as21859-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS21859",
+            "format": "ripe_json",
+        }
+    ],
+    "fornex-ips.txt": [
+        {
+            "name": "ripe-as48040-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS48040",
+            "format": "ripe_json",
         }
     ],
 }
@@ -160,14 +373,16 @@ def _read_positive_int_runtime(name, default):
 
 
 def _get_openvpn_route_total_cidr_limit():
-    return _read_positive_int_runtime(
+    raw_limit = _read_positive_int_runtime(
         "OPENVPN_ROUTE_TOTAL_CIDR_LIMIT",
         OPENVPN_ROUTE_TOTAL_CIDR_LIMIT,
     )
+    return min(raw_limit, OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)
 
 
 OPENVPN_ROUTE_CIDR_LIMIT = _read_positive_int_env("OPENVPN_ROUTE_CIDR_LIMIT", 1500)
 OPENVPN_ROUTE_TOTAL_CIDR_LIMIT = _read_positive_int_env("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT", 1500)
+OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS = _read_positive_int_env("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS", 900)
 OPENVPN_ROUTE_MIN_PREFIXLEN = min(
     32,
     _read_positive_int_env("OPENVPN_ROUTE_MIN_PREFIXLEN", 8),
@@ -179,8 +394,12 @@ RU_COUNTRY_CIDR_SOURCE_URL = os.getenv(
 RU_COUNTRY_CIDR_CACHE_TTL_SECONDS = 12 * 60 * 60
 _RU_COUNTRY_CIDR_CACHE = {
     "expires_at": 0.0,
-    "networks": [],
+    "index": None,   # (ranges, starts, max_ends) tuple built by _build_antifilter_overlap_index
     "error": None,
+}
+_ANTIFILTER_INDEX_CACHE = {
+    "expires_at": 0.0,
+    "index": None,
 }
 GAME_INCLUDE_HOSTS_FILE = os.getenv(
     "CIDR_GAME_INCLUDE_HOSTS_FILE",
@@ -311,6 +530,320 @@ REGION_SCOPES = {
     "government",
     "global",
 }
+
+
+DPI_NODE_CODE_TO_FILE = {
+    "AKM": "akamai-ips.txt",
+    "AWS": "amazon-ips.txt",
+    "CDN77": "cdn77-ips.txt",
+    "CN": "creanova-ips.txt",
+    "CF": "cloudflare-ips.txt",
+    "CV": "clouvider-ips.txt",
+    "CNTB": "contabo-ips.txt",
+    "DO": "digitalocean-ips.txt",
+    "FST": "fastly-ips.txt",
+    "FRX": "fornex-ips.txt",
+    "FTBVM": "buyvm-ips.txt",
+    "GCORE": "gcore-ips.txt",
+    "GC": "google-ips.txt",
+    "HE": "hetzner-ips.txt",
+    "IM": "iomart-ips.txt",
+    "ME": "m247-ips.txt",
+    "MS": "azure-ips.txt",
+    "MBCOM": "melbicom-ips.txt",
+    "OR": "oracle-ips.txt",
+    "OVH": "ovh-ips.txt",
+    "SCA": "scalaxy-ips.txt",
+    "SW": "scaleway-ips.txt",
+    "VLTR": "vultr-ips.txt",
+    "ZL": "zenlayer-ips.txt",
+}
+
+DPI_PROVIDER_TO_FILE = {
+    "Akamai": "akamai-ips.txt",
+    "AWS": "amazon-ips.txt",
+    "CDN77": "cdn77-ips.txt",
+    "CreaNova": "creanova-ips.txt",
+    "Cloudflare": "cloudflare-ips.txt",
+    "Clouvider": "clouvider-ips.txt",
+    "Contabo": "contabo-ips.txt",
+    "DigitalOcean": "digitalocean-ips.txt",
+    "Fastly": "fastly-ips.txt",
+    "Fornex": "fornex-ips.txt",
+    "FT/BuyVM": "buyvm-ips.txt",
+    "Gcore": "gcore-ips.txt",
+    "Google Cloud": "google-ips.txt",
+    "Hetzner": "hetzner-ips.txt",
+    "IOMART": "iomart-ips.txt",
+    "M247 Europe SRL": "m247-ips.txt",
+    "Melbicom": "melbicom-ips.txt",
+    "Microsoft/Azure": "azure-ips.txt",
+    "Oracle": "oracle-ips.txt",
+    "OVH": "ovh-ips.txt",
+    "Scalaxy": "scalaxy-ips.txt",
+    "Scaleway": "scaleway-ips.txt",
+    "Vultr": "vultr-ips.txt",
+    "Zenlayer": "zenlayer-ips.txt",
+}
+
+
+def _normalize_provider_name_token(value):
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+
+
+DPI_PROVIDER_ALIASES = {
+    "aws": "amazon-ips.txt",
+    "amazon": "amazon-ips.txt",
+    "amazonaws": "amazon-ips.txt",
+    "azure": "azure-ips.txt",
+    "microsoft": "azure-ips.txt",
+    "microsoftazure": "azure-ips.txt",
+    "google": "google-ips.txt",
+    "googlecloud": "google-ips.txt",
+    "gcp": "google-ips.txt",
+    "buyvm": "buyvm-ips.txt",
+    "frantech": "buyvm-ips.txt",
+    "ftbuyvm": "buyvm-ips.txt",
+    "m247": "m247-ips.txt",
+}
+for _provider_name, _file_name in DPI_PROVIDER_TO_FILE.items():
+    _alias = _normalize_provider_name_token(_provider_name)
+    if _alias and _alias not in DPI_PROVIDER_ALIASES:
+        DPI_PROVIDER_ALIASES[_alias] = _file_name
+
+
+def _provider_name_to_file(provider_name):
+    token = _normalize_provider_name_token(provider_name)
+    if not token:
+        return None
+
+    if token in DPI_PROVIDER_ALIASES:
+        return DPI_PROVIDER_ALIASES[token]
+
+    for alias, file_name in DPI_PROVIDER_ALIASES.items():
+        if token.startswith(alias) or alias.startswith(token):
+            return file_name
+    return None
+
+
+def _normalize_dpi_severity(value):
+    text = str(value or "").strip().lower()
+    if not text:
+        return "unknown", -1
+
+    if text == "ok" or text.startswith("ok "):
+        return "not_detected", 0
+    if "not detected" in text:
+        return "not_detected", 0
+    if "unlikely" in text:
+        return "unlikely", 1
+    if ("possible" in text or "probably" in text) and "detected" in text:
+        return "possible_detected", 2
+    if "detected" in text:
+        return "detected", 3
+
+    return "unknown", -1
+
+
+def _dpi_node_id_to_file(node_id):
+    cyrillic_homoglyphs = str.maketrans(
+        {
+            "А": "A",
+            "В": "B",
+            "С": "C",
+            "Е": "E",
+            "К": "K",
+            "М": "M",
+            "Н": "H",
+            "О": "O",
+            "Р": "P",
+            "Т": "T",
+            "У": "Y",
+            "Х": "X",
+        }
+    )
+
+    value = str(node_id or "").strip().upper().translate(cyrillic_homoglyphs).lstrip("#")
+    if not value:
+        return None
+
+    tokens = [item for item in re.split(r"[\.\-_/:\s]+", value) if item]
+    for token in tokens:
+        file_name = DPI_NODE_CODE_TO_FILE.get(token)
+        if file_name:
+            return file_name
+
+    if "." in value:
+        value = value.split(".", 1)[1]
+
+    code = value.split("-", 1)[0]
+    return DPI_NODE_CODE_TO_FILE.get(code)
+
+
+def analyze_dpi_log(dpi_log_text):
+    text = str(dpi_log_text or "")
+    if not text.strip():
+        return {
+            "success": False,
+            "message": "Лог DPI пуст",
+            "summary": {},
+            "nodes": [],
+            "providers": [],
+            "priority_files": [],
+            "critical_files": [],
+            "unknown_nodes": [],
+        }
+
+    node_pattern = re.compile(r"DPI\s*checking\s*\(\s*#?([^\)]+)\s*\)", re.IGNORECASE)
+    status_pattern = re.compile(r"tcp\s*16\s*[-–—]\s*20\s*:\s*([^\n\r]+)", re.IGNORECASE)
+    provider_pattern = re.compile(r"provider\s*[:=]\s*([^,\n\r\]]+)", re.IGNORECASE)
+    table_row_pattern = re.compile(
+        r"^\s*[\|│]\s*([^\|│]+?)\s*[\|│]\s*([^\|│]+?)\s*[\|│]\s*([^\|│]+?)\s*[\|│]\s*([^\|│]+?)\s*[\|│]\s*([^\|│]+?)\s*[\|│]\s*([^\|│]+?)\s*[\|│]\s*$"
+    )
+
+    node_events = {}
+    unknown_nodes = set()
+
+    for raw_line in text.splitlines():
+        line = str(raw_line or "").strip()
+        if not line:
+            continue
+
+        node_match = node_pattern.search(line)
+        table_match = table_row_pattern.match(line)
+
+        node_id = ""
+        file_name = None
+        status_text = ""
+
+        if node_match:
+            node_id = str(node_match.group(1) or "").strip()
+            if not node_id:
+                continue
+
+            file_name = _dpi_node_id_to_file(node_id)
+            if not file_name:
+                provider_match = provider_pattern.search(line)
+                provider_name = str(provider_match.group(1) or "").strip() if provider_match else ""
+                if provider_name:
+                    file_name = _provider_name_to_file(provider_name)
+
+            if not file_name:
+                normalized_line = _normalize_provider_name_token(line)
+                for alias, mapped_file in DPI_PROVIDER_ALIASES.items():
+                    if alias and alias in normalized_line:
+                        file_name = mapped_file
+                        break
+
+            status_match = status_pattern.search(line)
+            if not status_match:
+                continue
+
+            status_text = str(status_match.group(1) or "").strip()
+        elif table_match:
+            node_id = str(table_match.group(1) or "").strip()
+            provider_name = str(table_match.group(3) or "").strip()
+            status_text = str(table_match.group(5) or "").strip()
+
+            node_id_lower = node_id.lower()
+            status_lower = status_text.lower()
+            if node_id_lower in {"id", "ид"} or status_lower in {"status", "статус"}:
+                continue
+
+            if not node_id or not status_text:
+                continue
+
+            file_name = _dpi_node_id_to_file(node_id)
+            if not file_name and provider_name:
+                file_name = _provider_name_to_file(provider_name)
+
+            if not file_name:
+                normalized_provider = _normalize_provider_name_token(provider_name)
+                for alias, mapped_file in DPI_PROVIDER_ALIASES.items():
+                    if alias and alias in normalized_provider:
+                        file_name = mapped_file
+                        break
+        else:
+            continue
+
+        severity_key, severity_score = _normalize_dpi_severity(status_text)
+        event = node_events.get(node_id)
+        if event is None or severity_score > event.get("severity_score", -1):
+            node_events[node_id] = {
+                "node_id": node_id,
+                "file": file_name,
+                "severity": severity_key,
+                "severity_score": severity_score,
+                "status_text": status_text,
+            }
+
+        if not file_name:
+            unknown_nodes.add(node_id)
+
+    if not node_events:
+        return {
+            "success": False,
+            "message": "В логе не найдены результаты tcp 16-20",
+            "summary": {},
+            "nodes": [],
+            "providers": [],
+            "priority_files": [],
+            "critical_files": [],
+            "unknown_nodes": [],
+        }
+
+    provider_stats = {}
+    nodes = sorted(node_events.values(), key=lambda item: item["node_id"])
+    for item in nodes:
+        file_name = item.get("file")
+        if not file_name:
+            continue
+
+        stats = provider_stats.setdefault(
+            file_name,
+            {
+                "file": file_name,
+                "max_severity_score": -1,
+                "detected": 0,
+                "possible_detected": 0,
+                "unlikely": 0,
+                "not_detected": 0,
+                "nodes": 0,
+            },
+        )
+        stats["nodes"] += 1
+        stats[item["severity"]] = stats.get(item["severity"], 0) + 1
+        stats["max_severity_score"] = max(stats["max_severity_score"], item["severity_score"])
+
+    providers = sorted(
+        provider_stats.values(),
+        key=lambda item: (-item["max_severity_score"], -item["nodes"], item["file"]),
+    )
+    all_seen_files = [item["file"] for item in providers]
+    detected_files = [item["file"] for item in providers if item["max_severity_score"] >= 3]
+    priority_files = [item["file"] for item in providers if item["max_severity_score"] >= 1]
+    critical_files = [item["file"] for item in providers if item["max_severity_score"] >= 2]
+
+    return {
+        "success": True,
+        "message": "DPI лог обработан",
+        "summary": {
+            "total_nodes": len(nodes),
+            "matched_nodes": sum(1 for item in nodes if item.get("file")),
+            "unknown_nodes": len(unknown_nodes),
+            "all_seen_files": len(all_seen_files),
+            "detected_files": len(detected_files),
+            "priority_files": len(priority_files),
+            "critical_files": len(critical_files),
+        },
+        "nodes": nodes,
+        "providers": providers,
+        "all_seen_files": all_seen_files,
+        "detected_files": detected_files,
+        "priority_files": priority_files,
+        "critical_files": critical_files,
+        "unknown_nodes": sorted(unknown_nodes),
+    }
 
 
 def _normalize_region_scopes(raw_scopes):
@@ -1028,10 +1561,14 @@ def _compress_cidrs_to_limit(cidrs, limit):
     was_trimmed = False
     if len(current) > target_limit:
         was_trimmed = True
+        # Prefer large blocks (maximum IP coverage) over small specific routes.
+        # A /15 covers 131k IPs; dropping it in favour of many /20s wastes budget.
+        # Sort ascending by prefixlen (largest blocks first), then by address for
+        # determinism, and keep the first `target_limit` entries.
         current = set(
             sorted(
                 current,
-                key=lambda n: (-n.prefixlen, int(n.network_address)),
+                key=lambda n: (n.prefixlen, int(n.network_address)),
             )[:target_limit]
         )
 
@@ -1053,7 +1590,45 @@ def _compress_cidrs_to_limit(cidrs, limit):
     }
 
 
-def _apply_total_route_limit(entries, total_limit):
+def _normalize_dpi_priority_files(values):
+    if values is None:
+        return []
+
+    if isinstance(values, str):
+        values = [item.strip() for item in values.split(",")]
+
+    normalized = []
+    seen = set()
+    for item in values:
+        file_name = str(item or "").strip()
+        if not file_name or file_name in seen:
+            continue
+        if file_name not in IP_FILES:
+            continue
+        normalized.append(file_name)
+        seen.add(file_name)
+    return normalized
+
+
+def _normalize_priority_min_budget(value):
+    try:
+        parsed = int(str(value).strip())
+    except (TypeError, ValueError, AttributeError):
+        return 0
+
+    if parsed <= 0:
+        return 0
+    return parsed
+
+
+def _apply_total_route_limit(
+    entries,
+    total_limit,
+    *,
+    dpi_priority_files=None,
+    dpi_mandatory_files=None,
+    dpi_priority_min_budget=0,
+):
     if not entries:
         return entries, None
 
@@ -1069,12 +1644,37 @@ def _apply_total_route_limit(entries, total_limit):
     if not non_empty_indices:
         return entries, None
 
+    priority_files = set(_normalize_dpi_priority_files(dpi_priority_files))
+    mandatory_files = set(_normalize_dpi_priority_files(dpi_mandatory_files))
+    priority_files.update(mandatory_files)
+    priority_min_budget = _normalize_priority_min_budget(dpi_priority_min_budget)
+
     if route_limit < len(non_empty_indices):
         prioritized_indices = sorted(
             non_empty_indices,
             key=lambda idx: len(entries[idx].get("cidrs") or []),
             reverse=True,
         )
+
+        if mandatory_files:
+            mandatory_first = sorted(
+                [
+                    idx for idx in non_empty_indices
+                    if str(entries[idx].get("file") or "") in mandatory_files
+                ],
+                key=lambda idx: len(entries[idx].get("cidrs") or []),
+                reverse=True,
+            )
+            fallback_rest = [idx for idx in prioritized_indices if idx not in mandatory_first]
+            prioritized_indices = mandatory_first + fallback_rest
+        elif priority_files and priority_min_budget > 0:
+            priority_first = [
+                idx for idx in non_empty_indices
+                if str(entries[idx].get("file") or "") in priority_files
+            ]
+            fallback_rest = [idx for idx in prioritized_indices if idx not in priority_first]
+            prioritized_indices = priority_first + fallback_rest
+
         allowed_indices = set(prioritized_indices[:route_limit])
         adjusted_entries = []
         per_file = []
@@ -1093,10 +1693,18 @@ def _apply_total_route_limit(entries, total_limit):
                     "original_cidr_count": len(cidrs),
                     "compressed_cidr_count": len(compressed_cidrs),
                     "target_budget": budget,
+                    "dpi_priority": bool(str(item.get("file") or "") in priority_files),
+                    "dpi_mandatory": bool(str(item.get("file") or "") in mandatory_files),
                 }
             )
 
         compressed_total = sum(len(item.get("cidrs") or []) for item in adjusted_entries)
+        present_mandatory_files = {
+            str(item.get("file") or "")
+            for item in adjusted_entries
+            if str(item.get("file") or "") in mandatory_files and (item.get("cidrs") or [])
+        }
+        dropped_mandatory_files = sorted(mandatory_files - present_mandatory_files)
         meta = {
             "strategy": "global_total_route_limit",
             "limit": route_limit,
@@ -1104,33 +1712,115 @@ def _apply_total_route_limit(entries, total_limit):
             "compressed_total_cidr_count": compressed_total,
             "files": per_file,
         }
+        if mandatory_files:
+            meta["dpi_mandatory"] = {
+                "enabled": True,
+                "mandatory_files": sorted(mandatory_files),
+                "dropped_mandatory_files": dropped_mandatory_files,
+            }
+            if dropped_mandatory_files:
+                meta["warning"] = "Не все обязательные detected-провайдеры поместились в лимит"
         return adjusted_entries, meta
 
-    raw_shares = {}
-    budgets = {}
-    for index in non_empty_indices:
-        current_count = len(entries[index]["cidrs"])
-        share = (current_count * route_limit) / max(original_total, 1)
-        raw_shares[index] = share
-        budgets[index] = min(current_count, max(1, int(share)))
+    budgets = {index: 0 for index in non_empty_indices}
+    reserved_total = 0
 
-    allocated = sum(budgets.values())
-    if allocated > route_limit:
-        for index, _ in sorted(budgets.items(), key=lambda pair: pair[1], reverse=True):
-            while budgets[index] > 1 and allocated > route_limit:
-                budgets[index] -= 1
-                allocated -= 1
-            if allocated <= route_limit:
-                break
+    if mandatory_files:
+        for index in non_empty_indices:
+            file_name = str(entries[index].get("file") or "")
+            if file_name not in mandatory_files:
+                continue
+            current_count = len(entries[index].get("cidrs") or [])
+            if current_count <= 0:
+                continue
+            budgets[index] = max(budgets[index], 1)
+            reserved_total += 1
 
-    if allocated < route_limit:
-        for index, _ in sorted(raw_shares.items(), key=lambda pair: pair[1] - int(pair[1]), reverse=True):
-            current_count = len(entries[index]["cidrs"])
-            while budgets[index] < current_count and allocated < route_limit:
-                budgets[index] += 1
-                allocated += 1
+    if reserved_total > route_limit:
+        mandatory_indices = [
+            idx for idx in non_empty_indices
+            if str(entries[idx].get("file") or "") in mandatory_files
+        ]
+        mandatory_indices = sorted(
+            mandatory_indices,
+            key=lambda idx: len(entries[idx].get("cidrs") or []),
+            reverse=True,
+        )
+        budgets = {index: 0 for index in non_empty_indices}
+        allocated = 0
+        for idx in mandatory_indices:
             if allocated >= route_limit:
                 break
+            budgets[idx] = 1
+            allocated += 1
+        reserved_total = allocated
+
+    if priority_files and priority_min_budget > 0:
+        for index in non_empty_indices:
+            file_name = str(entries[index].get("file") or "")
+            if file_name not in priority_files:
+                continue
+            current_count = len(entries[index].get("cidrs") or [])
+            reserved = min(current_count, priority_min_budget)
+            new_budget = max(budgets[index], reserved)
+            reserved_total += max(0, new_budget - budgets[index])
+            budgets[index] = new_budget
+
+    if reserved_total > route_limit:
+        priority_indices = [
+            idx for idx in non_empty_indices
+            if str(entries[idx].get("file") or "") in priority_files
+        ]
+        priority_indices = sorted(
+            priority_indices,
+            key=lambda idx: len(entries[idx].get("cidrs") or []),
+            reverse=True,
+        )
+        budgets = {index: 0 for index in non_empty_indices}
+        allocated = 0
+        for idx in priority_indices:
+            if allocated >= route_limit:
+                break
+            budgets[idx] = 1
+            allocated += 1
+        reserved_total = allocated
+
+    remaining_limit = max(route_limit - reserved_total, 0)
+    remaining_capacity = {
+        index: max(0, len(entries[index].get("cidrs") or []) - budgets[index])
+        for index in non_empty_indices
+    }
+    total_capacity = sum(remaining_capacity.values())
+
+    raw_shares = {}
+    if remaining_limit > 0 and total_capacity > 0:
+        for index in non_empty_indices:
+            capacity = remaining_capacity[index]
+            if capacity <= 0:
+                raw_shares[index] = 0.0
+                continue
+            share = (capacity * remaining_limit) / total_capacity
+            raw_shares[index] = share
+            budgets[index] += min(capacity, int(share))
+
+        allocated = sum(budgets.values())
+        if allocated > route_limit:
+            for index, _ in sorted(budgets.items(), key=lambda pair: pair[1], reverse=True):
+                while budgets[index] > 0 and allocated > route_limit:
+                    budgets[index] -= 1
+                    allocated -= 1
+                if allocated <= route_limit:
+                    break
+
+        if allocated < route_limit:
+            for index, _ in sorted(raw_shares.items(), key=lambda pair: pair[1] - int(pair[1]), reverse=True):
+                capacity = remaining_capacity.get(index, 0)
+                upper_bound = len(entries[index].get("cidrs") or [])
+                while budgets[index] < upper_bound and budgets[index] - (upper_bound - capacity) < capacity and allocated < route_limit:
+                    budgets[index] += 1
+                    allocated += 1
+                if allocated >= route_limit:
+                    break
 
     adjusted_entries = []
     per_file = []
@@ -1149,10 +1839,18 @@ def _apply_total_route_limit(entries, total_limit):
                 "original_cidr_count": len(cidrs),
                 "compressed_cidr_count": len(compressed_cidrs),
                 "target_budget": budget,
+                "dpi_priority": bool(str(item.get("file") or "") in priority_files),
+                "dpi_mandatory": bool(str(item.get("file") or "") in mandatory_files),
             }
         )
 
     compressed_total = sum(len(item.get("cidrs") or []) for item in adjusted_entries)
+    present_mandatory_files = {
+        str(item.get("file") or "")
+        for item in adjusted_entries
+        if str(item.get("file") or "") in mandatory_files and (item.get("cidrs") or [])
+    }
+    dropped_mandatory_files = sorted(mandatory_files - present_mandatory_files)
     meta = {
         "strategy": "global_total_route_limit",
         "limit": route_limit,
@@ -1160,6 +1858,20 @@ def _apply_total_route_limit(entries, total_limit):
         "compressed_total_cidr_count": compressed_total,
         "files": per_file,
     }
+    if mandatory_files:
+        meta["dpi_mandatory"] = {
+            "enabled": True,
+            "mandatory_files": sorted(mandatory_files),
+            "dropped_mandatory_files": dropped_mandatory_files,
+        }
+        if dropped_mandatory_files:
+            meta["warning"] = "Не все обязательные detected-провайдеры поместились в лимит"
+    if priority_files and priority_min_budget > 0:
+        meta["dpi_priority"] = {
+            "enabled": True,
+            "priority_files": sorted(priority_files),
+            "priority_min_budget": priority_min_budget,
+        }
     return adjusted_entries, meta
 
 
@@ -1174,34 +1886,33 @@ def _download_ru_country_cidrs(timeout=30):
     return _normalize_cidrs(cidr_candidates)
 
 
-def _get_ru_cidr_networks():
+def _get_ru_cidr_index():
+    """Return O(log n)-queryable interval index for RU networks, with 12-hour cache."""
     now_ts = time.time()
-    cache_expires_at = float(_RU_COUNTRY_CIDR_CACHE.get("expires_at") or 0.0)
-    cache_networks = _RU_COUNTRY_CIDR_CACHE.get("networks") or []
-    if cache_networks and now_ts < cache_expires_at:
-        return cache_networks, None
+    if _RU_COUNTRY_CIDR_CACHE["index"] is not None and now_ts < float(_RU_COUNTRY_CIDR_CACHE["expires_at"]):
+        return _RU_COUNTRY_CIDR_CACHE["index"], None
 
     try:
         cidrs = _download_ru_country_cidrs()
-        networks = [ipaddress.ip_network(cidr, strict=False) for cidr in cidrs]
+        index = _build_antifilter_overlap_index(cidrs)
     except Exception as exc:  # noqa: BLE001
         _RU_COUNTRY_CIDR_CACHE["expires_at"] = now_ts + 300
-        _RU_COUNTRY_CIDR_CACHE["networks"] = []
+        _RU_COUNTRY_CIDR_CACHE["index"] = None
         _RU_COUNTRY_CIDR_CACHE["error"] = str(exc)
-        return [], str(exc)
+        return None, str(exc)
 
     _RU_COUNTRY_CIDR_CACHE["expires_at"] = now_ts + RU_COUNTRY_CIDR_CACHE_TTL_SECONDS
-    _RU_COUNTRY_CIDR_CACHE["networks"] = networks
+    _RU_COUNTRY_CIDR_CACHE["index"] = index
     _RU_COUNTRY_CIDR_CACHE["error"] = None
-    return networks, None
+    return index, None
 
 
 def _exclude_ru_country_cidrs(cidrs):
     if not cidrs:
         return cidrs, None
 
-    ru_networks, error_text = _get_ru_cidr_networks()
-    if not ru_networks:
+    ru_index, error_text = _get_ru_cidr_index()
+    if ru_index is None:
         if error_text:
             return cidrs, {
                 "strategy": "exclude_ru_country",
@@ -1210,22 +1921,14 @@ def _exclude_ru_country_cidrs(cidrs):
             }
         return cidrs, None
 
+    ranges, starts, max_ends = ru_index
     filtered = []
     removed_count = 0
     for value in cidrs:
-        raw = str(value or "").strip()
-        if not raw:
-            continue
-        try:
-            network = ipaddress.ip_network(raw, strict=False)
-        except ValueError:
-            continue
-
-        if any(network.subnet_of(ru_network) for ru_network in ru_networks):
+        if _cidr_contained_in_index(value, ranges, starts, max_ends):
             removed_count += 1
-            continue
-
-        filtered.append(str(network))
+        else:
+            filtered.append(str(value))
 
     normalized_filtered = sorted(set(filtered))
     if removed_count <= 0:
@@ -1519,6 +2222,9 @@ def update_cidr_files(
     include_game_hosts=False,
     include_game_keys=None,
     strict_geo_filter=False,
+    dpi_priority_files=None,
+    dpi_mandatory_files=None,
+    dpi_priority_min_budget=0,
     progress_callback=None,
 ):
     _emit_progress(progress_callback, 2, "Подготовка к обновлению CIDR-файлов")
@@ -1569,40 +2275,58 @@ def update_cidr_files(
     skipped = []
 
     total_files = len(normalized)
-    for index, file_name in enumerate(normalized, start=1):
-        progress_start = 10 + int(((index - 1) / max(total_files, 1)) * 82)
-        _emit_progress(progress_callback, progress_start, f"Обработка файла {file_name}")
 
+    # Phase 1: resolve which files to download and their effective scopes
+    download_jobs = []  # [(file_name, sources, effective_scopes)]
+    for file_name in normalized:
         sources = PROVIDER_SOURCES.get(file_name) or []
         if not sources:
             skipped.append({"file": file_name, "reason": "source_not_configured"})
-            progress_done = 10 + int((index / max(total_files, 1)) * 82)
-            _emit_progress(progress_callback, progress_done, f"Файл {file_name} пропущен: source_not_configured")
             continue
 
         effective_scopes = list(normalized_scopes)
-
         if not is_all_scope:
-            supports_geo_scope = _supports_geo_scope(sources)
-            if not supports_geo_scope:
+            if not _supports_geo_scope(sources):
                 if include_non_geo_fallback:
                     effective_scopes = ["all"]
                 else:
                     skipped.append({"file": file_name, "reason": "geo_scope_not_supported"})
-                    progress_done = 10 + int((index / max(total_files, 1)) * 82)
-                    _emit_progress(progress_callback, progress_done, f"Файл {file_name} пропущен: geo_scope_not_supported")
                     continue
 
-        cidrs, source_name, last_error = _collect_cidrs_from_sources(
-            sources,
-            effective_scopes,
-            strict_geo_filter=bool(strict_geo_filter),
-        )
+        download_jobs.append((file_name, sources, effective_scopes))
 
+    # Phase 2: parallel HTTP downloads
+    download_results = {}  # file_name -> (cidrs, source_name, last_error)
+    _emit_progress(progress_callback, 10, f"Скачивание {len(download_jobs)} провайдеров параллельно…")
+    if download_jobs:
+        max_workers = min(len(download_jobs), 8)
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            future_to_file = {
+                pool.submit(
+                    _collect_cidrs_from_sources, sources, effective_scopes,
+                    strict_geo_filter=bool(strict_geo_filter)
+                ): file_name
+                for file_name, sources, effective_scopes in download_jobs
+            }
+            completed = 0
+            for future in as_completed(future_to_file):
+                file_name = future_to_file[future]
+                completed += 1
+                pct = 10 + int((completed / len(download_jobs)) * 50)
+                _emit_progress(progress_callback, pct, f"Загружен {file_name} ({completed}/{len(download_jobs)})")
+                try:
+                    download_results[file_name] = future.result()
+                except Exception as exc:  # noqa: BLE001
+                    download_results[file_name] = ([], "", str(exc))
+
+    # Phase 3: post-process in original order
+    for index, (file_name, sources, effective_scopes) in enumerate(download_jobs, start=1):
+        progress_start = 60 + int(((index - 1) / max(len(download_jobs), 1)) * 32)
+        _emit_progress(progress_callback, progress_start, f"Обработка {file_name}")
+
+        cidrs, source_name, last_error = download_results.get(file_name, ([], "", "download missing"))
         if not cidrs:
             failed.append({"file": file_name, "error": last_error})
-            progress_done = 10 + int((index / max(total_files, 1)) * 82)
-            _emit_progress(progress_callback, progress_done, f"Ошибка файла {file_name}")
             continue
 
         country_exclusion_meta = None
@@ -1610,8 +2334,6 @@ def update_cidr_files(
             cidrs, country_exclusion_meta = _exclude_ru_country_cidrs(cidrs)
             if not cidrs:
                 skipped.append({"file": file_name, "reason": "empty_after_ru_exclusion"})
-                progress_done = 10 + int((index / max(total_files, 1)) * 82)
-                _emit_progress(progress_callback, progress_done, f"Файл {file_name} пропущен: empty_after_ru_exclusion")
                 continue
 
         cidrs, source_name, optimization_meta = _optimize_cidrs_for_openvpn_routes(
@@ -1631,12 +2353,14 @@ def update_cidr_files(
                 "route_optimization": optimization_meta,
             }
         )
-        progress_done = 10 + int((index / max(total_files, 1)) * 82)
-        _emit_progress(progress_callback, progress_done, f"Файл {file_name} обновлен")
+        _emit_progress(progress_callback, progress_start, f"Файл {file_name} готов: {len(cidrs)} CIDR")
 
     planned_updates, global_route_optimization_meta = _apply_total_route_limit(
         planned_updates,
         _get_openvpn_route_total_cidr_limit(),
+        dpi_priority_files=dpi_priority_files,
+        dpi_mandatory_files=dpi_mandatory_files,
+        dpi_priority_min_budget=dpi_priority_min_budget,
     )
 
     for item in planned_updates:
@@ -1696,6 +2420,9 @@ def estimate_cidr_matches(
     include_game_hosts=False,
     include_game_keys=None,
     strict_geo_filter=False,
+    dpi_priority_files=None,
+    dpi_mandatory_files=None,
+    dpi_priority_min_budget=0,
 ):
     normalized_scopes = _normalize_region_scopes(region_scopes)
     is_all_scope = "all" in normalized_scopes
@@ -1772,6 +2499,9 @@ def estimate_cidr_matches(
     planned_estimated, global_route_optimization_meta = _apply_total_route_limit(
         planned_estimated,
         _get_openvpn_route_total_cidr_limit(),
+        dpi_priority_files=dpi_priority_files,
+        dpi_mandatory_files=dpi_mandatory_files,
+        dpi_priority_min_budget=dpi_priority_min_budget,
     )
 
     for item in planned_estimated:
@@ -1863,3 +2593,617 @@ def rollback_to_baseline(selected_files=None, progress_callback=None):
         "restored": restored,
         "missing": missing,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DB-backed CIDR file generation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _build_antifilter_overlap_index(cidr_strs):
+    """Build sorted ranges + prefix-max-end array for O(log n) overlap queries.
+
+    Returns (ranges, starts, max_ends) where:
+      ranges    = sorted list of (start_int, end_int)
+      starts    = [r[0] for r in ranges]  (for bisect)
+      max_ends  = prefix-max of end values so max_ends[i] = max(e for ranges[0..i])
+    """
+    ranges = []
+    for c in cidr_strs:
+        try:
+            net = ipaddress.ip_network(c, strict=False)
+            if net.prefixlen > 0:
+                ranges.append((int(net.network_address), int(net.broadcast_address)))
+        except ValueError:
+            pass
+    ranges.sort()
+    starts = [r[0] for r in ranges]
+    max_ends = []
+    cur = -1
+    for _, e in ranges:
+        cur = max(cur, e)
+        max_ends.append(cur)
+    return ranges, starts, max_ends
+
+
+def _cidr_overlaps_index(cidr_str, ranges, starts, max_ends):
+    """O(log n) overlap check: does cidr_str overlap with any range in the index?"""
+    if not ranges:
+        return False
+    try:
+        net = ipaddress.ip_network(cidr_str, strict=False)
+        ps = int(net.network_address)
+        pe = int(net.broadcast_address)
+        idx = bisect.bisect_right(starts, pe) - 1
+        if idx < 0:
+            return False
+        # max_ends[idx] = max end among all ranges whose start <= pe
+        # if that max end >= ps, at least one range overlaps [ps, pe]
+        return max_ends[idx] >= ps
+    except ValueError:
+        return False
+
+
+def _cidr_contained_in_index(cidr_str, ranges, starts, max_ends):
+    """O(log n) containment check: is cidr_str a subnet of ANY range in the index?
+
+    A CIDR [ps, pe] is contained in range [rs, re] when rs <= ps AND re >= pe.
+    Using the prefix-max-end array: find rightmost range with start <= ps,
+    then check if its max_end >= pe.
+    """
+    if not ranges:
+        return False
+    try:
+        net = ipaddress.ip_network(cidr_str, strict=False)
+        ps = int(net.network_address)
+        pe = int(net.broadcast_address)
+        idx = bisect.bisect_right(starts, ps) - 1
+        if idx < 0:
+            return False
+        return max_ends[idx] >= pe
+    except ValueError:
+        return False
+
+
+def _load_antifilter_index():
+    """Load antifilter index from DB (5-minute in-process cache)."""
+    now_ts = time.time()
+    if _ANTIFILTER_INDEX_CACHE["index"] is not None and now_ts < float(_ANTIFILTER_INDEX_CACHE["expires_at"]):
+        return _ANTIFILTER_INDEX_CACHE["index"]
+
+    from core.models import AntifilterCidr, AntifilterMeta
+    meta = AntifilterMeta.query.first()
+    if not meta or meta.refresh_status not in ("ok", "partial") or (meta.cidr_count or 0) == 0:
+        return None
+    rows = AntifilterCidr.query.with_entities(AntifilterCidr.cidr).all()
+    index = _build_antifilter_overlap_index([r.cidr for r in rows])
+    _ANTIFILTER_INDEX_CACHE["index"] = index
+    _ANTIFILTER_INDEX_CACHE["expires_at"] = now_ts + 300.0
+    return index
+
+
+def update_cidr_files_from_db(
+    selected_files=None,
+    region_scopes=None,
+    include_non_geo_fallback=False,
+    exclude_ru_cidrs=False,
+    include_game_hosts=False,
+    include_game_keys=None,
+    strict_geo_filter=False,
+    filter_by_antifilter=False,
+    total_cidr_limit=None,
+    dpi_priority_files=None,
+    dpi_mandatory_files=None,
+    dpi_priority_min_budget=0,
+    progress_callback=None,
+):
+    """Generate CIDR route files by reading provider data from the local DB.
+
+    Unlike update_cidr_files(), this function does NOT download anything —
+    it relies on data previously loaded by CidrDbUpdaterService.refresh_all_providers().
+    """
+    from core.models import ProviderCidr, ProviderMeta
+
+    _emit_progress(progress_callback, 2, "Подготовка: чтение данных из БД")
+    _snapshot_baseline_if_missing()
+
+    # Load antifilter index once (if requested) before processing files
+    af_index = None
+    if filter_by_antifilter:
+        _emit_progress(progress_callback, 4, "Загрузка антифильтра из БД…")
+        af_index = _load_antifilter_index()
+        if af_index is None:
+            _emit_progress(progress_callback, 100, "Ошибка: антифильтр не загружен в БД")
+            return {
+                "success": False,
+                "message": "Фильтр по антифильтру запрошен, но БД антифильтра пуста. Сначала обновите антифильтр.",
+                "updated": [],
+                "failed": [],
+                "skipped": [],
+            }
+
+    normalized_scopes = _normalize_region_scopes(region_scopes)
+    is_all_scope = "all" in normalized_scopes
+
+    requested = selected_files or list(IP_FILES.keys())
+    normalized = [name for name in requested if name in IP_FILES]
+
+    if not normalized:
+        _emit_progress(progress_callback, 100, "Нет файлов для обновления")
+        return {
+            "success": False,
+            "message": "Не выбраны корректные CIDR-файлы",
+            "updated": [],
+            "failed": [],
+            "skipped": [],
+        }
+
+    _emit_progress(progress_callback, 8, "Создание резервной копии текущих CIDR-файлов")
+    backup_dir, backup_files = _make_runtime_backup(normalized)
+
+    selected_game_keys = _resolve_game_filter_selection(
+        include_game_keys=include_game_keys,
+        include_game_hosts=bool(include_game_hosts),
+    )
+    game_filter_sync_result = sync_game_hosts_filter(include_game_keys=selected_game_keys)
+    game_hosts_filter = game_filter_sync_result.get("game_hosts_filter") or {}
+    game_ips_filter = game_filter_sync_result.get("game_ips_filter") or {}
+    if not game_filter_sync_result.get("success"):
+        _emit_progress(progress_callback, 100, "Ошибка синхронизации игрового фильтра")
+        return {
+            "success": False,
+            "message": "Не удалось синхронизировать игровой фильтр",
+            "updated": [],
+            "failed": [],
+            "skipped": [],
+            "backup_dir": backup_dir,
+            "backup_files": backup_files,
+            "game_hosts_filter": game_hosts_filter,
+            "game_ips_filter": game_ips_filter,
+        }
+
+    planned_updates = []
+    failed = []
+    skipped = []
+    quality_by_file = {}
+    total_files = len(normalized)
+
+    # Single bulk query for all provider metadata and CIDR rows
+    all_meta = {
+        pm.provider_key: pm
+        for pm in ProviderMeta.query.filter(ProviderMeta.provider_key.in_(normalized)).all()
+    }
+    _emit_progress(progress_callback, 9, "Загрузка CIDR из БД…")
+    all_rows_by_provider: dict = {}
+    for row in (
+        ProviderCidr.query
+        .filter(ProviderCidr.provider_key.in_(normalized))
+        .with_entities(ProviderCidr.provider_key, ProviderCidr.cidr,
+                       ProviderCidr.region_scope, ProviderCidr.country_codes)
+        .all()
+    ):
+        all_rows_by_provider.setdefault(row.provider_key, []).append(row)
+
+    for index, file_name in enumerate(normalized, start=1):
+        progress_start = 10 + int(((index - 1) / max(total_files, 1)) * 82)
+        _emit_progress(progress_callback, progress_start, f"Обработка {file_name} из БД")
+
+        file_quality = {
+            "raw_db_count": 0,
+            "after_scope_count": 0,
+            "after_ru_exclusion_count": 0,
+            "after_antifilter_count": 0,
+            "final_after_limit_count": 0,
+            "status": "pending",
+            "skip_reason": None,
+        }
+
+        meta = all_meta.get(file_name)
+        if not meta or meta.refresh_status not in ("ok", "partial") or meta.cidr_count == 0:
+            reason = "no_db_data" if (not meta or meta.cidr_count == 0) else f"db_status:{meta.refresh_status}"
+            skipped.append({"file": file_name, "reason": reason})
+            file_quality["status"] = "skipped"
+            file_quality["skip_reason"] = reason
+            quality_by_file[file_name] = file_quality
+            _emit_progress(progress_callback, progress_start, f"Файл {file_name} пропущен: {reason}")
+            continue
+
+        rows = all_rows_by_provider.get(file_name) or []
+        file_quality["raw_db_count"] = len(rows)
+
+        if is_all_scope:
+            cidrs = [row.cidr for row in rows]
+        else:
+            cidrs = []
+            for row in rows:
+                has_region = row.region_scope is not None
+                has_countries = row.country_codes is not None
+
+                if has_region:
+                    if not _matches_region_scope(row.region_scope, normalized_scopes):
+                        continue
+                    if strict_geo_filter and not _matches_strict_scope_value(row.region_scope, normalized_scopes):
+                        continue
+                    cidrs.append(row.cidr)
+                elif has_countries:
+                    countries = row.country_codes.split(",")
+                    if not any(_matches_country_scope(c, normalized_scopes) for c in countries):
+                        continue
+                    if strict_geo_filter and not _is_strict_geo_country_set(set(countries)):
+                        continue
+                    cidrs.append(row.cidr)
+                else:
+                    if include_non_geo_fallback:
+                        cidrs.append(row.cidr)
+
+        # Extra safety: enforce IPv4-only output even if legacy DB rows contain IPv6.
+        cidrs = _normalize_cidrs(cidrs)
+        file_quality["after_scope_count"] = len(cidrs)
+
+        if not cidrs:
+            skipped.append({"file": file_name, "reason": "empty_after_geo_filter"})
+            file_quality["status"] = "skipped"
+            file_quality["skip_reason"] = "empty_after_geo_filter"
+            quality_by_file[file_name] = file_quality
+            _emit_progress(progress_callback, progress_start, f"Файл {file_name} пропущен: empty_after_geo_filter")
+            continue
+
+        country_exclusion_meta = None
+        if exclude_ru_cidrs:
+            cidrs, country_exclusion_meta = _exclude_ru_country_cidrs(cidrs)
+            if not cidrs:
+                skipped.append({"file": file_name, "reason": "empty_after_ru_exclusion"})
+                file_quality["after_ru_exclusion_count"] = 0
+                file_quality["status"] = "skipped"
+                file_quality["skip_reason"] = "empty_after_ru_exclusion"
+                quality_by_file[file_name] = file_quality
+                continue
+            file_quality["after_ru_exclusion_count"] = len(cidrs)
+        else:
+            file_quality["after_ru_exclusion_count"] = len(cidrs)
+
+        antifilter_meta = None
+        if af_index is not None:
+            before = len(cidrs)
+            cidrs = [c for c in cidrs if _cidr_overlaps_index(c, *af_index)]
+            antifilter_meta = {"before": before, "after": len(cidrs)}
+            if not cidrs:
+                skipped.append({"file": file_name, "reason": "empty_after_antifilter"})
+                file_quality["after_antifilter_count"] = 0
+                file_quality["status"] = "skipped"
+                file_quality["skip_reason"] = "empty_after_antifilter"
+                quality_by_file[file_name] = file_quality
+                continue
+            file_quality["after_antifilter_count"] = len(cidrs)
+        else:
+            file_quality["after_antifilter_count"] = len(cidrs)
+
+        planned_updates.append({
+            "file": file_name,
+            "cidrs": cidrs,
+            "source": f"db:{meta.source_used or 'unknown'}",
+            "country_exclusion": country_exclusion_meta,
+            "antifilter": antifilter_meta,
+        })
+        file_quality["status"] = "planned"
+        quality_by_file[file_name] = file_quality
+
+        progress_done = 10 + int((index / max(total_files, 1)) * 82)
+        _emit_progress(progress_callback, progress_done, f"Файл {file_name}: {len(cidrs)} CIDR из БД")
+
+    effective_limit = int(total_cidr_limit) if total_cidr_limit and int(total_cidr_limit) > 0 else _get_openvpn_route_total_cidr_limit()
+    planned_updates, global_route_optimization_meta = _apply_total_route_limit(
+        planned_updates,
+        effective_limit,
+        dpi_priority_files=dpi_priority_files,
+        dpi_mandatory_files=dpi_mandatory_files,
+        dpi_priority_min_budget=dpi_priority_min_budget,
+    )
+
+    os.makedirs(LIST_DIR, exist_ok=True)
+    updated = []
+    final_counts_by_file = {}
+
+    for item in planned_updates:
+        file_name = item["file"]
+        cidrs = item.get("cidrs") or []
+        source_name = item.get("source") or "db"
+        final_counts_by_file[file_name] = len(cidrs)
+
+        out_path = os.path.join(LIST_DIR, file_name)
+        content = _render_file_content(file_name, cidrs, source_name)
+        with open(out_path, "w", encoding="utf-8") as handle:
+            handle.write(content)
+
+        updated_item = {"file": file_name, "cidr_count": len(cidrs), "source": source_name}
+        if item.get("country_exclusion"):
+            updated_item["country_exclusion"] = item["country_exclusion"]
+        if item.get("global_route_optimization"):
+            updated_item["global_route_optimization"] = item["global_route_optimization"]
+        updated.append(updated_item)
+
+    for file_name in normalized:
+        file_quality = quality_by_file.setdefault(
+            file_name,
+            {
+                "raw_db_count": 0,
+                "after_scope_count": 0,
+                "after_ru_exclusion_count": 0,
+                "after_antifilter_count": 0,
+                "final_after_limit_count": 0,
+                "status": "skipped",
+                "skip_reason": "not_processed",
+            },
+        )
+        file_quality["final_after_limit_count"] = int(final_counts_by_file.get(file_name, 0))
+        if file_quality["status"] == "planned":
+            if file_quality["final_after_limit_count"] > 0:
+                file_quality["status"] = "updated"
+                file_quality["skip_reason"] = None
+            else:
+                file_quality["status"] = "skipped"
+                file_quality["skip_reason"] = "empty_after_total_limit"
+
+    _emit_progress(progress_callback, 100, "Генерация CIDR-файлов из БД завершена")
+
+    success = bool(updated)
+    if updated and (failed or skipped):
+        message = "CIDR-файлы обновлены из БД (часть пропущена или с ошибкой)"
+    elif updated:
+        message = "CIDR-файлы успешно обновлены из БД"
+    elif failed:
+        message = "Не удалось обновить CIDR-файлы из БД"
+    else:
+        message = "Нет данных в БД для обновления"
+
+    result = {
+        "success": success,
+        "message": message,
+        "updated": updated,
+        "failed": failed,
+        "skipped": skipped,
+        "backup_dir": backup_dir,
+        "backup_files": backup_files,
+        "game_hosts_filter": game_hosts_filter,
+        "game_ips_filter": game_ips_filter,
+        "quality_report": {
+            "providers": quality_by_file,
+            "totals": {
+                "requested_files": len(normalized),
+                "raw_db_cidrs": sum(int(item.get("raw_db_count") or 0) for item in quality_by_file.values()),
+                "after_scope_cidrs": sum(int(item.get("after_scope_count") or 0) for item in quality_by_file.values()),
+                "after_ru_exclusion_cidrs": sum(int(item.get("after_ru_exclusion_count") or 0) for item in quality_by_file.values()),
+                "after_antifilter_cidrs": sum(int(item.get("after_antifilter_count") or 0) for item in quality_by_file.values()),
+                "final_after_limit_cidrs": sum(int(item.get("final_after_limit_count") or 0) for item in quality_by_file.values()),
+            },
+            "dropped_mandatory_files": ((global_route_optimization_meta or {}).get("dpi_mandatory") or {}).get("dropped_mandatory_files", []),
+            "warnings": [
+                warning
+                for warning in [
+                    (global_route_optimization_meta or {}).get("warning"),
+                ]
+                if warning
+            ],
+        },
+    }
+
+    if global_route_optimization_meta:
+        result["global_route_optimization"] = global_route_optimization_meta
+
+    return result
+
+
+def estimate_cidr_matches_from_db(
+    selected_files=None,
+    region_scopes=None,
+    include_non_geo_fallback=False,
+    exclude_ru_cidrs=False,
+    include_game_hosts=False,
+    include_game_keys=None,
+    strict_geo_filter=False,
+    filter_by_antifilter=False,
+    total_cidr_limit=None,
+    dpi_priority_files=None,
+    dpi_mandatory_files=None,
+    dpi_priority_min_budget=0,
+):
+    """Preview how many CIDRs would be written from DB, without modifying any files."""
+    from core.models import ProviderCidr, ProviderMeta
+
+    normalized_scopes = _normalize_region_scopes(region_scopes)
+    is_all_scope = "all" in normalized_scopes
+
+    af_index = None
+    if filter_by_antifilter:
+        af_index = _load_antifilter_index()
+
+    requested = selected_files or list(IP_FILES.keys())
+    normalized = [name for name in requested if name in IP_FILES]
+
+    if not normalized:
+        return {
+            "success": False,
+            "message": "Не выбраны корректные CIDR-файлы",
+            "estimated": [],
+            "failed": [],
+            "skipped": [],
+        }
+
+    planned_estimated = []
+    failed = []
+    skipped = []
+    quality_by_file = {}
+
+    for file_name in normalized:
+        file_quality = {
+            "raw_db_count": 0,
+            "after_scope_count": 0,
+            "after_ru_exclusion_count": 0,
+            "after_antifilter_count": 0,
+            "final_after_limit_count": 0,
+            "status": "pending",
+            "skip_reason": None,
+        }
+        meta = ProviderMeta.query.filter_by(provider_key=file_name).first()
+        if not meta or meta.refresh_status not in ("ok", "partial") or meta.cidr_count == 0:
+            reason = "no_db_data" if (not meta or meta.cidr_count == 0) else f"db_status:{meta.refresh_status}"
+            skipped.append({"file": file_name, "reason": reason})
+            file_quality["status"] = "skipped"
+            file_quality["skip_reason"] = reason
+            quality_by_file[file_name] = file_quality
+            continue
+
+        rows = ProviderCidr.query.filter_by(provider_key=file_name).all()
+        file_quality["raw_db_count"] = len(rows)
+
+        if is_all_scope:
+            cidrs = [row.cidr for row in rows]
+        else:
+            cidrs = []
+            for row in rows:
+                has_region = row.region_scope is not None
+                has_countries = row.country_codes is not None
+                if has_region:
+                    if not _matches_region_scope(row.region_scope, normalized_scopes):
+                        continue
+                    if strict_geo_filter and not _matches_strict_scope_value(row.region_scope, normalized_scopes):
+                        continue
+                    cidrs.append(row.cidr)
+                elif has_countries:
+                    countries = row.country_codes.split(",")
+                    if not any(_matches_country_scope(c, normalized_scopes) for c in countries):
+                        continue
+                    if strict_geo_filter and not _is_strict_geo_country_set(set(countries)):
+                        continue
+                    cidrs.append(row.cidr)
+                else:
+                    if include_non_geo_fallback:
+                        cidrs.append(row.cidr)
+
+        cidrs = _normalize_cidrs(cidrs)
+        file_quality["after_scope_count"] = len(cidrs)
+        if not cidrs:
+            skipped.append({"file": file_name, "reason": "empty_after_geo_filter"})
+            file_quality["status"] = "skipped"
+            file_quality["skip_reason"] = "empty_after_geo_filter"
+            quality_by_file[file_name] = file_quality
+            continue
+
+        if exclude_ru_cidrs:
+            cidrs, _ = _exclude_ru_country_cidrs(cidrs)
+            if not cidrs:
+                skipped.append({"file": file_name, "reason": "empty_after_ru_exclusion"})
+                file_quality["after_ru_exclusion_count"] = 0
+                file_quality["status"] = "skipped"
+                file_quality["skip_reason"] = "empty_after_ru_exclusion"
+                quality_by_file[file_name] = file_quality
+                continue
+            file_quality["after_ru_exclusion_count"] = len(cidrs)
+        else:
+            file_quality["after_ru_exclusion_count"] = len(cidrs)
+
+        if af_index is not None:
+            cidrs = [c for c in cidrs if _cidr_overlaps_index(c, *af_index)]
+            if not cidrs:
+                skipped.append({"file": file_name, "reason": "empty_after_antifilter"})
+                file_quality["after_antifilter_count"] = 0
+                file_quality["status"] = "skipped"
+                file_quality["skip_reason"] = "empty_after_antifilter"
+                quality_by_file[file_name] = file_quality
+                continue
+            file_quality["after_antifilter_count"] = len(cidrs)
+        else:
+            file_quality["after_antifilter_count"] = len(cidrs)
+
+        planned_estimated.append({
+            "file": file_name,
+            "cidrs": cidrs,
+            "source": f"db:{meta.source_used or 'unknown'}",
+        })
+        file_quality["status"] = "planned"
+        quality_by_file[file_name] = file_quality
+
+    effective_limit = int(total_cidr_limit) if total_cidr_limit and int(total_cidr_limit) > 0 else _get_openvpn_route_total_cidr_limit()
+    planned_estimated, global_route_optimization_meta = _apply_total_route_limit(
+        planned_estimated,
+        effective_limit,
+        dpi_priority_files=dpi_priority_files,
+        dpi_mandatory_files=dpi_mandatory_files,
+        dpi_priority_min_budget=dpi_priority_min_budget,
+    )
+
+    estimated = [
+        {
+            "file": item["file"],
+            "cidr_count": len(item.get("cidrs") or []),
+            "source": item.get("source") or "db",
+        }
+        for item in planned_estimated
+    ]
+
+    final_counts_by_file = {item["file"]: len(item.get("cidrs") or []) for item in planned_estimated}
+    for file_name in normalized:
+        file_quality = quality_by_file.setdefault(
+            file_name,
+            {
+                "raw_db_count": 0,
+                "after_scope_count": 0,
+                "after_ru_exclusion_count": 0,
+                "after_antifilter_count": 0,
+                "final_after_limit_count": 0,
+                "status": "skipped",
+                "skip_reason": "not_processed",
+            },
+        )
+        file_quality["final_after_limit_count"] = int(final_counts_by_file.get(file_name, 0))
+        if file_quality["status"] == "planned":
+            if file_quality["final_after_limit_count"] > 0:
+                file_quality["status"] = "estimated"
+                file_quality["skip_reason"] = None
+            else:
+                file_quality["status"] = "skipped"
+                file_quality["skip_reason"] = "empty_after_total_limit"
+
+    selected_game_keys = _resolve_game_filter_selection(
+        include_game_keys=include_game_keys,
+        include_game_hosts=bool(include_game_hosts),
+    )
+    _, selected_game_domains = _collect_game_domains(selected_game_keys)
+
+    result = {
+        "success": True,
+        "message": "Оценка CIDR из БД готова",
+        "estimated": estimated,
+        "failed": failed,
+        "skipped": skipped,
+        "game_hosts_filter": {
+            "enabled": bool(selected_game_keys),
+            "selected_game_keys": selected_game_keys,
+            "selected_game_count": len(selected_game_keys),
+            "domain_count": len(selected_game_domains),
+            "file": GAME_INCLUDE_HOSTS_FILE,
+        },
+        "quality_report": {
+            "providers": quality_by_file,
+            "totals": {
+                "requested_files": len(normalized),
+                "raw_db_cidrs": sum(int(item.get("raw_db_count") or 0) for item in quality_by_file.values()),
+                "after_scope_cidrs": sum(int(item.get("after_scope_count") or 0) for item in quality_by_file.values()),
+                "after_ru_exclusion_cidrs": sum(int(item.get("after_ru_exclusion_count") or 0) for item in quality_by_file.values()),
+                "after_antifilter_cidrs": sum(int(item.get("after_antifilter_count") or 0) for item in quality_by_file.values()),
+                "final_after_limit_cidrs": sum(int(item.get("final_after_limit_count") or 0) for item in quality_by_file.values()),
+            },
+            "dropped_mandatory_files": ((global_route_optimization_meta or {}).get("dpi_mandatory") or {}).get("dropped_mandatory_files", []),
+            "warnings": [
+                warning
+                for warning in [
+                    (global_route_optimization_meta or {}).get("warning"),
+                ]
+                if warning
+            ],
+        },
+    }
+
+    if global_route_optimization_meta:
+        result["global_route_optimization"] = global_route_optimization_meta
+
+    return result

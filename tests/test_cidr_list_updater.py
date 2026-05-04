@@ -362,6 +362,171 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual(mocked_download.call_count, 1)
 
+    def test_analyze_dpi_log_builds_priority_files(self):
+        dpi_log = "\n".join(
+            [
+                "[03:38:47.119] DPI checking(#US.CDN77-01)/INFO: tcp 16-20: detected❗️, method: 1",
+                "[03:38:47.165] DPI checking(#DE.HE-01)/INFO: tcp 16-20: possible detected ⚠️, reqtime: 180.8 ms",
+                "[03:38:47.257] DPI checking(#SE.AKM-01)/INFO: tcp 16-20: unlikely ⚠️, reqtime: 220.0 ms",
+                "[03:38:47.631] DPI checking(#US.GH-HPRN)/INFO: tcp 16-20: not detected ✅, reqtime: 100.0 ms",
+            ]
+        )
+
+        result = cidr_list_updater.analyze_dpi_log(dpi_log)
+
+        self.assertTrue(result["success"])
+        self.assertIn("cdn77-ips.txt", result["priority_files"])
+        self.assertIn("hetzner-ips.txt", result["priority_files"])
+        self.assertIn("akamai-ips.txt", result["priority_files"])
+        self.assertIn("cdn77-ips.txt", result["critical_files"])
+        self.assertIn("hetzner-ips.txt", result["critical_files"])
+        self.assertNotIn("akamai-ips.txt", result["critical_files"])
+        self.assertIn("cdn77-ips.txt", result["detected_files"])
+        self.assertNotIn("hetzner-ips.txt", result["detected_files"])
+
+    def test_analyze_dpi_log_supports_relaxed_patterns_and_provider_aliases(self):
+        dpi_log = "\n".join(
+            [
+                "[00:00:01] DPI checking (#US-CF-01)/INFO: tcp 16-20: detected, provider=Cloudflare",
+                "[00:00:02] DPI checking (#DE-AWS-01)/INFO: tcp 16 - 20: possible detected, provider: Amazon AWS",
+                "[00:00:03] DPI checking (#EU.UNKNOWN-01)/INFO: provider: Microsoft Azure, tcp 16–20: unlikely",
+            ]
+        )
+
+        result = cidr_list_updater.analyze_dpi_log(dpi_log)
+
+        self.assertTrue(result["success"])
+        self.assertIn("cloudflare-ips.txt", result["priority_files"])
+        self.assertIn("amazon-ips.txt", result["critical_files"])
+        self.assertIn("azure-ips.txt", result["priority_files"])
+
+    def test_analyze_dpi_log_parses_probably_detected(self):
+        dpi_log = "[00:00:01] DPI checking(#US.FTBVM-01)/INFO: tcp 16-20: probably detected ⚠️, reqtime: 15013.2 ms"
+
+        result = cidr_list_updater.analyze_dpi_log(dpi_log)
+
+        self.assertTrue(result["success"])
+        self.assertIn("buyvm-ips.txt", result["priority_files"])
+        self.assertIn("buyvm-ips.txt", result["critical_files"])
+
+    def test_analyze_dpi_log_returns_all_seen_files(self):
+        dpi_log = "\n".join(
+            [
+                "[00:00:01] DPI checking(#US.CF-01)/INFO: tcp 16-20: not detected ✅, reqtime: 200.0 ms",
+                "[00:00:02] DPI checking(#US.CDN77-01)/INFO: tcp 16-20: detected❗️, method: 1",
+            ]
+        )
+
+        result = cidr_list_updater.analyze_dpi_log(dpi_log)
+
+        self.assertTrue(result["success"])
+        self.assertIn("cloudflare-ips.txt", result["all_seen_files"])
+        self.assertIn("cdn77-ips.txt", result["all_seen_files"])
+
+    def test_analyze_dpi_log_supports_dpi_detector_table_format(self):
+        dpi_log = "\n".join(
+            [
+                "│ ID     │ ASN      │ Провайдер       │ Alive │  Статус  │ Детали                   │",
+                "│ OR-01  │ AS31898  │ Oracle Cloud    │  Да   │ DETECTED │ Read Timeout at 20KB     │",
+                "│ SW-01  │ AS12876  │ Scaleway 1      │  Нет  │ REFUSED  │ TCP соединение отклонено │",
+                "│ SW-02  │ AS12876  │ Scaleway 1      │  Да   │ DETECTED │ Read Timeout at 20KB     │",
+                "│ GC-01  │ AS396982 │ Google Cloud    │  Да   │    OK    │                          │",
+            ]
+        )
+
+        result = cidr_list_updater.analyze_dpi_log(dpi_log)
+
+        self.assertTrue(result["success"])
+        self.assertIn("oracle-ips.txt", result["detected_files"])
+        self.assertIn("scaleway-ips.txt", result["detected_files"])
+        self.assertIn("google-ips.txt", result["all_seen_files"])
+        self.assertNotIn("google-ips.txt", result["priority_files"])
+
+    def test_analyze_dpi_log_maps_extended_table_provider_codes(self):
+        dpi_log = "\n".join(
+            [
+                "│ ID     │ ASN      │ Провайдер       │ Alive │  Статус  │ Детали                   │",
+                "│ CV-02  │ AS62240  │ Clouvider       │  Да   │ DETECTED │ Read Timeout at 20KB     │",
+                "│ IM-01  │ AS20860  │ IOMART 1        │  Да   │ DETECTED │ Read Timeout at 20KB     │",
+                "│ CN-01  │ AS51765  │ CreaNova        │  Да   │ DETECTED │ Read Timeout at 20KB     │",
+                "│ ME-01  │ AS9009   │ M247 Europe SRL │  Да   │ DETECTED │ Read Timeout at 16KB     │",
+                "│ SCA-01 │ AS58061  │ Scalaxy         │  Да   │ DETECTED │ Read Timeout at 16KB     │",
+                "│ ZL-01  │ AS21859  │ Zenlayer        │  Да   │ DETECTED │ Read Timeout at 20KB     │",
+            ]
+        )
+
+        result = cidr_list_updater.analyze_dpi_log(dpi_log)
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["unknown_nodes"], [])
+        self.assertIn("clouvider-ips.txt", result["detected_files"])
+        self.assertIn("iomart-ips.txt", result["detected_files"])
+        self.assertIn("creanova-ips.txt", result["detected_files"])
+        self.assertIn("m247-ips.txt", result["detected_files"])
+        self.assertIn("scalaxy-ips.txt", result["detected_files"])
+        self.assertIn("zenlayer-ips.txt", result["detected_files"])
+
+    def test_get_openvpn_route_total_cidr_limit_clamps_to_ios_max(self):
+        with patch.object(cidr_list_updater, "_read_positive_int_runtime", return_value=5000), patch.object(
+            cidr_list_updater,
+            "OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS",
+            900,
+        ):
+            self.assertEqual(cidr_list_updater._get_openvpn_route_total_cidr_limit(), 900)
+
+    def test_apply_total_route_limit_with_dpi_priority_reserve(self):
+        entries = [
+            {
+                "file": "google-ips.txt",
+                "cidrs": [f"10.10.{index}.0/24" for index in range(30)],
+            },
+            {
+                "file": "ovh-ips.txt",
+                "cidrs": [f"10.20.{index}.0/24" for index in range(30)],
+            },
+        ]
+
+        adjusted, meta = cidr_list_updater._apply_total_route_limit(
+            entries,
+            10,
+            dpi_priority_files=["google-ips.txt"],
+            dpi_priority_min_budget=6,
+        )
+
+        self.assertIsNotNone(meta)
+        self.assertIn("dpi_priority", meta)
+        self.assertLessEqual(sum(len(item["cidrs"]) for item in adjusted), 10)
+        google_entry = next(item for item in adjusted if item["file"] == "google-ips.txt")
+        self.assertGreaterEqual(len(google_entry["cidrs"]), 6)
+
+    def test_apply_total_route_limit_keeps_mandatory_detected_file(self):
+        entries = [
+            {
+                "file": "google-ips.txt",
+                "cidrs": [f"10.10.{index}.0/24" for index in range(40)],
+            },
+            {
+                "file": "ovh-ips.txt",
+                "cidrs": [f"10.20.{index}.0/24" for index in range(40)],
+            },
+            {
+                "file": "cdn77-ips.txt",
+                "cidrs": ["10.30.0.0/24", "10.30.1.0/24"],
+            },
+        ]
+
+        adjusted, meta = cidr_list_updater._apply_total_route_limit(
+            entries,
+            2,
+            dpi_mandatory_files=["cdn77-ips.txt"],
+        )
+
+        self.assertIsNotNone(meta)
+        self.assertIn("dpi_mandatory", meta)
+        self.assertFalse(meta["dpi_mandatory"]["dropped_mandatory_files"])
+        kept_cdn77 = next(item for item in adjusted if item["file"] == "cdn77-ips.txt")
+        self.assertGreaterEqual(len(kept_cdn77["cidrs"]), 1)
+
     def test_estimate_applies_route_optimization_for_large_geo_result(self):
         target_file = "ovh-ips.txt"
         sources = [
@@ -431,8 +596,8 @@ class CidrListUpdaterTests(unittest.TestCase):
             return_value="5.255.0.0/16\n8.8.8.0/24\n",
         ), patch.object(
             cidr_list_updater,
-            "_get_ru_cidr_networks",
-            return_value=([ipaddress.ip_network("5.0.0.0/8")], None),
+            "_get_ru_cidr_index",
+            return_value=(cidr_list_updater._build_antifilter_overlap_index(["5.0.0.0/8"]), None),
         ):
             result = cidr_list_updater.estimate_cidr_matches(
                 [target_file],
@@ -559,7 +724,7 @@ class CidrListUpdaterTests(unittest.TestCase):
 
     def test_normalize_cidrs_filters_default_route(self):
         normalized = cidr_list_updater._normalize_cidrs(
-            ["0.0.0.0/0", "10.0.0.0/24", "10.0.0.0/24"]
+            ["0.0.0.0/0", "10.0.0.0/24", "10.0.0.0/24", "2001:db8::/32"]
         )
         self.assertEqual(normalized, ["10.0.0.0/24"])
 

@@ -448,12 +448,25 @@ document.addEventListener("DOMContentLoaded", function () {
     "#cidr-sync-games-hosts",
     "#cidr-games-search-input",
     "#cidr-save-total-limit",
+    "#cidr-dpi-analyze",
   ].join(", ");
 
   const cidrProgressState = {
     timerId: null,
     stageIndex: 0,
     percent: 0,
+  };
+  const CIDR_TOTAL_LIMIT_MAX_IOS = 900;
+  const dpiMiniReportState = {
+    foundInLog: 0,
+    selectedForBuild: 0,
+    mandatoryDetected: 0,
+    priorityForBudget: 0,
+    criticalProviders: 0,
+    limitValue: 0,
+    clippedByLimit: null,
+    originalTotal: 0,
+    compressedTotal: 0,
   };
 
   const getCidrProgressElements = () => ({
@@ -476,7 +489,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     section.querySelectorAll(
-      ".cidr-region-checkbox, .cidr-scope-checkbox, .cidr-game-checkbox, #cidr-include-non-geo-fallback, #cidr-strict-geo-filter, #cidr-exclude-ru-cidrs, #cidr-total-limit-input"
+      ".cidr-region-checkbox, .cidr-scope-checkbox, .cidr-game-checkbox, #cidr-include-non-geo-fallback, #cidr-strict-geo-filter, #cidr-exclude-ru-cidrs, #cidr-total-limit-input, #cidr-filter-by-antifilter"
     ).forEach((node) => {
       node.disabled = Boolean(isBusy);
     });
@@ -631,6 +644,31 @@ document.addEventListener("DOMContentLoaded", function () {
     if (ruExclusionEl) ruExclusionEl.textContent = regionScopes.includes("all") && excludeRuCidrs ? "on" : "off";
     if (gamesSelectedEl) gamesSelectedEl.textContent = String(includeGameKeys.length);
     renderCidrEstimateModeBadge(strictGeoFilter);
+
+    const cidrTotalEl = document.getElementById("cidr-meta-total-cidr");
+    if (cidrTotalEl) {
+      const counts = window._cidrDbProviderCounts;
+      if (counts && Object.keys(counts).length > 0) {
+        const selected = getSelectedCidrRegions();
+        const total = selected.reduce((sum, key) => sum + (counts[key] || 0), 0);
+        if (total === 0) {
+          cidrTotalEl.textContent = "—";
+          cidrTotalEl.className = "cidr-meta-item__value";
+        } else {
+          cidrTotalEl.textContent = `${total.toLocaleString("ru-RU")} / ${CIDR_TOTAL_LIMIT_MAX_IOS}`;
+          if (total > CIDR_TOTAL_LIMIT_MAX_IOS) {
+            cidrTotalEl.className = "cidr-meta-item__value cidr-meta-item__value--error";
+          } else if (total > CIDR_TOTAL_LIMIT_MAX_IOS * 0.85) {
+            cidrTotalEl.className = "cidr-meta-item__value cidr-meta-item__value--warn";
+          } else {
+            cidrTotalEl.className = "cidr-meta-item__value cidr-meta-item__value--ok";
+          }
+        }
+      } else {
+        cidrTotalEl.textContent = "нет данных БД";
+        cidrTotalEl.className = "cidr-meta-item__value";
+      }
+    }
   };
 
   const renderCidrResultDetails = (result) => {
@@ -651,10 +689,16 @@ document.addEventListener("DOMContentLoaded", function () {
     const updatedListEl = document.getElementById("cidr-result-updated-list");
     const skippedListEl = document.getElementById("cidr-result-skipped-list");
     const failedListEl = document.getElementById("cidr-result-failed-list");
+    const quality = result?.quality_report || {};
+    const qualityTotals = quality?.totals || {};
+    const qualityWarnings = Array.isArray(quality?.warnings) ? quality.warnings : [];
+    const qualityHeadline = Number.isFinite(Number(qualityTotals.final_after_limit_cidrs))
+      ? `<li><strong>Pipeline:</strong> raw ${Number(qualityTotals.raw_db_cidrs || 0)} → scope ${Number(qualityTotals.after_scope_cidrs || 0)} → ru ${Number(qualityTotals.after_ru_exclusion_cidrs || 0)} → antifilter ${Number(qualityTotals.after_antifilter_cidrs || 0)} → final ${Number(qualityTotals.final_after_limit_cidrs || 0)}</li>`
+      : "";
 
     if (updatedListEl) {
       updatedListEl.innerHTML = updated.length
-        ? updated.map((item) => `<li>${item.file}: ${item.cidr_count} CIDR (${item.source || "source"})</li>`).join("")
+        ? `${qualityHeadline}${updated.map((item) => `<li>${item.file}: ${item.cidr_count} CIDR (${item.source || "source"})</li>`).join("")}`
         : '<li class="no-data">Нет обновленных файлов</li>';
     }
 
@@ -665,9 +709,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (failedListEl) {
+      const warningHtml = qualityWarnings.length
+        ? qualityWarnings.map((warning) => `<li>warning: ${warning}</li>`).join("")
+        : "";
       failedListEl.innerHTML = failed.length
-        ? failed.map((item) => `<li>${item.file}: ${item.error || "error"}</li>`).join("")
-        : '<li class="no-data">Нет ошибок</li>';
+        ? `${warningHtml}${failed.map((item) => `<li>${item.file}: ${item.error || "error"}</li>`).join("")}`
+        : warningHtml || '<li class="no-data">Нет ошибок</li>';
     }
 
     const timeEl = document.getElementById("cidr-result-timestamp");
@@ -677,6 +724,93 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     panel.hidden = false;
+    applyLimitStatsToDpiMiniReport(result);
+  };
+
+  const renderDpiMiniReport = () => {
+    const el = document.getElementById("cidr-dpi-mini-report");
+    if (!el) return;
+
+    const found = Number(dpiMiniReportState.foundInLog || 0);
+    const selected = Number(dpiMiniReportState.selectedForBuild || 0);
+    const mandatoryDetected = Number(dpiMiniReportState.mandatoryDetected || 0);
+    const priority = Number(dpiMiniReportState.priorityForBudget || 0);
+    const critical = Number(dpiMiniReportState.criticalProviders || 0);
+    const limit = Number(dpiMiniReportState.limitValue || 0);
+    const clipped = dpiMiniReportState.clippedByLimit;
+    const original = Number(dpiMiniReportState.originalTotal || 0);
+    const compressed = Number(dpiMiniReportState.compressedTotal || 0);
+
+    let clippingText = "Срез лимитом: не оценен";
+    if (clipped === 0) {
+      clippingText = "Срез лимитом: нет";
+    } else if (Number.isFinite(clipped) && clipped > 0) {
+      clippingText = `Срез лимитом: -${clipped} CIDR (${compressed}/${original})`;
+      if (limit >= CIDR_TOTAL_LIMIT_MAX_IOS) {
+        clippingText += `, потолок iOS ${CIDR_TOTAL_LIMIT_MAX_IOS}`;
+      }
+    }
+
+    el.textContent = `Лог: найдено ${found} | В сборку: ${selected} | Обяз. detected: ${mandatoryDetected} | Приоритет: ${priority} | Критичные: ${critical} | ${clippingText}`;
+    el.className = "help-text";
+  };
+
+  const updateDpiMiniReport = (patch = {}) => {
+    Object.assign(dpiMiniReportState, patch || {});
+    renderDpiMiniReport();
+  };
+
+  const applyLimitStatsToDpiMiniReport = (payload) => {
+    const meta = payload?.global_route_optimization;
+    const fallbackLimit = Number(document.getElementById("cidr-total-limit-input")?.value || 0);
+
+    if (!meta || typeof meta !== "object") {
+      updateDpiMiniReport({
+        limitValue: Number.isFinite(fallbackLimit) ? fallbackLimit : 0,
+        clippedByLimit: 0,
+        originalTotal: 0,
+        compressedTotal: 0,
+      });
+      return;
+    }
+
+    const original = Number(meta.original_total_cidr_count || 0);
+    const compressed = Number(meta.compressed_total_cidr_count || 0);
+    const limit = Number(meta.limit || 0);
+    const clipped = Math.max(0, original - compressed);
+
+    updateDpiMiniReport({
+      limitValue: Number.isFinite(limit) ? limit : (Number.isFinite(fallbackLimit) ? fallbackLimit : 0),
+      clippedByLimit: clipped,
+      originalTotal: Number.isFinite(original) ? original : 0,
+      compressedTotal: Number.isFinite(compressed) ? compressed : 0,
+    });
+  };
+
+  const buildRouteLimitWarning = (result) => {
+    const meta = result?.global_route_optimization;
+    if (!meta || typeof meta !== "object") return "";
+
+    const droppedMandatory = Array.isArray(meta?.dpi_mandatory?.dropped_mandatory_files)
+      ? meta.dpi_mandatory.dropped_mandatory_files
+      : [];
+    if (droppedMandatory.length) {
+      return `Лимит слишком низкий: обязательные detected-провайдеры не влезли (${droppedMandatory.join(", ")}). Увеличьте лимит до потолка iOS ${CIDR_TOTAL_LIMIT_MAX_IOS}.`;
+    }
+
+    const original = Number(meta.original_total_cidr_count || 0);
+    const compressed = Number(meta.compressed_total_cidr_count || 0);
+    const limit = Number(meta.limit || 0);
+    if (!Number.isFinite(original) || !Number.isFinite(compressed) || original <= compressed) {
+      return "";
+    }
+
+    if (limit >= CIDR_TOTAL_LIMIT_MAX_IOS) {
+      return `Достигнут потолок iOS (${CIDR_TOTAL_LIMIT_MAX_IOS} CIDR): больше увеличить нельзя.`;
+    }
+
+    const target = Math.min(CIDR_TOTAL_LIMIT_MAX_IOS, original);
+    return `Лимит ${limit} сжал маршруты (${compressed} из ${original}). Можно увеличить до ${target} (максимум для iOS: ${CIDR_TOTAL_LIMIT_MAX_IOS}).`;
   };
 
   const getCidrRegionSettings = () => {
@@ -704,6 +838,90 @@ document.addEventListener("DOMContentLoaded", function () {
       includeGameKeys,
       strictGeoFilter,
     };
+  };
+
+  const getDpiPriorityMinBudget = () => {
+    const raw = String(document.getElementById("cidr-dpi-priority-min-budget")?.value || "").trim();
+    if (!/^\d+$/.test(raw)) return 0;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value <= 0) return 0;
+    return Math.floor(value);
+  };
+
+  const normalizeDpiFileName = (value) => String(value || "").trim().toLowerCase();
+
+  const applyDpiAutoSelection = ({ allSeenFiles = [], priorityFiles = [], providers = [] } = {}) => {
+    const normalizedSeen = Array.isArray(allSeenFiles)
+      ? allSeenFiles.map(normalizeDpiFileName).filter(Boolean)
+      : [];
+    const normalizedPriority = Array.isArray(priorityFiles)
+      ? priorityFiles.map(normalizeDpiFileName).filter(Boolean)
+      : [];
+    const normalizedProviders = Array.isArray(providers)
+      ? providers
+        .map((item) => normalizeDpiFileName(item?.file))
+        .filter(Boolean)
+      : [];
+
+    const wantedFiles = normalizedSeen.length
+      ? Array.from(new Set(normalizedSeen))
+      : normalizedPriority.length
+        ? normalizedPriority
+        : Array.from(new Set(normalizedProviders));
+
+    if (wantedFiles.length) {
+      const wantedSet = new Set(wantedFiles);
+      document.querySelectorAll(".cidr-region-checkbox").forEach((input) => {
+        const key = normalizeDpiFileName(input.value);
+        input.checked = wantedSet.has(key);
+      });
+    }
+
+    document.querySelectorAll(".cidr-scope-checkbox").forEach((input) => {
+      const isAll = String(input.value || "").trim().toLowerCase() === "all";
+      input.checked = isAll;
+    });
+
+    const fallbackToggle = document.getElementById("cidr-include-non-geo-fallback");
+    const strictToggle = document.getElementById("cidr-strict-geo-filter");
+    const excludeRuToggle = document.getElementById("cidr-exclude-ru-cidrs");
+    const antifilterToggle = document.getElementById("cidr-filter-by-antifilter");
+    if (fallbackToggle) fallbackToggle.checked = true;
+    if (strictToggle) strictToggle.checked = false;
+    if (excludeRuToggle) excludeRuToggle.checked = true;
+    if (antifilterToggle) antifilterToggle.checked = true;
+
+    return wantedFiles;
+  };
+
+  const renderDpiSummary = (payload, priorityFiles) => {
+    const summaryEl = document.getElementById("cidr-dpi-summary");
+    if (!summaryEl) return;
+
+    if (!payload || !payload.success) {
+      summaryEl.textContent = "DPI-анализ не выполнен.";
+      summaryEl.className = "help-text";
+      return;
+    }
+
+    const summary = payload.summary || {};
+    const providers = Array.isArray(payload.providers) ? payload.providers : [];
+    const hot = providers
+      .filter((p) => Number(p.max_severity_score || -1) >= 2)
+      .map((p) => p.file)
+      .slice(0, 8);
+
+    const pieces = [
+      `Узлов: ${Number(summary.total_nodes || 0)}`,
+      `Сопоставлено: ${Number(summary.matched_nodes || 0)}`,
+      `Приоритетных провайдеров: ${Array.isArray(priorityFiles) ? priorityFiles.length : 0}`,
+    ];
+    if (hot.length) {
+      pieces.push(`Критичные: ${hot.join(", ")}`);
+    }
+
+    summaryEl.textContent = pieces.join(" | ");
+    summaryEl.className = "help-text";
   };
 
   const applyCidrRegionPreset = ({
@@ -894,6 +1112,8 @@ document.addEventListener("DOMContentLoaded", function () {
       const errorText = String(item?.error || "error");
       setCidrEstimateBadge(item?.file, `${estimatePrefix}: ошибка источника`, "error", errorText);
     });
+
+    applyLimitStatsToDpiMiniReport(payload);
   };
 
   const fetchCidrRegions = async () => {
@@ -925,6 +1145,10 @@ document.addEventListener("DOMContentLoaded", function () {
     includeGameKeys = [],
     strictGeoFilter = false,
     openvpnRouteTotalCidrLimit = null,
+    dpiLogText = "",
+    dpiPriorityFiles = [],
+    dpiMandatoryFiles = [],
+    dpiPriorityMinBudget = 0,
   }) => {
     const response = await fetch("/api/cidr-lists", {
       method: "POST",
@@ -942,6 +1166,10 @@ document.addEventListener("DOMContentLoaded", function () {
         include_game_keys: includeGameKeys,
         strict_geo_filter: strictGeoFilter,
         openvpn_route_total_cidr_limit: openvpnRouteTotalCidrLimit,
+        dpi_log_text: dpiLogText,
+        dpi_priority_files: dpiPriorityFiles,
+        dpi_mandatory_files: dpiMandatoryFiles,
+        dpi_priority_min_budget: dpiPriorityMinBudget,
       }),
     });
 
@@ -998,6 +1226,9 @@ document.addEventListener("DOMContentLoaded", function () {
     excludeRuCidrs,
     includeGameKeys,
     strictGeoFilter,
+    dpiPriorityFiles = [],
+    dpiMandatoryFiles = [],
+    dpiPriorityMinBudget = 0,
     progressLabel,
   }) => {
     startCidrProgress(progressLabel || "Выполняется операция...", { simulated: false });
@@ -1011,6 +1242,9 @@ document.addEventListener("DOMContentLoaded", function () {
         excludeRuCidrs,
         includeGameKeys,
         strictGeoFilter,
+        dpiPriorityFiles,
+        dpiMandatoryFiles,
+        dpiPriorityMinBudget,
       });
 
       if (!queued?.queued || !queued?.task_id) {
@@ -1041,6 +1275,10 @@ document.addEventListener("DOMContentLoaded", function () {
     let regionsLoaded = false;
     let estimateTimer = null;
     let estimateRequestSeq = 0;
+    let dpiPriorityFiles = [];
+    let dpiMandatoryFiles = [];
+    window._cidrDpiPriorityFiles = [];
+    window._cidrDpiMandatoryFiles = [];
 
     const ensureLoaded = async () => {
       if (regionsLoaded) return;
@@ -1062,6 +1300,9 @@ document.addEventListener("DOMContentLoaded", function () {
           excludeRuCidrs,
           includeGameKeys,
           strictGeoFilter,
+          dpiPriorityFiles,
+          dpiMandatoryFiles,
+          dpiPriorityMinBudget: getDpiPriorityMinBudget(),
         });
         if (requestId !== estimateRequestSeq) return { stale: true };
         renderCidrEstimatePreview(result);
@@ -1146,8 +1387,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         const limitValue = Number(rawValue);
-        if (!Number.isFinite(limitValue) || limitValue <= 0 || limitValue > 200000) {
-          setCidrStatus("Лимит CIDR должен быть в диапазоне 1..200000", "warning");
+        if (!Number.isFinite(limitValue) || limitValue <= 0 || limitValue > CIDR_TOTAL_LIMIT_MAX_IOS) {
+          setCidrStatus(`Лимит CIDR должен быть в диапазоне 1..${CIDR_TOTAL_LIMIT_MAX_IOS} (ограничение iOS)`, "warning");
           return;
         }
 
@@ -1204,6 +1445,65 @@ document.addEventListener("DOMContentLoaded", function () {
         renderCidrMeta();
       } catch (error) {
         finishCidrProgress({ success: false, stageText: "Ошибка синхронизации include-hosts/include-ips" });
+        setCidrStatus(`Ошибка: ${error.message}`, "error");
+      } finally {
+        setCidrBusy(false);
+      }
+    });
+
+    document.getElementById("cidr-dpi-analyze")?.addEventListener("click", async () => {
+      try {
+        setCidrBusy(true);
+        await ensureLoaded();
+
+        const dpiLogText = String(document.getElementById("cidr-dpi-log-input")?.value || "").trim();
+        if (!dpiLogText) {
+          setCidrStatus("Вставьте лог DPI-checkers для анализа", "warning");
+          return;
+        }
+
+        startCidrProgress("Анализ DPI-лога...", { simulated: true });
+        const result = await runCidrAction({
+          action: "analyze_dpi_log",
+          regions: [],
+          dpiLogText,
+        });
+
+        const allSeenFiles = Array.isArray(result.all_seen_files) ? result.all_seen_files : [];
+        const detectedFiles = Array.isArray(result.detected_files) ? result.detected_files : [];
+        dpiPriorityFiles = Array.isArray(result.priority_files) ? result.priority_files : [];
+        const criticalFiles = Array.isArray(result.critical_files) ? result.critical_files : [];
+        const providers = Array.isArray(result.providers) ? result.providers : [];
+        const selectedFiles = applyDpiAutoSelection({
+          allSeenFiles,
+          priorityFiles: dpiPriorityFiles,
+          providers,
+        });
+        window._cidrDpiPriorityFiles = [...dpiPriorityFiles];
+        dpiMandatoryFiles = [...detectedFiles];
+        window._cidrDpiMandatoryFiles = [...dpiMandatoryFiles];
+
+        updateDpiMiniReport({
+          foundInLog: allSeenFiles.length,
+          selectedForBuild: selectedFiles.length,
+          mandatoryDetected: dpiMandatoryFiles.length,
+          priorityForBudget: dpiPriorityFiles.length,
+          criticalProviders: criticalFiles.length,
+          clippedByLimit: null,
+          originalTotal: 0,
+          compressedTotal: 0,
+        });
+
+        renderDpiSummary(result, dpiPriorityFiles);
+        renderCidrMeta();
+        finishCidrProgress({ success: true, stageText: "DPI-анализ завершен" });
+        setCidrStatus(
+          `DPI-анализ готов: выбрано ${selectedFiles.length}, обязательных detected ${dpiMandatoryFiles.length}, приоритетных ${dpiPriorityFiles.length}`,
+          selectedFiles.length ? "success" : "warning"
+        );
+        scheduleCidrEstimateRefresh(50);
+      } catch (error) {
+        finishCidrProgress({ success: false, stageText: "Ошибка DPI-анализа" });
         setCidrStatus(`Ошибка: ${error.message}`, "error");
       } finally {
         setCidrBusy(false);
@@ -1355,6 +1655,9 @@ document.addEventListener("DOMContentLoaded", function () {
           excludeRuCidrs,
           includeGameKeys,
           strictGeoFilter,
+          dpiPriorityFiles,
+          dpiMandatoryFiles,
+          dpiPriorityMinBudget: getDpiPriorityMinBudget(),
           progressLabel: "Обновление выбранных CIDR-файлов...",
         });
         const updatedCount = Array.isArray(result.updated) ? result.updated.length : 0;
@@ -1367,11 +1670,14 @@ document.addEventListener("DOMContentLoaded", function () {
           .map((item) => item?.file)
           .filter(Boolean)
           .join(", ");
-        const level = failedCount > 0 || skippedNames ? "warning" : "success";
+        const routeLimitWarning = buildRouteLimitWarning(result);
+        const level = failedCount > 0 || skippedNames || routeLimitWarning ? "warning" : "success";
         const details = failedNames ? ` (${failedNames})` : "";
         const skippedDetails = skippedNames ? `; пропущено: ${skippedNames}` : "";
-        setCidrStatus(`Готово: обновлено ${updatedCount}, ошибок ${failedCount}${details}${skippedDetails}`, level);
+        const warningDetails = routeLimitWarning ? `; ${routeLimitWarning}` : "";
+        setCidrStatus(`Готово: обновлено ${updatedCount}, ошибок ${failedCount}${details}${skippedDetails}${warningDetails}`, level);
         renderCidrResultDetails(result);
+        applyLimitStatsToDpiMiniReport(result);
         scheduleCidrEstimateRefresh(50);
       } catch (error) {
         setCidrStatus(`Ошибка: ${error.message}`, "error");
@@ -1394,6 +1700,9 @@ document.addEventListener("DOMContentLoaded", function () {
           excludeRuCidrs,
           includeGameKeys,
           strictGeoFilter,
+          dpiPriorityFiles,
+          dpiMandatoryFiles,
+          dpiPriorityMinBudget: getDpiPriorityMinBudget(),
           progressLabel: "Обновление всех CIDR-файлов...",
         });
         const updatedCount = Array.isArray(result.updated) ? result.updated.length : 0;
@@ -1406,11 +1715,14 @@ document.addEventListener("DOMContentLoaded", function () {
           .map((item) => item?.file)
           .filter(Boolean)
           .join(", ");
-        const level = failedCount > 0 || skippedNames ? "warning" : "success";
+        const routeLimitWarning = buildRouteLimitWarning(result);
+        const level = failedCount > 0 || skippedNames || routeLimitWarning ? "warning" : "success";
         const details = failedNames ? ` (${failedNames})` : "";
         const skippedDetails = skippedNames ? `; пропущено: ${skippedNames}` : "";
-        setCidrStatus(`Готово: обновлено ${updatedCount}, ошибок ${failedCount}${details}${skippedDetails}`, level);
+        const warningDetails = routeLimitWarning ? `; ${routeLimitWarning}` : "";
+        setCidrStatus(`Готово: обновлено ${updatedCount}, ошибок ${failedCount}${details}${skippedDetails}${warningDetails}`, level);
         renderCidrResultDetails(result);
+        applyLimitStatsToDpiMiniReport(result);
         scheduleCidrEstimateRefresh(50);
       } catch (error) {
         setCidrStatus(`Ошибка: ${error.message}`, "error");
@@ -2044,6 +2356,110 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
   }
+
+  // Expose helpers for inline scripts (settings.html DB/preset blocks)
+  window._cidrRenderMeta = renderCidrMeta;
+
+  // ── Step list helpers ──────────────────────────────────────────────────
+  const _cidrStepShow = (steps) => {
+    const list = document.getElementById("cidr-step-list");
+    const items = document.getElementById("cidr-step-items");
+    if (!list || !items) return;
+    items.innerHTML = steps.map((s, i) =>
+      `<li class="cidr-step-item" id="cidr-step-item-${i}">` +
+      `<span class="cidr-step-icon">○</span>` +
+      `<span class="cidr-step-text">Шаг ${i + 1} из ${steps.length}: ${s.label}</span>` +
+      `</li>`
+    ).join("");
+    list.hidden = false;
+  };
+
+  const _cidrStepUpdate = (index, state, text) => {
+    const el = document.getElementById(`cidr-step-item-${index}`);
+    if (!el) return;
+    const icons = { pending: "○", active: "⏳", done: "✓", error: "✗" };
+    el.className = `cidr-step-item${state !== "pending" ? ` cidr-step-item--${state}` : ""}`;
+    const icon = el.querySelector(".cidr-step-icon");
+    const span = el.querySelector(".cidr-step-text");
+    if (icon) icon.textContent = icons[state] || "○";
+    if (span && text) span.textContent = text;
+  };
+
+  const _cidrStepHide = () => {
+    const list = document.getElementById("cidr-step-list");
+    if (list) list.hidden = true;
+  };
+
+  // ── Sequential multi-step runner exposed to inline HTML scripts ────────
+  //
+  // steps = [{ label: string, start: async () => task_id }]
+  //
+  // Each step's local 0-100% progress is mapped into its slice of the global
+  // progress bar (e.g. 2 steps → step 0 uses 0-45%, step 1 uses 45-100%).
+  window._pollCidrTaskExternal = async (steps) => {
+    if (!Array.isArray(steps) || !steps.length) return;
+
+    setCidrBusy(true);
+    _cidrStepShow(steps);
+
+    const sliceSize = Math.floor(90 / steps.length); // reserve last 10% for "done" animation
+    let lastResult = null;
+    let failed = false;
+
+    startCidrProgress(steps[0].label + "…", { simulated: false });
+    renderCidrProgress({ percent: 2, stageText: "Подготовка…" });
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      const pctStart = 2 + i * sliceSize;
+      const pctEnd = 2 + (i + 1) * sliceSize;
+
+      _cidrStepUpdate(i, "active", `Шаг ${i + 1} из ${steps.length}: ${step.label}…`);
+
+      let taskId;
+      try {
+        taskId = await step.start();
+      } catch (e) {
+        _cidrStepUpdate(i, "error", `Шаг ${i + 1}: ${step.label} — ошибка запуска: ${e.message}`);
+        setCidrStatus("Ошибка: " + (e.message || e), "error");
+        failed = true;
+        break;
+      }
+
+      try {
+        const result = await pollCidrTask(taskId, {
+          onProgress: (task) => {
+            const localFrac = Math.max(0, Math.min(1, Number(task.progress_percent || 0) / 100));
+            const globalPct = pctStart + Math.round(localFrac * (pctEnd - pctStart));
+            const stageText = String(task.progress_stage || task.message || step.label);
+            renderCidrProgress({ percent: globalPct, stageText });
+            _cidrStepUpdate(i, "active", `Шаг ${i + 1} из ${steps.length}: ${stageText}`);
+          },
+        });
+
+        _cidrStepUpdate(i, "done", `Шаг ${i + 1} из ${steps.length}: ${step.label} — готово`);
+        renderCidrProgress({ percent: pctEnd, stageText: step.label + " — готово" });
+        lastResult = result;
+      } catch (e) {
+        _cidrStepUpdate(i, "error", `Шаг ${i + 1}: ${step.label} — ошибка: ${e.message}`);
+        setCidrStatus("Ошибка на шаге «" + step.label + "»: " + (e.message || e), "error");
+        failed = true;
+        break;
+      }
+    }
+
+    if (!failed) {
+      renderCidrProgress({ percent: 100, stageText: "Все операции выполнены" });
+      if (lastResult) renderCidrResultDetails(lastResult);
+      finishCidrProgress({ success: true, stageText: "Выполнено" });
+      setCidrStatus("Операции выполнены успешно", "success");
+    } else {
+      finishCidrProgress({ success: false, stageText: "Операция завершилась с ошибкой" });
+    }
+
+    window.setTimeout(_cidrStepHide, failed ? 8000 : 5000);
+    setCidrBusy(false);
+  };
 
   // Проверяем обновления при загрузке
   checkForUpdates();

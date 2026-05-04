@@ -14,19 +14,34 @@ from core.services.audit_view_presenter import (
     build_user_action_audit_view,
 )
 from core.services.cidr_list_updater import (
+    analyze_dpi_log,
     estimate_cidr_matches,
+    estimate_cidr_matches_from_db,
     get_available_game_filters,
     get_available_regions,
     rollback_to_baseline,
     sync_game_hosts_filter,
     update_cidr_files,
+    update_cidr_files_from_db,
 )
+from config.antizapret_params import IP_FILES as _IP_FILES_META
 from core.services.telegram_mini_session import has_telegram_mini_session
 
 
 CIDR_TASKS = {}
 CIDR_TASKS_LOCK = threading.Lock()
 CIDR_TASK_RETENTION = timedelta(hours=2)
+OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS = 900
+
+
+def _clamp_total_cidr_limit_for_ios(value, default=OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS):
+    try:
+        parsed = int(str(value).strip())
+    except (TypeError, ValueError, AttributeError):
+        return int(default)
+    if parsed <= 0:
+        return int(default)
+    return min(parsed, OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)
 
 
 def _cidr_now_utc():
@@ -125,6 +140,7 @@ def register_settings_routes(
     get_public_download_enabled,
     log_telegram_audit_event,
     log_user_action_event,
+    cidr_db_updater_service,
 ):
     def _start_cidr_task(task_id, runner):
         def _progress_callback(percent, stage):
@@ -145,7 +161,8 @@ def register_settings_routes(
                 started_at=_cidr_now_utc(),
             )
             try:
-                result = runner(_progress_callback) or {}
+                with app.app_context():
+                    result = runner(_progress_callback) or {}
                 if not bool(result.get("success")):
                     _update_cidr_task(
                         task_id,
@@ -763,9 +780,8 @@ def register_settings_routes(
             return redirect(url_for("settings"))
 
         current_port = os.getenv("APP_PORT", "5050")
-        cidr_total_limit_raw = str(get_env_value("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT", "1500") or "1500").strip()
-        if not cidr_total_limit_raw.isdigit() or int(cidr_total_limit_raw) <= 0:
-            cidr_total_limit_raw = "1500"
+        cidr_total_limit_raw = str(get_env_value("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT", str(OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)) or str(OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)).strip()
+        cidr_total_limit_raw = str(_clamp_total_cidr_limit_for_ios(cidr_total_limit_raw))
         qr_download_token_ttl_seconds = get_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600")
         qr_download_token_max_downloads = get_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", "1")
         qr_download_pin_set = bool((get_env_value("QR_DOWNLOAD_PIN", "") or "").strip())
@@ -977,9 +993,8 @@ def register_settings_routes(
     @auth_manager.admin_required
     def api_cidr_lists():
         if request.method == "GET":
-            current_total_limit = str(get_env_value("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT", "1500") or "1500").strip()
-            if not current_total_limit.isdigit() or int(current_total_limit) <= 0:
-                current_total_limit = "1500"
+            current_total_limit = str(get_env_value("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT", str(OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)) or str(OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)).strip()
+            current_total_limit = str(_clamp_total_cidr_limit_for_ios(current_total_limit))
             return jsonify(
                 {
                     "success": True,
@@ -987,6 +1002,7 @@ def register_settings_routes(
                     "game_filters": get_available_game_filters(),
                     "settings": {
                         "openvpn_route_total_cidr_limit": int(current_total_limit),
+                        "openvpn_route_total_cidr_limit_max": OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS,
                     },
                 }
             )
@@ -1014,6 +1030,25 @@ def register_settings_routes(
         else:
             include_game_keys = []
         strict_geo_filter = bool(payload.get("strict_geo_filter", False))
+        dpi_priority_files_raw = payload.get("dpi_priority_files")
+        if isinstance(dpi_priority_files_raw, list):
+            dpi_priority_files = [str(item).strip() for item in dpi_priority_files_raw if str(item).strip()]
+        else:
+            dpi_priority_files = []
+        dpi_mandatory_files_raw = payload.get("dpi_mandatory_files")
+        if isinstance(dpi_mandatory_files_raw, list):
+            dpi_mandatory_files = [str(item).strip() for item in dpi_mandatory_files_raw if str(item).strip()]
+        else:
+            dpi_mandatory_files = []
+        try:
+            dpi_priority_min_budget = int(payload.get("dpi_priority_min_budget") or 0)
+        except (TypeError, ValueError):
+            dpi_priority_min_budget = 0
+
+        if action == "analyze_dpi_log":
+            dpi_log_text = str(payload.get("dpi_log_text") or "")
+            result = analyze_dpi_log(dpi_log_text)
+            return jsonify(result), (200 if result.get("success") else 400)
 
         if action == "set_total_limit":
             raw_limit = str(payload.get("openvpn_route_total_cidr_limit") or "").strip()
@@ -1021,8 +1056,8 @@ def register_settings_routes(
                 return jsonify({"success": False, "message": "Лимит CIDR должен быть целым числом"}), 400
 
             limit_value = int(raw_limit)
-            if limit_value <= 0 or limit_value > 200000:
-                return jsonify({"success": False, "message": "Лимит CIDR должен быть в диапазоне 1..200000"}), 400
+            if limit_value <= 0 or limit_value > OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS:
+                return jsonify({"success": False, "message": f"Лимит CIDR должен быть в диапазоне 1..{OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS} (ограничение iOS)"}), 400
 
             set_env_value("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT", str(limit_value))
             os.environ["OPENVPN_ROUTE_TOTAL_CIDR_LIMIT"] = str(limit_value)
@@ -1082,6 +1117,9 @@ def register_settings_routes(
                     include_game_hosts=include_game_hosts,
                     include_game_keys=include_game_keys,
                     strict_geo_filter=strict_geo_filter,
+                    dpi_priority_files=dpi_priority_files,
+                    dpi_mandatory_files=dpi_mandatory_files,
+                    dpi_priority_min_budget=dpi_priority_min_budget,
                     progress_callback=progress_callback,
                 )
 
@@ -1124,6 +1162,9 @@ def register_settings_routes(
                 include_game_hosts=include_game_hosts,
                 include_game_keys=include_game_keys,
                 strict_geo_filter=strict_geo_filter,
+                dpi_priority_files=dpi_priority_files,
+                dpi_mandatory_files=dpi_mandatory_files,
+                dpi_priority_min_budget=dpi_priority_min_budget,
             )
             return jsonify(result), (200 if result.get("success") else 400)
 
@@ -1170,6 +1211,284 @@ def register_settings_routes(
         payload = _serialize_cidr_task(task)
         payload["success"] = True
         return jsonify(payload)
+
+    # ── CIDR DB: статус, ручное обновление, история ──────────────────────────
+
+    @app.route("/api/cidr-db/status", methods=["GET"])
+    @auth_manager.admin_required
+    def api_cidr_db_status():
+        status = cidr_db_updater_service.get_db_status()
+        history = cidr_db_updater_service.get_refresh_history(limit=5)
+        provider_meta = {}
+        for key, info in status.get("providers", {}).items():
+            meta = _IP_FILES_META.get(key, {})
+            dynamic_asns = info.get("active_asns") or []
+            provider_meta[key] = {
+                **info,
+                "name": meta.get("name", key),
+                "as_numbers": dynamic_asns or meta.get("as_numbers", []),
+                "configured_as_numbers": meta.get("as_numbers", []),
+                "category": meta.get("category", ""),
+                "what_hosts": meta.get("what_hosts", ""),
+                "tags": meta.get("tags", []),
+            }
+        return jsonify({
+            "success": True,
+            "last_refresh_started": status.get("last_refresh_started"),
+            "last_refresh_finished": status.get("last_refresh_finished"),
+            "last_refresh_status": status.get("last_refresh_status"),
+            "last_refresh_triggered_by": status.get("last_refresh_triggered_by"),
+            "total_cidrs": status.get("total_cidrs"),
+            "providers": provider_meta,
+            "alerts": status.get("alerts", []),
+            "history": history,
+        })
+
+    @app.route("/api/cidr-db/refresh", methods=["POST"])
+    @auth_manager.admin_required
+    def api_cidr_db_refresh():
+        payload = request.get_json(silent=True) or {}
+        selected_files = payload.get("selected_files") or None
+        if isinstance(selected_files, list):
+            selected_files = [str(f) for f in selected_files] or None
+
+        triggered_by = f"manual:{session.get('username', 'unknown')}"
+
+        task_id = _create_cidr_task("cidr_db_refresh", "Обновление CIDR БД запущено в фоне")
+
+        def _runner(progress_callback):
+            return cidr_db_updater_service.refresh_all_providers(
+                triggered_by=triggered_by,
+                selected_files=selected_files,
+                progress_callback=progress_callback,
+            )
+
+        _start_cidr_task(task_id, _runner)
+
+        log_user_action_event(
+            "settings_cidr_db_refresh_queued",
+            target_type="cidr_db",
+            target_name="all" if not selected_files else ",".join((selected_files or [])[:10]),
+            details="mode=background",
+            status="info",
+        )
+        return jsonify({
+            "success": True,
+            "queued": True,
+            "task_id": task_id,
+            "message": "Обновление CIDR БД запущено в фоне",
+            "status_url": url_for("api_cidr_task_status", task_id=task_id),
+        }), 202
+
+    @app.route("/api/cidr-db/generate", methods=["POST"])
+    @auth_manager.admin_required
+    def api_cidr_db_generate():
+        """Generate .txt route files from DB data (no download)."""
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            return jsonify({"success": False, "message": "Ожидается JSON-объект"}), 400
+
+        action = str(payload.get("action") or "generate").strip().lower()
+        selected = payload.get("regions")
+        selected_files = [str(item) for item in selected] if isinstance(selected, list) else None
+        region_scopes_raw = payload.get("region_scopes")
+        if isinstance(region_scopes_raw, list):
+            region_scopes = [str(item).strip().lower() for item in region_scopes_raw if str(item).strip()]
+        else:
+            region_scopes = [str(payload.get("region_scope") or "all").strip().lower() or "all"]
+        include_non_geo_fallback = bool(payload.get("include_non_geo_fallback", False))
+        exclude_ru_cidrs = bool(payload.get("exclude_ru_cidrs", False))
+        include_game_hosts = bool(payload.get("include_game_hosts", False))
+        include_game_keys_raw = payload.get("include_game_keys")
+        include_game_keys = [str(k).strip().lower() for k in include_game_keys_raw if str(k).strip()] if isinstance(include_game_keys_raw, list) else []
+        strict_geo_filter = bool(payload.get("strict_geo_filter", False))
+        filter_by_antifilter = bool(payload.get("filter_by_antifilter", False))
+        dpi_priority_files_raw = payload.get("dpi_priority_files")
+        if isinstance(dpi_priority_files_raw, list):
+            dpi_priority_files = [str(item).strip() for item in dpi_priority_files_raw if str(item).strip()]
+        else:
+            dpi_priority_files = []
+        dpi_mandatory_files_raw = payload.get("dpi_mandatory_files")
+        if isinstance(dpi_mandatory_files_raw, list):
+            dpi_mandatory_files = [str(item).strip() for item in dpi_mandatory_files_raw if str(item).strip()]
+        else:
+            dpi_mandatory_files = []
+        try:
+            dpi_priority_min_budget = int(payload.get("dpi_priority_min_budget") or 0)
+        except (TypeError, ValueError):
+            dpi_priority_min_budget = 0
+        # Use None so update_cidr_files_from_db reads OPENVPN_ROUTE_TOTAL_CIDR_LIMIT
+        # from the .env file at runtime (respects the value saved via the UI).
+        route_limit = None
+
+        if action == "estimate":
+            result = estimate_cidr_matches_from_db(
+                selected_files,
+                region_scopes=region_scopes,
+                include_non_geo_fallback=include_non_geo_fallback,
+                exclude_ru_cidrs=exclude_ru_cidrs,
+                include_game_hosts=include_game_hosts,
+                include_game_keys=include_game_keys,
+                strict_geo_filter=strict_geo_filter,
+                filter_by_antifilter=filter_by_antifilter,
+                total_cidr_limit=route_limit,
+                dpi_priority_files=dpi_priority_files,
+                dpi_mandatory_files=dpi_mandatory_files,
+                dpi_priority_min_budget=dpi_priority_min_budget,
+            )
+            return jsonify(result), (200 if result.get("success") else 400)
+
+        task_id = _create_cidr_task("cidr_generate_from_db", "Генерация CIDR-файлов из БД запущена")
+
+        def _runner(progress_callback):
+            return update_cidr_files_from_db(
+                selected_files,
+                region_scopes=region_scopes,
+                include_non_geo_fallback=include_non_geo_fallback,
+                exclude_ru_cidrs=exclude_ru_cidrs,
+                include_game_hosts=include_game_hosts,
+                include_game_keys=include_game_keys,
+                strict_geo_filter=strict_geo_filter,
+                filter_by_antifilter=filter_by_antifilter,
+                total_cidr_limit=route_limit,
+                dpi_priority_files=dpi_priority_files,
+                dpi_mandatory_files=dpi_mandatory_files,
+                dpi_priority_min_budget=dpi_priority_min_budget,
+                progress_callback=progress_callback,
+            )
+
+        _start_cidr_task(task_id, _runner)
+
+        log_user_action_event(
+            "settings_cidr_generate_from_db",
+            target_type="cidr",
+            target_name="all" if not selected_files else ",".join((selected_files or [])[:10]),
+            details=f"scopes={','.join(region_scopes)} fallback={1 if include_non_geo_fallback else 0} exclude_ru={1 if exclude_ru_cidrs else 0}",
+            status="info",
+        )
+        return jsonify({
+            "success": True,
+            "queued": True,
+            "task_id": task_id,
+            "message": "Генерация CIDR-файлов из БД запущена",
+            "status_url": url_for("api_cidr_task_status", task_id=task_id),
+        }), 202
+
+    # ── CIDR Presets ──────────────────────────────────────────────────────────
+
+    @app.route("/api/cidr-presets", methods=["GET"])
+    @auth_manager.admin_required
+    def api_cidr_presets_list():
+        presets = cidr_db_updater_service.get_presets()
+        for preset in presets:
+            for prov_key in preset.get("providers", []):
+                meta = _IP_FILES_META.get(prov_key, {})
+                preset.setdefault("providers_meta", {})[prov_key] = {
+                    "name": meta.get("name", prov_key),
+                    "category": meta.get("category", ""),
+                    "tags": meta.get("tags", []),
+                }
+        return jsonify({"success": True, "presets": presets})
+
+    @app.route("/api/cidr-presets", methods=["POST"])
+    @auth_manager.admin_required
+    def api_cidr_presets_create():
+        data = request.get_json(silent=True) or {}
+        name = str(data.get("name") or "").strip()
+        if not name:
+            return jsonify({"success": False, "message": "Необходимо указать имя пресета"}), 400
+        providers = data.get("providers")
+        if not isinstance(providers, list):
+            return jsonify({"success": False, "message": "Необходимо указать список провайдеров"}), 400
+        preset = cidr_db_updater_service.create_preset(
+            name=name,
+            description=str(data.get("description") or ""),
+            providers=providers,
+            settings=data.get("settings"),
+        )
+        log_user_action_event("settings_cidr_preset_create", target_type="cidr_preset", target_name=name, status="success")
+        return jsonify({"success": True, "preset": preset}), 201
+
+    @app.route("/api/cidr-presets/<int:preset_id>", methods=["PUT"])
+    @auth_manager.admin_required
+    def api_cidr_presets_update(preset_id):
+        data = request.get_json(silent=True) or {}
+        preset = cidr_db_updater_service.update_preset(
+            preset_id,
+            name=str(data["name"]).strip() if "name" in data else None,
+            description=str(data.get("description") or "") if "description" in data else None,
+            providers=data["providers"] if "providers" in data else None,
+            settings=data.get("settings") if "settings" in data else None,
+        )
+        if not preset:
+            return jsonify({"success": False, "message": "Пресет не найден"}), 404
+        log_user_action_event("settings_cidr_preset_update", target_type="cidr_preset", target_name=str(preset_id), status="success")
+        return jsonify({"success": True, "preset": preset})
+
+    @app.route("/api/cidr-presets/<int:preset_id>", methods=["DELETE"])
+    @auth_manager.admin_required
+    def api_cidr_presets_delete(preset_id):
+        ok, msg = cidr_db_updater_service.delete_preset(preset_id)
+        if not ok:
+            return jsonify({"success": False, "message": msg}), 400
+        log_user_action_event("settings_cidr_preset_delete", target_type="cidr_preset", target_name=str(preset_id), status="success")
+        return jsonify({"success": True, "message": msg})
+
+    @app.route("/api/cidr-presets/<int:preset_id>/reset", methods=["POST"])
+    @auth_manager.admin_required
+    def api_cidr_presets_reset(preset_id):
+        preset = cidr_db_updater_service.reset_builtin_preset(preset_id)
+        if not preset:
+            return jsonify({"success": False, "message": "Встроенный пресет не найден"}), 404
+        log_user_action_event("settings_cidr_preset_reset", target_type="cidr_preset", target_name=str(preset_id), status="success")
+        return jsonify({"success": True, "preset": preset})
+
+    # ── Provider info ─────────────────────────────────────────────────────────
+
+    @app.route("/api/cidr-providers/meta", methods=["GET"])
+    @auth_manager.admin_required
+    def api_cidr_providers_meta():
+        result = {}
+        for key, meta in _IP_FILES_META.items():
+            result[key] = {
+                "name": meta.get("name", key),
+                "description": meta.get("description", ""),
+                "as_numbers": meta.get("as_numbers", []),
+                "category": meta.get("category", ""),
+                "what_hosts": meta.get("what_hosts", ""),
+                "tags": meta.get("tags", []),
+            }
+        return jsonify({"success": True, "providers": result})
+
+    # ── Antifilter.download ───────────────────────────────────────────────────
+
+    @app.route("/api/antifilter/status", methods=["GET"])
+    @auth_manager.admin_required
+    def api_antifilter_status():
+        status = cidr_db_updater_service.get_antifilter_status()
+        return jsonify({"success": True, **status})
+
+    @app.route("/api/antifilter/refresh", methods=["POST"])
+    @auth_manager.admin_required
+    def api_antifilter_refresh():
+        task_id = _create_cidr_task("antifilter_refresh", "Обновление антифильтра запущено в фоне")
+        _triggered_by = f"manual:{session.get('username', 'unknown')}"
+
+        def _runner(progress_callback):
+            return cidr_db_updater_service.refresh_antifilter(
+                triggered_by=_triggered_by,
+                progress_callback=progress_callback,
+            )
+
+        _start_cidr_task(task_id, _runner)
+        log_user_action_event("settings_antifilter_refresh", target_type="antifilter", target_name="antifilter.download", status="info")
+        return jsonify({
+            "success": True,
+            "queued": True,
+            "task_id": task_id,
+            "message": "Обновление антифильтра запущено в фоне (~1–2 минуты)",
+            "status_url": url_for("api_cidr_task_status", task_id=task_id),
+        }), 202
 
     @app.route("/api/tg-mini/settings", methods=["GET"])
     @auth_manager.admin_required

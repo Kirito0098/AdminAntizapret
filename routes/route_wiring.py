@@ -103,6 +103,7 @@ def register_all_routes(app, sock, deps):
         get_public_download_enabled=g("_get_public_download_enabled"),
         log_telegram_audit_event=g("_log_telegram_audit_event"),
         log_user_action_event=g("_log_user_action_event"),
+        cidr_db_updater_service=g("cidr_db_updater_service"),
     )
 
     register_index_routes(

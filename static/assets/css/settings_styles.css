@@ -2899,6 +2899,26 @@ body.settings-nav-merged .settings-content.page-unified-card {
   color: #9eb6c2;
 }
 
+#cidr-update .cidr-meta-item__value--ok {
+  color: #6fcf97;
+}
+#cidr-update .cidr-meta-item__value--warn {
+  color: #f2c94c;
+}
+#cidr-update .cidr-meta-item__value--error {
+  color: #eb5757;
+  animation: cidr-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes cidr-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
 #cidr-update .cidr-control-grid {
   margin-top: 0.8rem;
   display: grid;
@@ -3173,6 +3193,17 @@ body.settings-nav-merged .settings-content.page-unified-card {
   padding: 0.7rem;
 }
 
+#cidr-update .cidr-progress:not([hidden]) {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  margin: 0;
+  z-index: 1200;
+  box-shadow: 0 12px 26px rgba(2, 8, 12, 0.5);
+  backdrop-filter: blur(4px);
+}
+
 #cidr-update .cidr-progress__head {
   display: flex;
   align-items: center;
@@ -3203,6 +3234,66 @@ body.settings-nav-merged .settings-content.page-unified-card {
 
 #cidr-update.cidr-busy .cidr-control-panel {
   opacity: 0.78;
+}
+
+/* ── Sequential step list ─────────────────────────────────── */
+#cidr-update .cidr-step-list {
+  margin-top: 0.6rem;
+  background: rgba(14, 24, 30, 0.6);
+  border: 1px solid rgba(102, 130, 143, 0.22);
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+}
+
+#cidr-update .cidr-step-list:not([hidden]) {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  margin: 0;
+  z-index: 1199;
+  box-shadow: 0 10px 24px rgba(2, 8, 12, 0.45);
+  max-height: min(34vh, 260px);
+  overflow: auto;
+}
+
+#cidr-update .cidr-step-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+#cidr-update .cidr-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.83rem;
+  color: #7090a0;
+  transition: color 0.2s;
+}
+#cidr-update .cidr-step-item--active {
+  color: #d8e7ef;
+}
+#cidr-update .cidr-step-item--done {
+  color: #6fcf97;
+}
+#cidr-update .cidr-step-item--error {
+  color: #eb5757;
+}
+
+#cidr-update .cidr-step-icon {
+  min-width: 1.1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+#cidr-update .cidr-step-text {
+  flex: 1;
+  line-height: 1.45;
 }
 
 #cidr-update .cidr-result-panel {
@@ -3314,4 +3405,454 @@ body.settings-nav-merged .settings-content.page-unified-card {
   #cidr-update .cidr-actions-row .button {
     min-width: 0;
   }
+
+  #cidr-update .cidr-progress:not([hidden]),
+  #cidr-update .cidr-step-list:not([hidden]) {
+    left: 8px;
+    right: 8px;
+  }
+}
+
+/* ── CIDR DB status card ───────────────────────────────────────────── */
+.cidr-db-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.cidr-db-status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.cidr-db-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cidr-db-badge--loading {
+  background: rgba(120, 130, 150, 0.18);
+  color: #8a9bb0;
+}
+.cidr-db-badge--ok {
+  background: rgba(68, 200, 100, 0.18);
+  color: #44c864;
+}
+.cidr-db-badge--partial {
+  background: rgba(240, 180, 40, 0.18);
+  color: #f0b428;
+}
+.cidr-db-badge--error {
+  background: rgba(210, 60, 60, 0.2);
+  color: #e06060;
+}
+.cidr-db-badge--never {
+  background: rgba(120, 130, 150, 0.18);
+  color: #8a9bb0;
+}
+.cidr-db-badge--running {
+  background: rgba(80, 160, 255, 0.18);
+  color: #5090ff;
+}
+
+.cidr-db-total {
+  font-size: 0.8rem;
+  color: #8a9bb0;
+}
+.cidr-db-ts {
+  font-size: 0.75rem;
+  color: #606878;
+}
+
+.cidr-db-toolbar {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.cidr-db-toolbar__controls {
+  display: grid;
+  grid-template-columns: minmax(230px, 1.2fr) repeat(3, minmax(150px, 0.75fr));
+  gap: 0.5rem;
+  width: min(100%, 980px);
+}
+
+.cidr-db-control {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.cidr-db-control__label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8ea4b0;
+}
+
+.cidr-db-control__field {
+  width: 100%;
+  min-height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(104, 128, 142, 0.5);
+  background: rgba(17, 27, 34, 0.84);
+  color: #d9e7ee;
+  padding: 0.34rem 0.55rem;
+  font-size: 0.8rem;
+}
+
+.cidr-db-control__field:focus {
+  outline: none;
+  border-color: rgba(112, 166, 203, 0.88);
+  box-shadow: 0 0 0 2px rgba(78, 132, 176, 0.28);
+}
+
+.cidr-db-toolbar__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cidr-db-visible-count {
+  font-size: 0.75rem;
+  color: #9bb0bc;
+  padding: 0.2rem 0.52rem;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 128, 140, 0.34);
+  background: rgba(31, 45, 54, 0.5);
+}
+
+.cidr-db-table-wrap {
+  margin-top: 0.62rem;
+  border: 1px solid rgba(95, 122, 136, 0.35);
+  border-radius: 10px;
+  max-height: min(68vh, 560px);
+  overflow: auto;
+  background: rgba(14, 23, 29, 0.55);
+}
+
+.cidr-db-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8rem;
+  min-width: 980px;
+}
+.cidr-db-table th,
+.cidr-db-table td {
+  text-align: left;
+  padding: 0.5rem 0.62rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: top;
+}
+.cidr-db-table th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: rgba(20, 31, 38, 0.96);
+  backdrop-filter: blur(3px);
+  color: #8a9bb0;
+  font-weight: 500;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cidr-db-table td {
+  color: #c0cdd8;
+}
+
+.cidr-db-table th:first-child,
+.cidr-db-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: rgba(16, 27, 34, 0.98);
+}
+
+.cidr-db-table tbody tr:nth-child(2n) td {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.cidr-db-table tbody tr:hover td {
+  background: rgba(84, 127, 158, 0.14);
+}
+
+.cidr-db-row--anomaly td {
+  box-shadow: inset 3px 0 0 rgba(227, 184, 89, 0.76);
+}
+
+.cidr-db-table__placeholder {
+  text-align: center;
+  padding: 0.95rem !important;
+}
+
+.cidr-db-provider-cell {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.cidr-db-provider-cell strong {
+  color: #e1eef5;
+  font-size: 0.84rem;
+}
+
+.cidr-db-provider-key {
+  color: #7f98a6;
+  font-size: 0.68rem;
+}
+
+.cidr-db-provider-source {
+  color: #9cb4c0;
+  font-size: 0.68rem;
+  max-width: 270px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cidr-db-num {
+  font-weight: 700;
+  color: #d6edf9;
+}
+
+.cidr-db-as {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+}
+
+.cidr-db-as-meta {
+  margin-top: 0.18rem;
+  font-size: 0.68rem;
+  color: #8aa2b0;
+}
+
+.cidr-db-as-badge {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  background: rgba(80, 140, 220, 0.2);
+  color: #80b0e8;
+  white-space: nowrap;
+}
+
+.cidr-db-cat {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-weight: 500;
+}
+.cidr-db-cat--cdn {
+  background: rgba(80, 200, 150, 0.15);
+  color: #50c896;
+}
+.cidr-db-cat--cloud {
+  background: rgba(80, 140, 255, 0.15);
+  color: #508cff;
+}
+.cidr-db-cat--hosting {
+  background: rgba(200, 130, 60, 0.15);
+  color: #c8823c;
+}
+
+.cidr-db-what {
+  max-width: 350px;
+  font-size: 0.72rem;
+  color: #7a8b9a;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cidr-db-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.1rem 0.48rem;
+  font-size: 0.69rem;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+.cidr-db-status-pill--ok {
+  color: #44c864;
+  border-color: rgba(68, 200, 100, 0.38);
+  background: rgba(68, 200, 100, 0.12);
+}
+
+.cidr-db-status-pill--partial {
+  color: #f2c056;
+  border-color: rgba(242, 192, 86, 0.36);
+  background: rgba(242, 192, 86, 0.12);
+}
+
+.cidr-db-status-pill--error {
+  color: #e06060;
+  border-color: rgba(224, 96, 96, 0.36);
+  background: rgba(224, 96, 96, 0.13);
+}
+
+.cidr-db-status-pill--never,
+.cidr-db-status-pill--running,
+.cidr-db-status-pill--loading {
+  color: #7a8b9a;
+  border-color: rgba(122, 139, 154, 0.32);
+  background: rgba(122, 139, 154, 0.12);
+}
+
+.cidr-db-anomaly {
+  margin-top: 0.22rem;
+  color: #e9c675;
+  font-size: 0.67rem;
+}
+
+@media (max-width: 1140px) {
+  .cidr-db-toolbar__controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+}
+
+@media (max-width: 860px) {
+  .cidr-db-toolbar__controls {
+    grid-template-columns: 1fr;
+  }
+
+  .cidr-db-table-wrap {
+    max-height: none;
+    overflow: visible;
+    border: none;
+    background: transparent;
+    margin-top: 0.5rem;
+  }
+
+  .cidr-db-table {
+    min-width: 0;
+    display: block;
+  }
+
+  .cidr-db-table thead {
+    display: none;
+  }
+
+  .cidr-db-table tbody {
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .cidr-db-table tbody tr {
+    display: block;
+    border: 1px solid rgba(95, 122, 136, 0.35);
+    border-radius: 10px;
+    background: rgba(16, 26, 34, 0.78);
+    overflow: hidden;
+  }
+
+  .cidr-db-table tbody tr td {
+    display: grid;
+    grid-template-columns: minmax(96px, 122px) minmax(0, 1fr);
+    gap: 0.48rem;
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 0.45rem 0.58rem;
+    position: static;
+    background: transparent !important;
+  }
+
+  .cidr-db-table tbody tr td:last-child {
+    border-bottom: 0;
+  }
+
+  .cidr-db-table tbody tr td::before {
+    content: attr(data-label);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8ea4b1;
+    padding-top: 0.1rem;
+  }
+
+  .cidr-db-provider-source,
+  .cidr-db-what {
+    max-width: none;
+    -webkit-line-clamp: unset;
+  }
+}
+
+/* ── Presets grid ─────────────────────────────────────────────────── */
+.cidr-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.cidr-preset-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cidr-preset-card__name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #c0d0e0;
+}
+
+.cidr-preset-card__desc {
+  font-size: 0.75rem;
+  color: #7a8b9a;
+  line-height: 1.35;
+  flex: 1;
+}
+
+.cidr-preset-card__providers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+}
+
+.cidr-preset-prov-badge {
+  font-size: 0.68rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  background: rgba(80, 140, 220, 0.18);
+  color: #8ab0e0;
+}
+
+.cidr-preset-card__actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.cidr-preset-card__actions .button {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  min-width: 0;
+}
+
+.cidr-preset-card--builtin {
+  border-color: rgba(80, 140, 255, 0.2);
+}
+.cidr-preset-card--custom {
+  border-color: rgba(200, 130, 60, 0.2);
 }
