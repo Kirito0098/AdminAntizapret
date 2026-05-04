@@ -1,9 +1,0 @@
-# Auto-generated CIDR list for hetzner-ips.txt
-# Source: bgp-tools-de-hetzner
-# Generated at: 2026-05-03 17:41:15 UTC
-
-85.10.192.0/18
-185.12.64.0/22
-193.47.99.0/24
-213.133.96.0/19
-213.239.192.0/18

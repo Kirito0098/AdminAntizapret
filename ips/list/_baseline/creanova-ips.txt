@@ -1,0 +1,9 @@
+# Auto-generated CIDR list for creanova-ips.txt
+# Source: ripe-as51765-announced
+# Generated at: 2026-05-04 01:48:16 UTC
+
+50.114.220.0/22
+89.125.108.0/22
+89.125.204.0/22
+103.101.88.0/22
+164.138.8.0/21

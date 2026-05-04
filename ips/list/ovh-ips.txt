@@ -1,9 +1,0 @@
-# Auto-generated CIDR list for ovh-ips.txt
-# Source: bgp-tools-fr-ovh
-# Generated at: 2026-05-03 17:41:15 UTC
-
-5.39.0.0/17
-79.137.0.0/17
-185.15.68.0/22
-213.186.32.0/19
-213.251.128.0/18

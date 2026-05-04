@@ -8,3 +8,10 @@ logs/
 .venv/
 .qwen/
 runtime_backups/
+
+# Working CIDR lists are generated/edited locally and should not be versioned.
+ips/list/*.txt
+
+# Baseline CIDR lists are versioned reference snapshots.
+!ips/list/_baseline/
+!ips/list/_baseline/*.txt
