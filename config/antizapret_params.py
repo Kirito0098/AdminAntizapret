@@ -219,14 +219,6 @@ IP_FILES = {
         "what_hosts": "Французский хостинг: европейские игровые серверы (MMO, Minecraft), хостинг игровых проектов, VPS-серверы.",
         "tags": ["hosting", "gaming", "europe"],
     },
-    "cloudflare-ips.txt": {
-        "name": "Cloudflare",
-        "description": "Маршрутизация сетей Cloudflare через Antizapret.",
-        "as_numbers": ["AS13335"],
-        "category": "cdn",
-        "what_hosts": "CDN и edge-сеть Cloudflare: сайты, API, anti-DDoS и часть игровых backend/чат-сервисов.",
-        "tags": ["cdn", "security", "streaming"],
-    },
     "fastly-ips.txt": {
         "name": "Fastly",
         "description": "Маршрутизация сетей Fastly через Antizapret.",
@@ -375,7 +367,6 @@ BUILTIN_CIDR_PRESETS = [
         "sort_order": 10,
         "providers": [
             "akamai-ips.txt",
-            "cloudflare-ips.txt",
             "fastly-ips.txt",
             "cdn77-ips.txt",
             "gcore-ips.txt",
@@ -405,7 +396,7 @@ BUILTIN_CIDR_PRESETS = [
     {
         "key": "social_media",
         "name": "Соцсети и мессенджеры",
-        "description": "Discord и Telegram (AWS), Twitter/X и WhatsApp (Fastly), Instagram (Amazon). Оптимально для общения.",
+        "description": "Twitter/X (Fastly), Instagram (Amazon), Twitch (AWS). Оптимально для общения и социальных сетей.",
         "sort_order": 20,
         "providers": [
             "amazon-ips.txt",
@@ -477,14 +468,13 @@ BUILTIN_CIDR_PRESETS = [
     {
         "key": "popular_services",
         "name": "Популярные сервисы",
-        "description": "Оптимальный набор для массово используемых сервисов: YouTube/Google, Discord/Telegram, GitHub, Twitch, CDN-платформы и популярные облака.",
+        "description": "Оптимальный набор для массово используемых сервисов: YouTube/Google, GitHub, Twitch, CDN-платформы и популярные облака.",
         "sort_order": 55,
         "providers": [
             "akamai-ips.txt",
             "amazon-ips.txt",
             "azure-ips.txt",
             "cdn77-ips.txt",
-            "cloudflare-ips.txt",
             "digitalocean-ips.txt",
             "fastly-ips.txt",
             "gcore-ips.txt",
@@ -512,7 +502,6 @@ BUILTIN_CIDR_PRESETS = [
             "azure-ips.txt",
             "buyvm-ips.txt",
             "cdn77-ips.txt",
-            "cloudflare-ips.txt",
             "clouvider-ips.txt",
             "contabo-ips.txt",
             "creanova-ips.txt",

@@ -10,6 +10,7 @@ gunicorn
 itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.2
+netaddr>=0.10.1
 Pillow==11.0.0
 psutil
 python-dotenv

@@ -1509,84 +1509,72 @@ def _compress_cidrs_to_limit(cidrs, limit):
             "original_cidr_count": len(normalized),
             "compressed_cidr_count": 0,
             "target_limit": 0,
-            "widening_passes": 0,
+            "aggregation_method": "netaddr",
         }
 
     target_limit = int(limit)
-    if len(normalized) <= target_limit:
-        return normalized, None
 
-    networks = [ipaddress.ip_network(value, strict=False) for value in normalized]
-    min_prefixlen = max(1, OPENVPN_ROUTE_MIN_PREFIXLEN)
-    current = set(networks)
-    passes = 0
-    exact_merge_count = 0
+    try:
+        import netaddr
+    except ImportError:
+        raise RuntimeError("netaddr package is required for CIDR aggregation. Install it with: pip install netaddr")
 
-    while len(current) > target_limit:
-        need_reduction = len(current) - target_limit
-        consumed = set()
-        merged_parents = []
-        ordered = sorted(current, key=lambda n: (-n.prefixlen, int(n.network_address)))
-        lookup = set(current)
+    # Parse all networks using netaddr for proper handling
+    try:
+        networks = [netaddr.IPNetwork(value) for value in normalized]
+    except (netaddr.AddrFormatError, ValueError) as e:
+        logger.warning(f"Failed to parse CIDR blocks with netaddr: {e}. Falling back to ipaddress module.")
+        networks = [ipaddress.ip_network(value, strict=False) for value in normalized]
 
-        for net in ordered:
-            if need_reduction <= 0:
+    # Remove redundant CIDRs where one is completely contained within another
+    # This is a conservative approach that doesn't merge adjacent blocks
+    non_redundant = []
+    sorted_networks = sorted(networks, key=lambda n: (int(n.ip), -n.prefixlen))
+
+    for net in sorted_networks:
+        is_redundant = False
+        for other in non_redundant:
+            if net in other:
+                # This network is contained in another, skip it
+                is_redundant = True
                 break
-            if net in consumed or net.prefixlen <= min_prefixlen:
-                continue
+        if not is_redundant:
+            # Remove any previously added networks that are now contained in this one
+            non_redundant = [n for n in non_redundant if n not in net]
+            non_redundant.append(net)
 
-            parent = net.supernet(prefixlen_diff=1)
-            children = list(parent.subnets(new_prefix=net.prefixlen))
-            sibling = children[0] if children[1] == net else children[1]
-            if sibling not in lookup or sibling in consumed:
-                continue
+    # If deduplication resulted in redundant entries being removed
+    if len(non_redundant) < len(normalized):
+        # We had overlaps, return deduplicated
+        if len(non_redundant) <= target_limit:
+            compressed = [str(net) for net in sorted(non_redundant, key=lambda n: (int(n.ip), n.prefixlen))]
+            return compressed, {
+                "strategy": "netaddr_deduplicate_overlaps",
+                "original_cidr_count": len(normalized),
+                "compressed_cidr_count": len(compressed),
+                "target_limit": target_limit,
+                "aggregation_method": "netaddr",
+            }
+    else:
+        # No overlaps found, return original if within limit
+        if len(normalized) <= target_limit:
+            return normalized, None
 
-            consumed.add(net)
-            consumed.add(sibling)
-            merged_parents.append(parent)
-            need_reduction -= 1
-            exact_merge_count += 1
+    # At this point we're over limit, need to trim
+    # Sort by prefix length (ascending = keep larger blocks first), then by address
+    trimmed = sorted(
+        non_redundant,
+        key=lambda n: (n.prefixlen, int(n.ip)),
+    )[:target_limit]
 
-        if not merged_parents:
-            break
-
-        current.difference_update(consumed)
-        current.update(merged_parents)
-        current = {net for net in current if net.prefixlen > 0}
-        passes += 1
-
-        if passes >= 64:
-            break
-
-    was_trimmed = False
-    if len(current) > target_limit:
-        was_trimmed = True
-        # Prefer large blocks (maximum IP coverage) over small specific routes.
-        # A /15 covers 131k IPs; dropping it in favour of many /20s wastes budget.
-        # Sort ascending by prefixlen (largest blocks first), then by address for
-        # determinism, and keep the first `target_limit` entries.
-        current = set(
-            sorted(
-                current,
-                key=lambda n: (n.prefixlen, int(n.network_address)),
-            )[:target_limit]
-        )
-
-    compressed = [
-        str(net)
-        for net in sorted(current, key=lambda n: (int(n.network_address), n.prefixlen))
-    ]
+    compressed = [str(net) for net in trimmed]
     return compressed, {
-        "strategy": "bounded_exact_compaction_trim" if was_trimmed else "bounded_exact_compaction",
+        "strategy": "netaddr_trim_to_limit",
         "original_cidr_count": len(normalized),
         "compressed_cidr_count": len(compressed),
         "target_limit": target_limit,
-        "widening_passes": 0,
-        "exact_merge_passes": passes,
-        "exact_merge_count": exact_merge_count,
-        "min_prefixlen": min_prefixlen,
-        "trimmed_to_limit": was_trimmed,
-        "forbidden_default_route_filtered": False,
+        "aggregation_method": "netaddr",
+        "trimmed_to_limit": True,
     }
 
 
