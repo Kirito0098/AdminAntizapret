@@ -388,6 +388,84 @@ document.addEventListener("DOMContentLoaded", function () {
     };
   };
 
+  let cidrIpFileSyncTimer = null;
+  let cidrIpFileSyncInFlight = false;
+  let cidrIpFileSyncQueued = false;
+  let cidrIpFileSyncOptions = { persist: true };
+
+  const syncCidrSelectionToIpFileToggles = async ({ persist = true } = {}) => {
+    const cidrCheckboxes = Array.from(document.querySelectorAll(".cidr-region-checkbox"));
+    const ipFileToggles = Array.from(document.querySelectorAll(".ip-file-toggle[data-ip-file]"));
+
+    if (!cidrCheckboxes.length || !ipFileToggles.length) {
+      return { changed: 0, synced: 0, persisted: false };
+    }
+
+    const cidrKnownKeys = new Set(
+      cidrCheckboxes
+        .map((input) => String(input.value || "").trim())
+        .filter(Boolean)
+    );
+    const selectedKeys = new Set(
+      cidrCheckboxes
+        .filter((input) => input.checked)
+        .map((input) => String(input.value || "").trim())
+        .filter(Boolean)
+    );
+
+    let changed = 0;
+    let synced = 0;
+    ipFileToggles.forEach((toggle) => {
+      const fileName = String(toggle.getAttribute("data-ip-file") || "").trim();
+      if (!fileName || !cidrKnownKeys.has(fileName)) return;
+
+      synced += 1;
+      const shouldBeChecked = selectedKeys.has(fileName);
+      if (toggle.checked !== shouldBeChecked) {
+        toggle.checked = shouldBeChecked;
+        changed += 1;
+      }
+    });
+
+    if (!persist || changed === 0) {
+      return { changed, synced, persisted: false };
+    }
+
+    const saveResult = await saveIpFileStates();
+    return { changed, synced, persisted: true, saveResult };
+  };
+
+  const scheduleCidrToIpFileSync = (delay = 220, options = {}) => {
+    cidrIpFileSyncOptions = {
+      ...cidrIpFileSyncOptions,
+      ...options,
+    };
+
+    if (cidrIpFileSyncTimer) {
+      window.clearTimeout(cidrIpFileSyncTimer);
+    }
+
+    cidrIpFileSyncTimer = window.setTimeout(async () => {
+      if (cidrIpFileSyncInFlight) {
+        cidrIpFileSyncQueued = true;
+        return;
+      }
+
+      cidrIpFileSyncInFlight = true;
+      try {
+        await syncCidrSelectionToIpFileToggles(cidrIpFileSyncOptions);
+      } catch (error) {
+        console.error("CIDR/IP-files autosync error:", error);
+      } finally {
+        cidrIpFileSyncInFlight = false;
+        if (cidrIpFileSyncQueued) {
+          cidrIpFileSyncQueued = false;
+          scheduleCidrToIpFileSync(90, cidrIpFileSyncOptions);
+        }
+      }
+    }, delay);
+  };
+
   const loadIpFileStates = async () => {
     const response = await fetch("/api/antizapret/ip-files", { cache: "no-store" });
     const payload = await response.json();
@@ -1093,13 +1171,22 @@ document.addEventListener("DOMContentLoaded", function () {
     const failed = Array.isArray(payload?.failed) ? payload.failed : [];
 
     estimated.forEach((item) => {
-      const count = Number(item?.cidr_count || 0);
+      const count = Number(item?.raw_cidr_count ?? item?.cidr_count ?? 0);
+      const afterLimitCount = Number(item?.cidr_count_after_limit ?? item?.cidr_count ?? count);
       const source = String(item?.source || "source");
+      const limitApplied = Boolean(item?.limit_applied) || (Number.isFinite(afterLimitCount) && afterLimitCount !== count);
+      const badgeText = limitApplied
+        ? `${estimatePrefix}: ${count} CIDR (лимит: ${afterLimitCount})`
+        : `${estimatePrefix}: ${count} CIDR`;
+      const titleText = limitApplied
+        ? `Источник: ${source} | После лимита: ${afterLimitCount}`
+        : `Источник: ${source}`;
+
       setCidrEstimateBadge(
         item?.file,
-        `${estimatePrefix}: ${count} CIDR`,
+        badgeText,
         "ok",
-        `Источник: ${source}`
+        titleText
       );
     });
 
@@ -1289,12 +1376,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const refreshCidrEstimatePreview = async () => {
       await ensureLoaded();
       const requestId = ++estimateRequestSeq;
+      const selectedRegions = getSelectedCidrRegions();
       const { regionScopes, includeNonGeoFallback, excludeRuCidrs, includeGameKeys, strictGeoFilter } = getCidrRegionSettings();
 
       try {
         const result = await runCidrAction({
           action: "estimate",
-          regions: [],
+          regions: selectedRegions,
           regionScopes,
           includeNonGeoFallback,
           excludeRuCidrs,
@@ -1351,12 +1439,14 @@ document.addEventListener("DOMContentLoaded", function () {
       setAllCidrRegionsChecked(true);
       renderCidrMeta();
       scheduleCidrEstimateRefresh();
+      scheduleCidrToIpFileSync();
     });
 
     document.getElementById("cidr-clear-all")?.addEventListener("click", () => {
       setAllCidrRegionsChecked(false);
       renderCidrMeta();
       scheduleCidrEstimateRefresh();
+      scheduleCidrToIpFileSync();
     });
 
     document.getElementById("cidr-games-select-all")?.addEventListener("click", () => {
@@ -1501,6 +1591,7 @@ document.addEventListener("DOMContentLoaded", function () {
           `DPI-анализ готов: выбрано ${selectedFiles.length}, обязательных detected ${dpiMandatoryFiles.length}, приоритетных ${dpiPriorityFiles.length}`,
           selectedFiles.length ? "success" : "warning"
         );
+        scheduleCidrToIpFileSync(60);
         scheduleCidrEstimateRefresh(50);
       } catch (error) {
         finishCidrProgress({ success: false, stageText: "Ошибка DPI-анализа" });
@@ -1810,6 +1901,9 @@ document.addEventListener("DOMContentLoaded", function () {
       ) {
         renderCidrMeta();
         scheduleCidrEstimateRefresh();
+        if (target.matches(".cidr-region-checkbox")) {
+          scheduleCidrToIpFileSync();
+        }
       }
     });
 
@@ -2359,6 +2453,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Expose helpers for inline scripts (settings.html DB/preset blocks)
   window._cidrRenderMeta = renderCidrMeta;
+  window._scheduleCidrToIpFileSync = scheduleCidrToIpFileSync;
+  window._syncCidrSelectionToIpFileToggles = syncCidrSelectionToIpFileToggles;
 
   // ── Step list helpers ──────────────────────────────────────────────────
   const _cidrStepShow = (steps) => {

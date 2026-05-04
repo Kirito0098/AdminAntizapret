@@ -1,13 +1,63 @@
-venv/
-*.pyc
+# ----------------------------------------------------------------------------
+# Python bytecode and caches
+# ----------------------------------------------------------------------------
 __pycache__/
-.env
-instance/
-*.added
-logs/
+*.py[cod]
+*$py.class
+
+# ----------------------------------------------------------------------------
+# Virtual environments
+# ----------------------------------------------------------------------------
+venv/
 .venv/
-.qwen/
+env/
+ENV/
+
+# ----------------------------------------------------------------------------
+# Build and packaging artifacts
+# ----------------------------------------------------------------------------
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# ----------------------------------------------------------------------------
+# Test and analysis artifacts
+# ----------------------------------------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+
+# ----------------------------------------------------------------------------
+# Flask / runtime state
+# ----------------------------------------------------------------------------
+instance/
+logs/
 runtime_backups/
+ips/runtime_backups/
+*.pid
+*.pid.lock
+*.out
+*.tmp
+*.temp
+
+# ----------------------------------------------------------------------------
+# Local environment and secrets
+# ----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ----------------------------------------------------------------------------
+# Project-specific generated artifacts
+# ----------------------------------------------------------------------------
+*.added
 
 # Working CIDR lists are generated/edited locally and should not be versioned.
 ips/list/*.txt
@@ -15,3 +65,17 @@ ips/list/*.txt
 # Baseline CIDR lists are versioned reference snapshots.
 !ips/list/_baseline/
 !ips/list/_baseline/*.txt
+
+# ----------------------------------------------------------------------------
+# Editor / OS files
+# ----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Local tool state
+.qwen/

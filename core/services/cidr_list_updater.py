@@ -2496,6 +2496,11 @@ def estimate_cidr_matches(
             }
         )
 
+    pre_limit_counts_by_file = {
+        item["file"]: len(item.get("cidrs") or [])
+        for item in planned_estimated
+    }
+
     planned_estimated, global_route_optimization_meta = _apply_total_route_limit(
         planned_estimated,
         _get_openvpn_route_total_cidr_limit(),
@@ -2505,11 +2510,17 @@ def estimate_cidr_matches(
     )
 
     for item in planned_estimated:
+        post_limit_count = len(item.get("cidrs") or [])
+        pre_limit_count = int(pre_limit_counts_by_file.get(item["file"], post_limit_count))
         estimated_item = {
             "file": item["file"],
-            "cidr_count": len(item.get("cidrs") or []),
+            "cidr_count": post_limit_count,
+            "raw_cidr_count": pre_limit_count,
+            "cidr_count_after_limit": post_limit_count,
             "source": item.get("source") or "unknown",
         }
+        if pre_limit_count != post_limit_count:
+            estimated_item["limit_applied"] = True
         if item.get("country_exclusion"):
             estimated_item["country_exclusion"] = item["country_exclusion"]
         if item.get("route_optimization"):
@@ -3123,6 +3134,11 @@ def estimate_cidr_matches_from_db(
         quality_by_file[file_name] = file_quality
 
     effective_limit = int(total_cidr_limit) if total_cidr_limit and int(total_cidr_limit) > 0 else _get_openvpn_route_total_cidr_limit()
+    pre_limit_counts_by_file = {
+        item["file"]: len(item.get("cidrs") or [])
+        for item in planned_estimated
+    }
+
     planned_estimated, global_route_optimization_meta = _apply_total_route_limit(
         planned_estimated,
         effective_limit,
@@ -3135,7 +3151,10 @@ def estimate_cidr_matches_from_db(
         {
             "file": item["file"],
             "cidr_count": len(item.get("cidrs") or []),
+            "raw_cidr_count": int(pre_limit_counts_by_file.get(item["file"], len(item.get("cidrs") or []))),
+            "cidr_count_after_limit": len(item.get("cidrs") or []),
             "source": item.get("source") or "db",
+            **({"limit_applied": True} if int(pre_limit_counts_by_file.get(item["file"], len(item.get("cidrs") or []))) != len(item.get("cidrs") or []) else {}),
         }
         for item in planned_estimated
     ]

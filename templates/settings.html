@@ -805,7 +805,7 @@
               провайдеры выберутся автоматически, георегионы и фильтры установятся из пресета.
             </p>
           </div>
-          <button id="cidr-preset-create-btn" type="button" class="button" style="align-self:flex-start">+ Создать
+          <button id="cidr-preset-create-btn" type="button" class="button cidr-preset-create-btn">+ Создать
             пресет</button>
         </div>
 
@@ -2722,26 +2722,42 @@
           if (!presetsGrid) return;
           if (!presets.length) { presetsGrid.innerHTML = '<div class="help-text" style="padding:.5rem">Нет пресетов</div>'; return; }
           presetsGrid.innerHTML = presets.map(p => {
-            const provBadges = (p.providers || []).slice(0, 6).map(k => `<span class="cidr-preset-prov-badge">${providerName(k)}</span>`).join("");
-            const more = (p.providers || []).length > 6 ? `<span class="cidr-preset-prov-badge">+${p.providers.length - 6}</span>` : "";
-            const customBtns = !p.is_builtin ? `
-            <button class="button" data-preset-edit="${p.id}" title="Редактировать">✏️</button>
-            <button class="button delete-button" data-preset-delete="${p.id}" title="Удалить">🗑</button>
-          ` : `<button class="button" data-preset-reset="${p.id}" title="Сбросить к умолчанию" style="opacity:.6">↩</button>`;
-            return `<div class="cidr-preset-card cidr-preset-card--${p.is_builtin ? 'builtin' : 'custom'}" data-preset-id="${p.id}">
-            <div class="cidr-preset-card__name">${p.name}</div>
-            <div class="cidr-preset-card__desc">${p.description || ""}</div>
+            const providers = Array.isArray(p.providers) ? p.providers : [];
+            const provBadges = providers.slice(0, 6)
+              .map(k => `<span class="cidr-preset-prov-badge">${escapeHtml(providerName(k))}</span>`)
+              .join("");
+            const more = providers.length > 6 ? `<span class="cidr-preset-prov-badge">+${providers.length - 6}</span>` : "";
+
+            const manageBtns = !p.is_builtin ? `
+              <button class="button cidr-preset-card__icon-btn" data-preset-edit="${p.id}" title="Редактировать">✏️</button>
+              <button class="button delete-button cidr-preset-card__icon-btn" data-preset-delete="${p.id}" title="Удалить">🗑</button>
+            ` : `
+              <button class="button cidr-preset-card__icon-btn" data-preset-reset="${p.id}" title="Сбросить к умолчанию">↩</button>
+            `;
+
+            const typeLabel = p.is_builtin ? "Встроенный" : "Пользовательский";
+            return `<article class="cidr-preset-card cidr-preset-card--${p.is_builtin ? 'builtin' : 'custom'}" data-preset-id="${p.id}">
+            <div class="cidr-preset-card__head">
+              <div class="cidr-preset-card__name">${escapeHtml(p.name || "Без названия")}</div>
+              <span class="cidr-preset-card__type">${typeLabel}</span>
+            </div>
+            <div class="cidr-preset-card__desc">${escapeHtml(p.description || "Без описания")}</div>
             <div class="cidr-preset-card__providers">${provBadges}${more}</div>
-            <div class="cidr-preset-card__actions">
+
+            <div class="cidr-preset-card__actions-main">
               <button class="button save-button" data-preset-apply="${p.id}">Заменить</button>
               <button class="button" data-preset-add="${p.id}">Добавить</button>
               <button class="button" data-preset-remove="${p.id}">Убрать</button>
-              <label class="help-text" style="display:inline-flex;align-items:center;gap:.3rem;margin-left:.3rem">
-                <input type="checkbox" data-preset-select="${p.id}"> отметить
-              </label>
-              ${customBtns}
             </div>
-          </div>`;
+
+            <div class="cidr-preset-card__actions-meta">
+              <label class="cidr-preset-card__mark">
+                <input type="checkbox" data-preset-select="${p.id}">
+                <span>Отметить</span>
+              </label>
+              <div class="cidr-preset-card__manage">${manageBtns}</div>
+            </div>
+          </article>`;
           }).join("");
 
           presetsGrid.querySelectorAll("[data-preset-apply]").forEach(btn => {
@@ -2852,6 +2868,9 @@
           }
 
           if (typeof window._cidrRenderMeta === "function") window._cidrRenderMeta();
+          if (typeof window._scheduleCidrToIpFileSync === "function") {
+            window._scheduleCidrToIpFileSync(40, { persist: true });
+          }
 
           const statusEl = document.getElementById("cidr-update-status");
           if (statusEl) {

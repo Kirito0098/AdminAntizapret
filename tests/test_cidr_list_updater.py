@@ -195,6 +195,8 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertEqual(len(result["estimated"]), 1)
         self.assertEqual(result["estimated"][0]["file"], "amazon-ips.txt")
         self.assertEqual(result["estimated"][0]["cidr_count"], 2)
+        self.assertEqual(result["estimated"][0]["raw_cidr_count"], 2)
+        self.assertEqual(result["estimated"][0]["cidr_count_after_limit"], 2)
 
     def test_prune_runtime_backups_removes_directories_older_than_12_hours(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
