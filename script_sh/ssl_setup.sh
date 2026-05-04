@@ -57,6 +57,26 @@ unset_env_value() {
 	sed -i "/^${key}=/d" "$env_file"
 }
 
+ensure_certbot_available() {
+	if command -v certbot >/dev/null 2>&1; then
+		return 0
+	fi
+
+	# Пытаемся использовать snap, если он доступен.
+	if command -v snap >/dev/null 2>&1; then
+		snap install core >/dev/null 2>&1 || snap refresh core >/dev/null 2>&1 || true
+		snap install --classic certbot >/dev/null 2>&1 || snap refresh certbot >/dev/null 2>&1 || true
+		ln -sf /snap/bin/certbot /usr/bin/certbot >/dev/null 2>&1 || true
+	fi
+
+	# Fallback для Debian/Ubuntu, когда snap недоступен или не сработал.
+	if ! command -v certbot >/dev/null 2>&1; then
+		apt-get install -y -qq certbot --no-install-recommends >/dev/null 2>&1 || return 1
+	fi
+
+	command -v certbot >/dev/null 2>&1
+}
+
 choose_installation_type() {
 	while true; do
 		echo "${YELLOW}Выберите способ установки:${NC}"
@@ -81,10 +101,10 @@ choose_installation_type() {
 				set_env_value "APP_PORT" "$APP_PORT"
 
 				case $ssl_sub_choice in
-				1) setup_letsencrypt ;;
-				2) setup_nginx_letsencrypt ;;
-				3) setup_selfsigned ;;
-				4) setup_custom_certs ;;
+				1) setup_letsencrypt || return 1 ;;
+				2) setup_nginx_letsencrypt || return 1 ;;
+				3) setup_selfsigned || return 1 ;;
+				4) setup_custom_certs || return 1 ;;
 				esac
 				return 0
 				;;
@@ -97,7 +117,7 @@ choose_installation_type() {
 		2)
 			# Настройки для HTTP
 			get_port
-			configure_http
+			configure_http || return 1
 			return 0
 			;;
 		*)
@@ -243,7 +263,7 @@ setup_letsencrypt() {
 
 	# Установка certbot без дополнительных nginx и apache компонентов
 	echo "${YELLOW}Установка Certbot...${NC}"
-	if ! apt-get install -y -qq certbot --no-install-recommends >/dev/null 2>&1; then
+	if ! ensure_certbot_available; then
 		restore_rules
 		restore_services
 		check_error "Не удалось установить Certbot"
@@ -453,13 +473,14 @@ setup_nginx_letsencrypt() {
 		fi
 	fi
 
-	# Установка Nginx и Certbot (snap)
+	# Установка Nginx и Certbot
 	echo "${YELLOW}Установка Nginx и Certbot...${NC}"
 	apt-get update -qq
 	apt-get install -y -qq nginx >/dev/null 2>&1
-	snap install core 2>/dev/null || snap refresh core >/dev/null 2>&1
-	snap install --classic certbot 2>/dev/null || snap refresh certbot >/dev/null 2>&1
-	ln -sf /snap/bin/certbot /usr/bin/certbot 2>/dev/null || true
+	if ! ensure_certbot_available; then
+		echo "${RED}Не удалось установить Certbot!${NC}"
+		return 1
+	fi
 
 	# Удаляем дефолтный сайт и старые конфиги
 	rm -f /etc/nginx/sites-enabled/default
