@@ -37,11 +37,6 @@ PROVIDER_SOURCES = {
             "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS20940",
             "format": "ripe_geo_json",
         },
-        {
-            "name": "ripe-as35993-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS35993",
-            "format": "ripe_json",
-        }
     ],
     "amazon-ips.txt": [
         {
@@ -66,11 +61,6 @@ PROVIDER_SOURCES = {
             "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS46652",
             "format": "ripe_json",
         },
-        {
-            "name": "ripe-as200130-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS200130",
-            "format": "ripe_json",
-        }
     ],
     "google-ips.txt": [
         {
@@ -1158,13 +1148,19 @@ def _extract_cidrs(text_data, source_format, region_scopes=None, strict_geo_filt
 
 def _render_file_content(file_name, cidrs, source_name):
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    # Агрегируем смежные/поглощённые блоки перед записью
+    try:
+        parsed = [ipaddress.ip_network(c, strict=False) for c in cidrs if c]
+        aggregated = [str(n) for n in ipaddress.collapse_addresses(parsed)]
+    except Exception:
+        aggregated = list(cidrs)
     lines = [
         f"# Auto-generated CIDR list for {file_name}",
         f"# Source: {source_name}",
         f"# Generated at: {generated_at}",
         "",
     ]
-    lines.extend(cidrs)
+    lines.extend(aggregated)
     return "\n".join(lines) + "\n"
 
 

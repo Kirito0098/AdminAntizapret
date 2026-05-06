@@ -310,7 +310,23 @@ MAX_CERT_EXPIRE = 3650
 # Настройка БД
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "connect_args": {"timeout": 30},
+}
 db.init_app(app)
+
+# Включаем WAL-режим SQLite — позволяет читать БД во время длинных write-транзакций
+from sqlalchemy import event as _sa_event
+from sqlalchemy.engine import Engine as _SAEngine
+import sqlite3 as _sqlite3
+
+@_sa_event.listens_for(_SAEngine, "connect")
+def _set_sqlite_wal(dbapi_conn, _conn_record):
+    if isinstance(dbapi_conn, _sqlite3.Connection):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.close()
 
 
 def _collect_bw_interface_groups():

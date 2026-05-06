@@ -174,7 +174,7 @@ IP_FILES = {
     "akamai-ips.txt": {
         "name": "Akamai",
         "description": "Маршрутизация сетей Akamai через Antizapret (CDN и edge-сервисы).",
-        "as_numbers": ["AS20940", "AS16625", "AS35993"],
+        "as_numbers": ["AS20940", "AS16625"],
         "category": "cdn",
         "what_hosts": "CDN: Apple App Store, Adobe, крупные новостные сайты, стриминг-платформы. Один из крупнейших мировых CDN-провайдеров.",
         "tags": ["cdn", "streaming", "enterprise"],
@@ -182,7 +182,7 @@ IP_FILES = {
     "amazon-ips.txt": {
         "name": "Amazon",
         "description": "Маршрутизация сетей Amazon/AWS через Antizapret.",
-        "as_numbers": ["AS16509", "AS14618", "AS8987", "AS9059", "AS38895", "AS45773", "AS39111"],
+        "as_numbers": ["AS16509", "AS14618", "AS8987", "AS9059", "AS45773"],
         "category": "cloud",
         "what_hosts": "AWS: Twitch, Slack, GitHub Actions, Netflix (частично), Amazon.com, Discord (голосовые серверы), сотни тысяч SaaS-сервисов и игровых серверов.",
         "tags": ["cloud", "gaming", "social", "streaming", "enterprise"],
@@ -190,7 +190,7 @@ IP_FILES = {
     "digitalocean-ips.txt": {
         "name": "DigitalOcean",
         "description": "Маршрутизация сетей DigitalOcean через Antizapret.",
-        "as_numbers": ["AS14061", "AS46652", "AS200130"],
+        "as_numbers": ["AS14061", "AS46652"],
         "category": "hosting",
         "what_hosts": "Хостинг независимых разработчиков и стартапов, игровые серверы сообщества, self-hosted сервисы.",
         "tags": ["hosting", "gaming"],
