@@ -622,8 +622,9 @@ cidr_db_updater_service = CidrDbUpdaterService(db=db)
 try:
     with app.app_context():
         cidr_db_updater_service.seed_builtin_presets()
+        cidr_db_updater_service.cleanup_retired_provider_data()
 except Exception as _e:
-    app.logger.warning(f"Не удалось засеять встроенные CIDR-пресеты: {_e}")
+    app.logger.warning(f"Не удалось инициализировать CIDR-пресеты и очистку провайдеров: {_e}")
 
 
 register_current_user_context_processor(app, session, User)

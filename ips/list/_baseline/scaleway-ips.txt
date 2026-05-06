@@ -1,4 +1,0 @@
-# Auto-generated CIDR list for scaleway-ips.txt
-# Source: pending update
-# Generated at: bootstrap
-

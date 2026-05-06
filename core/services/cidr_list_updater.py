@@ -36,6 +36,11 @@ PROVIDER_SOURCES = {
             "name": "ripe-as20940-geo",
             "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS20940",
             "format": "ripe_geo_json",
+        },
+        {
+            "name": "ripe-as35993-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS35993",
+            "format": "ripe_json",
         }
     ],
     "amazon-ips.txt": [
@@ -59,6 +64,11 @@ PROVIDER_SOURCES = {
         {
             "name": "ripe-as46652-announced",
             "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS46652",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as200130-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS200130",
             "format": "ripe_json",
         }
     ],
@@ -111,6 +121,11 @@ PROVIDER_SOURCES = {
             "name": "ripe-as16276-geo",
             "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS16276",
             "format": "ripe_geo_json",
+        },
+        {
+            "name": "ripe-as35540-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS35540",
+            "format": "ripe_json",
         }
     ],
     "cloudflare-ips.txt": [
@@ -122,6 +137,11 @@ PROVIDER_SOURCES = {
         {
             "name": "ripe-as13335-announced",
             "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS13335",
+            "format": "ripe_json",
+        },
+        {
+            "name": "ripe-as209242-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS209242",
             "format": "ripe_json",
         },
     ],
@@ -171,44 +191,6 @@ PROVIDER_SOURCES = {
             "format": "ripe_json",
         }
     ],
-    "vultr-ips.txt": [
-        {
-            "name": "ripe-as20473-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS20473",
-            "format": "ripe_json",
-        }
-    ],
-    "contabo-ips.txt": [
-        {
-            "name": "ripe-as51167-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS51167",
-            "format": "ripe_json",
-        },
-        {
-            "name": "ripe-as141995-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS141995",
-            "format": "ripe_json",
-        }
-    ],
-    "buyvm-ips.txt": [
-        {
-            "name": "ripe-as53667-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS53667",
-            "format": "ripe_json",
-        }
-    ],
-    "scaleway-ips.txt": [
-        {
-            "name": "ripe-as12876-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS12876",
-            "format": "ripe_json",
-        },
-        {
-            "name": "ripe-as29447-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS29447",
-            "format": "ripe_json",
-        }
-    ],
     "cdn77-ips.txt": [
         {
             "name": "ripe-as60068-announced",
@@ -221,86 +203,10 @@ PROVIDER_SOURCES = {
             "format": "ripe_json",
         }
     ],
-    "gcore-ips.txt": [
-        {
-            "name": "ripe-as199524-geo",
-            "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS199524",
-            "format": "ripe_geo_json",
-        },
-        {
-            "name": "ripe-as199524-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS199524",
-            "format": "ripe_json",
-        }
-    ],
-    "melbicom-ips.txt": [
-        {
-            "name": "ripe-as197540-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS197540",
-            "format": "ripe_json",
-        },
-        {
-            "name": "ripe-as8849-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS8849",
-            "format": "ripe_json",
-        },
-        {
-            "name": "ripe-as56630-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS56630",
-            "format": "ripe_json",
-        }
-    ],
-    "clouvider-ips.txt": [
-        {
-            "name": "ripe-as62240-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS62240",
-            "format": "ripe_json",
-        }
-    ],
-    "iomart-ips.txt": [
-        {
-            "name": "ripe-as20860-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS20860",
-            "format": "ripe_json",
-        },
-        {
-            "name": "ripe-as21130-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS21130",
-            "format": "ripe_json",
-        }
-    ],
-    "creanova-ips.txt": [
-        {
-            "name": "ripe-as51765-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS51765",
-            "format": "ripe_json",
-        }
-    ],
     "m247-ips.txt": [
         {
             "name": "ripe-as9009-announced",
             "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS9009",
-            "format": "ripe_json",
-        }
-    ],
-    "scalaxy-ips.txt": [
-        {
-            "name": "ripe-as58061-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS58061",
-            "format": "ripe_json",
-        }
-    ],
-    "zenlayer-ips.txt": [
-        {
-            "name": "ripe-as21859-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS21859",
-            "format": "ripe_json",
-        }
-    ],
-    "fornex-ips.txt": [
-        {
-            "name": "ripe-as48040-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS48040",
             "format": "ripe_json",
         }
     ],
@@ -536,54 +442,30 @@ DPI_NODE_CODE_TO_FILE = {
     "AKM": "akamai-ips.txt",
     "AWS": "amazon-ips.txt",
     "CDN77": "cdn77-ips.txt",
-    "CN": "creanova-ips.txt",
     "CF": "cloudflare-ips.txt",
-    "CV": "clouvider-ips.txt",
-    "CNTB": "contabo-ips.txt",
     "DO": "digitalocean-ips.txt",
     "FST": "fastly-ips.txt",
-    "FRX": "fornex-ips.txt",
-    "FTBVM": "buyvm-ips.txt",
-    "GCORE": "gcore-ips.txt",
     "GC": "google-ips.txt",
     "HE": "hetzner-ips.txt",
-    "IM": "iomart-ips.txt",
     "ME": "m247-ips.txt",
     "MS": "azure-ips.txt",
-    "MBCOM": "melbicom-ips.txt",
     "OR": "oracle-ips.txt",
     "OVH": "ovh-ips.txt",
-    "SCA": "scalaxy-ips.txt",
-    "SW": "scaleway-ips.txt",
-    "VLTR": "vultr-ips.txt",
-    "ZL": "zenlayer-ips.txt",
 }
 
 DPI_PROVIDER_TO_FILE = {
     "Akamai": "akamai-ips.txt",
     "AWS": "amazon-ips.txt",
     "CDN77": "cdn77-ips.txt",
-    "CreaNova": "creanova-ips.txt",
     "Cloudflare": "cloudflare-ips.txt",
-    "Clouvider": "clouvider-ips.txt",
-    "Contabo": "contabo-ips.txt",
     "DigitalOcean": "digitalocean-ips.txt",
     "Fastly": "fastly-ips.txt",
-    "Fornex": "fornex-ips.txt",
-    "FT/BuyVM": "buyvm-ips.txt",
-    "Gcore": "gcore-ips.txt",
     "Google Cloud": "google-ips.txt",
     "Hetzner": "hetzner-ips.txt",
-    "IOMART": "iomart-ips.txt",
     "M247 Europe SRL": "m247-ips.txt",
-    "Melbicom": "melbicom-ips.txt",
     "Microsoft/Azure": "azure-ips.txt",
     "Oracle": "oracle-ips.txt",
     "OVH": "ovh-ips.txt",
-    "Scalaxy": "scalaxy-ips.txt",
-    "Scaleway": "scaleway-ips.txt",
-    "Vultr": "vultr-ips.txt",
-    "Zenlayer": "zenlayer-ips.txt",
 }
 
 
@@ -601,9 +483,6 @@ DPI_PROVIDER_ALIASES = {
     "google": "google-ips.txt",
     "googlecloud": "google-ips.txt",
     "gcp": "google-ips.txt",
-    "buyvm": "buyvm-ips.txt",
-    "frantech": "buyvm-ips.txt",
-    "ftbuyvm": "buyvm-ips.txt",
     "m247": "m247-ips.txt",
 }
 for _provider_name, _file_name in DPI_PROVIDER_TO_FILE.items():

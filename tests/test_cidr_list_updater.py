@@ -403,13 +403,13 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertIn("azure-ips.txt", result["priority_files"])
 
     def test_analyze_dpi_log_parses_probably_detected(self):
-        dpi_log = "[00:00:01] DPI checking(#US.FTBVM-01)/INFO: tcp 16-20: probably detected ⚠️, reqtime: 15013.2 ms"
+        dpi_log = "[00:00:01] DPI checking(#US.CF-01)/INFO: tcp 16-20: probably detected ⚠️, reqtime: 15013.2 ms"
 
         result = cidr_list_updater.analyze_dpi_log(dpi_log)
 
         self.assertTrue(result["success"])
-        self.assertIn("buyvm-ips.txt", result["priority_files"])
-        self.assertIn("buyvm-ips.txt", result["critical_files"])
+        self.assertIn("cloudflare-ips.txt", result["priority_files"])
+        self.assertIn("cloudflare-ips.txt", result["critical_files"])
 
     def test_analyze_dpi_log_returns_all_seen_files(self):
         dpi_log = "\n".join(
@@ -430,8 +430,8 @@ class CidrListUpdaterTests(unittest.TestCase):
             [
                 "│ ID     │ ASN      │ Провайдер       │ Alive │  Статус  │ Детали                   │",
                 "│ OR-01  │ AS31898  │ Oracle Cloud    │  Да   │ DETECTED │ Read Timeout at 20KB     │",
-                "│ SW-01  │ AS12876  │ Scaleway 1      │  Нет  │ REFUSED  │ TCP соединение отклонено │",
-                "│ SW-02  │ AS12876  │ Scaleway 1      │  Да   │ DETECTED │ Read Timeout at 20KB     │",
+                "│ HE-01  │ AS24940  │ Hetzner         │  Нет  │ REFUSED  │ TCP соединение отклонено │",
+                "│ HE-02  │ AS24940  │ Hetzner         │  Да   │ DETECTED │ Read Timeout at 20KB     │",
                 "│ GC-01  │ AS396982 │ Google Cloud    │  Да   │    OK    │                          │",
             ]
         )
@@ -440,7 +440,7 @@ class CidrListUpdaterTests(unittest.TestCase):
 
         self.assertTrue(result["success"])
         self.assertIn("oracle-ips.txt", result["detected_files"])
-        self.assertIn("scaleway-ips.txt", result["detected_files"])
+        self.assertIn("hetzner-ips.txt", result["detected_files"])
         self.assertIn("google-ips.txt", result["all_seen_files"])
         self.assertNotIn("google-ips.txt", result["priority_files"])
 
@@ -448,12 +448,11 @@ class CidrListUpdaterTests(unittest.TestCase):
         dpi_log = "\n".join(
             [
                 "│ ID     │ ASN      │ Провайдер       │ Alive │  Статус  │ Детали                   │",
-                "│ CV-02  │ AS62240  │ Clouvider       │  Да   │ DETECTED │ Read Timeout at 20KB     │",
-                "│ IM-01  │ AS20860  │ IOMART 1        │  Да   │ DETECTED │ Read Timeout at 20KB     │",
-                "│ CN-01  │ AS51765  │ CreaNova        │  Да   │ DETECTED │ Read Timeout at 20KB     │",
+                "│ AKM-02 │ AS20940  │ Akamai          │  Да   │ DETECTED │ Read Timeout at 20KB     │",
+                "│ DO-01  │ AS14061  │ DigitalOcean    │  Да   │ DETECTED │ Read Timeout at 20KB     │",
                 "│ ME-01  │ AS9009   │ M247 Europe SRL │  Да   │ DETECTED │ Read Timeout at 16KB     │",
-                "│ SCA-01 │ AS58061  │ Scalaxy         │  Да   │ DETECTED │ Read Timeout at 16KB     │",
-                "│ ZL-01  │ AS21859  │ Zenlayer        │  Да   │ DETECTED │ Read Timeout at 20KB     │",
+                "│ CF-01  │ AS13335  │ Cloudflare      │  Да   │ DETECTED │ Read Timeout at 16KB     │",
+                "│ OVH-01 │ AS16276  │ OVH             │  Да   │ DETECTED │ Read Timeout at 20KB     │",
             ]
         )
 
@@ -461,12 +460,11 @@ class CidrListUpdaterTests(unittest.TestCase):
 
         self.assertTrue(result["success"])
         self.assertEqual(result["unknown_nodes"], [])
-        self.assertIn("clouvider-ips.txt", result["detected_files"])
-        self.assertIn("iomart-ips.txt", result["detected_files"])
-        self.assertIn("creanova-ips.txt", result["detected_files"])
+        self.assertIn("akamai-ips.txt", result["detected_files"])
+        self.assertIn("digitalocean-ips.txt", result["detected_files"])
         self.assertIn("m247-ips.txt", result["detected_files"])
-        self.assertIn("scalaxy-ips.txt", result["detected_files"])
-        self.assertIn("zenlayer-ips.txt", result["detected_files"])
+        self.assertIn("cloudflare-ips.txt", result["detected_files"])
+        self.assertIn("ovh-ips.txt", result["detected_files"])
 
     def test_get_openvpn_route_total_cidr_limit_clamps_to_ios_max(self):
         with patch.object(cidr_list_updater, "_read_positive_int_runtime", return_value=5000), patch.object(

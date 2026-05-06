@@ -1,4 +1,0 @@
-# Auto-generated CIDR list for melbicom-ips.txt
-# Source: pending update
-# Generated at: bootstrap
-

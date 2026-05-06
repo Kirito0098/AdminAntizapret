@@ -6,6 +6,7 @@ Web UI then reads from DB when generating the final CIDR .txt files.
 
 import json
 import logging
+import os
 import re
 from collections import defaultdict
 from datetime import datetime
@@ -42,8 +43,33 @@ ASN_TOKEN_PATTERN = re.compile(r"\bAS(\d{1,10})\b", re.IGNORECASE)
 SOURCE_NAME_ASN_PATTERN = re.compile(r"(?:^|[^0-9])as(\d{1,10})(?:[^0-9]|$)", re.IGNORECASE)
 RIPE_ANNOUNCED_PREFIXES_URL = "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS{asn}"
 RIPE_GEO_BY_ASN_URL = "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS{asn}"
-ASN_DISCOVERY_MAX_PER_PROVIDER = 32
-ASN_DISCOVERY_SCAN_EXTRA_LIMIT = 6
+RIPE_BGP_STATE_URL = "https://stat.ripe.net/data/bgp-state/data.json?resource=AS{asn}"
+
+
+def _read_positive_int_env(name, default):
+    raw = os.getenv(name)
+    if raw is None:
+        return int(default)
+
+    try:
+        parsed = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return int(default)
+
+    if parsed <= 0:
+        return int(default)
+
+    return parsed
+
+
+ASN_DISCOVERY_MAX_PER_PROVIDER = _read_positive_int_env(
+    "CIDR_DB_ASN_DISCOVERY_MAX_PER_PROVIDER",
+    256,
+)
+ASN_DISCOVERY_SCAN_EXTRA_LIMIT = _read_positive_int_env(
+    "CIDR_DB_ASN_DISCOVERY_SCAN_EXTRA_LIMIT",
+    128,
+)
 ASN_FETCH_SOURCE_TIMEOUT_SECONDS = 12
 CIDR_FALLBACK_DROP_RATIO_WITH_ERRORS = 0.45
 CIDR_FALLBACK_DROP_RATIO_HARD = 0.8
@@ -237,6 +263,19 @@ def _extract_cidrs_with_meta(text_data, source_format):
             cidr = _normalize_single_cidr(prefix_item.get("prefix"))
             if cidr:
                 items.append({"cidr": cidr, "region": None, "countries": None})
+        return items
+
+    if source_format == "ripe_bgp_state_json":
+        data = parsed.get("data") or {}
+        seen = set()
+        for state_item in data.get("bgp_state") or []:
+            if not isinstance(state_item, dict):
+                continue
+            cidr = _normalize_single_cidr(state_item.get("target_prefix"))
+            if not cidr or cidr in seen:
+                continue
+            seen.add(cidr)
+            items.append({"cidr": cidr, "region": None, "countries": None})
         return items
 
     raise ValueError(f"Unsupported source format: {source_format}")
@@ -694,6 +733,52 @@ class CidrDbUpdaterService:
         self.db.session.commit()
         return self._serialize_preset(preset)
 
+    def cleanup_retired_provider_data(self):
+        """Remove provider rows and preset links that are no longer present in IP_FILES."""
+        from config.antizapret_params import IP_FILES
+
+        m = _get_models()
+        valid_provider_keys = set(IP_FILES.keys())
+        if not valid_provider_keys:
+            return {
+                "success": False,
+                "message": "Пустой список валидных провайдеров",
+                "deleted": {},
+                "updated_presets": 0,
+            }
+
+        valid_list = sorted(valid_provider_keys)
+        deleted = {
+            "provider_cidr": m.ProviderCidr.query.filter(~m.ProviderCidr.provider_key.in_(valid_list)).delete(synchronize_session=False),
+            "provider_meta": m.ProviderMeta.query.filter(~m.ProviderMeta.provider_key.in_(valid_list)).delete(synchronize_session=False),
+            "provider_asn": m.ProviderAsn.query.filter(~m.ProviderAsn.provider_key.in_(valid_list)).delete(synchronize_session=False),
+            "provider_asn_snapshot": m.ProviderAsnSnapshot.query.filter(~m.ProviderAsnSnapshot.provider_key.in_(valid_list)).delete(synchronize_session=False),
+        }
+
+        updated_presets = 0
+        for preset in m.CidrPreset.query.all():
+            try:
+                providers = json.loads(preset.providers_json or "[]")
+            except (TypeError, ValueError):
+                providers = []
+
+            if not isinstance(providers, list):
+                providers = []
+
+            filtered = [item for item in providers if item in valid_provider_keys]
+            if filtered != providers:
+                preset.providers_json = json.dumps(filtered, ensure_ascii=False)
+                updated_presets += 1
+
+        self.db.session.commit()
+
+        return {
+            "success": True,
+            "message": "Очистка устаревших провайдеров завершена",
+            "deleted": deleted,
+            "updated_presets": updated_presets,
+        }
+
     # ── Private helpers ───────────────────────────────────────────────
 
     def _discover_provider_asns(self, provider_key, sources, *, seed_asns=None, max_asns=ASN_DISCOVERY_MAX_PER_PROVIDER, scan_extra_limit=ASN_DISCOVERY_SCAN_EXTRA_LIMIT):
@@ -764,6 +849,12 @@ class CidrDbUpdaterService:
                 "name": f"ripe-as{asn_value}-geo",
                 "url": RIPE_GEO_BY_ASN_URL.format(asn=asn_value),
                 "format": "ripe_geo_json",
+                "timeout": ASN_FETCH_SOURCE_TIMEOUT_SECONDS,
+            },
+            {
+                "name": f"ripe-as{asn_value}-bgpstate",
+                "url": RIPE_BGP_STATE_URL.format(asn=asn_value),
+                "format": "ripe_bgp_state_json",
                 "timeout": ASN_FETCH_SOURCE_TIMEOUT_SECONDS,
             },
         ]

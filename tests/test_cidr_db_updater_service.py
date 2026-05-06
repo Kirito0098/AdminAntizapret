@@ -3,12 +3,27 @@ from unittest.mock import patch
 
 from core.services.cidr_db_updater import (
     CidrDbUpdaterService,
+    _read_positive_int_env,
     _extract_asns_from_text,
     _extract_asns_from_url,
 )
 
 
 class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
+    def test_read_positive_int_env_returns_default_for_missing_or_invalid(self):
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(_read_positive_int_env("CIDR_DB_TEST_INT", 55), 55)
+
+        with patch.dict("os.environ", {"CIDR_DB_TEST_INT": "abc"}, clear=True):
+            self.assertEqual(_read_positive_int_env("CIDR_DB_TEST_INT", 55), 55)
+
+        with patch.dict("os.environ", {"CIDR_DB_TEST_INT": "0"}, clear=True):
+            self.assertEqual(_read_positive_int_env("CIDR_DB_TEST_INT", 55), 55)
+
+    def test_read_positive_int_env_accepts_positive_value(self):
+        with patch.dict("os.environ", {"CIDR_DB_TEST_INT": "128"}, clear=True):
+            self.assertEqual(_read_positive_int_env("CIDR_DB_TEST_INT", 55), 128)
+
     def test_extract_asns_from_url_supports_query_and_path(self):
         url = "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS13335&other=1"
         self.assertIn(13335, _extract_asns_from_url(url))
@@ -126,6 +141,24 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
         self.assertEqual(source_tags, set())
         self.assertFalse(errors)
         mocked_download.assert_not_called()
+
+    def test_download_asn_cidrs_with_meta_uses_bgp_state_fallback(self):
+        svc = CidrDbUpdaterService(db=None)
+
+        empty_announced = '{"data":{"prefixes":[]}}'
+        empty_geo = '{"data":{"located_resources":[]}}'
+        bgp_state_payload = '{"data":{"bgp_state":[{"target_prefix":"203.0.113.0/24"}]}}'
+
+        with patch(
+            "core.services.cidr_db_updater._download_text",
+            side_effect=[empty_announced, empty_geo, bgp_state_payload],
+        ):
+            items, source_used, error = svc._download_asn_cidrs_with_meta(9059)
+
+        self.assertIsNone(error)
+        self.assertTrue(source_used)
+        self.assertIn("ripe-as9059-bgpstate", source_used)
+        self.assertEqual([item["cidr"] for item in items], ["203.0.113.0/24"])
 
 
 if __name__ == "__main__":
