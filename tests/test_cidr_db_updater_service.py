@@ -10,6 +10,18 @@ from core.services.cidr_db_updater import (
 
 
 class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
+    def test_resolve_asn_fetch_workers_bounds(self):
+        self.assertEqual(CidrDbUpdaterService._resolve_asn_fetch_workers(0, 8), 0)
+        self.assertEqual(CidrDbUpdaterService._resolve_asn_fetch_workers(1, 8), 1)
+        self.assertEqual(CidrDbUpdaterService._resolve_asn_fetch_workers(3, 8), 3)
+
+    def test_resolve_asn_fetch_workers_caps_to_32(self):
+        self.assertEqual(CidrDbUpdaterService._resolve_asn_fetch_workers(100, 128), 32)
+
+    def test_resolve_asn_fetch_workers_uses_env_when_not_passed(self):
+        with patch.dict("os.environ", {"CIDR_DB_ASN_FETCH_WORKERS": "6"}, clear=True):
+            self.assertEqual(CidrDbUpdaterService._resolve_asn_fetch_workers(20), 6)
+
     def test_read_positive_int_env_returns_default_for_missing_or_invalid(self):
         with patch.dict("os.environ", {}, clear=True):
             self.assertEqual(_read_positive_int_env("CIDR_DB_TEST_INT", 55), 55)

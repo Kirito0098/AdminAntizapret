@@ -9,6 +9,7 @@ import logging
 import os
 import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from urllib import request
 from urllib.parse import parse_qs, urlparse
@@ -69,6 +70,10 @@ ASN_DISCOVERY_MAX_PER_PROVIDER = _read_positive_int_env(
 ASN_DISCOVERY_SCAN_EXTRA_LIMIT = _read_positive_int_env(
     "CIDR_DB_ASN_DISCOVERY_SCAN_EXTRA_LIMIT",
     128,
+)
+ASN_FETCH_WORKERS = _read_positive_int_env(
+    "CIDR_DB_ASN_FETCH_WORKERS",
+    4,
 )
 ASN_FETCH_SOURCE_TIMEOUT_SECONDS = 12
 CIDR_FALLBACK_DROP_RATIO_WITH_ERRORS = 0.45
@@ -289,6 +294,24 @@ class CidrDbUpdaterService:
     def __init__(self, *, db):
         self.db = db
 
+    @staticmethod
+    def _current_asn_fetch_workers():
+        return _read_positive_int_env("CIDR_DB_ASN_FETCH_WORKERS", ASN_FETCH_WORKERS)
+
+    @staticmethod
+    def _resolve_asn_fetch_workers(total_asn_rows, configured_workers=None):
+        total = max(0, int(total_asn_rows or 0))
+        if total <= 1:
+            return total
+
+        if configured_workers is None:
+            configured_workers = CidrDbUpdaterService._current_asn_fetch_workers()
+
+        workers = max(1, int(configured_workers or 1))
+        # Keep thread count bounded to avoid oversubscription on small VPS hosts.
+        workers = min(workers, 32)
+        return min(workers, total)
+
     # ── Public API ────────────────────────────────────────────────────
 
     def refresh_all_providers(
@@ -381,16 +404,45 @@ class CidrDbUpdaterService:
                 asn_optional_errors = []
                 asn_fetch_meta = {}
                 total_asn_rows = len(asn_rows)
-                for asn_index, asn_row in enumerate(asn_rows, start=1):
-                    if progress_callback and total_asn_rows:
-                        try:
-                            provider_span = max(provider_progress_end - provider_progress_start - 1, 1)
-                            local_pct = provider_progress_start + int(((asn_index - 1) / max(total_asn_rows, 1)) * provider_span)
-                            progress_callback(local_pct, f"{file_name}: загрузка AS{asn_row.asn} ({asn_index}/{total_asn_rows})")
-                        except Exception:
-                            pass
+                asn_fetch_results = {}
+                worker_count = self._resolve_asn_fetch_workers(total_asn_rows)
 
-                    fetched_items, fetched_source, fetched_error = self._download_asn_cidrs_with_meta(asn_row.asn)
+                if total_asn_rows > 0 and worker_count > 1:
+                    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                        future_to_asn = {
+                            executor.submit(self._download_asn_cidrs_with_meta, asn_row.asn): int(asn_row.asn)
+                            for asn_row in asn_rows
+                        }
+                        for done_index, future in enumerate(as_completed(future_to_asn), start=1):
+                            asn_value = future_to_asn[future]
+                            try:
+                                asn_fetch_results[asn_value] = future.result()
+                            except Exception as exc:
+                                asn_fetch_results[asn_value] = ([], None, str(exc))
+
+                            if progress_callback and total_asn_rows:
+                                try:
+                                    provider_span = max(provider_progress_end - provider_progress_start - 1, 1)
+                                    local_pct = provider_progress_start + int((done_index / max(total_asn_rows, 1)) * provider_span)
+                                    progress_callback(
+                                        local_pct,
+                                        f"{file_name}: загрузка ASN-пула ({done_index}/{total_asn_rows}, потоки={worker_count})",
+                                    )
+                                except Exception:
+                                    pass
+                else:
+                    for asn_index, asn_row in enumerate(asn_rows, start=1):
+                        asn_fetch_results[int(asn_row.asn)] = self._download_asn_cidrs_with_meta(asn_row.asn)
+                        if progress_callback and total_asn_rows:
+                            try:
+                                provider_span = max(provider_progress_end - provider_progress_start - 1, 1)
+                                local_pct = provider_progress_start + int((asn_index / max(total_asn_rows, 1)) * provider_span)
+                                progress_callback(local_pct, f"{file_name}: загрузка AS{asn_row.asn} ({asn_index}/{total_asn_rows})")
+                            except Exception:
+                                pass
+
+                for asn_row in asn_rows:
+                    fetched_items, fetched_source, fetched_error = asn_fetch_results.get(int(asn_row.asn), ([], None, "ASN результат не получен"))
                     if fetched_error:
                         if int(asn_row.asn) in priority_asns:
                             asn_fetch_errors.append(f"AS{asn_row.asn}: {fetched_error}")
