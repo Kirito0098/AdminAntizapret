@@ -721,6 +721,18 @@ document.addEventListener("DOMContentLoaded", function () {
     if (strictEl) strictEl.textContent = strictGeoFilter ? "on" : "off";
     if (ruExclusionEl) ruExclusionEl.textContent = regionScopes.includes("all") && excludeRuCidrs ? "on" : "off";
     if (gamesSelectedEl) gamesSelectedEl.textContent = String(includeGameKeys.length);
+
+    // Sync detail panel elements
+    const fallbackVal = includeNonGeoFallback ? "on" : "off";
+    const strictVal = strictGeoFilter ? "on" : "off";
+    const ruVal = regionScopes.includes("all") && excludeRuCidrs ? "on" : "off";
+    const fbEl2 = document.getElementById("cidr-meta-fallback-state-2");
+    const stEl2 = document.getElementById("cidr-meta-strict-state-2");
+    const ruEl2 = document.getElementById("cidr-meta-ru-exclusion-state-2");
+    if (fbEl2) { fbEl2.textContent = fallbackVal; fbEl2.className = "cidr-meta-item__value" + (includeNonGeoFallback ? " cidr-meta-item__value--ok" : ""); }
+    if (stEl2) { stEl2.textContent = strictVal; stEl2.className = "cidr-meta-item__value" + (strictGeoFilter ? " cidr-meta-item__value--warn" : ""); }
+    if (ruEl2) { ruEl2.textContent = ruVal; ruEl2.className = "cidr-meta-item__value" + (regionScopes.includes("all") && excludeRuCidrs ? " cidr-meta-item__value--warn" : ""); }
+
     renderCidrEstimateModeBadge(strictGeoFilter);
 
     const cidrTotalEl = document.getElementById("cidr-meta-total-cidr");
@@ -1114,7 +1126,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const metaElement = document.getElementById("cidr-games-search-meta");
     const chips = Array.from(document.querySelectorAll("#cidr-game-filters .cidr-game-chip"));
     if (!chips.length) {
-      if (metaElement) metaElement.textContent = "Показано игр: 0/0";
+      if (metaElement) metaElement.textContent = "Показано: 0/0";
       return;
     }
 
@@ -1122,15 +1134,16 @@ document.addEventListener("DOMContentLoaded", function () {
     let visibleCount = 0;
 
     chips.forEach((chip) => {
-      const title = String(chip.querySelector("span")?.textContent || "").trim().toLowerCase();
+      const title = String(chip.querySelector(".cidr-game-chip__title")?.textContent || chip.querySelector("span")?.textContent || "").trim().toLowerCase();
+      const subtitle = String(chip.querySelector(".cidr-game-chip__sub")?.textContent || chip.querySelector("input")?.dataset?.subtitle || "").trim().toLowerCase();
       const value = String(chip.querySelector(".cidr-game-checkbox")?.value || "").trim().toLowerCase();
-      const matches = !query || title.includes(query) || value.includes(query);
+      const matches = !query || title.includes(query) || subtitle.includes(query) || value.includes(query);
       chip.hidden = !matches;
       if (matches) visibleCount += 1;
     });
 
     if (metaElement) {
-      metaElement.textContent = `Показано игр: ${visibleCount}/${chips.length}`;
+      metaElement.textContent = `Показано: ${visibleCount}/${chips.length}`;
     }
   };
 
@@ -1616,6 +1629,17 @@ document.addEventListener("DOMContentLoaded", function () {
       } finally {
         setCidrBusy(false);
       }
+    });
+
+    // Meta-details toggle
+    document.getElementById("cidr-meta-toggle")?.addEventListener("click", () => {
+      const extra = document.getElementById("cidr-meta-extra");
+      const btn = document.getElementById("cidr-meta-toggle");
+      if (!extra || !btn) return;
+      const expanded = !extra.hidden;
+      extra.hidden = expanded;
+      btn.setAttribute("aria-expanded", String(!expanded));
+      btn.textContent = expanded ? "⋯ Детали" : "✕ Скрыть";
     });
 
     document.getElementById("cidr-preset-europe")?.addEventListener("click", () => {

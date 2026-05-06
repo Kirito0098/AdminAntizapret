@@ -46,6 +46,10 @@
         <i class="icon">🗂️</i>
         <span>Обновление файлов CIDR</span>
       </li>
+      <li class="menu-item" data-tab="game-filters">
+        <i class="icon">🎮</i>
+        <span>Игровой фильтр</span>
+      </li>
       <li class="menu-item" data-tab="action-logs">
         <i class="icon">🧾</i>
         <span>Логи действий</span>
@@ -795,55 +799,6 @@
         <div id="antifilter-status-msg" class="notification settings-inline-hidden" style="margin-top:.5rem"></div>
       </div>
 
-      <!-- ── Пресеты провайдеров ─────────────────────────────────────────── -->
-      <div class="card settings-inline-card-mb" id="cidr-presets-card">
-        <div class="cidr-db-head">
-          <div>
-            <h3>Пресеты провайдеров</h3>
-            <p class="help-text">
-              Быстрый выбор набора провайдеров по сценарию использования. Нажмите «Применить» —
-              провайдеры выберутся автоматически, георегионы и фильтры установятся из пресета.
-            </p>
-          </div>
-          <button id="cidr-preset-create-btn" type="button" class="button cidr-preset-create-btn">+ Создать
-            пресет</button>
-        </div>
-
-        <div id="cidr-presets-grid" class="cidr-presets-grid">
-          <div class="help-text" style="padding:.5rem">Загрузка пресетов…</div>
-        </div>
-
-        <div class="cidr-actions-row settings-inline-card-mt">
-          <button id="cidr-presets-apply-selected" type="button" class="button save-button">Применить отмеченные
-            (замена)</button>
-          <button id="cidr-presets-add-selected" type="button" class="button">Добавить отмеченные</button>
-          <button id="cidr-presets-clear-selection" type="button" class="button">Снять отметки</button>
-        </div>
-
-        <!-- Форма создания/редактирования пресета -->
-        <div id="cidr-preset-form-wrap" hidden
-          style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem">
-          <h5 id="cidr-preset-form-title">Новый пресет</h5>
-          <input type="hidden" id="cidr-preset-edit-id" value="">
-          <div class="form-group">
-            <label>Название</label>
-            <input type="text" id="cidr-preset-name-input" class="form-control" placeholder="Мой пресет" />
-          </div>
-          <div class="form-group">
-            <label>Описание (необязательно)</label>
-            <input type="text" id="cidr-preset-desc-input" class="form-control" placeholder="Краткое описание" />
-          </div>
-          <div class="form-group">
-            <label>Провайдеры (из текущего выбора на форме ниже)</label>
-            <p class="help-text">Выберите нужных провайдеров в блоке «Шаг 1» ниже, затем нажмите «Сохранить пресет».</p>
-          </div>
-          <div class="cidr-actions-row">
-            <button id="cidr-preset-save-btn" type="button" class="button save-button">Сохранить пресет</button>
-            <button id="cidr-preset-cancel-btn" type="button" class="button">Отмена</button>
-          </div>
-          <div id="cidr-preset-form-msg" class="notification settings-inline-hidden" style="margin-top:.4rem"></div>
-        </div>
-      </div>
 
       <div class="card settings-inline-card-mb cidr-shell">
         <div class="cidr-shell__head">
@@ -854,36 +809,44 @@
               необходимости отметьте игры, затем запустите обновление или откат.
             </p>
           </div>
-          <div class="cidr-meta-grid" aria-live="polite">
+          <div class="cidr-meta-summary" aria-live="polite">
+            <span class="cidr-meta-chip">
+              <span class="cidr-meta-chip__lbl">Провайдеры</span>
+              <span id="cidr-meta-selected-providers" class="cidr-meta-chip__val">0</span>
+            </span>
+            <span class="cidr-meta-chip">
+              <span class="cidr-meta-chip__lbl">Регионы</span>
+              <span id="cidr-meta-selected-scopes" class="cidr-meta-chip__val">1</span>
+            </span>
+            <span class="cidr-meta-chip">
+              <span class="cidr-meta-chip__lbl">CIDR</span>
+              <span id="cidr-meta-total-cidr" class="cidr-meta-chip__val">—</span>
+            </span>
+            <span class="cidr-meta-chip">
+              <span class="cidr-meta-chip__lbl">Игры</span>
+              <span id="cidr-meta-games-selected" class="cidr-meta-chip__val">0</span>
+            </span>
+            <button id="cidr-meta-toggle" type="button" class="button cidr-meta-toggle-btn" aria-expanded="false"
+              aria-controls="cidr-meta-extra">⋯ Детали</button>
+          </div>
+          <div id="cidr-meta-extra" class="cidr-meta-grid" hidden aria-live="polite">
             <div class="cidr-meta-item">
-              <span id="cidr-meta-selected-providers" class="cidr-meta-item__value">0</span>
-              <span class="cidr-meta-item__label">провайдеров выбрано</span>
-            </div>
-            <div class="cidr-meta-item">
-              <span id="cidr-meta-selected-scopes" class="cidr-meta-item__value">1</span>
-              <span class="cidr-meta-item__label">георегионов активно</span>
-            </div>
-            <div class="cidr-meta-item">
-              <span id="cidr-meta-fallback-state" class="cidr-meta-item__value">off</span>
+              <span id="cidr-meta-fallback-state-2" class="cidr-meta-item__value">off</span>
               <span class="cidr-meta-item__label">fallback без geo-меток</span>
             </div>
             <div class="cidr-meta-item">
-              <span id="cidr-meta-strict-state" class="cidr-meta-item__value">off</span>
+              <span id="cidr-meta-strict-state-2" class="cidr-meta-item__value">off</span>
               <span class="cidr-meta-item__label">строгий geo-режим</span>
             </div>
             <div class="cidr-meta-item">
-              <span id="cidr-meta-ru-exclusion-state" class="cidr-meta-item__value">off</span>
+              <span id="cidr-meta-ru-exclusion-state-2" class="cidr-meta-item__value">off</span>
               <span class="cidr-meta-item__label">исключение RU CIDR</span>
             </div>
-            <div class="cidr-meta-item">
-              <span id="cidr-meta-games-selected" class="cidr-meta-item__value">0</span>
-              <span class="cidr-meta-item__label">игр выбрано</span>
-            </div>
-            <div class="cidr-meta-item">
-              <span id="cidr-meta-total-cidr" class="cidr-meta-item__value">—</span>
-              <span class="cidr-meta-item__label">CIDR из БД / лимит 900</span>
-            </div>
           </div>
+          <!-- скрытые span для обратной совместимости JS -->
+          <span id="cidr-meta-fallback-state" hidden></span>
+          <span id="cidr-meta-strict-state" hidden></span>
+          <span id="cidr-meta-ru-exclusion-state" hidden></span>
         </div>
 
         <input type="hidden" id="cidr-csrf-token" value="{{ csrf_token() }}" />
@@ -913,10 +876,13 @@
               </label>
               {% endfor %}
             </div>
-            <div class="cidr-actions-row settings-inline-card-mt">
-              <button id="cidr-select-all" type="button" class="button">Выбрать все</button>
-              <button id="cidr-clear-all" type="button" class="button">Снять выбор</button>
-              <button id="cidr-refresh-regions" type="button" class="button">Обновить список регионов</button>
+            <div class="cidr-actions-row settings-inline-card-mt cidr-regions-toolbar">
+              <div class="cidr-regions-toolbar__main">
+                <button id="cidr-select-all" type="button" class="button">Выбрать все</button>
+                <button id="cidr-clear-all" type="button" class="button">Снять выбор</button>
+              </div>
+              <button id="cidr-refresh-regions" type="button" class="button cidr-refresh-regions-btn"
+                title="Обновить список провайдеров">↺</button>
             </div>
           </section>
 
@@ -994,92 +960,70 @@
               <small class="help-text">Отмечайте нужные регионы кликом, без Ctrl/Cmd и выпадающих списков.</small>
             </div>
 
-            <div class="cidr-actions-row settings-inline-card-mt">
-              <button id="cidr-preset-europe" type="button" class="button">Пресет: Только Европа</button>
-              <button id="cidr-preset-europe-asia" type="button" class="button">Пресет: Европа + Азия</button>
-              <button id="cidr-preset-eu-na" type="button" class="button">Пресет: Европа + Сев. Америка</button>
-              <button id="cidr-preset-americas" type="button" class="button">Пресет: Обе Америки</button>
-              <button id="cidr-preset-asia-focus" type="button" class="button">Пресет: Азия расширенно</button>
-              <button id="cidr-preset-gov-global" type="button" class="button">Пресет: Gov + China + Global</button>
-              <button id="cidr-preset-all-fallback" type="button" class="button">Пресет: Все + fallback</button>
-              <button id="cidr-preset-all-no-ru" type="button" class="button">Пресет: Все без RU</button>
-            </div>
-          </section>
-
-          <section class="cidr-control-panel">
-            <div class="cidr-panel-head">
-              <div class="cidr-panel-head__title">
-                <span class="cidr-step-badge">3</span>
-                <h4>Игровой фильтр</h4>
-              </div>
-              <span class="cidr-panel-head__hint">необязательно</span>
-            </div>
-            <div class="form-group settings-inline-card-mt">
-              <label>Игры для принудительной маршрутизации (популярные в СНГ и мире)</label>
-              <div class="cidr-games-search-wrap settings-inline-card-mt">
-                <input id="cidr-games-search-input" type="search" class="cidr-games-search-input"
-                  placeholder="Поиск игры по названию..." autocomplete="off" />
-                <small id="cidr-games-search-meta" class="help-text">Показано игр: —</small>
-              </div>
-              <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid" role="group"
-                aria-label="Игровые фильтры">
-                {% for item in cidr_game_filters %}
-                <label class="cidr-scope-chip cidr-game-chip">
-                  <input type="checkbox" class="cidr-game-checkbox" value="{{ item.key }}" />
-                  <span>{{ item.title }}</span>
-                </label>
-                {% endfor %}
-              </div>
-              <small class="help-text">
-                Отмеченные игры добавляются в управляемые блоки include-hosts и include-ips (CIDR через DNS-резолв
-                доменов).
-              </small>
-              <div class="cidr-actions-row settings-inline-card-mt">
-                <button id="cidr-games-select-all" type="button" class="button">Выбрать все игры</button>
-                <button id="cidr-games-clear-all" type="button" class="button">Снять игры</button>
-                <button id="cidr-sync-games-hosts" type="button" class="button">Применить игры в
-                  include-hosts/include-ips</button>
-              </div>
+            <div class="cidr-geo-presets-grid settings-inline-card-mt">
+              <button id="cidr-preset-europe" type="button" class="cidr-geo-preset-chip">🇪🇺 Только Европа</button>
+              <button id="cidr-preset-europe-asia" type="button" class="cidr-geo-preset-chip">🌏 Европа + Азия</button>
+              <button id="cidr-preset-eu-na" type="button" class="cidr-geo-preset-chip">🌎 Европа + Сев.
+                Америка</button>
+              <button id="cidr-preset-americas" type="button" class="cidr-geo-preset-chip">🌍 Обе Америки</button>
+              <button id="cidr-preset-asia-focus" type="button" class="cidr-geo-preset-chip">🗾 Азия расширенно</button>
+              <button id="cidr-preset-gov-global" type="button" class="cidr-geo-preset-chip">🏛 Gov + China +
+                Global</button>
+              <button id="cidr-preset-all-fallback" type="button" class="cidr-geo-preset-chip">🌐 Все +
+                fallback</button>
+              <button id="cidr-preset-all-no-ru" type="button" class="cidr-geo-preset-chip">🚫 Все без RU</button>
             </div>
           </section>
 
           <section class="cidr-control-panel cidr-control-panel--execution">
             <div class="cidr-panel-head">
               <div class="cidr-panel-head__title">
-                <span class="cidr-step-badge">4</span>
-                <h4>Параметры обработки и запуск</h4>
+                <span class="cidr-step-badge">3</span>
+                <h4>Запуск</h4>
               </div>
             </div>
 
-            <div class="cidr-execution-grid settings-inline-card-mt">
-              <div class="cidr-execution-col">
-                <h5>Параметры обработки</h5>
-                <div class="form-group settings-inline-card-mt">
-                  <label for="cidr-total-limit-input">Общий лимит CIDR (OPENVPN_ROUTE_TOTAL_CIDR_LIMIT)</label>
-                  <div class="cidr-actions-row settings-inline-card-mt">
-                    <input id="cidr-total-limit-input" type="number" min="1" max="900" step="1" class="form-control"
-                      value="{{ cidr_total_limit }}" />
-                    <button id="cidr-save-total-limit" type="button" class="button">Сохранить лимит</button>
-                  </div>
-                  <small class="help-text">
-                    Лимит применяется к сумме CIDR по всем провайдерам для estimate/update. Для iOS безопасный максимум:
-                    900.
-                  </small>
+            <!-- Кнопки запуска — главное действие -->
+            <div class="cidr-launch-block settings-inline-card-mt">
+              <div class="cidr-launch-group">
+                <span class="cidr-launch-group__label">Быстрая генерация из БД</span>
+                <button id="cidr-generate-from-db" type="button"
+                  class="button save-button cidr-launch-btn cidr-launch-btn--full"
+                  title="Сгенерировать файлы из БД без загрузки из интернета">
+                  ⚡ Применить из БД (без интернета)
+                </button>
+              </div>
+              <div class="cidr-launch-group">
+                <span class="cidr-launch-group__label">Обновить из интернета</span>
+                <div class="cidr-launch-pair">
+                  <button id="cidr-update-selected" type="button" class="button save-button cidr-launch-btn">Выбранные
+                    провайдеры</button>
+                  <button id="cidr-update-all" type="button" class="button save-button cidr-launch-btn">Всех
+                    провайдеров</button>
                 </div>
+              </div>
+              <div class="cidr-launch-group">
+                <span class="cidr-launch-group__label cidr-launch-group__label--danger">Откат к резервной копии</span>
+                <div class="cidr-launch-pair">
+                  <button id="cidr-rollback-selected" type="button"
+                    class="button delete-button cidr-launch-btn">Выбранных</button>
+                  <button id="cidr-rollback-all" type="button"
+                    class="button delete-button cidr-launch-btn">Всех</button>
+                </div>
+              </div>
+            </div>
 
-                <div class="form-group settings-inline-card-mt">
-                  <label for="cidr-dpi-log-input">DPI-checkers лог (tcp 16-20)</label>
-                  <textarea id="cidr-dpi-log-input" class="form-control" rows="6"
-                    placeholder="Вставьте лог DPI checking сюда..."></textarea>
-                  <div class="cidr-actions-row settings-inline-card-mt">
-                    <button id="cidr-dpi-analyze" type="button" class="button">Анализировать DPI-лог</button>
-                    <input id="cidr-dpi-priority-min-budget" type="number" min="0" step="1" class="form-control"
-                      value="6" title="Минимальный резерв маршрутов на приоритетного провайдера" />
+            <!-- Доп. параметры — по умолчанию свёрнуты -->
+            <details class="cidr-advanced-details settings-inline-card-mt">
+              <summary class="cidr-advanced-summary">⚙ Дополнительные параметры</summary>
+              <div class="cidr-advanced-body">
+                <div class="form-group">
+                  <label for="cidr-total-limit-input">Лимит CIDR на iOS (максимум 900)</label>
+                  <div class="cidr-actions-row" style="margin-top:.4rem">
+                    <input id="cidr-total-limit-input" type="number" min="1" max="900" step="1" class="form-control"
+                      value="{{ cidr_total_limit }}" style="max-width:120px" />
+                    <button id="cidr-save-total-limit" type="button" class="button">Сохранить</button>
                   </div>
-                  <small id="cidr-dpi-summary" class="help-text">DPI-анализ не выполнен.</small>
-                  <small id="cidr-dpi-mini-report" class="help-text settings-inline-card-mt">
-                    Лог: найдено 0 | В сборку: 0 | Приоритет: 0 | Критичные: 0 | Срез лимитом: не оценен
-                  </small>
                 </div>
 
                 <label class="toggle-wrapper settings-inline-card-mt">
@@ -1091,36 +1035,26 @@
                     <span class="toggle-slider"></span>
                   </div>
                 </label>
-                <small class="help-text">
-                  Если включено, при геофильтре провайдеры без региональных меток не пропускаются, а обновляются
-                  полностью.
-                </small>
 
                 <label class="toggle-wrapper settings-inline-card-mt">
                   <span class="toggle-label">
-                    <span class="config-item-title">Strict geo: исключать спорные и пограничные префиксы</span>
+                    <span class="config-item-title">Strict geo: исключать спорные префиксы</span>
                   </span>
                   <div class="toggle-switch">
                     <input type="checkbox" id="cidr-strict-geo-filter" class="toggle-input" />
                     <span class="toggle-slider"></span>
                   </div>
                 </label>
-                <small class="help-text">
-                  В строгом режиме отбрасываются CIDR с неоднозначной геопривязкой между макрорегионами.
-                </small>
 
                 <label class="toggle-wrapper settings-inline-card-mt">
                   <span class="toggle-label">
-                    <span class="config-item-title">Исключать российские CIDR (RU) в режиме «Все регионы»</span>
+                    <span class="config-item-title">Исключать российские CIDR (RU)</span>
                   </span>
                   <div class="toggle-switch">
                     <input type="checkbox" id="cidr-exclude-ru-cidrs" class="toggle-input" />
                     <span class="toggle-slider"></span>
                   </div>
                 </label>
-                <small class="help-text">
-                  Если включено, при scope «Все регионы» из результата удаляются подсети, попадающие в RU country list.
-                </small>
 
                 <label class="toggle-wrapper settings-inline-card-mt">
                   <span class="toggle-label">
@@ -1131,37 +1065,22 @@
                     <span class="toggle-slider"></span>
                   </div>
                 </label>
-                <small class="help-text">
-                  При включении оставляет только те CIDR провайдеров, которые пересекаются со списком реально
-                  заблокированных в России подсетей.
-                  Уменьшает число маршрутов в 5–20 раз. Требует предварительного обновления антифильтра.
-                </small>
-              </div>
 
-              <div class="cidr-execution-col cidr-execution-col--launch">
-                <h5>Запуск операции</h5>
-                <p class="help-text settings-inline-card-mt">Применить текущие настройки: обновить или откатить
-                  выбранные провайдеры.</p>
-                <div class="cidr-actions-row settings-inline-card-mt cidr-actions-row--primary">
-                  <button id="cidr-generate-from-db" type="button" class="button save-button"
-                    title="Сгенерировать файлы из БД (без загрузки из интернета)">
-                    ⚡ Из БД
-                  </button>
-                  <button id="cidr-update-selected" type="button" class="button save-button">
-                    Обновить выбранные
-                  </button>
-                  <button id="cidr-update-all" type="button" class="button save-button">
-                    Обновить все CIDR
-                  </button>
-                  <button id="cidr-rollback-selected" type="button" class="button delete-button">
-                    Откатить выбранные
-                  </button>
-                  <button id="cidr-rollback-all" type="button" class="button delete-button">
-                    Откатить все к эталону
-                  </button>
+                <div class="form-group settings-inline-card-mt">
+                  <label for="cidr-dpi-log-input">DPI-лог для анализа приоритетов</label>
+                  <textarea id="cidr-dpi-log-input" class="form-control" rows="4"
+                    placeholder="Вставьте лог DPI checking сюда..."></textarea>
+                  <div class="cidr-actions-row" style="margin-top:.4rem">
+                    <button id="cidr-dpi-analyze" type="button" class="button">Анализировать</button>
+                    <input id="cidr-dpi-priority-min-budget" type="number" min="0" step="1" class="form-control"
+                      value="6" style="max-width:80px"
+                      title="Минимальный резерв маршрутов на приоритетного провайдера" />
+                  </div>
+                  <small id="cidr-dpi-summary" class="help-text">DPI-анализ не выполнен.</small>
+                  <small id="cidr-dpi-mini-report" class="help-text settings-inline-card-mt"></small>
                 </div>
               </div>
-            </div>
+            </details>
           </section>
         </div>
 
@@ -1218,6 +1137,47 @@
             </div>
           </div>
         </section>
+      </div>
+    </div>
+
+    <!-- ═══════════════ Игровой фильтр ═══════════════ -->
+    <div id="game-filters" class="content-tab">
+      <h2>Игровой фильтр</h2>
+      <div class="card settings-inline-card-mb">
+        <h3>Издательства для принудительной маршрутизации</h3>
+        <p class="help-text">
+          Отмеченные издательства добавляются в управляемые блоки <code>include-hosts</code> и <code>include-ips</code>.
+          IP-диапазоны берутся из официальных ASN компаний через RIPE API (живой запрос при каждом применении).
+          Для издательств без выделенного AS используется DNS-резолв доменов как запасной метод.
+        </p>
+
+        <div class="cidr-games-search-wrap settings-inline-card-mt">
+          <input id="cidr-games-search-input" type="search" class="cidr-games-search-input"
+            placeholder="Поиск по издательству или игре..." autocomplete="off" />
+          <small id="cidr-games-search-meta" class="help-text">Показано: —</small>
+        </div>
+
+        <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid settings-inline-card-mt" role="group"
+          aria-label="Фильтры по издательствам">
+          {% for item in cidr_game_filters %}
+          <label class="cidr-scope-chip cidr-game-chip{% if item.key in saved_game_keys %} is-checked{% endif %}"
+            title="{{ item.subtitle }}">
+            <input type="checkbox" class="cidr-game-checkbox" value="{{ item.key }}" data-subtitle="{{ item.subtitle }}"
+              {% if item.key in saved_game_keys %}checked{% endif %} />
+            <span class="cidr-game-chip__title">{{ item.title }}</span>
+            {% if item.subtitle %}
+            <span class="cidr-game-chip__sub">{{ item.subtitle }}</span>
+            {% endif %}
+          </label>
+          {% endfor %}
+        </div>
+
+        <div class="cidr-actions-row settings-inline-card-mt">
+          <button id="cidr-games-select-all" type="button" class="button">Выбрать все</button>
+          <button id="cidr-games-clear-all" type="button" class="button">Снять все</button>
+          <button id="cidr-sync-games-hosts" type="button" class="button save-button">💾 Применить в
+            include-hosts/include-ips</button>
+        </div>
       </div>
     </div>
 

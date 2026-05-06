@@ -19,6 +19,7 @@ from core.services.cidr_list_updater import (
     estimate_cidr_matches_from_db,
     get_available_game_filters,
     get_available_regions,
+    get_saved_game_keys,
     rollback_to_baseline,
     sync_game_hosts_filter,
     update_cidr_files,
@@ -842,6 +843,7 @@ def register_settings_routes(
         ip_file_states = ip_manager.get_file_states()
         cidr_regions = get_available_regions()
         cidr_game_filters = get_available_game_filters()
+        saved_game_keys = get_saved_game_keys()
 
         return render_template(
             "settings.html",
@@ -855,6 +857,7 @@ def register_settings_routes(
             ip_file_states=ip_file_states,
             cidr_regions=cidr_regions,
             cidr_game_filters=cidr_game_filters,
+            saved_game_keys=saved_game_keys,
             cidr_total_limit=cidr_total_limit_raw,
             all_openvpn=all_openvpn,
             openvpn_access_groups=openvpn_access_groups,

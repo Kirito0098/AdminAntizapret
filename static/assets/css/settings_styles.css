@@ -3022,7 +3022,8 @@ body.settings-nav-merged .settings-content.page-unified-card {
   min-height: auto;
 }
 
-#cidr-update .cidr-scope-grid {
+#cidr-update .cidr-scope-grid,
+#game-filters .cidr-scope-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 0.5rem;
@@ -3030,7 +3031,8 @@ body.settings-nav-merged .settings-content.page-unified-card {
   align-items: stretch;
 }
 
-#cidr-update .cidr-scope-chip {
+#cidr-update .cidr-scope-chip,
+#game-filters .cidr-scope-chip {
   display: grid;
   grid-template-columns: 14px minmax(0, 1fr);
   align-items: center;
@@ -3048,33 +3050,39 @@ body.settings-nav-merged .settings-content.page-unified-card {
     background 0.16s ease;
 }
 
-#cidr-update .cidr-scope-chip span {
+#cidr-update .cidr-scope-chip span,
+#game-filters .cidr-scope-chip span {
   display: block;
   line-height: 1.2;
 }
 
-#cidr-update .cidr-scope-chip input {
+#cidr-update .cidr-scope-chip input,
+#game-filters .cidr-scope-chip input {
   accent-color: #62bea1;
   margin: 0;
 }
 
-#cidr-update .cidr-scope-chip:has(input:checked) {
+#cidr-update .cidr-scope-chip:has(input:checked),
+#game-filters .cidr-scope-chip:has(input:checked) {
   border-color: rgba(100, 182, 152, 0.58);
   background: rgba(34, 70, 61, 0.62);
 }
 
-#cidr-update .cidr-games-grid {
-  max-height: 320px;
+#cidr-update .cidr-games-grid,
+#game-filters .cidr-games-grid {
+  max-height: 420px;
   overflow-y: auto;
   padding-right: 0.3rem;
 }
 
-#cidr-update .cidr-games-search-wrap {
+#cidr-update .cidr-games-search-wrap,
+#game-filters .cidr-games-search-wrap {
   display: grid;
   gap: 0.35rem;
 }
 
-#cidr-update .cidr-games-search-input {
+#cidr-update .cidr-games-search-input,
+#game-filters .cidr-games-search-input {
   width: 100%;
   min-height: 40px;
   border-radius: 10px;
@@ -3084,23 +3092,76 @@ body.settings-nav-merged .settings-content.page-unified-card {
   padding: 0.52rem 0.72rem;
 }
 
-#cidr-update .cidr-games-search-input::placeholder {
+#cidr-update .cidr-games-search-input::placeholder,
+#game-filters .cidr-games-search-input::placeholder {
   color: #8ea6b1;
 }
 
-#cidr-update .cidr-games-search-input:focus {
+#cidr-update .cidr-games-search-input:focus,
+#game-filters .cidr-games-search-input:focus {
   outline: none;
   border-color: rgba(109, 199, 166, 0.72);
   box-shadow: 0 0 0 2px rgba(109, 199, 166, 0.14);
 }
 
-#cidr-update .cidr-game-chip {
+#cidr-update .cidr-game-chip,
+#game-filters .cidr-game-chip {
   min-height: 46px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+}
+
+#cidr-update .cidr-game-chip__title,
+#game-filters .cidr-game-chip__title {
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+#cidr-update .cidr-game-chip__sub,
+#game-filters .cidr-game-chip__sub {
+  font-size: 0.72rem;
+  opacity: 0.62;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 #cidr-update .cidr-actions-row--primary .button {
   min-width: 118px;
   padding-inline: 0.84rem;
+}
+
+#game-filters .cidr-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+#game-filters .cidr-actions-row .button {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto !important;
+  max-width: max-content;
+  min-height: 42px;
+  min-width: 0;
+  padding: 0.5rem 0.86rem;
+  border-radius: 0.68rem;
+  font-size: 0.88rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+#game-filters .cidr-actions-row .button:not(.save-button):not(.delete-button) {
+  border-color: #4b6170;
+  background: rgba(35, 48, 56, 0.86);
+  color: #d7e5eb;
 }
 
 #cidr-update .cidr-actions-row--primary {
@@ -3944,5 +4005,220 @@ body.settings-nav-merged .settings-content.page-unified-card {
 
   .cidr-preset-card__actions-main .button {
     justify-content: center;
+  }
+}
+
+/* ── Geo-preset chips ─────────────────────────────────────────────── */
+#cidr-update .cidr-geo-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+  gap: 0.45rem;
+}
+
+#cidr-update .cidr-geo-preset-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 38px;
+  padding: 0.4rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(102, 130, 143, 0.38);
+  background: rgba(24, 37, 46, 0.72);
+  color: #c8dde6;
+  font-size: 0.83rem;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.2;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+  white-space: nowrap;
+}
+
+#cidr-update .cidr-geo-preset-chip:hover {
+  border-color: rgba(109, 182, 163, 0.62);
+  background: rgba(30, 56, 52, 0.66);
+  color: #d6f0e8;
+}
+
+#cidr-update .cidr-geo-preset-chip:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 860px) {
+  #cidr-update .cidr-geo-presets-grid {
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  }
+
+  #cidr-update .cidr-geo-preset-chip {
+    font-size: 0.79rem;
+    padding: 0.36rem 0.5rem;
+  }
+}
+
+/* ── Launch groups (Step 4) ───────────────────────────────────────── */
+#cidr-update .cidr-launch-group {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 0.42rem;
+}
+
+#cidr-update .cidr-launch-group__label {
+  font-size: 0.67rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8ea6b2;
+  padding-bottom: 0.18rem;
+  border-bottom: 1px solid rgba(98, 130, 148, 0.22);
+}
+
+#cidr-update .cidr-launch-group__label--danger {
+  color: #c08282;
+  border-color: rgba(180, 90, 90, 0.26);
+}
+
+#cidr-update .cidr-launch-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.42rem;
+}
+
+#cidr-update .cidr-launch-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 40px;
+  font-size: 0.86rem;
+  padding-inline: 0.75rem;
+}
+
+#cidr-update .cidr-launch-btn--wide {
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  #cidr-update .cidr-launch-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Advanced details (Step 4) ───────────────────────────────────── */
+#cidr-update .cidr-launch-block {
+  display: grid;
+  gap: 0.85rem;
+}
+
+#cidr-update .cidr-launch-btn--full {
+  width: 100%;
+}
+
+#cidr-update .cidr-advanced-details {
+  border: 1px solid rgba(98, 130, 143, 0.28);
+  border-radius: 10px;
+  background: rgba(17, 27, 34, 0.5);
+  overflow: hidden;
+}
+
+#cidr-update .cidr-advanced-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  color: #8ea6b2;
+  font-size: 0.82rem;
+  font-weight: 500;
+  user-select: none;
+  list-style: none;
+  transition: color 0.15s ease;
+}
+
+#cidr-update .cidr-advanced-summary::-webkit-details-marker { display: none; }
+
+#cidr-update .cidr-advanced-details[open] .cidr-advanced-summary {
+  color: #b8cfd8;
+  border-bottom: 1px solid rgba(98, 130, 143, 0.22);
+}
+
+#cidr-update .cidr-advanced-summary:hover {
+  color: #c6dde6;
+}
+
+#cidr-update .cidr-advanced-body {
+  padding: 0.75rem;
+}
+
+/* ── Regions toolbar ──────────────────────────────────────────────── */
+#cidr-update .cidr-regions-toolbar {
+  justify-content: space-between;
+  align-items: center;
+}
+
+#cidr-update .cidr-regions-toolbar__main {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+#cidr-update .cidr-refresh-regions-btn {
+  min-width: 38px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  font-size: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Meta summary bar ─────────────────────────────────────────────── */
+#cidr-update .cidr-meta-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+#cidr-update .cidr-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid rgba(102, 130, 143, 0.34);
+  border-radius: 999px;
+  padding: 0.18rem 0.58rem;
+  background: rgba(21, 33, 41, 0.72);
+  font-size: 0.79rem;
+}
+
+#cidr-update .cidr-meta-chip__lbl {
+  color: #7a96a4;
+}
+
+#cidr-update .cidr-meta-chip__val {
+  font-weight: 700;
+  color: #d8e9f1;
+}
+
+#cidr-update .cidr-meta-toggle-btn {
+  min-height: 30px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.76rem;
+  border-radius: 999px;
+}
+
+#cidr-update #cidr-meta-extra {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 860px) {
+  #cidr-update .cidr-shell__head {
+    grid-template-columns: 1fr;
+  }
+
+  #cidr-update .cidr-meta-summary {
+    gap: 0.35rem;
   }
 }

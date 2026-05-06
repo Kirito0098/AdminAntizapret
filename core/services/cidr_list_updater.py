@@ -310,84 +310,402 @@ GAME_FILTER_BLOCK_END = "# END AdminAntizapret CIDR games include"
 GAME_FILTER_IP_BLOCK_START = "# BEGIN AdminAntizapret CIDR games include-ips"
 GAME_FILTER_IP_BLOCK_END = "# END AdminAntizapret CIDR games include-ips"
 GAME_FILTER_CATALOG = [
-    {"key": "lol", "title": "League of Legends", "domains": ["riotgames.com", "pvp.net", "leagueoflegends.com", "lolesports.com"]},
-    {"key": "valorant", "title": "VALORANT", "domains": ["playvalorant.com", "valorantesports.com"]},
-    {"key": "dota2", "title": "Dota 2", "domains": ["dota2.com"]},
-    {"key": "cs2", "title": "Counter-Strike 2 / CS:GO", "domains": ["counter-strike.net"]},
-    {"key": "faceit", "title": "FACEIT", "domains": ["faceit.com", "faceit-cdn.net", "faceitusercontent.com"]},
-    {"key": "fortnite", "title": "Fortnite", "domains": ["fortnite.com", "epicgames.com"]},
-    {"key": "apex_legends", "title": "Apex Legends", "domains": ["ea.com", "respawn.com"]},
-    {"key": "pubg", "title": "PUBG", "domains": ["pubg.com", "krafton.com"]},
-    {"key": "warzone", "title": "Call of Duty: Warzone", "domains": ["callofduty.com", "activision.com"]},
-    {"key": "overwatch2", "title": "Overwatch 2", "domains": ["playoverwatch.com", "blizzard.com"]},
-    {"key": "rocket_league", "title": "Rocket League", "domains": ["rocketleague.com", "psyonix.com"]},
-    {"key": "rainbow6", "title": "Rainbow Six Siege", "domains": ["rainbow6.com", "ubisoft.com"]},
-    {"key": "destiny2", "title": "Destiny 2", "domains": ["bungie.net"]},
-    {"key": "warframe", "title": "Warframe", "domains": ["warframe.com"]},
-    {"key": "world_of_warcraft", "title": "World of Warcraft", "domains": ["worldofwarcraft.com", "battle.net"]},
-    {"key": "hearthstone", "title": "Hearthstone", "domains": ["playhearthstone.com", "battle.net"]},
-    {"key": "diablo4", "title": "Diablo IV", "domains": ["diablo.com", "battle.net"]},
-    {"key": "starcraft2", "title": "StarCraft II", "domains": ["starcraft2.com", "battle.net"]},
-    {"key": "heroes_of_the_storm", "title": "Heroes of the Storm", "domains": ["heroesofthestorm.com", "battle.net"]},
-    {"key": "minecraft", "title": "Minecraft", "domains": ["minecraft.net", "mojang.com"]},
-    {"key": "roblox", "title": "Roblox", "domains": ["roblox.com", "rbxcdn.com"]},
-    {"key": "genshin_impact", "title": "Genshin Impact", "domains": ["genshin.hoyoverse.com", "hoyoverse.com", "mihoyo.com"]},
-    {"key": "honkai_star_rail", "title": "Honkai: Star Rail", "domains": ["hsr.hoyoverse.com", "hoyoverse.com"]},
-    {"key": "wuthering_waves", "title": "Wuthering Waves", "domains": ["wutheringwaves.com", "kurogames.com"]},
-    {"key": "mobile_legends", "title": "Mobile Legends", "domains": ["mobilelegends.com", "moonton.com"]},
-    {"key": "clash_of_clans", "title": "Clash of Clans", "domains": ["clashofclans.com", "supercell.com"]},
-    {"key": "clash_royale", "title": "Clash Royale", "domains": ["clashroyale.com", "supercell.com"]},
-    {"key": "brawl_stars", "title": "Brawl Stars", "domains": ["brawlstars.com", "supercell.com"]},
-    {"key": "free_fire", "title": "Free Fire", "domains": ["ff.garena.com", "garena.com"]},
-    {"key": "cod_mobile", "title": "Call of Duty: Mobile", "domains": ["callofduty.com", "activision.com"]},
-    {"key": "pubg_mobile", "title": "PUBG Mobile", "domains": ["pubgmobile.com", "krafton.com"]},
-    {"key": "among_us", "title": "Among Us", "domains": ["among.us", "innersloth.com"]},
-    {"key": "world_of_tanks", "title": "World of Tanks", "domains": ["worldoftanks.com", "wargaming.net"]},
-    {"key": "mir_tankov", "title": "Mir Tankov", "domains": ["tanki.su", "lesta.ru"]},
-    {"key": "world_of_tanks_blitz", "title": "World of Tanks Blitz", "domains": ["wotblitz.com", "wargaming.net"]},
-    {"key": "world_of_warships", "title": "World of Warships", "domains": ["worldofwarships.com", "wargaming.net"]},
-    {"key": "war_thunder", "title": "War Thunder", "domains": ["warthunder.com", "gaijin.net"]},
-    {"key": "enlisted", "title": "Enlisted", "domains": ["enlisted.net", "gaijin.net"]},
-    {"key": "crossout", "title": "Crossout", "domains": ["crossout.net", "gaijin.net"]},
-    {"key": "warface", "title": "Warface", "domains": ["warface.com", "my.games"]},
-    {"key": "caliber", "title": "Caliber", "domains": ["playcaliber.com"]},
-    {"key": "path_of_exile", "title": "Path of Exile", "domains": ["pathofexile.com", "grindinggear.com"]},
-    {"key": "lineage2", "title": "Lineage 2", "domains": ["lineage2.com", "4game.com"]},
-    {"key": "point_blank", "title": "Point Blank", "domains": ["pointblank.com", "4game.com"]},
-    {"key": "metin2", "title": "Metin2", "domains": ["metin2.gameforge.com", "gameforge.com"]},
-    {"key": "lost_ark", "title": "Lost Ark", "domains": ["lostark.com", "smilegate.com"]},
-    {"key": "albion_online", "title": "Albion Online", "domains": ["albiononline.com"]},
-    {"key": "black_desert", "title": "Black Desert Online", "domains": ["blackdesertonline.com", "pearlabyss.com"]},
-    {"key": "raid_shadow_legends", "title": "RAID: Shadow Legends", "domains": ["raidshadowlegends.com", "plarium.com"]},
-    {"key": "final_fantasy_xiv", "title": "Final Fantasy XIV", "domains": ["finalfantasyxiv.com", "square-enix.com"]},
-    {"key": "elder_scrolls_online", "title": "Elder Scrolls Online", "domains": ["elderscrollsonline.com", "bethesda.net"]},
-    {"key": "escape_from_tarkov", "title": "Escape from Tarkov", "domains": ["escapefromtarkov.com", "battlestategames.com"]},
-    {"key": "tarkov_arena", "title": "Escape from Tarkov: Arena", "domains": ["arena.tarkov.com", "escapefromtarkov.com"]},
-    {"key": "standoff2", "title": "Standoff 2", "domains": ["standoff2.com", "axlebolt.com"]},
-    {"key": "war_robots", "title": "War Robots", "domains": ["warrobots.com", "pixonic.com"]},
-    {"key": "battlefield", "title": "Battlefield", "domains": ["battlefield.com", "ea.com"]},
-    {"key": "rust", "title": "Rust", "domains": ["rust.facepunch.com", "facepunch.com"]},
-    {"key": "dayz", "title": "DayZ", "domains": ["dayz.com", "bohemia.net"]},
-    {"key": "halo_infinite", "title": "Halo Infinite", "domains": ["halowaypoint.com", "xbox.com"]},
-    {"key": "xdefiant", "title": "XDefiant", "domains": ["xdefiant.com", "ubisoft.com"]},
-    {"key": "the_finals", "title": "THE FINALS", "domains": ["reachthefinals.com", "embark-studios.com"]},
-    {"key": "ea_fc", "title": "EA Sports FC", "domains": ["ea.com", "easports.com"]},
-    {"key": "nba_2k", "title": "NBA 2K", "domains": ["nba.2k.com", "2k.com"]},
-    {"key": "steam_platform", "title": "Steam Platform", "domains": ["steampowered.com", "steamcommunity.com", "steamstatic.com", "steamcontent.com", "steamserver.net", "valvesoftware.com"]},
-    {"key": "epic_games_store", "title": "Epic Games Store", "domains": ["epicgames.com", "unrealengine.com"]},
-    {"key": "xbox_live", "title": "Xbox Live", "domains": ["xbox.com", "xboxlive.com"]},
-    {"key": "playstation_network", "title": "PlayStation Network", "domains": ["playstation.com", "sonyentertainmentnetwork.com"]},
+    # ── Riot Games (AS6507) ── LoL, VALORANT, Wild Rift ──────────────
+    {
+        "key": "riot_games",
+        "title": "Riot Games",
+        "subtitle": "League of Legends, VALORANT, Wild Rift",
+        "asns": [6507],
+        "domains": ["riotgames.com", "leagueoflegends.com", "playvalorant.com", "pvp.net"],
+    },
+    # ── Valve (AS32590) ── Dota 2, CS2, Steam ────────────────────────
+    {
+        "key": "valve",
+        "title": "Valve / Steam",
+        "subtitle": "Dota 2, Counter-Strike 2, Steam",
+        "asns": [32590],
+        "domains": ["steampowered.com", "steamcommunity.com", "steamcontent.com", "steamserver.net", "dota2.com", "counter-strike.net"],
+    },
+    # ── Blizzard (AS57976) ── WoW, OW2, Hearthstone, Diablo IV ───────
+    {
+        "key": "blizzard",
+        "title": "Blizzard Entertainment",
+        "subtitle": "WoW, Overwatch 2, Hearthstone, Diablo IV, StarCraft II",
+        "asns": [57976],
+        "domains": ["battle.net", "worldofwarcraft.com", "playoverwatch.com", "playhearthstone.com", "diablo.com", "starcraft2.com"],
+    },
+    # ── Electronic Arts (AS12222) ── Apex, Battlefield, EA FC ─────────
+    {
+        "key": "electronic_arts",
+        "title": "Electronic Arts",
+        "subtitle": "Apex Legends, Battlefield, EA Sports FC",
+        "asns": [12222],
+        "domains": ["ea.com", "respawn.com", "battlefield.com", "easports.com"],
+    },
+    # ── Wargaming (AS42396, AS35540, AS62317) ─────────────────────────
+    {
+        "key": "wargaming",
+        "title": "Wargaming",
+        "subtitle": "World of Tanks, World of Warships, WoT Blitz",
+        "asns": [42396, 35540, 62317],
+        "domains": ["wargaming.net", "worldoftanks.com", "worldofwarships.com", "wotblitz.com"],
+    },
+    # ── Lesta Games (AS215859) ── Мир Танков / Мир Кораблей RU ───────
+    {
+        "key": "lesta_games",
+        "title": "Lesta Games",
+        "subtitle": "Мир Танков, Мир Кораблей (RU-серверы)",
+        "asns": [215859],
+        "domains": ["tanki.su", "lesta.ru"],
+    },
+    # ── Gaijin Entertainment (AS44530) ── War Thunder, Enlisted ──────
+    {
+        "key": "gaijin",
+        "title": "Gaijin Entertainment",
+        "subtitle": "War Thunder, Enlisted, Crossout",
+        "asns": [44530],
+        "domains": ["gaijin.net", "warthunder.com", "enlisted.net", "crossout.net"],
+    },
+    # ── Krafton (AS263444, AS209242) ── PUBG ──────────────────────────
+    {
+        "key": "krafton",
+        "title": "Krafton",
+        "subtitle": "PUBG, PUBG Mobile",
+        "asns": [263444, 209242],
+        "domains": ["krafton.com", "pubg.com", "pubgmobile.com"],
+    },
+    # ── miHoYo / HoYoverse (AS45062) ─────────────────────────────────
+    {
+        "key": "hoyoverse",
+        "title": "HoYoverse / miHoYo",
+        "subtitle": "Genshin Impact, Honkai: Star Rail, ZZZ",
+        "asns": [45062],
+        "domains": ["hoyoverse.com", "mihoyo.com", "genshin.hoyoverse.com", "hsr.hoyoverse.com"],
+    },
+    # ── Bungie (AS36958) ─────────────────────────────────────────────
+    {
+        "key": "bungie",
+        "title": "Bungie",
+        "subtitle": "Destiny 2",
+        "asns": [36958],
+        "domains": ["bungie.net"],
+    },
+    # ── Sony Interactive Entertainment (AS13213) ─────────────────────
+    {
+        "key": "sony_playstation",
+        "title": "Sony / PlayStation Network",
+        "subtitle": "PSN, PlayStation Store",
+        "asns": [13213],
+        "domains": ["playstation.com", "sonyentertainmentnetwork.com"],
+    },
+    # ── Microsoft / Xbox / Mojang (AS8075) ───────────────────────────
+    {
+        "key": "microsoft_xbox",
+        "title": "Microsoft / Xbox",
+        "subtitle": "Xbox Live, Halo Infinite, Minecraft",
+        "asns": [8075],
+        "domains": ["xbox.com", "xboxlive.com", "minecraft.net", "mojang.com", "halowaypoint.com"],
+    },
+    # ── Ubisoft (AS25376) ────────────────────────────────────────────
+    {
+        "key": "ubisoft",
+        "title": "Ubisoft",
+        "subtitle": "Rainbow Six Siege, XDefiant, Far Cry, Assassin's Creed",
+        "asns": [25376],
+        "domains": ["ubisoft.com", "rainbow6.com", "xdefiant.com"],
+    },
+    # ── Take-Two Interactive (AS46652) ───────────────────────────────
+    {
+        "key": "take_two",
+        "title": "Take-Two Interactive / 2K",
+        "subtitle": "NBA 2K, GTA Online, Borderlands",
+        "asns": [46652],
+        "domains": ["2k.com", "rockstargames.com"],
+    },
+    # ── Bohemia Interactive (AS56704) ────────────────────────────────
+    {
+        "key": "bohemia",
+        "title": "Bohemia Interactive",
+        "subtitle": "DayZ, ARMA",
+        "asns": [56704],
+        "domains": ["bohemia.net", "dayz.com"],
+    },
+    # ── Pearl Abyss (AS55967) ────────────────────────────────────────
+    {
+        "key": "pearl_abyss",
+        "title": "Pearl Abyss",
+        "subtitle": "Black Desert Online",
+        "asns": [55967],
+        "domains": ["pearlabyss.com", "blackdesertonline.com"],
+    },
+    # ── Smilegate (AS38631) ──────────────────────────────────────────
+    {
+        "key": "smilegate",
+        "title": "Smilegate",
+        "subtitle": "Lost Ark, CrossFire",
+        "asns": [38631],
+        "domains": ["smilegate.com", "lostark.com"],
+    },
+    # ── Plarium (AS213230) ───────────────────────────────────────────
+    {
+        "key": "plarium",
+        "title": "Plarium",
+        "subtitle": "RAID: Shadow Legends, Forge of Empires",
+        "asns": [213230],
+        "domains": ["plarium.com", "raidshadowlegends.com"],
+    },
+    # ── MY.GAMES / Mail.ru (AS47764) ─────────────────────────────────
+    {
+        "key": "my_games",
+        "title": "MY.GAMES",
+        "subtitle": "Warface, Skyforge, Armored Warfare",
+        "asns": [47764],
+        "domains": ["my.games", "warface.com"],
+    },
+    # ── Axlebolt (AS212317) ──────────────────────────────────────────
+    {
+        "key": "axlebolt",
+        "title": "Axlebolt",
+        "subtitle": "Standoff 2",
+        "asns": [212317],
+        "domains": ["standoff2.com", "axlebolt.com"],
+    },
+    # ── Embark Studios (AS201281) ────────────────────────────────────
+    {
+        "key": "embark_studios",
+        "title": "Embark Studios",
+        "subtitle": "THE FINALS",
+        "asns": [201281],
+        "domains": ["reachthefinals.com", "embark-studios.com"],
+    },
+    # ── Pixonic (AS60890) ────────────────────────────────────────────
+    {
+        "key": "pixonic",
+        "title": "Pixonic",
+        "subtitle": "War Robots",
+        "asns": [60890],
+        "domains": ["warrobots.com", "pixonic.com"],
+    },
+    # ── Battlestate Games (AS48172) ──────────────────────────────────
+    {
+        "key": "battlestate",
+        "title": "Battlestate Games",
+        "subtitle": "Escape from Tarkov, Tarkov Arena",
+        "asns": [48172],
+        "domains": ["escapefromtarkov.com", "battlestategames.com"],
+    },
+    # ── NCSoft (AS9318) ──────────────────────────────────────────────
+    {
+        "key": "ncsoft",
+        "title": "NCSoft",
+        "subtitle": "Lineage 2, Guild Wars 2, Blade and Soul",
+        "asns": [9318],
+        "domains": ["ncsoft.com", "lineage2.com", "guildwars2.com"],
+    },
+    # ── Garena / Sea Group (AS38561) ─────────────────────────────────
+    {
+        "key": "garena",
+        "title": "Garena / Sea Group",
+        "subtitle": "Free Fire, Arena of Valor",
+        "asns": [38561],
+        "domains": ["garena.com", "ff.garena.com"],
+    },
+    # ── Epic Games (AS14593) ─────────────────────────────────────────
+    {
+        "key": "epic_games",
+        "title": "Epic Games",
+        "subtitle": "Fortnite, Rocket League, Epic Games Store",
+        "asns": [14593],
+        "domains": ["epicgames.com", "fortnite.com", "rocketleague.com"],
+    },
+    # ── FACEIT (AS212238) ────────────────────────────────────────────
+    {
+        "key": "faceit",
+        "title": "FACEIT",
+        "subtitle": "Платформа для CS2, Dota 2 и других",
+        "asns": [212238],
+        "domains": ["faceit.com", "faceit-cdn.net", "faceitusercontent.com"],
+    },
+    # ── Supercell (DNS) ──────────────────────────────────────────────
+    {
+        "key": "supercell",
+        "title": "Supercell",
+        "subtitle": "Clash of Clans, Clash Royale, Brawl Stars",
+        "asns": [],
+        "domains": ["supercell.com", "clashofclans.com", "clashroyale.com", "brawlstars.com"],
+    },
+    # ── Activision / King (DNS) ──────────────────────────────────────
+    {
+        "key": "activision",
+        "title": "Activision",
+        "subtitle": "Call of Duty: Warzone, CoD Mobile",
+        "asns": [],
+        "domains": ["activision.com", "callofduty.com"],
+    },
+    # ── Roblox Corporation (DNS) ─────────────────────────────────────
+    {
+        "key": "roblox",
+        "title": "Roblox Corporation",
+        "subtitle": "Roblox",
+        "asns": [],
+        "domains": ["roblox.com", "rbxcdn.com"],
+    },
+    # ── Kuro Games (DNS) ─────────────────────────────────────────────
+    {
+        "key": "kuro_games",
+        "title": "Kuro Games",
+        "subtitle": "Wuthering Waves",
+        "asns": [],
+        "domains": ["kurogames.com", "wutheringwaves.com"],
+    },
+    # ── Moonton / ByteDance (DNS) ────────────────────────────────────
+    {
+        "key": "moonton",
+        "title": "Moonton / ByteDance",
+        "subtitle": "Mobile Legends: Bang Bang",
+        "asns": [],
+        "domains": ["moonton.com", "mobilelegends.com"],
+    },
+    # ── Digital Extremes (DNS) ───────────────────────────────────────
+    {
+        "key": "digital_extremes",
+        "title": "Digital Extremes",
+        "subtitle": "Warframe",
+        "asns": [],
+        "domains": ["warframe.com", "digitalextremes.com"],
+    },
+    # ── Gameforge (DNS) ──────────────────────────────────────────────
+    {
+        "key": "gameforge",
+        "title": "Gameforge",
+        "subtitle": "Metin2, NosTale, Soulworker",
+        "asns": [],
+        "domains": ["gameforge.com", "metin2.gameforge.com"],
+    },
+    # ── Sandbox Interactive (DNS) ────────────────────────────────────
+    {
+        "key": "sandbox_interactive",
+        "title": "Sandbox Interactive",
+        "subtitle": "Albion Online",
+        "asns": [],
+        "domains": ["albiononline.com", "sandbox-interactive.com"],
+    },
+    # ── Square Enix (DNS) ────────────────────────────────────────────
+    {
+        "key": "square_enix",
+        "title": "Square Enix",
+        "subtitle": "Final Fantasy XIV, Dragon Quest",
+        "asns": [],
+        "domains": ["square-enix.com", "finalfantasyxiv.com"],
+    },
+    # ── ZeniMax / Bethesda (DNS) ─────────────────────────────────────
+    {
+        "key": "bethesda",
+        "title": "ZeniMax / Bethesda",
+        "subtitle": "Elder Scrolls Online, Fallout 76",
+        "asns": [],
+        "domains": ["bethesda.net", "elderscrollsonline.com"],
+    },
+    # ── Grinding Gear Games (DNS) ────────────────────────────────────
+    {
+        "key": "grinding_gear",
+        "title": "Grinding Gear Games",
+        "subtitle": "Path of Exile, Path of Exile 2",
+        "asns": [],
+        "domains": ["pathofexile.com", "grindinggear.com"],
+    },
+    # ── Facepunch Studios (DNS) ──────────────────────────────────────
+    {
+        "key": "facepunch",
+        "title": "Facepunch Studios",
+        "subtitle": "Rust",
+        "asns": [],
+        "domains": ["facepunch.com", "rust.facepunch.com"],
+    },
+    # ── InnerSloth (DNS) ─────────────────────────────────────────────
+    {
+        "key": "innersloth",
+        "title": "InnerSloth",
+        "subtitle": "Among Us",
+        "asns": [],
+        "domains": ["innersloth.com", "among.us"],
+    },
 ]
 GAME_FILTER_ALIASES = {
-    "csgo": "cs2",
-    "counter-strike": "cs2",
-    "counter_strike": "cs2",
-    "dota": "dota2",
-    "wot": "world_of_tanks",
-    "wotb": "world_of_tanks_blitz",
-    "wows": "world_of_warships",
-    "tarkov": "escape_from_tarkov",
-    "league-of-legends": "lol",
+    # старые ключи игр → новые ключи издательств
+    "lol": "riot_games",
+    "valorant": "riot_games",
+    "dota2": "valve",
+    "dota": "valve",
+    "cs2": "valve",
+    "csgo": "valve",
+    "counter-strike": "valve",
+    "counter_strike": "valve",
+    "steam_platform": "valve",
+    "world_of_warcraft": "blizzard",
+    "overwatch2": "blizzard",
+    "hearthstone": "blizzard",
+    "diablo4": "blizzard",
+    "starcraft2": "blizzard",
+    "heroes_of_the_storm": "blizzard",
+    "apex_legends": "electronic_arts",
+    "battlefield": "electronic_arts",
+    "ea_fc": "electronic_arts",
+    "world_of_tanks": "wargaming",
+    "wot": "wargaming",
+    "world_of_tanks_blitz": "wargaming",
+    "wotb": "wargaming",
+    "world_of_warships": "wargaming",
+    "wows": "wargaming",
+    "mir_tankov": "lesta_games",
+    "war_thunder": "gaijin",
+    "enlisted": "gaijin",
+    "crossout": "gaijin",
+    "pubg": "krafton",
+    "pubg_mobile": "krafton",
+    "genshin_impact": "hoyoverse",
+    "honkai_star_rail": "hoyoverse",
+    "destiny2": "bungie",
+    "playstation_network": "sony_playstation",
+    "xbox_live": "microsoft_xbox",
+    "halo_infinite": "microsoft_xbox",
+    "minecraft": "microsoft_xbox",
+    "rainbow6": "ubisoft",
+    "xdefiant": "ubisoft",
+    "nba_2k": "take_two",
+    "dayz": "bohemia",
+    "black_desert": "pearl_abyss",
+    "lost_ark": "smilegate",
+    "raid_shadow_legends": "plarium",
+    "warface": "my_games",
+    "standoff2": "axlebolt",
+    "the_finals": "embark_studios",
+    "war_robots": "pixonic",
+    "escape_from_tarkov": "battlestate",
+    "tarkov_arena": "battlestate",
+    "tarkov": "battlestate",
+    "lineage2": "ncsoft",
+    "free_fire": "garena",
+    "fortnite": "epic_games",
+    "epic_games_store": "epic_games",
+    "rocket_league": "epic_games",
+    "warframe": "digital_extremes",
+    "wuthering_waves": "kuro_games",
+    "mobile_legends": "moonton",
+    "clash_of_clans": "supercell",
+    "clash_royale": "supercell",
+    "brawl_stars": "supercell",
+    "cod_mobile": "activision",
+    "warzone": "activision",
+    "among_us": "innersloth",
+    "albion_online": "sandbox_interactive",
+    "final_fantasy_xiv": "square_enix",
+    "elder_scrolls_online": "bethesda",
+    "path_of_exile": "grinding_gear",
+    "rust": "facepunch",
+    "metin2": "gameforge",
+    "point_blank": "ncsoft",
+    "league-of-legends": "riot_games",
 }
 GAME_FILTER_BY_KEY = {item["key"]: item for item in GAME_FILTER_CATALOG}
 STRICT_GEO_BUCKET_SCOPES = (
@@ -1197,10 +1515,32 @@ def get_available_game_filters():
         {
             "key": item["key"],
             "title": item["title"],
-            "domain_count": len(item["domains"]),
+            "subtitle": item.get("subtitle", ""),
+            "domain_count": len(item.get("domains") or []),
         }
         for item in GAME_FILTER_CATALOG
     ]
+
+
+def get_saved_game_keys():
+    """Read the Keys comment from include-hosts or include-ips block and return saved publisher keys."""
+    keys_pattern = re.compile(
+        r"# BEGIN AdminAntizapret CIDR games.*?\n# Keys: ([^\n]+)",
+        re.DOTALL,
+    )
+    for filepath in (GAME_INCLUDE_HOSTS_FILE, GAME_INCLUDE_IPS_FILE):
+        try:
+            with open(filepath, "r", encoding="utf-8") as fh:
+                content = fh.read()
+        except OSError:
+            continue
+        m = keys_pattern.search(content)
+        if m:
+            raw = m.group(1).strip()
+            found = _normalize_game_filter_keys([k.strip() for k in raw.split(",") if k.strip()])
+            if found:
+                return found
+    return []
 
 
 def _normalize_game_filter_keys(raw_keys):
@@ -1284,6 +1624,43 @@ def _resolve_game_domains_ipv4_cidrs(domains):
             cidr_values.append(f"{address}/32")
 
     return _normalize_cidrs(cidr_values), sorted(set(unresolved))
+
+
+def _fetch_game_asn_cidrs(asns):
+    """Query RIPE stat.ripe.net API live for announced IPv4 prefixes of each ASN.
+
+    Each call makes one HTTP request per ASN to:
+      https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS<N>
+
+    Results are NOT cached — every invocation hits RIPE directly.
+    For games without a dedicated AS, use DNS fallback via _resolve_game_domains_ipv4_cidrs().
+
+    Returns (cidrs, source_labels, errors).
+    """
+    all_cidrs = set()
+    labels = []
+    errors = []
+
+    for asn in (asns or []):
+        asn_int = int(asn)
+        url = f"https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS{asn_int}"
+        try:
+            text = _download_text(url)
+            data = json.loads(text)
+            prefixes = data.get("data", {}).get("prefixes") or []
+            ipv4 = [
+                str(p.get("prefix") or "").strip()
+                for p in prefixes
+                if ":" not in str(p.get("prefix") or "")  # skip IPv6
+            ]
+            ipv4 = [p for p in ipv4 if p]
+            if ipv4:
+                all_cidrs.update(ipv4)
+                labels.append(f"ripe-AS{asn_int}({len(ipv4)})")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"AS{asn_int}: {exc}")
+
+    return _normalize_cidrs(sorted(all_cidrs)), labels, errors
 
 
 def _supports_geo_scope(sources):
@@ -1825,11 +2202,13 @@ def _strip_games_filter_ips_block(content):
 
 
 def _render_games_filter_block(selected_game_keys):
-    selected_titles, selected_domains = _collect_game_domains(selected_game_keys)
+    normalized_keys = _normalize_game_filter_keys(selected_game_keys)
+    selected_titles, selected_domains = _collect_game_domains(normalized_keys)
     if not selected_domains:
         return "", selected_titles, selected_domains
 
     lines = [GAME_FILTER_BLOCK_START]
+    lines.append(f"# Keys: {','.join(normalized_keys)}")
     lines.append(f"# Selected games ({len(selected_titles)}): {', '.join(selected_titles)}")
     lines.extend(selected_domains)
     lines.append(GAME_FILTER_BLOCK_END)
@@ -1837,25 +2216,66 @@ def _render_games_filter_block(selected_game_keys):
 
 
 def _render_games_ips_block(selected_game_keys):
-    selected_titles, selected_domains = _collect_game_domains(selected_game_keys)
-    if not selected_domains:
-        return "", selected_titles, selected_domains, [], []
+    normalized_keys = _normalize_game_filter_keys(selected_game_keys)
+    if not normalized_keys:
+        return "", [], [], [], []
 
-    selected_cidrs, unresolved_domains = _resolve_game_domains_ipv4_cidrs(selected_domains)
+    titles = []
+    all_cidrs = set()
+    source_labels = []
+    dns_fallback_domains = []
+    unresolved_domains = []
+
+    for key in normalized_keys:
+        item = GAME_FILTER_BY_KEY.get(key)
+        if not item:
+            continue
+        titles.append(item["title"])
+        asns = item.get("asns") or []
+        domains = item.get("domains") or []
+
+        if asns:
+            cidrs, labels, errors = _fetch_game_asn_cidrs(asns)
+            if cidrs:
+                all_cidrs.update(cidrs)
+                source_labels.extend(labels)
+                continue
+            if errors:
+                logger.warning("Game ASN fetch errors for %s: %s", key, errors)
+
+        # DNS fallback for games without own AS or when ASN fetch failed
+        dns_fallback_domains.extend(domains)
+
+    if dns_fallback_domains:
+        dns_cidrs, unresolved = _resolve_game_domains_ipv4_cidrs(list(dict.fromkeys(dns_fallback_domains)))
+        all_cidrs.update(dns_cidrs)
+        unresolved_domains = unresolved
+
+    selected_cidrs = _normalize_cidrs(sorted(all_cidrs))
+    selected_domains = list(dict.fromkeys(
+        d for key in normalized_keys
+        for d in (GAME_FILTER_BY_KEY.get(key) or {}).get("domains", [])
+    ))
+
     if not selected_cidrs:
-        return "", selected_titles, selected_domains, [], unresolved_domains
+        return "", titles, selected_domains, [], unresolved_domains
 
     lines = [GAME_FILTER_IP_BLOCK_START]
-    lines.append(f"# Selected games ({len(selected_titles)}): {', '.join(selected_titles)}")
-    lines.append(f"# Domains resolved: {len(selected_domains) - len(unresolved_domains)}/{len(selected_domains)}")
+    lines.append(f"# Keys: {','.join(normalized_keys)}")
+    lines.append(f"# Selected games ({len(titles)}): {', '.join(titles)}")
+    if source_labels:
+        lines.append(f"# Sources (ASN via RIPE): {', '.join(source_labels)}")
+    if dns_fallback_domains:
+        resolved_count = len(list(dict.fromkeys(dns_fallback_domains))) - len(unresolved_domains)
+        lines.append(f"# DNS-resolved domains: {resolved_count}/{len(list(dict.fromkeys(dns_fallback_domains)))}")
     if unresolved_domains:
         preview = ", ".join(unresolved_domains[:10])
         if len(unresolved_domains) > 10:
             preview = f"{preview}, ..."
-        lines.append(f"# Unresolved domains ({len(unresolved_domains)}): {preview}")
+        lines.append(f"# Unresolved ({len(unresolved_domains)}): {preview}")
     lines.extend(selected_cidrs)
     lines.append(GAME_FILTER_IP_BLOCK_END)
-    return "\n".join(lines), selected_titles, selected_domains, selected_cidrs, unresolved_domains
+    return "\n".join(lines), titles, selected_domains, selected_cidrs, unresolved_domains
 
 
 def _sync_games_include_hosts(selected_game_keys):
