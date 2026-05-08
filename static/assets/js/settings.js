@@ -396,9 +396,9 @@ document.addEventListener("DOMContentLoaded", function () {
   let cidrIpFileSyncTimer = null;
   let cidrIpFileSyncInFlight = false;
   let cidrIpFileSyncQueued = false;
-  let cidrIpFileSyncOptions = { persist: true };
+  let cidrIpFileSyncOptions = { persist: true, strict: false };
 
-  const syncCidrSelectionToIpFileToggles = async ({ persist = true } = {}) => {
+  const syncCidrSelectionToIpFileToggles = async ({ persist = true, strict = false } = {}) => {
     const cidrCheckboxes = Array.from(document.querySelectorAll(".cidr-region-checkbox"));
     const ipFileToggles = Array.from(document.querySelectorAll(".ip-file-toggle[data-ip-file]"));
 
@@ -426,9 +426,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
       synced += 1;
       const shouldBeChecked = selectedKeys.has(fileName);
-      if (toggle.checked !== shouldBeChecked) {
-        toggle.checked = shouldBeChecked;
-        changed += 1;
+
+      if (strict) {
+        if (toggle.checked !== shouldBeChecked) {
+          toggle.checked = shouldBeChecked;
+          changed += 1;
+        }
+      } else {
+        // Safety rule: CIDR autosync can auto-enable matching files,
+        // but must not auto-disable already enabled IP ranges.
+        if (shouldBeChecked && !toggle.checked) {
+          toggle.checked = true;
+          changed += 1;
+        }
       }
     });
 
@@ -518,6 +528,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const CIDR_BUSY_SELECTOR = [
     "#cidr-select-all",
     "#cidr-clear-all",
+    "#cidr-ip-files-hard-sync",
     "#cidr-refresh-regions",
     "#cidr-update-selected",
     "#cidr-update-all",
@@ -1246,6 +1257,44 @@ document.addEventListener("DOMContentLoaded", function () {
     throw new Error("Превышено время ожидания CIDR-задачи");
   };
 
+  const pollTaskByStatusUrl = async (statusUrl, options = {}) => {
+    const intervalMs = options.intervalMs || 1200;
+    const timeoutMs = options.timeoutMs || 1800000;
+    const onProgress = typeof options.onProgress === "function" ? options.onProgress : null;
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const response = await fetch(statusUrl, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ошибка запроса статуса задачи (HTTP ${response.status})`);
+      }
+
+      const task = await response.json();
+      if (!task.success) {
+        throw new Error(task.message || "Не удалось получить статус задачи");
+      }
+
+      if (onProgress) {
+        onProgress(task);
+      }
+
+      if (task.status === "completed") {
+        return task.result || task;
+      }
+
+      if (task.status === "failed") {
+        throw new Error(task.error || task.message || "Задача завершилась с ошибкой");
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    throw new Error("Превышено время ожидания задачи");
+  };
+
   const executeCidrLongAction = async ({
     action,
     regions,
@@ -1326,6 +1375,65 @@ document.addEventListener("DOMContentLoaded", function () {
       renderCidrMeta();
       scheduleCidrEstimateRefresh();
       scheduleCidrToIpFileSync();
+    });
+
+    document.getElementById("cidr-ip-files-hard-sync")?.addEventListener("click", async () => {
+      const cidrCheckboxes = Array.from(document.querySelectorAll(".cidr-region-checkbox"));
+      const ipFileToggles = Array.from(document.querySelectorAll(".ip-file-toggle[data-ip-file]"));
+
+      if (!cidrCheckboxes.length || !ipFileToggles.length) {
+        setCidrStatus("Нет данных для синхронизации CIDR/IP-файлов", "warning");
+        return;
+      }
+
+      const cidrKnownKeys = new Set(
+        cidrCheckboxes
+          .map((input) => String(input.value || "").trim())
+          .filter(Boolean)
+      );
+      const selectedKeys = new Set(
+        cidrCheckboxes
+          .filter((input) => input.checked)
+          .map((input) => String(input.value || "").trim())
+          .filter(Boolean)
+      );
+
+      let toEnable = 0;
+      let toDisable = 0;
+      ipFileToggles.forEach((toggle) => {
+        const fileName = String(toggle.getAttribute("data-ip-file") || "").trim();
+        if (!fileName || !cidrKnownKeys.has(fileName)) return;
+        const shouldBeChecked = selectedKeys.has(fileName);
+        if (!toggle.checked && shouldBeChecked) toEnable += 1;
+        if (toggle.checked && !shouldBeChecked) toDisable += 1;
+      });
+
+      if (toEnable === 0 && toDisable === 0) {
+        setCidrStatus("Жесткая синхронизация не требуется: состояния уже совпадают", "info");
+        return;
+      }
+
+      const confirmMessage = [
+        "Жесткая синхронизация CIDR → IP-файлы:",
+        `- Будет включено: ${toEnable}`,
+        `- Будет выключено: ${toDisable}`,
+        "Продолжить?",
+      ].join("\n");
+
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+
+      try {
+        setCidrBusy(true);
+        const result = await syncCidrSelectionToIpFileToggles({ persist: true, strict: true });
+        renderCidrMeta();
+        setCidrStatus(`Жесткая синхронизация выполнена: изменений ${result.changed}`, "success");
+      } catch (error) {
+        setCidrStatus(`Ошибка жесткой синхронизации: ${error.message}`, "error");
+      } finally {
+        setCidrBusy(false);
+      }
     });
 
     document.getElementById("cidr-games-select-all")?.addEventListener("click", () => {
@@ -2405,8 +2513,18 @@ document.addEventListener("DOMContentLoaded", function () {
       _cidrStepUpdate(i, "active", `Шаг ${i + 1} из ${steps.length}: ${step.label}…`);
 
       let taskId;
+      let taskStatusUrl = "";
       try {
-        taskId = await step.start();
+        const stepTask = await step.start();
+        if (typeof stepTask === "string") {
+          taskId = stepTask;
+        } else if (stepTask && typeof stepTask === "object") {
+          taskId = stepTask.taskId || stepTask.task_id || "";
+          taskStatusUrl = stepTask.statusUrl || stepTask.status_url || "";
+        }
+        if (!taskId) {
+          throw new Error("Не получен task_id");
+        }
       } catch (e) {
         _cidrStepUpdate(i, "error", `Шаг ${i + 1}: ${step.label} — ошибка запуска: ${e.message}`);
         setCidrStatus("Ошибка: " + (e.message || e), "error");
@@ -2415,9 +2533,16 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       try {
-        const result = await pollCidrTask(taskId, {
+        const isCidrStatusUrl = taskStatusUrl.includes("/api/cidr-lists/task/");
+        const poller = taskStatusUrl && !isCidrStatusUrl ? pollTaskByStatusUrl : pollCidrTask;
+        const pollTarget = taskStatusUrl && !isCidrStatusUrl ? taskStatusUrl : taskId;
+
+        const result = await poller(pollTarget, {
           onProgress: (task) => {
-            const localFrac = Math.max(0, Math.min(1, Number(task.progress_percent || 0) / 100));
+            const rawProgress = Number(task.progress_percent);
+            const localFrac = Number.isFinite(rawProgress)
+              ? Math.max(0, Math.min(1, rawProgress / 100))
+              : 0.5;
             const globalPct = pctStart + Math.round(localFrac * (pctEnd - pctStart));
             const stageText = String(task.progress_stage || task.message || step.label);
             renderCidrProgress({ percent: globalPct, stageText });

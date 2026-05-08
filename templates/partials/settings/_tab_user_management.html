@@ -1,0 +1,433 @@
+    <div id="user-management" class="content-tab">
+      <div class="user-management-layout">
+        <p class="user-management-intro">
+          Создание и управление доступом в одном месте: раскройте карточку пользователя, чтобы сменить роль,
+          обновить пароль или удалить аккаунт.
+        </p>
+
+        <div class="user-add-card">
+          <h3>Добавить пользователя</h3>
+          <form method="POST" class="settings-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <div class="form-group">
+              <input type="text" name="username" placeholder="Логин" required />
+            </div>
+            <div class="form-group">
+              <input type="password" name="password" placeholder="Пароль" required />
+            </div>
+            <div class="form-group">
+              <input type="text" name="telegram_id" placeholder="Telegram ID (опционально)" inputmode="numeric"
+                pattern="[0-9]*" />
+              <small class="help-text">Укажите numeric Telegram ID пользователя, чтобы разрешить вход через
+                Telegram.</small>
+            </div>
+            <div class="form-group">
+              <label for="role-select">Роль:</label>
+              <select name="role" id="role-select" class="form-control">
+                <option value="admin">admin (полный доступ)</option>
+                <option value="viewer">viewer (только просмотр)</option>
+              </select>
+            </div>
+            <button type="submit" class="button add-button">Добавить пользователя</button>
+          </form>
+        </div>
+
+        <div class="user-cards-list">
+          {% if users %}
+          {% set users_ns = namespace(non_viewer_count=0) %}
+          {% for user in users %}
+          {% if user.role != 'viewer' %}
+          {% set users_ns.non_viewer_count = users_ns.non_viewer_count + 1 %}
+          <details class="user-card">
+            <summary class="user-card__summary">
+              <div class="user-card__identity">
+                <span class="user-card__name">{{ user.username }}</span>
+                <span class="badge {% if user.role == 'admin' %}badge-admin{% else %}badge-viewer{% endif %}">{{
+                  user.role }}</span>
+                <span class="user-card__self">TG: {{ user.telegram_id or 'не привязан' }}</span>
+                {% if user.username == current_user.username %}
+                <span class="user-card__self">Это вы</span>
+                {% endif %}
+              </div>
+              <span class="user-card__toggle">Открыть управление</span>
+            </summary>
+
+            <div class="user-card__body">
+              <section class="user-card__section">
+                <h4>Изменить роль</h4>
+                {% if user.username != current_user.username %}
+                <form method="POST" class="settings-form" data-user-action="change-role">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_role_username" value="{{ user.username }}" />
+                  <div class="form-group">
+                    <select name="new_role" class="form-control" required>
+                      <option value="admin" {% if user.role=='admin' %}selected{% endif %}>admin</option>
+                      <option value="viewer" {% if user.role=='viewer' %}selected{% endif %}>viewer</option>
+                    </select>
+                  </div>
+                  <button type="submit" class="button save-button">Сохранить роль</button>
+                </form>
+                {% else %}
+                <p class="user-card__section-note">Роль текущего пользователя изменить нельзя.</p>
+                {% endif %}
+              </section>
+
+              <section class="user-card__section">
+                <h4>Изменить пароль</h4>
+                <form method="POST" class="settings-form" data-user-action="change-password">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_password_username" value="{{ user.username }}" />
+                  <div class="form-group">
+                    <input type="password" name="new_password" placeholder="Новый пароль (мин. 8 символов)" required />
+                  </div>
+                  <button type="submit" class="button save-button">Обновить пароль</button>
+                </form>
+              </section>
+
+              <section class="user-card__section">
+                <h4>Telegram ID</h4>
+                <form method="POST" class="settings-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_telegram_username" value="{{ user.username }}" />
+                  <div class="form-group">
+                    <input type="text" name="new_telegram_id" value="{{ user.telegram_id or '' }}"
+                      placeholder="Numeric Telegram ID" inputmode="numeric" pattern="[0-9]*" />
+                    <small class="help-text">Оставьте пустым и сохраните, чтобы отвязать Telegram ID.</small>
+                  </div>
+                  <button type="submit" class="button save-button">Сохранить Telegram ID</button>
+                </form>
+              </section>
+
+              <section class="user-card__section user-card__section-danger">
+                <h4>Удалить пользователя</h4>
+                {% if user.username != current_user.username %}
+                <form method="POST" class="settings-form" data-user-action="delete-user">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="delete_username" value="{{ user.username }}" />
+                  <button type="submit" class="button delete-button">Удалить пользователя</button>
+                </form>
+                {% else %}
+                <p class="user-card__section-note">Текущий аккаунт удалить нельзя.</p>
+                {% endif %}
+              </section>
+            </div>
+          </details>
+          {% endif %}
+          {% endfor %}
+          {% if users_ns.non_viewer_count == 0 %}
+          <p class="no-users">Здесь отображаются admin-пользователи. Viewer-профили управляются ниже в блоке доступа к
+            конфигам.</p>
+          {% endif %}
+          {% else %}
+          <p class="no-users">Нет зарегистрированных пользователей</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Доступ к конфигам -->
+      <div id="viewer-access-section" class="settings-inline-section-mt">
+        <h2>Управление доступом к конфигам</h2>
+
+        {% if viewer_users %}
+        <p class="help-text settings-inline-help-mt0">Нажмите на профиль viewer, чтобы открыть полноэкранное управление
+          доступом.</p>
+        <div class="viewer-profile-grid settings-inline-grid-mb">
+          {% for vu in viewer_users %}
+          {% set va = viewer_access.get(vu.id, []) %}
+          {% set counts = namespace(openvpn_granted=0, amneziawg_granted=0, wg_granted=0) %}
+          {% if openvpn_access_groups %}
+          {% for group in openvpn_access_groups %}
+          {% set ns = namespace(has_access=false) %}
+          {% for fname in group.files %}
+          {% if fname in va %}
+          {% set ns.has_access = true %}
+          {% endif %}
+          {% endfor %}
+          {% if ns.has_access %}
+          {% set counts.openvpn_granted = counts.openvpn_granted + 1 %}
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+          {% if amneziawg_access_groups %}
+          {% for group in amneziawg_access_groups %}
+          {% set ns = namespace(has_access=false) %}
+          {% for fname in group.files %}
+          {% if fname in va %}
+          {% set ns.has_access = true %}
+          {% endif %}
+          {% endfor %}
+          {% if ns.has_access %}
+          {% set counts.amneziawg_granted = counts.amneziawg_granted + 1 %}
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+          {% if wg_access_groups %}
+          {% for group in wg_access_groups %}
+          {% set ns = namespace(has_access=false) %}
+          {% for fname in group.files %}
+          {% if fname in va %}
+          {% set ns.has_access = true %}
+          {% endif %}
+          {% endfor %}
+          {% if ns.has_access %}
+          {% set counts.wg_granted = counts.wg_granted + 1 %}
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+          {% set total_groups = (openvpn_access_groups | length if openvpn_access_groups else 0) +
+          (amneziawg_access_groups | length if amneziawg_access_groups else 0) + (wg_access_groups | length if
+          wg_access_groups else 0) %}
+          {% set total_granted = counts.openvpn_granted + counts.amneziawg_granted + counts.wg_granted %}
+          <button type="button" class="viewer-profile-tile" data-viewer-modal-open="viewerProfileModal-{{ vu.id }}">
+            <span class="viewer-profile-tile__name">👤 {{ vu.username }}</span>
+            <span class="badge badge-viewer">viewer</span>
+            <span class="viewer-profile-tile__meta">Выдано групп: {{ total_granted }} из {{ total_groups }}</span>
+          </button>
+          {% endfor %}
+        </div>
+
+        {% for vu in viewer_users %}
+        {% set va = viewer_access.get(vu.id, []) %}
+        {% set counts = namespace(openvpn_granted=0, amneziawg_granted=0, wg_granted=0) %}
+        {% if openvpn_access_groups %}
+        {% for group in openvpn_access_groups %}
+        {% set ns = namespace(has_access=false) %}
+        {% for fname in group.files %}
+        {% if fname in va %}
+        {% set ns.has_access = true %}
+        {% endif %}
+        {% endfor %}
+        {% if ns.has_access %}
+        {% set counts.openvpn_granted = counts.openvpn_granted + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% if amneziawg_access_groups %}
+        {% for group in amneziawg_access_groups %}
+        {% set ns = namespace(has_access=false) %}
+        {% for fname in group.files %}
+        {% if fname in va %}
+        {% set ns.has_access = true %}
+        {% endif %}
+        {% endfor %}
+        {% if ns.has_access %}
+        {% set counts.amneziawg_granted = counts.amneziawg_granted + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% if wg_access_groups %}
+        {% for group in wg_access_groups %}
+        {% set ns = namespace(has_access=false) %}
+        {% for fname in group.files %}
+        {% if fname in va %}
+        {% set ns.has_access = true %}
+        {% endif %}
+        {% endfor %}
+        {% if ns.has_access %}
+        {% set counts.wg_granted = counts.wg_granted + 1 %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        <div id="viewerProfileModal-{{ vu.id }}" class="viewer-profile-modal" hidden>
+          <div class="viewer-profile-modal__backdrop" data-viewer-modal-close></div>
+          <div class="viewer-profile-modal__dialog" role="dialog" aria-modal="true"
+            aria-labelledby="viewerProfileModalTitle-{{ vu.id }}">
+            <div class="viewer-profile-modal__head">
+              <h3 id="viewerProfileModalTitle-{{ vu.id }}" class="viewer-profile-modal__title">
+                👤 {{ vu.username }}
+                <span class="badge badge-viewer">viewer</span>
+                <span class="user-card__self">TG: {{ vu.telegram_id or 'не привязан' }}</span>
+              </h3>
+              <button type="button" class="viewer-profile-modal__close" data-viewer-modal-close
+                aria-label="Закрыть">×</button>
+            </div>
+
+            <div class="viewer-profile-modal__content">
+              <section class="viewer-profile-modal__block">
+                <h4>Изменить роль</h4>
+                {% if vu.username != current_user.username %}
+                <form method="POST" class="settings-form" data-user-action="change-role">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_role_username" value="{{ vu.username }}" />
+                  <div class="form-group">
+                    <select name="new_role" class="form-control" required>
+                      <option value="admin">admin</option>
+                      <option value="viewer" selected>viewer</option>
+                    </select>
+                  </div>
+                  <button type="submit" class="button save-button">Сохранить роль</button>
+                </form>
+                {% else %}
+                <p class="user-card__section-note">Роль текущего пользователя изменить нельзя.</p>
+                {% endif %}
+              </section>
+
+              <section class="viewer-profile-modal__block">
+                <h4>Изменить пароль</h4>
+                <form method="POST" class="settings-form" data-user-action="change-password">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_password_username" value="{{ vu.username }}" />
+                  <div class="form-group">
+                    <input type="password" name="new_password" placeholder="Новый пароль (мин. 8 символов)" required />
+                  </div>
+                  <button type="submit" class="button save-button">Обновить пароль</button>
+                </form>
+              </section>
+
+              <section class="viewer-profile-modal__block">
+                <h4>Telegram ID</h4>
+                <form method="POST" class="settings-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_telegram_username" value="{{ vu.username }}" />
+                  <div class="form-group">
+                    <input type="text" name="new_telegram_id" value="{{ vu.telegram_id or '' }}"
+                      placeholder="Numeric Telegram ID" inputmode="numeric" pattern="[0-9]*" />
+                    <small class="help-text">Оставьте пустым и сохраните, чтобы отвязать Telegram ID.</small>
+                  </div>
+                  <button type="submit" class="button save-button">Сохранить Telegram ID</button>
+                </form>
+              </section>
+
+              <section class="viewer-profile-modal__block viewer-profile-modal__block-danger">
+                <h4>Удалить пользователя</h4>
+                {% if vu.username != current_user.username %}
+                <form method="POST" class="settings-form" data-user-action="delete-user">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="delete_username" value="{{ vu.username }}" />
+                  <button type="submit" class="button delete-button">Удалить пользователя</button>
+                </form>
+                {% else %}
+                <p class="user-card__section-note">Текущий аккаунт удалить нельзя.</p>
+                {% endif %}
+              </section>
+
+              <section class="viewer-profile-modal__configs viewer-profile-modal__block">
+                <h4>Доступ к конфигам</h4>
+
+                <div class="viewer-config-panels">
+                  {% if openvpn_access_groups %}
+                  <details class="viewer-config-group" data-config-group>
+                    <summary class="viewer-config-group__summary">
+                      <span>OpenVPN</span>
+                      <span class="viewer-config-group__meta">выдано {{ counts.openvpn_granted }} из {{
+                        openvpn_access_groups | length }}</span>
+                    </summary>
+                    <div class="viewer-config-group__body">
+                      <div class="viewer-config-group__tools">
+                        <input type="search" class="viewer-config-search" data-config-filter
+                          placeholder="Поиск по OpenVPN" />
+                        <label class="viewer-config-only">
+                          <input type="checkbox" data-config-only-granted />
+                          Только выданные
+                        </label>
+                      </div>
+                      <div class="viewer-config-list viewer-config-list-compact" data-config-list>
+                        {% for group in openvpn_access_groups %}
+                        {% set ns = namespace(has_access=false) %}
+                        {% for fname in group.files %}
+                        {% if fname in va %}
+                        {% set ns.has_access = true %}
+                        {% endif %}
+                        {% endfor %}
+                        <label class="viewer-config-item viewer-config-item-compact">
+                          <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}"
+                            data-config-name="{{ group.group_key }}" data-config-label="{{ group.display_name }}"
+                            data-config-type="openvpn" {% if ns.has_access %}checked{% endif %} />
+                          {{ group.display_name }}
+                        </label>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </details>
+                  {% endif %}
+
+                  {% if amneziawg_access_groups %}
+                  <details class="viewer-config-group" data-config-group>
+                    <summary class="viewer-config-group__summary">
+                      <span>AmneziaWG</span>
+                      <span class="viewer-config-group__meta">выдано {{ counts.amneziawg_granted }} из {{
+                        amneziawg_access_groups | length }}</span>
+                    </summary>
+                    <div class="viewer-config-group__body">
+                      <div class="viewer-config-group__tools">
+                        <input type="search" class="viewer-config-search" data-config-filter
+                          placeholder="Поиск по AmneziaWG" />
+                        <label class="viewer-config-only">
+                          <input type="checkbox" data-config-only-granted />
+                          Только выданные
+                        </label>
+                      </div>
+                      <div class="viewer-config-list viewer-config-list-compact" data-config-list>
+                        {% for group in amneziawg_access_groups %}
+                        {% set ns = namespace(has_access=false) %}
+                        {% for fname in group.files %}
+                        {% if fname in va %}
+                        {% set ns.has_access = true %}
+                        {% endif %}
+                        {% endfor %}
+                        <label class="viewer-config-item viewer-config-item-compact">
+                          <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}"
+                            data-config-name="{{ group.group_key }}" data-config-label="{{ group.display_name }}"
+                            data-config-type="amneziawg" {% if ns.has_access %}checked{% endif %} />
+                          {{ group.display_name }}
+                        </label>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </details>
+                  {% endif %}
+
+                  {% if wg_access_groups %}
+                  <details class="viewer-config-group" data-config-group>
+                    <summary class="viewer-config-group__summary">
+                      <span>WireGuard</span>
+                      <span class="viewer-config-group__meta">выдано {{ counts.wg_granted }} из {{ wg_access_groups |
+                        length }}</span>
+                    </summary>
+                    <div class="viewer-config-group__body">
+                      <div class="viewer-config-group__tools">
+                        <input type="search" class="viewer-config-search" data-config-filter
+                          placeholder="Поиск по WireGuard" />
+                        <label class="viewer-config-only">
+                          <input type="checkbox" data-config-only-granted />
+                          Только выданные
+                        </label>
+                      </div>
+                      <div class="viewer-config-list viewer-config-list-compact" data-config-list>
+                        {% for group in wg_access_groups %}
+                        {% set ns = namespace(has_access=false) %}
+                        {% for fname in group.files %}
+                        {% if fname in va %}
+                        {% set ns.has_access = true %}
+                        {% endif %}
+                        {% endfor %}
+                        <label class="viewer-config-item viewer-config-item-compact">
+                          <input type="checkbox" class="viewer-access-cb" data-user-id="{{ vu.id }}"
+                            data-config-name="{{ group.group_key }}" data-config-label="{{ group.display_name }}"
+                            data-config-type="wg" {% if ns.has_access %}checked{% endif %} />
+                          {{ group.display_name }}
+                        </label>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </details>
+                  {% endif %}
+                </div>
+
+                {% if not all_openvpn and not all_wg and not all_amneziawg %}
+                <p class="no-data">Нет доступных конфигов</p>
+                {% endif %}
+              </section>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="no-data">Нет пользователей с ролью viewer. Создайте viewer-пользователя во вкладке «Управление
+          пользователями».</p>
+        {% endif %}
+
+        <div id="viewer-access-status" class="notification settings-inline-hidden-mt"></div>
+      </div>
+    </div>
+

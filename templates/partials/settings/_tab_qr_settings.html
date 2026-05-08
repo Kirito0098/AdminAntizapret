@@ -1,0 +1,90 @@
+    <div id="qr-settings" class="content-tab">
+      <h2>Одноразовые ссылки</h2>
+      <form method="POST" class="settings-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="form-group settings-range-control">
+          <div class="settings-range-control__head">
+            <label for="qr_download_token_ttl_seconds">TTL одноразовой ссылки (секунд)</label>
+            <output class="settings-range-control__value" data-slider-value-for="qr_download_token_ttl_seconds">
+              {{ qr_download_token_ttl_seconds }} сек
+            </output>
+          </div>
+          <input type="range" id="qr_download_token_ttl_seconds_slider" min="60" max="3600" step="1"
+            value="{{ qr_download_token_ttl_seconds }}" data-slider-target="qr_download_token_ttl_seconds"
+            data-unit="сек" data-humanize="seconds" />
+          <div class="settings-range-control__input-row">
+            <input type="number" id="qr_download_token_ttl_seconds" name="qr_download_token_ttl_seconds" min="60"
+              max="3600" step="1" value="{{ qr_download_token_ttl_seconds }}" placeholder="60..3600" />
+            <span class="settings-range-control__hint">Точное значение</span>
+          </div>
+          <small class="help-text">Используется для ссылок вида /qr_download/&lt;token&gt;. Диапазон: 60..3600
+            сек.</small>
+        </div>
+        <div class="form-group">
+          <label for="qr_download_token_max_downloads">Лимит скачиваний по одноразовой ссылке</label>
+          <select id="qr_download_token_max_downloads" name="qr_download_token_max_downloads" class="form-control">
+            <option value="1" {% if qr_download_token_max_downloads|string=='1' %}selected{% endif %}>1</option>
+            <option value="3" {% if qr_download_token_max_downloads|string=='3' %}selected{% endif %}>3</option>
+            <option value="5" {% if qr_download_token_max_downloads|string=='5' %}selected{% endif %}>5</option>
+          </select>
+          <small class="help-text">Применяется к новым ссылкам. Уже созданные ссылки сохраняют свой текущий
+            лимит.</small>
+        </div>
+        <div class="form-group">
+          <label for="qr_download_pin">PIN для защиты одноразовых ссылок (опционально)</label>
+          <input type="password" id="qr_download_pin" name="qr_download_pin" inputmode="numeric" pattern="[0-9]*"
+            minlength="4" maxlength="12" placeholder="Оставьте пустым, чтобы не менять" />
+          <small class="help-text">
+            Если PIN задан, при открытии одноразовой ссылки потребуется ввод PIN. Разрешены только цифры, 4..12
+            символов.
+            Текущий статус: <strong>{% if qr_download_pin_set %}PIN установлен{% else %}PIN не установлен{% endif
+              %}</strong>.
+          </small>
+          <div class="help-text settings-inline-status-line"
+            style="color:{% if qr_download_pin_set %}var(--theme-update-latest, #2ecc71){% else %}var(--theme-text-muted-alt, #b0b7c3){% endif %};">
+            {% if qr_download_pin_set %}● Защита PIN активна{% else %}● Защита PIN выключена{% endif %}
+          </div>
+          <div class="form-group settings-inline-formgroup-tight">
+            <button type="submit" name="clear_qr_download_pin" value="on" class="button delete-button"
+              onclick="return confirm('Очистить текущий PIN?');">
+              Очистить текущий PIN
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="button save-button">Сохранить</button>
+      </form>
+
+      <div class="card settings-inline-card-mt">
+        <h3>Журнал одноразовых ссылок</h3>
+        <p class="help-text">Показываются последние 100 событий генерации и скачивания.</p>
+        {% if qr_download_audit_logs %}
+        <div class="users-list qr-links-log-list">
+          <table class="qr-links-log-table">
+            <thead>
+              <tr>
+                <th class="settings-inline-table-head">Время (UTC)</th>
+                <th class="settings-inline-table-head">Событие</th>
+                <th class="settings-inline-table-head">Пользователь</th>
+                <th class="settings-inline-table-head">IP</th>
+                <th class="settings-inline-table-head">Детали</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in qr_download_audit_logs %}
+              <tr>
+                <td class="settings-inline-table-cell-nowrap">{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td class="settings-inline-table-cell">{{ row.event_type }}</td>
+                <td class="settings-inline-table-cell">{{ row.actor_username or 'anonymous' }}</td>
+                <td class="settings-inline-table-cell">{{ row.remote_addr or '-' }}</td>
+                <td class="settings-inline-table-cell">{{ row.details or '-' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="no-data">Событий пока нет</p>
+        {% endif %}
+      </div>
+    </div>
+

@@ -1,0 +1,16 @@
+    <div id="vpn-network" class="content-tab active">
+      <h2>Порт панели администрирования</h2>
+
+      <div class="card settings-inline-card-mb">
+        <h3>Порт панели администрирования</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <label for="port">Текущий порт: {{ port }}</label>
+            <input type="text" id="port" name="port" placeholder="Введите новый порт" />
+          </div>
+          <button type="submit" class="button save-button">Сохранить порт</button>
+        </form>
+      </div>
+    </div>
+

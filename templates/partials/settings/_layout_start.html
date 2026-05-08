@@ -1,0 +1,74 @@
+<div class="settings-layout page-unified-wrapper">
+  <!-- Боковое меню -->
+  <div class="settings-page-wrapper page-unified-card" id="sidebar">
+    <div class="settings-layout settings-sidebar-head">
+      <p class="settings-sidebar-kicker">Operations</p>
+      <h3 class="settings-sidebar-title">Настройки</h3>
+      <p class="settings-sidebar-text">
+        Управление сетью, безопасностью, Telegram-доступом и системным обслуживанием.
+      </p>
+    </div>
+    <ul class="sidebar-menu">
+      <li class="menu-item active" data-tab="vpn-network">
+        <i class="icon">🔌</i>
+        <span>Порт панели администрирования</span>
+      </li>
+      <li class="menu-item" data-tab="security">
+        <i class="icon">🛡️</i>
+        <span>Безопасность</span>
+      </li>
+      <li class="menu-item" data-tab="telegram-auth">
+        <i class="icon">🤖</i>
+        <span>Telegram авторизация</span>
+      </li>
+      <li class="menu-item" data-tab="user-management">
+        <i class="icon">👥</i>
+        <span>Пользователи и доступ</span>
+      </li>
+      <li class="menu-item" data-tab="qr-settings">
+        <i class="icon">🔗</i>
+        <span>Одноразовые ссылки</span>
+      </li>
+      <li class="menu-item" data-tab="maintenance">
+        <i class="icon">🔧</i>
+        <span>Обслуживание</span>
+      </li>
+      <li class="menu-item" data-tab="action-logs">
+        <i class="icon">🧾</i>
+        <span>Логи действий</span>
+      </li>
+    </ul>
+    <div id="update-button-container" class="settings-inline-pad-sm">
+      <button id="update-system" class="button update-button">
+        Проверка обновлений...
+      </button>
+    </div>
+    <div id="update-status" class="notification settings-inline-hidden"></div>
+  </div>
+
+  <!-- Основное содержимое -->
+  <div class="settings-content page-unified-card">
+    <section class="settings-workbench" aria-label="Рабочая панель настроек">
+      <div class="settings-workbench__main">
+        <p class="settings-workbench__kicker">Панель управления</p>
+        <h1 class="settings-workbench__title">Настройки системы</h1>
+        <p class="settings-workbench__subtitle">Единая точка управления сетевой политикой, доступом и обслуживанием.</p>
+      </div>
+      <div class="settings-workbench__meta">
+        <span id="workbench-dirty-state" class="workbench-state workbench-state-applied">Применено</span>
+        <button id="workbench-primary-apply" type="button" class="button save-button">Применить изменения</button>
+      </div>
+    </section>
+
+    <div id="settingsStickyActions" class="settings-sticky-actions" aria-label="Панель действий" hidden>
+      <div class="settings-sticky-actions__status">
+        <span id="sticky-dirty-status" class="workbench-state workbench-state-applied">Применено</span>
+      </div>
+      <div class="settings-sticky-actions__buttons">
+        <button id="sticky-cancel" type="button" class="button">Отменить</button>
+        <button id="sticky-save" type="button" class="button save-button">Сохранить</button>
+        <button id="sticky-apply" type="button" class="button save-button">Применить</button>
+      </div>
+    </div>
+
+    <!-- ═══════════════ 2. Порт панели администрирования ═══════════════ -->

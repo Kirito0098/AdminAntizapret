@@ -1,0 +1,61 @@
+    <div id="action-logs" class="content-tab">
+      <h2>Логи действий</h2>
+      <div class="card settings-inline-card-mb">
+        <h3>Журнал действий пользователей</h3>
+        <p class="help-text">Последние 300 операций: изменения настроек, создание/удаление конфигов и скачивания.</p>
+
+        {% if user_action_audit_logs %}
+        <div class="users-list qr-links-log-list">
+          <table class="qr-links-log-table action-audit-log-table">
+            <thead>
+              <tr>
+                <th class="settings-inline-table-head">Время (UTC)</th>
+                <th class="settings-inline-table-head">Пользователь</th>
+                <th class="settings-inline-table-head">Действие</th>
+                <th class="settings-inline-table-head">IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in user_action_audit_logs %}
+              <tr
+                class="log-source-row log-source-{{ row.source_kind }}{% if row.is_miniapp %} miniapp-event{% endif %}">
+                <td class="settings-inline-table-cell-nowrap">{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td class="settings-inline-table-cell">{{ row.actor_username or 'system/anonymous' }}</td>
+                <td class="settings-inline-table-cell action-with-source" title="{{ row.event_type }}">
+                  <span class="log-source-badge log-source-badge-{{ row.source_kind }}" title="Источник действия">
+                    {{ row.source_label }}
+                  </span>
+                  <span class="action-text">{{ row.event_display }}</span>
+                </td>
+                <td class="settings-inline-table-cell">{{ row.remote_addr or '-' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="no-data">Событий пока нет</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div id="userActionModal" class="user-action-modal" hidden>
+      <div class="user-action-modal__backdrop" data-user-action-close></div>
+      <div class="user-action-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="userActionModalTitle">
+        <div class="user-action-modal__header">
+          <h3 id="userActionModalTitle" class="user-action-modal__title">Подтвердите действие</h3>
+          <button type="button" class="user-action-modal__close" data-user-action-close aria-label="Закрыть">×</button>
+        </div>
+        <p id="userActionModalText" class="user-action-modal__text">Изменение будет применено сразу после подтверждения.
+        </p>
+        <div class="user-action-modal__actions">
+          <button type="button" class="user-action-modal__btn user-action-modal__btn-cancel" data-user-action-close>
+            Отмена
+          </button>
+          <button type="button" id="userActionModalConfirm"
+            class="user-action-modal__btn user-action-modal__btn-confirm is-danger">
+            Подтвердить
+          </button>
+        </div>
+      </div>
+    </div>

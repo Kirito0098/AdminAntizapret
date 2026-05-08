@@ -1,0 +1,496 @@
+    <div id="antizapret-config" class="content-tab active">
+      <h2>Фильтры и сервисы</h2>
+      <p class="config-description">Включите нужные сервисы и защитные функции. Изменения вступают в силу после нажатия
+        «Применить».</p>
+
+      <section class="settings-group" data-antizapret-group="routing">
+        <div class="settings-group__head">
+          <h3>Сервисы и приложения</h3>
+          <span class="section-micro-status" data-section-status="routing">актуально</span>
+        </div>
+        <p class="config-description">Трафик отмеченных сервисов будет проходить через Antizapret VPN, даже если
+          пользователь подключён к ветви Antizapret (GoodVPN):</p>
+
+        <div class="config-grid">
+          <!-- Первый столбец -->
+          <div class="config-column">
+            <!-- ROUTE_ALL -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Всех доменов, кроме .ru <span class="tag-az">AZ</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="route-all-toggle" class="toggle-input" {% if
+                    antizapret_settings.route_all=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(ROUTE_ALL)</span> Перенаправляет весь
+                трафик через antizapret, кроме российских доменов (.ru, .рф) и
+                исключений из exclude-hosts.txt
+              </div>
+            </div>
+
+            <!-- DISCORD_INCLUDE -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Discord <span class="tag-az">AZ</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="discord-toggle" class="toggle-input" {% if
+                    antizapret_settings.discord_include=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(DISCORD_INCLUDE)</span> Перенаправляет
+                трафик Discord через antizapret, включая голосовые каналы и обмен
+                сообщениями
+              </div>
+            </div>
+
+            <!-- CLOUDFLARE_INCLUDE -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Cloudflare <span class="tag-az">AZ</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="cloudflare-toggle" class="toggle-input" {% if
+                    antizapret_settings.cloudflare_include=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(CLOUDFLARE_INCLUDE)</span>
+                Перенаправляет трафик Cloudflare через antizapret, включая сайты и
+                сервисы, использующие Cloudflare для защиты от DDoS-атак
+              </div>
+            </div>
+          </div>
+
+          <!-- Второй столбец -->
+          <div class="config-column">
+
+            <!-- TELEGRAM_INCLUDE -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Telegram <span class="tag-az">AZ</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="telegram-toggle" class="toggle-input" {% if
+                    antizapret_settings.telegram_include=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(TELEGRAM_INCLUDE)</span>
+                Перенаправляет трафик Telegram через Antizapret, включая обмен
+                сообщениями, каналы и группы
+              </div>
+            </div>
+            <!-- WhatsApp_INCLUDE -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">WhatsApp <span class="tag-az">AZ</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="whatsapp-toggle" class="toggle-input" {% if
+                    antizapret_settings.whatsapp_include=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(WHATSAPP_INCLUDE)</span>
+                Перенаправляет трафик WhatsApp через Antizapret, включая обмен
+                сообщениями, звонки и медиафайлы.
+              </div>
+            </div>
+            <!-- ROBLOX_INCLUDE -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Roblox <span class="tag-az">AZ</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="roblox-toggle" class="toggle-input" {% if
+                    antizapret_settings.roblox_include=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(ROBLOX_INCLUDE)</span> Перенаправляет
+                трафик Roblox через Antizapret, включая игровой контент, платежи и
+                социальные функции.
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <p class="config-description">Дополнительные IP-диапазоны крупных CDN и облачных провайдеров</p>
+        {% if ip_files %}
+        <div class="config-grid">
+          {% for filename, file_info in ip_files.items() %}
+          <div class="config-item az-item">
+            <div class="settings-form" data-ip-file-row="{{ filename }}">
+              <label class="toggle-wrapper">
+                <span class="toggle-label"><span class="config-item-title">{{ file_info.name }}</span></span>
+                <div class="toggle-switch">
+                  <input type="checkbox" class="toggle-input ip-file-toggle" data-ip-file="{{ filename }}" {% if
+                    ip_file_states[filename] %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <div class="config-item-tooltip">
+              <span class="config-param">({{ filename }})</span> {{ file_info.description }}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="ip-files-actions">
+          <button id="ip-files-sync-btn" type="button" class="button ip-files-sync-btn">
+            Сверить файлы из списка и синхронизировать
+          </button>
+        </div>
+        {% else %}
+        <p class="no-data">Нет доступных файлов</p>
+        {% endif %}
+      </section>
+
+      <section class="settings-group" data-antizapret-group="experimental">
+        <div class="settings-group__head">
+          <h3>Дополнительные фильтры</h3>
+          <span class="section-micro-status" data-section-status="experimental">актуально</span>
+        </div>
+        <!----------------------- AdBlock ----------------------->
+        <p class="config-description">Фильтрация нежелательного контента на уровне DNS и сетевых списков:</p>
+        <div class="config-grid">
+          <div class="config-item az-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">AdBlock <span class="tag-az">AZ</span></span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="AdBlock-toggle" class="toggle-input" {% if antizapret_settings.block_ads=='y'
+                  %}checked{% endif %} />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(BLOCK_ADS)</span> Блокировка рекламы,
+              трекеров, вредоносных программ и фишинговых веб-сайтов в AntiZapret
+              VPN (Antizapret-*) на основе правил AdGuard и OISD
+            </div>
+          </div>
+          <div class="config-item az-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Очистка хостов: казино-домены
+                  <span class="tag-az">AZ</span></span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="clear-hosts-toggle" class="toggle-input" {% if
+                  antizapret_settings.clear_hosts=='y' %}checked{% endif %} />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(CLEAR_HOSTS)</span>
+              Удаляет домены с азартными играми при авто-обновлении списков (≈ 170
+              000 записей), уменьшая объём мусора и нагрузку.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Резервные порты -->
+      <section class="settings-group" data-antizapret-group="ports">
+        <div class="settings-group__head">
+          <h3>Резервные порты VPN</h3>
+          <span class="section-micro-status" data-section-status="ports">актуально</span>
+        </div>
+        <p class="config-description">
+          Если провайдер блокирует стандартный порт VPN — включите резервные порты 80, 443, 504, 508:
+        </p>
+        <div class="config-grid">
+          <div class="config-column">
+            <div class="config-item ov-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">TCP <span class="tag-ov">OVPN</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="OPENVPN_BACKUP_TCP-toggle" class="toggle-input" {% if
+                    antizapret_settings.OPENVPN_BACKUP_TCP=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(OPENVPN_BACKUP_TCP)</span> Включает
+                резервные порты OpenVPN TCP (80,443,504,508) для обхода блокировок
+                провайдеров, если стандартный порт заблокирован.
+              </div>
+            </div>
+          </div>
+          <div class="config-column">
+            <div class="config-item ov-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">UDP <span class="tag-ov">OVPN</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="OPENVPN_BACKUP_UDP-toggle" class="toggle-input" {% if
+                    antizapret_settings.OPENVPN_BACKUP_UDP=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(OPENVPN_BACKUP_UDP)</span> Включает
+                резервные порты OpenVPN UDP (80,443,504,508) для обхода блокировок
+                провайдеров, если стандартный порт заблокирован.
+              </div>
+            </div>
+          </div>
+          <div class="config-column">
+            <div class="config-item wg-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">WireGuard/AmneziaWG <span class="tag-wg">WG</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="WIREGUARD_540_580-toggle" class="toggle-input" {% if
+                    antizapret_settings.WIREGUARD_BACKUP=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(WIREGUARD_BACKUP_TCP)</span> Включает
+                резервные порты WireGuard/AmneziaWG (540,580) для обхода блокировок
+                провайдеров, если стандартный порт заблокирован.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Хосты -->
+      <section class="settings-group" data-antizapret-group="hosts">
+        <div class="settings-group__head">
+          <h3>Домен сервера</h3>
+          <span class="section-micro-status" data-section-status="hosts">актуально</span>
+        </div>
+        <p class="config-description">
+          Если IP-адрес вашего сервера меняется, укажите домен, чтобы конфигурации оставались рабочими:
+        </p>
+        <div class="config-grid">
+          <div class="config-column">
+            <div class="config-item ov-item">
+              <label class="input-wrapper">
+                <span class="input-label">
+                  <span class="config-item-title">OpenVPN Host <span class="tag-ov">OVPN</span></span>
+                </span>
+                <input type="text" id="openvpn-host-input" class="input-field ov-input" placeholder="vpn.example.ru"
+                  value="{{ antizapret_settings.openvpn_host | default('') | e }}" />
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(OPENVPN_HOST)</span> Укажите хост для
+                OpenVPN сервера. Этот параметр задает адрес сервера, используемого
+                для OpenVPN подключений.
+                <span class="config-host-param">После включения необходимо пересоздать все конфигурации на
+                  сервере!!!</span>
+              </div>
+            </div>
+          </div>
+          <div class="config-column">
+            <div class="config-item wg-item">
+              <label class="input-wrapper">
+                <span class="input-label">
+                  <span class="config-item-title">WireGuard Host <span class="tag-wg">WG</span></span>
+                </span>
+                <input type="text" id="wireguard-host-input" class="input-field wg-input" placeholder="vpn.example.ru"
+                  value="{{ antizapret_settings.wireguard_host | default('') | e }}" />
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(WIREGUARD_HOST)</span> Укажите хост
+                для WireGuard сервера. Этот параметр задает адрес сервера,
+                используемого для WireGuard подключений.
+                <span class="config-host-param">После включения необходимо пересоздать все конфигурации на
+                  сервере!!!</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WARP -->
+      <section class="settings-group" data-antizapret-group="protection">
+        <div class="settings-group__head">
+          <h3>Cloudflare WARP</h3>
+          <span class="section-micro-status" data-section-status="protection">актуально</span>
+        </div>
+        <p class="config-description">Перенаправить исходящий VPN-трафик через Cloudflare WARP — помогает обходить
+          блокировку VPN провайдером:</p>
+        <div class="config-grid">
+          <div class="config-column">
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Cloudflare WARP for Antizapret
+                    <span class="tag-server">Server</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="ANTIZAPRET_WARP-toggle" class="toggle-input" {% if
+                    antizapret_settings.ANTIZAPRET_WARP=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(ANTIZAPRET_WARP)</span> Отправка трафика Antizapret
+                через Cloudflare WARP
+              </div>
+            </div>
+          </div>
+          <div class="config-column">
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Cloudflare WARP for VPN outbound
+                    <span class="tag-server">Server</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="VPN_WARP-toggle" class="toggle-input" {% if
+                    antizapret_settings.VPN_WARP=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(VPN_WARP)</span> Отправка исходящего VPN трафика
+                через Cloudflare WARP
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Сетевые защиты -->
+        <p class="config-description">Защита сервера от нежелательной активности:</p>
+        <div class="config-grid">
+          <div class="config-column">
+            <!-- SSH_PROTECTION -->
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Защита от брутфорса SSH
+                    <span class="tag-server">Server</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="ssh_protection-toggle" class="toggle-input" {% if
+                    antizapret_settings.ssh_protection=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(SSH_PROTECTION)</span> Включить защиту
+                от перебора паролей SSH (не более 3 новых подключений в час с
+                одного IP)
+              </div>
+            </div>
+            <!-- TORRENT_GUARD -->
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Torrent Guard <span class="tag-server">Server</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="torrent_guard-toggle" class="toggle-input" {% if
+                    antizapret_settings.torrent_guard=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(TORRENT_GUARD)</span> Torrent Guard —
+                если хостер запрещает торренты или присылает жалобы, эта опция
+                поможет: при обнаружении торрент-трафика VPN будет блокироваться
+                на 1 минуту
+              </div>
+            </div>
+          </div>
+          <div class="config-column">
+            <!-- ATTACK_PROTECTION -->
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Защита от атак
+                    <span class="tag-server">Server</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="attack_protection-toggle" class="toggle-input" {% if
+                    antizapret_settings.attack_protection=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(ATTACK_PROTECTION)</span> Блокирует
+                подозрительную сетевую активность: превышение лимита подключений
+                и попытки подключения по нетипичным портам.
+              </div>
+            </div>
+            <!-- SCAN_PROTECTION -->
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Scan protection
+                    <span class="tag-server">Server</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="scan_protection-toggle" class="toggle-input" {% if
+                    antizapret_settings.scan_protection=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(SCAN_PROTECTION)</span> Скрывает
+                сервер от простого сканирования: отключает ответ на ping и на
+                запросы к закрытым портам.
+              </div>
+            </div>
+            <!-- RESTRICT_FORWARD -->
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Ограничение форвардинга
+                    <span class="tag-server">Server</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="restrict_forward-toggle" class="toggle-input" {% if
+                    antizapret_settings.restrict_forward=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(restrict_forward)</span> Включить
+                ограничение форвардинга — через AntiZapret VPN будет
+                маршрутизироваться только трафик к IP-адресам, которые явно
+                указаны в файлах config/forward-ips.txt и result/route-ips.txt
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div id="config-status" class="notification settings-inline-hidden"></div>
+      <div class="config-status-msg notification settings-inline-hidden"></div>
+    </div>
+

@@ -1,0 +1,85 @@
+        <div class="logs-tab-pane is-active" data-tab-pane="overview">
+
+            {% if not openvpn_logging_enabled %}
+            <section class="logs-section">
+                <div class="logs-alert">
+                    Данные подключений временно недоступны.
+                    <div class="logs-alert-files">Отсутствуют/недоступны сокеты: {{ missing_event_log_files | join(', ')
+                        }}
+                    </div>
+                    <div class="logs-alert-note">Проверьте доступ к OpenVPN management в /run/openvpn-server и
+                        доступность команды wg.
+                    </div>
+                </div>
+            </section>
+            {% endif %}
+
+            {% if openvpn_logging_enabled %}
+            <section class="logs-section">
+                <div class="section-title-wrap">
+                    <h2>Графики подключений</h2>
+                    <button type="button" id="chartsToggle" class="charts-toggle-btn">Свернуть</button>
+                </div>
+
+                <div class="charts-grid" id="chartsGrid">
+                    <article class="chart-card">
+                        <h3>Подключенные клиенты по сетям</h3>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="sessionsByNetworkChart"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="chart-card">
+                        <h3>Устройства подключенных клиентов</h3>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="devicesChart"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="chart-card">
+                        <h3>Сессии по протоколам</h3>
+                        <div class="chart-canvas-wrap">
+                            <canvas id="protocolsChart"></canvas>
+                        </div>
+                    </article>
+                </div>
+            </section>
+            {% endif %}
+
+            <section class="logs-section">
+                <div class="section-title-wrap">
+                    <h2>Сводка подключенных клиентов по сетям</h2>
+                </div>
+                <div class="table-scroll">
+                    <table class="logs-table status-table">
+                        <thead>
+                            <tr>
+                                <th>Сеть</th>
+                                <th>Разбивка (протоколы)</th>
+                                <th>Разбивка (транспорт)</th>
+                                <th>Клиентов</th>
+                                <th>Уник. IP</th>
+                                <th>Входящий трафик (Rx)</th>
+                                <th>Исходящий трафик (Tx)</th>
+                                <th>Общий трафик</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in grouped_status_rows %}
+                            <tr>
+                                <td>{{ row.network }}</td>
+                                <td>{{ row.protocol_split }}</td>
+                                <td>{{ row.transport_split }}</td>
+                                <td>{{ row.client_count }}</td>
+                                <td>{{ row.unique_real_ips }}</td>
+                                <td>{{ row.total_received_human }}</td>
+                                <td>{{ row.total_sent_human }}</td>
+                                <td>{{ row.total_traffic_human }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>

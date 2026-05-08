@@ -1,0 +1,228 @@
+        <div class="logs-tab-pane" data-tab-pane="traffic">
+
+            <section class="logs-section">
+                <div class="section-title-wrap">
+                    <h2>График трафика клиента (БД)</h2>
+                </div>
+                <div class="traffic-chart-controls server-monitor-look">
+                    <label for="trafficClientSelect" class="cleanup-label">Клиент:</label>
+                    <div id="trafficClientCombobox" class="traffic-client-combobox">
+                        <input id="trafficClientSelect" class="traffic-client-select" type="text" autocomplete="off"
+                            placeholder="Начните вводить имя клиента" />
+                        <button id="trafficClientClear" type="button" class="traffic-client-clear"
+                            aria-label="Очистить поле клиента" title="Очистить">×</button>
+                        <button id="trafficClientToggle" type="button" class="traffic-client-toggle"
+                            aria-label="Показать список клиентов">▾</button>
+                        <div id="trafficClientDropdown" class="traffic-client-dropdown" hidden></div>
+                    </div>
+                    <datalist id="trafficClientList" hidden>
+                        {% for client in persisted_traffic_rows %}
+                        <option value="{{ client.common_name }}"
+                            data-client-protocols="{{ (client.protocols or '-') | lower }}">{{ client.common_name }}
+                        </option>
+                        {% endfor %}
+                    </datalist>
+                    <label for="trafficProtocolFilter" class="cleanup-label">Протокол:</label>
+                    <select id="trafficProtocolFilter" class="traffic-client-select traffic-client-select--compact">
+                        <option value="all">Все</option>
+                        <option value="openvpn">Только OpenVPN</option>
+                        <option value="wireguard">Только WireGuard</option>
+                    </select>
+
+                    <div class="bw-range" role="tablist" aria-label="Диапазон графика клиента">
+                        <button type="button" class="bw-range-btn" data-range="1h">1 час</button>
+                        <button type="button" class="bw-range-btn" data-range="24h">24 часа</button>
+                        <button type="button" class="bw-range-btn" data-range="7d">7 дней</button>
+                        <button type="button" class="bw-range-btn" data-range="30d">30 дней</button>
+                        <button type="button" class="bw-range-btn" data-range="all">За все время</button>
+                    </div>
+                </div>
+                <div id="trafficChartMeta" class="traffic-chart-meta">Загрузка...</div>
+                <div class="traffic-chart-wrap">
+                    <canvas id="userTrafficRangeChart"></canvas>
+                </div>
+            </section>
+
+            <section class="logs-section">
+                <div class="section-title-wrap section-title-wrap--split">
+                    <h2>Накопленный трафик пользователей (БД)</h2>
+                    {% if current_user and current_user.is_admin() %}
+                    <div class="section-actions">
+                        <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
+                            class="cleanup-form-inline"
+                            onsubmit="return confirm('Очистить накопленную статистику только WireGuard/AmneziaWG и начать сбор с нуля для WG/AWG?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <input type="hidden" name="protocol_scope" value="wireguard" />
+                            <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить WG/AWG</button>
+                        </form>
+                        <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
+                            class="cleanup-form-inline"
+                            onsubmit="return confirm('Очистить накопленную статистику только OpenVPN и начать сбор с нуля для OpenVPN?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <input type="hidden" name="protocol_scope" value="openvpn" />
+                            <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить OpenVPN</button>
+                        </form>
+                        <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
+                            class="cleanup-form-inline"
+                            onsubmit="return confirm('Очистить всю накопленную статистику трафика и начать сбор с нуля?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <input type="hidden" name="protocol_scope" value="all" />
+                            <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить всё и начать с
+                                нуля</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="logs-inline-filters">
+                    <label class="logs-inline-control logs-inline-control--switch"
+                        for="persistedTrafficOnlineOnlyToggle">
+                        <span class="logs-inline-switch-text">Показывать только онлайн</span>
+                        <input type="checkbox" id="persistedTrafficOnlineOnlyToggle" class="logs-inline-switch-input" />
+                        <span class="logs-inline-switch-ui" aria-hidden="true">
+                            <span class="logs-inline-switch-thumb"></span>
+                        </span>
+                    </label>
+                </div>
+                <p class="traffic-table-hint">
+                    Простая сводка: сколько интернета использовал каждый пользователь и где именно (обычный VPN или
+                    Antizapret).
+                    В этой таблице показываются только клиенты с актуальными VPN-конфигами
+                    (OpenVPN/WireGuard/AmneziaWG).
+                </p>
+                <div class="table-scroll">
+                    <table class="logs-table clients-table traffic-usage-table" id="persistedTrafficTable">
+                        <thead>
+                            <tr>
+                                <th>Пользователь</th>
+                                <th>Сейчас</th>
+                                <th>За 1 день</th>
+                                <th>За 7 дней</th>
+                                <th>За 30 дней</th>
+                                <th>VPN</th>
+                                <th>Antizapret</th>
+                                <th>
+                                    <div class="traffic-total-header">
+                                        <span>Всего использовано</span>
+                                        <button type="button" id="sortByTotalTraffic" class="table-sort-btn"
+                                            aria-label="Сортировать по общему трафику">
+                                            По убыванию
+                                        </button>
+                                    </div>
+                                </th>
+                                <th>Последняя активность</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if persisted_traffic_rows %}
+                            {% for client in persisted_traffic_rows %}
+                            <tr data-total-bytes="{{ client.total_bytes }}"
+                                data-is-active="{% if client.is_active %}1{% else %}0{% endif %}"
+                                data-client-protocols="{{ (client.protocols or '-') | lower }}">
+                                <td class="traffic-user-cell">
+                                    <div class="traffic-user-content">
+                                        <span class="traffic-user-name">{{ client.common_name }}</span>
+                                        {% if client.protocol_label %}
+                                        <span
+                                            class="protocol-badge {% if client.protocol_type == 'openvpn' %}protocol-badge--ovpn{% elif client.protocol_type == 'wireguard' %}protocol-badge--wg{% endif %}">
+                                            {{ client.protocol_label }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if client.is_active %}
+                                    <span class="traffic-status-badge is-online">Онлайн</span>
+                                    {% else %}
+                                    <span class="traffic-status-badge is-offline">Оффлайн</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ client.traffic_1d_human }}</td>
+                                <td>{{ client.traffic_7d_human }}</td>
+                                <td>{{ client.traffic_30d_human }}</td>
+                                <td>{{ client.total_bytes_vpn_human }}</td>
+                                <td>{{ client.total_bytes_antizapret_human }}</td>
+                                <td class="traffic-total-cell">{{ client.total_bytes_human }}</td>
+                                <td class="local-datetime" data-datetime="{{ client.last_seen_at }}">{{
+                                    client.last_seen_at }}</td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="9">Пока нет накопленных данных по трафику</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="section-title-wrap section-title-wrap--spaced">
+                    <h3>Удалённые клиенты (статистика в БД)</h3>
+                </div>
+                <p class="traffic-table-hint">
+                    Здесь отображаются клиенты, чьи VPN-конфиги уже удалены, но историческая статистика ещё осталась в
+                    БД.
+                    Таких клиентов: <strong>{{ deleted_persisted_traffic_summary.users_count }}</strong>,
+                    суммарный трафик: <strong>{{ deleted_persisted_traffic_summary.total_bytes_human }}</strong>.
+                </p>
+                <div class="table-scroll">
+                    <table class="logs-table clients-table traffic-usage-table" id="deletedPersistedTrafficTable">
+                        <thead>
+                            <tr>
+                                <th>Пользователь</th>
+                                <th>VPN</th>
+                                <th>Antizapret</th>
+                                <th>Всего использовано</th>
+                                <th>Последняя активность</th>
+                                {% if current_user and current_user.is_admin() %}
+                                <th>Действие</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if deleted_persisted_traffic_rows %}
+                            {% for client in deleted_persisted_traffic_rows %}
+                            <tr data-total-bytes="{{ client.total_bytes }}"
+                                data-client-protocols="{{ (client.protocols or '-') | lower }}">
+                                <td class="traffic-user-cell">
+                                    <div class="traffic-user-content">
+                                        <span class="traffic-user-name">{{ client.common_name }}</span>
+                                        {% if client.protocol_label %}
+                                        <span
+                                            class="protocol-badge {% if client.protocol_type == 'openvpn' %}protocol-badge--ovpn{% elif client.protocol_type == 'wireguard' %}protocol-badge--wg{% endif %}">
+                                            {{ client.protocol_label }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>{{ client.total_bytes_vpn_human }}</td>
+                                <td>{{ client.total_bytes_antizapret_human }}</td>
+                                <td class="traffic-total-cell">{{ client.total_bytes_human }}</td>
+                                <td class="local-datetime" data-datetime="{{ client.last_seen_at }}">{{
+                                    client.last_seen_at }}</td>
+                                {% if current_user and current_user.is_admin() %}
+                                <td>
+                                    <form method="post" action="{{ url_for('logs_delete_deleted_client_traffic') }}"
+                                        onsubmit="return confirm('Удалить всю статистику для клиента {{ client.common_name }}?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <input type="hidden" name="client_name" value="{{ client.common_name }}" />
+                                        <button type="submit" class="cleanup-btn cleanup-btn-danger">Удалить
+                                            статистику</button>
+                                    </form>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="{% if current_user and current_user.is_admin() %}6{% else %}5{% endif %}">
+                                    Удалённых клиентов в накопленной статистике нет</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+    </div>
+</div>

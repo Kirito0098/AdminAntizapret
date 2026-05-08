@@ -1,0 +1,82 @@
+<div class="logs-page-wrapper">
+
+    <section class="logs-hero logs-section" aria-label="Центр аналитики подключений">
+        <div class="logs-hero-main">
+            <p class="logs-hero-kicker">Operations Analytics</p>
+            <h1 class="logs-hero-title">Подключенные клиенты</h1>
+            <p class="logs-hero-subtitle">Единая панель наблюдаемости по сессиям, протоколам и накопленному трафику.</p>
+        </div>
+        <div class="logs-hero-status" role="list" aria-label="Статус данных">
+            <span class="logs-hero-chip" role="listitem">Table refresh: 60s</span>
+            <span class="logs-hero-chip" role="listitem">Источник: OpenVPN + WireGuard + БД</span>
+            <span class="logs-hero-chip" role="listitem">Уникальные клиенты: {{ summary.unique_client_names }}</span>
+        </div>
+    </section>
+
+    {% if cleanup_notice %}
+    <section class="logs-section">
+        <div
+            class="logs-alert {% if cleanup_notice_kind == 'success' %}logs-alert-success{% elif cleanup_notice_kind == 'error' %}logs-alert-error{% endif %}">
+            {{ cleanup_notice }}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if cache_meta and cache_meta.is_stale %}
+    <section class="logs-section">
+        <div class="logs-alert">
+            Показаны данные из кэша (возраст: {{ cache_meta.age_seconds }} сек).
+            {% if cache_meta.refresh_in_progress %}
+            Фоновое обновление выполняется. Страница обновится автоматически после завершения.
+            {% else %}
+            Обновление кэша запущено в фоне.
+            {% endif %}
+            {% if cache_meta.last_error %}
+            <div class="logs-alert-note">Последняя ошибка обновления: {{ cache_meta.last_error }}</div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    <section class="logs-summary-grid">
+        <article class="summary-card">
+            <h3>Подключенные сессии</h3>
+            <p class="summary-value">{{ summary.total_active_clients }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Уникальные клиенты</h3>
+            <p class="summary-value">{{ summary.unique_client_names }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Уникальные IP</h3>
+            <p class="summary-value">{{ summary.unique_ips }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>OpenVPN Сессии</h3>
+            <p class="summary-value">{{ summary.total_openvpn_sessions }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>WireGuard Сессии</h3>
+            <p class="summary-value">{{ summary.total_wireguard_sessions }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Текущий Rx (сессии)</h3>
+            <p class="summary-value">{{ summary.total_received_human }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Текущий Tx (сессии)</h3>
+            <p class="summary-value">{{ summary.total_sent_human }}</p>
+        </article>
+        <article class="summary-card">
+            <h3>Текущий трафик (сессии)</h3>
+            <p class="summary-value">{{ summary.total_traffic_human }}</p>
+        </article>
+    </section>
+
+    <section class="logs-section logs-tabs-shell">
+        <div class="logs-tabs" role="tablist" aria-label="Разделы dashboard">
+            <button type="button" class="logs-tab-btn is-active" data-tab-target="overview">Обзор</button>
+            <button type="button" class="logs-tab-btn" data-tab-target="clients">Клиенты</button>
+            <button type="button" class="logs-tab-btn" data-tab-target="traffic">Трафик (БД)</button>
+        </div>
+    </section>
