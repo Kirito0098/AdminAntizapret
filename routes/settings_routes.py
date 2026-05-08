@@ -102,6 +102,16 @@ def _get_cidr_task(task_id):
         return dict(task)
 
 
+def _find_active_cidr_task(task_type):
+    with CIDR_TASKS_LOCK:
+        for task in CIDR_TASKS.values():
+            if str(task.get("task_type") or "") != str(task_type or ""):
+                continue
+            if str(task.get("status") or "") in {"queued", "running"}:
+                return dict(task)
+    return None
+
+
 def _serialize_cidr_task(task):
     payload = dict(task)
     for key in ("created_at", "started_at", "finished_at", "updated_at"):
@@ -1325,21 +1335,44 @@ def register_settings_routes(
         route_limit = None
 
         if action == "estimate":
-            result = estimate_cidr_matches_from_db(
-                selected_files,
-                region_scopes=region_scopes,
-                include_non_geo_fallback=include_non_geo_fallback,
-                exclude_ru_cidrs=exclude_ru_cidrs,
-                include_game_hosts=include_game_hosts,
-                include_game_keys=include_game_keys,
-                strict_geo_filter=strict_geo_filter,
-                filter_by_antifilter=filter_by_antifilter,
-                total_cidr_limit=route_limit,
-                dpi_priority_files=dpi_priority_files,
-                dpi_mandatory_files=dpi_mandatory_files,
-                dpi_priority_min_budget=dpi_priority_min_budget,
-            )
-            return jsonify(result), (200 if result.get("success") else 400)
+            active_task = _find_active_cidr_task("cidr_estimate_from_db")
+            if active_task:
+                return jsonify({
+                    "success": True,
+                    "queued": True,
+                    "task_id": active_task.get("task_id"),
+                    "message": "Оценка CIDR из БД уже выполняется",
+                    "status_url": url_for("api_cidr_task_status", task_id=active_task.get("task_id")),
+                }), 202
+
+            task_id = _create_cidr_task("cidr_estimate_from_db", "Оценка CIDR из БД запущена")
+
+            def _estimate_runner(progress_callback):
+                return estimate_cidr_matches_from_db(
+                    selected_files,
+                    region_scopes=region_scopes,
+                    include_non_geo_fallback=include_non_geo_fallback,
+                    exclude_ru_cidrs=exclude_ru_cidrs,
+                    include_game_hosts=include_game_hosts,
+                    include_game_keys=include_game_keys,
+                    strict_geo_filter=strict_geo_filter,
+                    filter_by_antifilter=filter_by_antifilter,
+                    total_cidr_limit=route_limit,
+                    dpi_priority_files=dpi_priority_files,
+                    dpi_mandatory_files=dpi_mandatory_files,
+                    dpi_priority_min_budget=dpi_priority_min_budget,
+                    progress_callback=progress_callback,
+                )
+
+            _start_cidr_task(task_id, _estimate_runner)
+
+            return jsonify({
+                "success": True,
+                "queued": True,
+                "task_id": task_id,
+                "message": "Оценка CIDR из БД запущена",
+                "status_url": url_for("api_cidr_task_status", task_id=task_id),
+            }), 202
 
         task_id = _create_cidr_task("cidr_generate_from_db", "Генерация CIDR-файлов из БД запущена")
 

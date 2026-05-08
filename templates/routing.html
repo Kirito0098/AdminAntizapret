@@ -542,6 +542,27 @@
     <div id="cidr-update" class="content-tab">
       <h2>Обновление IP-списков</h2>
 
+      <!-- Workflow guide -->
+      <div class="cidr-workflow-guide" aria-label="Порядок работы">
+        <div class="cidr-wf-step">
+          <span class="cidr-wf-num">1</span>
+          <span>Обновите источники данных</span>
+        </div>
+        <span class="cidr-wf-sep" aria-hidden="true">→</span>
+        <div class="cidr-wf-step">
+          <span class="cidr-wf-num">2</span>
+          <span>Выберите провайдеров и геофильтр</span>
+        </div>
+        <span class="cidr-wf-sep" aria-hidden="true">→</span>
+        <div class="cidr-wf-step">
+          <span class="cidr-wf-num">3</span>
+          <span>Запустите генерацию</span>
+        </div>
+      </div>
+
+      <!-- Section: Источники данных -->
+      <div class="cidr-section-divider" aria-hidden="true">Источники данных</div>
+
       <!-- ── CIDR БД: статус ────────────────────────────────────────────── -->
       <div class="card settings-inline-card-mb" id="cidr-db-card">
         <div class="cidr-db-head">
@@ -692,21 +713,54 @@
         </div><!-- /antifilter-body -->
       </div>
 
-      <div class="card settings-inline-card-mb">
-        <h3>DPI-анализ приоритетов</h3>
-        <div class="form-group settings-inline-card-mt">
-          <label for="cidr-dpi-log-input">Вставьте лог DPI checking для расстановки приоритетов
-            провайдеров</label>
-          <textarea id="cidr-dpi-log-input" class="form-control" rows="4"
-            placeholder="Вставьте лог DPI checking сюда..."></textarea>
-          <div class="cidr-actions-row" style="margin-top:.4rem">
-            <button id="cidr-dpi-analyze" type="button" class="button">Анализировать</button>
-            <input id="cidr-dpi-priority-min-budget" type="number" min="0" step="1" class="form-control" value="6"
-              style="max-width:80px" title="Минимальный резерв маршрутов на приоритетного провайдера" />
+      <!-- Section: Настройка и генерация -->
+      <div class="cidr-section-divider" aria-hidden="true">Настройка и генерация</div>
+
+      <div class="card settings-inline-card-mb" id="cidr-dpi-card">
+        <div class="cidr-db-head">
+          <div>
+            <h3>DPI-анализ приоритетов</h3>
+            <p class="help-text">Анализ определяет приоритетных провайдеров по логу DPI checking и
+              помогает распределить лимит CIDR при генерации.</p>
           </div>
-          <small id="cidr-dpi-summary" class="help-text">DPI-анализ не выполнен.</small>
-          <small id="cidr-dpi-mini-report" class="help-text settings-inline-card-mt"></small>
+          <div class="cidr-db-head__right">
+            <button class="card-collapse-btn" data-collapse-target="cidr-dpi-body" aria-expanded="true"
+              title="Свернуть/развернуть">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
         </div>
+
+        <div id="cidr-dpi-body" class="cidr-card-body">
+          <div class="form-group">
+            <label for="cidr-dpi-log-input">Лог DPI checking для расстановки приоритетов</label>
+            <textarea id="cidr-dpi-log-input" class="form-control" rows="4"
+              placeholder="Вставьте лог DPI checking сюда..."></textarea>
+            <small class="help-text">Вставьте сюда фрагмент лога, где перечислены проверяемые провайдеры
+              и их приоритеты.</small>
+          </div>
+          <div class="form-group settings-range-control cidr-dpi-budget-group settings-inline-card-mt">
+            <div class="settings-range-control__head">
+              <label for="cidr-dpi-priority-min-budget">Резерв на приоритетного провайдера</label>
+            </div>
+            <div class="settings-range-control__input-row cidr-dpi-budget-row">
+              <input id="cidr-dpi-priority-min-budget" type="number" min="0" step="1" class="form-control" value="6"
+                title="Минимальный резерв маршрутов на приоритетного провайдера"
+                aria-describedby="cidr-dpi-budget-help" />
+              <span class="settings-range-control__hint">CIDR</span>
+            </div>
+            <small id="cidr-dpi-budget-help" class="help-text">Рекомендовано: 4–8. Большее значение резервирует больше маршрутов
+              для приоритетных провайдеров.</small>
+          </div>
+          <div class="cidr-actions-row settings-inline-card-mt cidr-dpi-analyze-row">
+            <button id="cidr-dpi-analyze" type="button" class="button save-button">Анализировать лог</button>
+            <small id="cidr-dpi-summary" class="help-text">DPI-анализ не выполнен.</small>
+          </div>
+          <small id="cidr-dpi-mini-report" class="help-text settings-inline-card-mt"></small>
+        </div><!-- /cidr-dpi-body -->
       </div>
 
       <div class="card settings-inline-card-mb cidr-shell">
@@ -714,8 +768,7 @@
           <div>
             <h3>Генерация списков маршрутизации</h3>
             <p class="help-text">
-              Порядок действий: 1) выберите провайдеров, 2) задайте геофильтр, 3) настройте режим,
-              4) при необходимости добавьте игры, затем запустите обновление или откат.
+              Выберите провайдеров, задайте геофильтр и параметры, затем запустите обновление или откат.
             </p>
           </div>
           <div class="cidr-meta-summary" aria-live="polite">
@@ -736,46 +789,6 @@
               <span id="cidr-meta-games-selected" class="cidr-meta-chip__val">0</span>
             </span>
           </div>
-          <div class="cidr-gen-options" aria-live="polite">
-            <div class="cidr-gen-options__row">
-              <label class="toggle-wrapper">
-                <span class="toggle-label">
-                  <span class="config-item-title">Fallback: включать провайдеров без geo-меток целиком</span>
-                </span>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="cidr-include-non-geo-fallback" class="toggle-input" />
-                  <span class="toggle-slider"></span>
-                </div>
-              </label>
-              <label class="toggle-wrapper">
-                <span class="toggle-label">
-                  <span class="config-item-title">Strict geo: исключать спорные префиксы</span>
-                </span>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="cidr-strict-geo-filter" class="toggle-input" />
-                  <span class="toggle-slider"></span>
-                </div>
-              </label>
-              <label class="toggle-wrapper">
-                <span class="toggle-label">
-                  <span class="config-item-title">Исключать российские CIDR (RU)</span>
-                </span>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="cidr-exclude-ru-cidrs" class="toggle-input" />
-                  <span class="toggle-slider"></span>
-                </div>
-              </label>
-              <label class="toggle-wrapper">
-                <span class="toggle-label">
-                  <span class="config-item-title">Только заблокированные IP (antifilter.download)</span>
-                </span>
-                <div class="toggle-switch">
-                  <input type="checkbox" id="cidr-filter-by-antifilter" class="toggle-input" />
-                  <span class="toggle-slider"></span>
-                </div>
-              </label>
-            </div>
-          </div>
         </div>
 
         <input type="hidden" id="cidr-csrf-token" value="{{ csrf_token() }}" />
@@ -787,7 +800,6 @@
                 <span class="cidr-step-badge">1</span>
                 <h4>Провайдеры CIDR</h4>
               </div>
-              <span id="cidr-estimate-mode-badge" class="cidr-estimate-mode-badge" hidden>Preview: strict</span>
             </div>
             <div class="cidr-regions-grid" id="cidr-regions-grid">
               {% for item in cidr_regions %}
@@ -801,7 +813,6 @@
                 {% else %}
                 <span class="cidr-region-badge cidr-region-badge--muted">Geo-фильтр: нет</span>
                 {% endif %}
-                <small class="cidr-region-estimate" data-cidr-estimate-for="{{ item.file }}">Под фильтр: —</small>
               </label>
               {% endfor %}
             </div>
@@ -909,6 +920,49 @@
               <div class="cidr-panel-head__title">
                 <span class="cidr-step-badge">3</span>
                 <h4>Запуск</h4>
+              </div>
+            </div>
+
+            <!-- Параметры генерации -->
+            <div class="cidr-gen-options settings-inline-card-mt" aria-live="polite">
+              <p class="cidr-gen-options__title">Параметры генерации</p>
+              <div class="cidr-gen-options__row">
+                <label class="toggle-wrapper">
+                  <span class="toggle-label">
+                    <span class="config-item-title">Fallback: включать провайдеров без geo-меток целиком</span>
+                  </span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="cidr-include-non-geo-fallback" class="toggle-input" />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+                <label class="toggle-wrapper">
+                  <span class="toggle-label">
+                    <span class="config-item-title">Strict geo: исключать спорные префиксы</span>
+                  </span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="cidr-strict-geo-filter" class="toggle-input" />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+                <label class="toggle-wrapper">
+                  <span class="toggle-label">
+                    <span class="config-item-title">Исключать российские CIDR (RU)</span>
+                  </span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="cidr-exclude-ru-cidrs" class="toggle-input" />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+                <label class="toggle-wrapper">
+                  <span class="toggle-label">
+                    <span class="config-item-title">Только заблокированные IP (antifilter.download)</span>
+                  </span>
+                  <div class="toggle-switch">
+                    <input type="checkbox" id="cidr-filter-by-antifilter" class="toggle-input" />
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
               </div>
             </div>
 

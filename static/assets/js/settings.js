@@ -367,11 +367,16 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   const saveIpFileStates = async () => {
+    const getCsrfToken = () => {
+      return document.querySelector('input[name="csrf_token"]')?.value ||
+        document.querySelector('meta[name="csrf-token"]')?.content ||
+        "";
+    };
     const response = await fetch("/api/antizapret/ip-files", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": document.querySelector('input[name="csrf_token"]')?.value || "",
+        "X-CSRFToken": getCsrfToken(),
       },
       body: JSON.stringify({ states: collectIpFileStates() }),
     });
@@ -476,11 +481,16 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   const syncIpFilesFromList = async () => {
+    const getCsrfToken = () => {
+      return document.querySelector('input[name="csrf_token"]')?.value ||
+        document.querySelector('meta[name="csrf-token"]')?.content ||
+        "";
+    };
     const response = await fetch("/api/antizapret/ip-files", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": document.querySelector('input[name="csrf_token"]')?.value || "",
+        "X-CSRFToken": getCsrfToken(),
       },
       body: JSON.stringify({ action: "sync_with_list" }),
     });
@@ -693,20 +703,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   };
 
-  const getCidrEstimatePlaceholder = () => {
-    const strictGeoFilter = Boolean(document.getElementById("cidr-strict-geo-filter")?.checked);
-    return strictGeoFilter ? "Под фильтр (strict): —" : "Под фильтр: —";
-  };
-
-  const renderCidrEstimateModeBadge = (strictGeoFilter) => {
-    const badge = document.getElementById("cidr-estimate-mode-badge");
-    if (!badge) return;
-    badge.hidden = !strictGeoFilter;
-  };
-
   const renderCidrMeta = () => {
     const selectedProvidersCount = getSelectedCidrRegions().length;
-    const { regionScopes, includeGameKeys, strictGeoFilter } = getCidrRegionSettings();
+    const { regionScopes, includeGameKeys } = getCidrRegionSettings();
 
     const providersEl = document.getElementById("cidr-meta-selected-providers");
     const scopesEl = document.getElementById("cidr-meta-selected-scopes");
@@ -715,8 +714,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (providersEl) providersEl.textContent = String(selectedProvidersCount);
     if (scopesEl) scopesEl.textContent = String(regionScopes.length);
     if (gamesSelectedEl) gamesSelectedEl.textContent = String(includeGameKeys.length);
-
-    renderCidrEstimateModeBadge(strictGeoFilter);
 
     const cidrTotalEl = document.getElementById("cidr-meta-total-cidr");
     if (cidrTotalEl) {
@@ -1070,7 +1067,6 @@ document.addEventListener("DOMContentLoaded", function () {
           <span class="cidr-region-file">${fileName}</span>
           <small class="cidr-region-desc">${desc}</small>
           <span class="${geoBadgeClass}">${geoBadgeText}</span>
-          <small class="cidr-region-estimate" data-cidr-estimate-for="${fileName}">Под фильтр: —</small>
         </label>
       `;
     }).join("");
@@ -1130,75 +1126,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 
-  const resetCidrEstimateBadges = () => {
-    const placeholder = getCidrEstimatePlaceholder();
-    document.querySelectorAll(".cidr-region-estimate").forEach((el) => {
-      el.textContent = placeholder;
-      el.classList.remove("cidr-region-estimate--ok", "cidr-region-estimate--warn", "cidr-region-estimate--error");
-      el.removeAttribute("title");
-    });
-  };
-
-  const setCidrEstimateBadge = (fileName, text, level = "ok", titleText = "") => {
-    if (!fileName) return;
-
-    const badge = Array.from(document.querySelectorAll(".cidr-region-estimate")).find(
-      (node) => String(node.getAttribute("data-cidr-estimate-for") || "") === String(fileName)
-    );
-    if (!badge) return;
-
-    badge.textContent = text;
-    badge.classList.remove("cidr-region-estimate--ok", "cidr-region-estimate--warn", "cidr-region-estimate--error");
-    badge.classList.add(`cidr-region-estimate--${level}`);
-    if (titleText) {
-      badge.setAttribute("title", titleText);
-    } else {
-      badge.removeAttribute("title");
-    }
-  };
-
-  const renderCidrEstimatePreview = (payload) => {
-    resetCidrEstimateBadges();
-    const { strictGeoFilter } = getCidrRegionSettings();
-    const estimatePrefix = strictGeoFilter ? "Под фильтр (strict)" : "Под фильтр";
-
-    const estimated = Array.isArray(payload?.estimated) ? payload.estimated : [];
-    const skipped = Array.isArray(payload?.skipped) ? payload.skipped : [];
-    const failed = Array.isArray(payload?.failed) ? payload.failed : [];
-
-    estimated.forEach((item) => {
-      const count = Number(item?.raw_cidr_count ?? item?.cidr_count ?? 0);
-      const afterLimitCount = Number(item?.cidr_count_after_limit ?? item?.cidr_count ?? count);
-      const source = String(item?.source || "source");
-      const limitApplied = Boolean(item?.limit_applied) || (Number.isFinite(afterLimitCount) && afterLimitCount !== count);
-      const badgeText = limitApplied
-        ? `${estimatePrefix}: ${count} CIDR (лимит: ${afterLimitCount})`
-        : `${estimatePrefix}: ${count} CIDR`;
-      const titleText = limitApplied
-        ? `Источник: ${source} | После лимита: ${afterLimitCount}`
-        : `Источник: ${source}`;
-
-      setCidrEstimateBadge(
-        item?.file,
-        badgeText,
-        "ok",
-        titleText
-      );
-    });
-
-    skipped.forEach((item) => {
-      const reason = String(item?.reason || "skipped");
-      setCidrEstimateBadge(item?.file, `${estimatePrefix}: пропуск (${reason})`, "warn");
-    });
-
-    failed.forEach((item) => {
-      const errorText = String(item?.error || "error");
-      setCidrEstimateBadge(item?.file, `${estimatePrefix}: ошибка источника`, "error", errorText);
-    });
-
-    applyLimitStatsToDpiMiniReport(payload);
-  };
-
   const fetchCidrRegions = async () => {
     const response = await fetch("/api/cidr-lists", { cache: "no-store" });
     const payload = await response.json();
@@ -1215,7 +1142,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     renderCidrMeta();
-    resetCidrEstimateBadges();
     return payload;
   };
 
@@ -1234,11 +1160,16 @@ document.addEventListener("DOMContentLoaded", function () {
     dpiPriorityMinBudget = 0,
     endpoint = "/api/cidr-lists",
   }) => {
+    const getCsrfToken = () => {
+      return document.querySelector('input[name="csrf_token"]')?.value ||
+        document.querySelector('meta[name="csrf-token"]')?.content ||
+        "";
+    };
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": document.querySelector('input[name="csrf_token"]')?.value || "",
+        "X-CSRFToken": getCsrfToken(),
       },
       body: JSON.stringify({
         action,
@@ -1258,7 +1189,20 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     const payload = await response.json();
-    if (!response.ok || !payload.success) {
+    if (!response.ok) {
+      throw new Error(payload.message || "Ошибка операции с CIDR-списками");
+    }
+
+    // If the action was queued as a background task, poll for the result
+    if (payload.queued && payload.task_id) {
+      const isEstimate = String(action || "").toLowerCase() === "estimate";
+      return await pollCidrTask(payload.task_id, {
+        intervalMs: isEstimate ? 1200 : 800,
+        timeoutMs: isEstimate ? 240000 : 1800000,
+      });
+    }
+
+    if (!payload.success) {
       throw new Error(payload.message || "Ошибка операции с CIDR-списками");
     }
     return payload;
@@ -1357,8 +1301,6 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!section) return;
 
     let regionsLoaded = false;
-    let estimateTimer = null;
-    let estimateRequestSeq = 0;
     let dpiPriorityFiles = [];
     let dpiMandatoryFiles = [];
     window._cidrDpiPriorityFiles = [];
@@ -1370,68 +1312,7 @@ document.addEventListener("DOMContentLoaded", function () {
       regionsLoaded = true;
     };
 
-    const refreshCidrEstimatePreview = async () => {
-      await ensureLoaded();
-      const requestId = ++estimateRequestSeq;
-      const selectedRegions = getSelectedCidrRegions();
-      const { regionScopes, includeNonGeoFallback, excludeRuCidrs, includeGameKeys, strictGeoFilter } = getCidrRegionSettings();
-
-      try {
-        const result = await runCidrAction({
-          action: "estimate",
-          endpoint: "/api/cidr-db/generate",
-          regions: selectedRegions,
-          regionScopes,
-          includeNonGeoFallback,
-          excludeRuCidrs,
-          includeGameKeys,
-          strictGeoFilter,
-          dpiPriorityFiles,
-          dpiMandatoryFiles,
-          dpiPriorityMinBudget: getDpiPriorityMinBudget(),
-        });
-        if (requestId !== estimateRequestSeq) return { stale: true };
-        renderCidrEstimatePreview(result);
-        return { stale: false };
-      } catch (error) {
-        if (requestId !== estimateRequestSeq) {
-          return { stale: true };
-        }
-        throw error;
-      }
-    };
-
-    const scheduleCidrEstimateRefresh = (delay = 280) => {
-      if (estimateTimer) {
-        window.clearTimeout(estimateTimer);
-      }
-      estimateTimer = window.setTimeout(async () => {
-        const renderEstimateError = (error) => {
-          resetCidrEstimateBadges();
-          const { strictGeoFilter } = getCidrRegionSettings();
-          const estimatePrefix = strictGeoFilter ? "Под фильтр (strict)" : "Под фильтр";
-          document.querySelectorAll(".cidr-region-estimate").forEach((el) => {
-            el.textContent = `${estimatePrefix}: недоступно`;
-            el.classList.remove("cidr-region-estimate--ok", "cidr-region-estimate--warn");
-            el.classList.add("cidr-region-estimate--error");
-            el.setAttribute("title", error.message || "estimate error");
-          });
-        };
-
-        try {
-          const result = await refreshCidrEstimatePreview();
-          if (result?.stale) return;
-        } catch (error) {
-          // A single retry helps when upstream providers respond slowly.
-          try {
-            const retryResult = await refreshCidrEstimatePreview();
-            if (retryResult?.stale) return;
-          } catch (retryError) {
-            renderEstimateError(retryError || error);
-          }
-        }
-      }, delay);
-    };
+    const scheduleCidrEstimateRefresh = () => { };
 
     document.getElementById("cidr-select-all")?.addEventListener("click", () => {
       setAllCidrRegionsChecked(true);
@@ -1958,11 +1839,15 @@ document.addEventListener("DOMContentLoaded", function () {
   async function applyAntizapretChanges(statusElement) {
     statusElement.textContent = "Применение изменений...";
 
+    const getCsrfToken = () => {
+      return document.querySelector('input[name="csrf_token"]')?.value ||
+        document.querySelector('meta[name="csrf-token"]')?.content ||
+        "";
+    };
     const applyResponse = await fetch("/run-doall", {
       method: "POST",
       headers: {
-        "X-CSRFToken": document.querySelector('input[name="csrf_token"]')
-          .value,
+        "X-CSRFToken": getCsrfToken(),
       },
     });
 
@@ -2006,12 +1891,16 @@ document.addEventListener("DOMContentLoaded", function () {
     statusElement.style.display = "block";
 
     try {
+      const getCsrfToken = () => {
+        return document.querySelector('input[name="csrf_token"]')?.value ||
+          document.querySelector('meta[name="csrf-token"]')?.content ||
+          "";
+      };
       const saveResponse = await fetch("/update_antizapret_settings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRFToken": document.querySelector('input[name="csrf_token"]')
-            .value,
+          "X-CSRFToken": getCsrfToken(),
         },
         body: JSON.stringify(settings),
       });
@@ -2298,12 +2187,16 @@ document.addEventListener("DOMContentLoaded", function () {
     statusElement.style.display = "block";
 
     try {
+      const getCsrfToken = () => {
+        return document.querySelector('input[name="csrf_token"]')?.value ||
+          document.querySelector('meta[name="csrf-token"]')?.content ||
+          "";
+      };
       const response = await fetch("/update_system", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRFToken":
-            document.querySelector('input[name="csrf_token"]')?.value || "",
+          "X-CSRFToken": getCsrfToken(),
         },
       });
 

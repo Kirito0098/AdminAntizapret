@@ -2862,6 +2862,93 @@ body.settings-nav-merged .settings-content.page-unified-card {
   color: #d7e5eb;
 }
 
+#cidr-update .cidr-dpi-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+#cidr-update .cidr-dpi-actions .button {
+  width: auto !important;
+  min-height: 42px;
+}
+
+#cidr-update #cidr-dpi-budget-help,
+#cidr-update #cidr-dpi-summary,
+#cidr-update #cidr-dpi-mini-report {
+  display: block;
+}
+
+#cidr-update #cidr-dpi-budget-help {
+  margin-top: 0.45rem;
+}
+
+#cidr-update #cidr-dpi-summary {
+  margin-top: 0.2rem;
+}
+
+#cidr-update .cidr-dpi-intro {
+  margin: 0.3rem 0 0.15rem;
+  max-width: 74ch;
+  line-height: 1.45;
+}
+
+#cidr-update #cidr-dpi-card .cidr-db-head {
+  padding: 1rem 1.1rem 0.7rem;
+}
+
+#cidr-update #cidr-dpi-body {
+  padding: 0.55rem 1.1rem 1.1rem;
+}
+
+#cidr-update h3,
+#cidr-update .form-group > label,
+#cidr-update .settings-range-control__head label,
+#cidr-update .config-item-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+#cidr-update #cidr-dpi-log-input,
+#cidr-update .cidr-dpi-actions,
+#cidr-update .cidr-dpi-budget-group,
+#cidr-update .cidr-dpi-budget-row,
+#cidr-update .cidr-gen-options,
+#cidr-update .cidr-shell,
+#cidr-update .card {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#cidr-update .cidr-dpi-budget-group .settings-range-control__head {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#cidr-update .cidr-dpi-budget-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+#cidr-update .cidr-dpi-budget-row .form-control {
+  width: min(220px, 100%);
+}
+
+#cidr-update .cidr-dpi-analyze-row {
+  margin-top: 0.3rem;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+#cidr-update .cidr-dpi-analyze-row #cidr-dpi-summary {
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+
 #cidr-update .cidr-shell {
   border: 1px solid rgba(98, 129, 144, 0.34);
   background: linear-gradient(160deg, rgba(24, 34, 41, 0.84), rgba(18, 27, 34, 0.72));
@@ -2870,9 +2957,9 @@ body.settings-nav-merged .settings-content.page-unified-card {
 
 #cidr-update .cidr-shell__head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.9rem;
-  align-items: start;
+  align-items: center;
 }
 
 #cidr-update .cidr-meta-grid {
@@ -3007,19 +3094,6 @@ body.settings-nav-merged .settings-content.page-unified-card {
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
-}
-
-#cidr-update .cidr-estimate-mode-badge {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(194, 168, 97, 0.52);
-  background: rgba(84, 70, 26, 0.5);
-  color: #e8d8a5;
-  border-radius: 999px;
-  padding: 0.12rem 0.5rem;
-  font-size: 0.72rem;
-  line-height: 1.15;
-  letter-spacing: 0.02em;
 }
 
 #cidr-update #cidr-region-scopes {
@@ -3227,23 +3301,6 @@ body.settings-nav-merged .settings-content.page-unified-card {
   color: #d0d8de;
   border-color: rgba(141, 161, 173, 0.34);
   background: rgba(46, 61, 71, 0.46);
-}
-
-#cidr-update .cidr-region-estimate {
-  font-size: 0.74rem;
-  color: #9eb4bf;
-}
-
-#cidr-update .cidr-region-estimate--ok {
-  color: #83d8b6;
-}
-
-#cidr-update .cidr-region-estimate--warn {
-  color: #e0cd8d;
-}
-
-#cidr-update .cidr-region-estimate--error {
-  color: #e0a2a2;
 }
 
 #cidr-update #cidr-update-status {
@@ -4228,6 +4285,14 @@ body.settings-nav-merged .settings-content.page-unified-card {
   padding: 0.65rem 0.75rem;
 }
 
+#cidr-update .cidr-gen-options__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #89a4b2;
+}
+
 #cidr-update .cidr-gen-options__row {
   display: flex;
   flex-direction: column;
@@ -4235,8 +4300,11 @@ body.settings-nav-merged .settings-content.page-unified-card {
 }
 
 #cidr-update .cidr-gen-options .toggle-wrapper {
-  padding: 0.35rem 0;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding: 0.38rem 0;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  background: transparent;
   margin-top: 0;
 }
 
@@ -4247,6 +4315,11 @@ body.settings-nav-merged .settings-content.page-unified-card {
 
 #cidr-update .cidr-gen-options .toggle-wrapper:first-child {
   padding-top: 0;
+}
+
+#cidr-update .cidr-gen-options .config-item-title {
+  font-size: 0.94rem;
+  line-height: 1.28;
 }
 
 /* ── Regions toolbar ──────────────────────────────────────────────── */
@@ -4320,5 +4393,116 @@ body.settings-nav-merged .settings-content.page-unified-card {
 
   #cidr-update .cidr-meta-summary {
     gap: 0.35rem;
+  }
+
+  #cidr-update .cidr-dpi-budget {
+    min-width: 100%;
+  }
+
+  #cidr-update .cidr-dpi-budget-row {
+    flex-wrap: wrap;
+  }
+
+  #cidr-update .card {
+    margin-left: 0 !important;
+  }
+
+  #cidr-update .cidr-dpi-actions {
+    align-items: stretch;
+  }
+
+  #cidr-update .cidr-dpi-actions .button {
+    align-self: flex-start;
+  }
+}
+
+/* ── Workflow guide ──────────────────────────────────────────────── */
+#cidr-update .cidr-workflow-guide {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid rgba(98, 130, 143, 0.22);
+  border-radius: 12px;
+  background: rgba(16, 26, 33, 0.5);
+}
+
+#cidr-update .cidr-wf-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #8aaab6;
+  font-size: 0.83rem;
+}
+
+#cidr-update .cidr-wf-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(98, 190, 161, 0.38);
+  background: rgba(38, 74, 65, 0.38);
+  color: #6ec8aa;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+#cidr-update .cidr-wf-sep {
+  color: rgba(98, 130, 143, 0.4);
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  padding: 0 0.1rem;
+}
+
+/* ── Section dividers ────────────────────────────────────────────── */
+#cidr-update .cidr-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.5rem 0 0.7rem;
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6a8fa0;
+}
+
+#cidr-update .cidr-section-divider::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(100, 190, 165, 0.75), rgba(100, 150, 190, 0.45));
+  flex-shrink: 0;
+}
+
+#cidr-update .cidr-section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(98, 130, 143, 0.18);
+}
+
+/* ── Gen-options title ───────────────────────────────────────────── */
+#cidr-update .cidr-gen-options__title {
+  margin: 0 0 0.3rem;
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #89a4b2;
+}
+
+@media (max-width: 860px) {
+  #cidr-update .cidr-workflow-guide {
+    gap: 0.4rem;
+  }
+  #cidr-update .cidr-wf-step {
+    font-size: 0.79rem;
   }
 }

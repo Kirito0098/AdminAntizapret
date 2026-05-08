@@ -607,16 +607,21 @@ runDoAllBtn?.addEventListener('click', async () => {
     runDoAllBtn.textContent = 'Обновляем...';
 
     try {
-        const csrfInput = document.querySelector('input[name="csrf_token"]');
-        if (!csrfInput) throw new Error('CSRF-токен не найден');
+        const getCsrfToken = () => {
+            return document.querySelector('input[name="csrf_token"]')?.value ||
+                document.querySelector('meta[name="csrf-token"]')?.content ||
+                "";
+        };
+        const csrfToken = getCsrfToken();
+        if (!csrfToken) throw new Error('CSRF-токен не найден');
 
         const res = await fetch('/run-doall', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-                'X-CSRFToken': csrfInput.value,
+                'X-CSRFToken': csrfToken,
             },
-            body: `csrf_token=${encodeURIComponent(csrfInput.value)}`
+            body: `csrf_token=${encodeURIComponent(csrfToken)}`
         });
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
