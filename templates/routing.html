@@ -173,12 +173,6 @@
         </div>
 
         <p class="config-description">Дополнительные IP-диапазоны крупных CDN и облачных провайдеров</p>
-        <p class="config-description">
-          Маршрутизация сетей популярных сервисов через Antizapret. Добавьте свои файлы в
-          <code>/root/antizapret/config</code> по маскам
-          <code>*include-ips.txt</code> и <code>*exclude-ips.txt</code>, например
-          <code>AP-amazon-include-ips.txt</code>.
-        </p>
         {% if ip_files %}
         <div class="config-grid">
           {% for filename, file_info in ip_files.items() %}
@@ -735,6 +729,17 @@
         </div>
 
         <div id="cidr-dpi-body" class="cidr-card-body">
+          <div class="cidr-dpi-guide" role="note" aria-label="Инструкция по DPI-анализу">
+            <p class="cidr-dpi-guide__title">Как использовать DPI-анализ</p>
+            <ol class="cidr-dpi-guide__list">
+              <li>Вставьте фрагмент лога DPI checking с названиями провайдеров.</li>
+              <li>Укажите резерв CIDR на приоритетного провайдера (обычно 4-8).</li>
+              <li>Нажмите «Анализировать лог», затем запустите генерацию с учётом отчёта.</li>
+            </ol>
+            <small class="help-text settings-inline-card-mt cidr-dpi-guide__source">Инструмент DPI-анализа: <a
+                class="cidr-dpi-guide__link" href="https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20/"
+                target="_blank" rel="noopener noreferrer">Открыть страницу проверки</a></small>
+          </div>
           <div class="form-group">
             <label for="cidr-dpi-log-input">Лог DPI checking для расстановки приоритетов</label>
             <textarea id="cidr-dpi-log-input" class="form-control" rows="4"
@@ -752,7 +757,8 @@
                 aria-describedby="cidr-dpi-budget-help" />
               <span class="settings-range-control__hint">CIDR</span>
             </div>
-            <small id="cidr-dpi-budget-help" class="help-text">Рекомендовано: 4–8. Большее значение резервирует больше маршрутов
+            <small id="cidr-dpi-budget-help" class="help-text">Рекомендовано: 4–8. Большее значение резервирует больше
+              маршрутов
               для приоритетных провайдеров.</small>
           </div>
           <div class="cidr-actions-row settings-inline-card-mt cidr-dpi-analyze-row">
@@ -930,6 +936,8 @@
                 <label class="toggle-wrapper">
                   <span class="toggle-label">
                     <span class="config-item-title">Fallback: включать провайдеров без geo-меток целиком</span>
+                    <small class="help-text cidr-gen-options__desc">Добавляет в результат провайдеров, у которых нет
+                      гео-разметки, чтобы не потерять рабочие маршруты.</small>
                   </span>
                   <div class="toggle-switch">
                     <input type="checkbox" id="cidr-include-non-geo-fallback" class="toggle-input" />
@@ -939,6 +947,8 @@
                 <label class="toggle-wrapper">
                   <span class="toggle-label">
                     <span class="config-item-title">Strict geo: исключать спорные префиксы</span>
+                    <small class="help-text cidr-gen-options__desc">Оставляет только подсети с уверенной привязкой к
+                      выбранным регионам и снижает ложные попадания.</small>
                   </span>
                   <div class="toggle-switch">
                     <input type="checkbox" id="cidr-strict-geo-filter" class="toggle-input" />
@@ -948,6 +958,8 @@
                 <label class="toggle-wrapper">
                   <span class="toggle-label">
                     <span class="config-item-title">Исключать российские CIDR (RU)</span>
+                    <small class="help-text cidr-gen-options__desc">Удаляет из финального списка российские подсети,
+                      даже если они попали в выборку провайдера.</small>
                   </span>
                   <div class="toggle-switch">
                     <input type="checkbox" id="cidr-exclude-ru-cidrs" class="toggle-input" />
@@ -957,6 +969,8 @@
                 <label class="toggle-wrapper">
                   <span class="toggle-label">
                     <span class="config-item-title">Только заблокированные IP (antifilter.download)</span>
+                    <small class="help-text cidr-gen-options__desc">Оставляет только префиксы, которые пересекаются с
+                      базой блокировок antifilter.download.</small>
                   </span>
                   <div class="toggle-switch">
                     <input type="checkbox" id="cidr-filter-by-antifilter" class="toggle-input" />

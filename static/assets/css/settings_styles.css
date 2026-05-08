@@ -2893,6 +2893,58 @@ body.settings-nav-merged .settings-content.page-unified-card {
   line-height: 1.45;
 }
 
+#cidr-update .cidr-dpi-guide {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(98, 130, 143, 0.24);
+  border-radius: 10px;
+  background: rgba(16, 26, 33, 0.46);
+}
+
+#cidr-update .cidr-dpi-guide__title {
+  margin: 0 0 0.32rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #b8d2de;
+}
+
+#cidr-update .cidr-dpi-guide__list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.22rem;
+  color: #9bb5c2;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+#cidr-update .cidr-dpi-guide__source {
+  margin-top: 0.45rem;
+  color: #a9c2ce;
+}
+
+#cidr-update .cidr-dpi-guide__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.25rem;
+  padding: 0.14rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(114, 182, 231, 0.62);
+  background: rgba(46, 83, 108, 0.44);
+  color: #d8eefb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+#cidr-update .cidr-dpi-guide__link:hover,
+#cidr-update .cidr-dpi-guide__link:focus-visible {
+  color: #eef8ff;
+  background: rgba(58, 101, 129, 0.62);
+  border-color: rgba(147, 205, 243, 0.85);
+  text-decoration: underline;
+}
+
 #cidr-update #cidr-dpi-card .cidr-db-head {
   padding: 1rem 1.1rem 0.7rem;
 }
@@ -3190,8 +3242,17 @@ body.settings-nav-merged .settings-content.page-unified-card {
   gap: 0.1rem;
 }
 
+#cidr-update .cidr-game-chip input,
+#game-filters .cidr-game-chip input {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: start;
+  margin-top: 0.15rem;
+}
+
 #cidr-update .cidr-game-chip__title,
 #game-filters .cidr-game-chip__title {
+  grid-column: 2;
   font-size: 0.88rem;
   font-weight: 500;
   line-height: 1.2;
@@ -3199,12 +3260,16 @@ body.settings-nav-merged .settings-content.page-unified-card {
 
 #cidr-update .cidr-game-chip__sub,
 #game-filters .cidr-game-chip__sub {
+  grid-column: 2;
   font-size: 0.72rem;
   opacity: 0.62;
   line-height: 1.2;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: initial;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   max-width: 100%;
 }
 
@@ -4320,6 +4385,14 @@ body.settings-nav-merged .settings-content.page-unified-card {
 #cidr-update .cidr-gen-options .config-item-title {
   font-size: 0.94rem;
   line-height: 1.28;
+}
+
+#cidr-update .cidr-gen-options__desc {
+  display: block;
+  margin-top: 0.2rem;
+  color: #8da9b7;
+  font-size: 0.79rem;
+  line-height: 1.32;
 }
 
 /* ── Regions toolbar ──────────────────────────────────────────────── */
