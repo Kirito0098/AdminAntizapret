@@ -40,6 +40,23 @@
           <a href="{{ url_for('logs_dashboard') }}"
             class="nav-link{% if endpoint == 'logs_dashboard' %} is-active{% endif %}">Подключенные клиенты</a>
 
+          <div class="nav-settings-group{% if endpoint == 'routing' %} is-open{% endif %}">
+            <a href="{{ url_for('routing') }}"
+              class="nav-link nav-link-settings{% if endpoint == 'routing' %} is-active{% endif %}">
+              <span>Маршрутизация</span>
+              <span class="nav-settings-caret" aria-hidden="true">▾</span>
+            </a>
+
+            <div class="nav-settings-submenu" aria-label="Разделы маршрутизации">
+              <a href="{{ url_for('routing', _anchor='antizapret-config') }}" class="nav-sublink"
+                data-settings-tab="antizapret-config">Фильтры и сервисы</a>
+              <a href="{{ url_for('routing', _anchor='cidr-update') }}" class="nav-sublink"
+                data-settings-tab="cidr-update">Обновление IP-списков</a>
+              <a href="{{ url_for('routing', _anchor='game-filters') }}" class="nav-sublink"
+                data-settings-tab="game-filters">Игровые серверы</a>
+            </div>
+          </div>
+
           <div class="nav-settings-group{% if endpoint == 'settings' %} is-open{% endif %}">
             <a href="{{ url_for('settings') }}"
               class="nav-link nav-link-settings{% if endpoint == 'settings' %} is-active{% endif %}">
@@ -48,8 +65,6 @@
             </a>
 
             <div class="nav-settings-submenu" aria-label="Разделы настроек">
-              <a href="{{ url_for('settings', _anchor='antizapret-config') }}" class="nav-sublink"
-                data-settings-tab="antizapret-config">Конфигурирование</a>
               <a href="{{ url_for('settings', _anchor='vpn-network') }}" class="nav-sublink"
                 data-settings-tab="vpn-network">Порт панели</a>
               <a href="{{ url_for('settings', _anchor='security') }}" class="nav-sublink"
@@ -62,10 +77,6 @@
                 data-settings-tab="qr-settings">Одноразовые ссылки</a>
               <a href="{{ url_for('settings', _anchor='maintenance') }}" class="nav-sublink"
                 data-settings-tab="maintenance">Обслуживание</a>
-              <a href="{{ url_for('settings', _anchor='cidr-update') }}" class="nav-sublink"
-                data-settings-tab="cidr-update">Обновление файлов CIDR</a>
-              <a href="{{ url_for('settings', _anchor='game-filters') }}" class="nav-sublink"
-                data-settings-tab="game-filters">Игровой фильтр</a>
               <a href="{{ url_for('settings', _anchor='action-logs') }}" class="nav-sublink"
                 data-settings-tab="action-logs">Логи действий</a>
             </div>

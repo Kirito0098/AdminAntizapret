@@ -706,32 +706,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const renderCidrMeta = () => {
     const selectedProvidersCount = getSelectedCidrRegions().length;
-    const { regionScopes, includeNonGeoFallback, excludeRuCidrs, includeGameKeys, strictGeoFilter } = getCidrRegionSettings();
+    const { regionScopes, includeGameKeys, strictGeoFilter } = getCidrRegionSettings();
 
     const providersEl = document.getElementById("cidr-meta-selected-providers");
     const scopesEl = document.getElementById("cidr-meta-selected-scopes");
-    const fallbackEl = document.getElementById("cidr-meta-fallback-state");
-    const strictEl = document.getElementById("cidr-meta-strict-state");
-    const ruExclusionEl = document.getElementById("cidr-meta-ru-exclusion-state");
     const gamesSelectedEl = document.getElementById("cidr-meta-games-selected");
 
     if (providersEl) providersEl.textContent = String(selectedProvidersCount);
     if (scopesEl) scopesEl.textContent = String(regionScopes.length);
-    if (fallbackEl) fallbackEl.textContent = includeNonGeoFallback ? "on" : "off";
-    if (strictEl) strictEl.textContent = strictGeoFilter ? "on" : "off";
-    if (ruExclusionEl) ruExclusionEl.textContent = regionScopes.includes("all") && excludeRuCidrs ? "on" : "off";
     if (gamesSelectedEl) gamesSelectedEl.textContent = String(includeGameKeys.length);
-
-    // Sync detail panel elements
-    const fallbackVal = includeNonGeoFallback ? "on" : "off";
-    const strictVal = strictGeoFilter ? "on" : "off";
-    const ruVal = regionScopes.includes("all") && excludeRuCidrs ? "on" : "off";
-    const fbEl2 = document.getElementById("cidr-meta-fallback-state-2");
-    const stEl2 = document.getElementById("cidr-meta-strict-state-2");
-    const ruEl2 = document.getElementById("cidr-meta-ru-exclusion-state-2");
-    if (fbEl2) { fbEl2.textContent = fallbackVal; fbEl2.className = "cidr-meta-item__value" + (includeNonGeoFallback ? " cidr-meta-item__value--ok" : ""); }
-    if (stEl2) { stEl2.textContent = strictVal; stEl2.className = "cidr-meta-item__value" + (strictGeoFilter ? " cidr-meta-item__value--warn" : ""); }
-    if (ruEl2) { ruEl2.textContent = ruVal; ruEl2.className = "cidr-meta-item__value" + (regionScopes.includes("all") && excludeRuCidrs ? " cidr-meta-item__value--warn" : ""); }
 
     renderCidrEstimateModeBadge(strictGeoFilter);
 
@@ -1249,8 +1232,9 @@ document.addEventListener("DOMContentLoaded", function () {
     dpiPriorityFiles = [],
     dpiMandatoryFiles = [],
     dpiPriorityMinBudget = 0,
+    endpoint = "/api/cidr-lists",
   }) => {
-    const response = await fetch("/api/cidr-lists", {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1395,6 +1379,7 @@ document.addEventListener("DOMContentLoaded", function () {
       try {
         const result = await runCidrAction({
           action: "estimate",
+          endpoint: "/api/cidr-db/generate",
           regions: selectedRegions,
           regionScopes,
           includeNonGeoFallback,
@@ -1629,17 +1614,6 @@ document.addEventListener("DOMContentLoaded", function () {
       } finally {
         setCidrBusy(false);
       }
-    });
-
-    // Meta-details toggle
-    document.getElementById("cidr-meta-toggle")?.addEventListener("click", () => {
-      const extra = document.getElementById("cidr-meta-extra");
-      const btn = document.getElementById("cidr-meta-toggle");
-      if (!extra || !btn) return;
-      const expanded = !extra.hidden;
-      extra.hidden = expanded;
-      btn.setAttribute("aria-expanded", String(!expanded));
-      btn.textContent = expanded ? "⋯ Детали" : "✕ Скрыть";
     });
 
     document.getElementById("cidr-preset-europe")?.addEventListener("click", () => {
@@ -2358,6 +2332,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // === УМНАЯ КНОПКА: ПРОВЕРКА ОБНОВЛЕНИЙ ===
   const updateButton = document.getElementById("update-system");
   const checkForUpdates = async () => {
+    if (!updateButton) return;
     try {
       const response = await fetch("/check_updates");
       const data = await response.json();
@@ -2378,7 +2353,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 
-  updateButton.addEventListener("click", () => {
+  updateButton?.addEventListener("click", () => {
     if (updateButton.disabled) return;
     if (
       confirm(

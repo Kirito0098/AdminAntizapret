@@ -1,0 +1,1790 @@
+{% extends "base.html" %} {% block title %}Маршрутизация{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings_styles.css') }}" />
+{% endblock %}
+{% block content %}
+<!-- Скрытые menu-item для settings.js: переключение вкладок по хэшу из nav base.html -->
+<div style="display:none" aria-hidden="true">
+  <button class="menu-item active" data-tab="antizapret-config"></button>
+  <button class="menu-item" data-tab="cidr-update"></button>
+  <button class="menu-item" data-tab="game-filters"></button>
+</div>
+
+<div class="page-unified-wrapper" style="display:block">
+  <div class="settings-content page-unified-card" style="max-width:100%">
+    <section class="settings-workbench" aria-label="Рабочая панель">
+      <div class="settings-workbench__main">
+        <p class="settings-workbench__kicker">Маршрутизация</p>
+        <h1 class="settings-workbench__title">Управление трафиком</h1>
+        <p class="settings-workbench__subtitle">Настройте, какие сервисы и сети маршрутизировать через Antizapret,
+          обновите IP-списки и задайте игровые серверы.</p>
+      </div>
+      <div class="settings-workbench__meta">
+        <span id="workbench-dirty-state" class="workbench-state workbench-state-applied">Применено</span>
+        <button id="workbench-primary-apply" type="button" class="button save-button">Применить изменения</button>
+      </div>
+    </section>
+
+    <div id="settingsStickyActions" class="settings-sticky-actions" aria-label="Панель действий" hidden>
+      <div class="settings-sticky-actions__status">
+        <span id="sticky-dirty-status" class="workbench-state workbench-state-applied">Применено</span>
+      </div>
+      <div class="settings-sticky-actions__buttons">
+        <button id="sticky-cancel" type="button" class="button">Отменить</button>
+        <button id="sticky-save" type="button" class="button save-button">Сохранить</button>
+        <button id="sticky-apply" type="button" class="button save-button">Применить</button>
+      </div>
+    </div>
+
+    <div id="antizapret-config" class="content-tab active">
+      <h2>Фильтры и сервисы</h2>
+      <p class="config-description">Включите нужные сервисы и защитные функции. Изменения вступают в силу после нажатия
+        «Применить».</p>
+
+      <section class="settings-group" data-antizapret-group="routing">
+        <div class="settings-group__head">
+          <h3>Сервисы и приложения</h3>
+          <span class="section-micro-status" data-section-status="routing">актуально</span>
+        </div>
+        <p class="config-description">Трафик отмеченных сервисов будет проходить через Antizapret VPN, даже если
+          пользователь подключён к ветви Antizapret (GoodVPN):</p>
+
+        <div class="config-grid">
+          <!-- Первый столбец -->
+          <div class="config-column">
+            <!-- ROUTE_ALL -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Всех доменов, кроме .ru <span class="tag-az">AZ</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="route-all-toggle" class="toggle-input" {% if
+                    antizapret_settings.route_all=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(ROUTE_ALL)</span> Перенаправляет весь
+                трафик через antizapret, кроме российских доменов (.ru, .рф) и
+                исключений из exclude-hosts.txt
+              </div>
+            </div>
+
+            <!-- DISCORD_INCLUDE -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Discord <span class="tag-az">AZ</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="discord-toggle" class="toggle-input" {% if
+                    antizapret_settings.discord_include=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(DISCORD_INCLUDE)</span> Перенаправляет
+                трафик Discord через antizapret, включая голосовые каналы и обмен
+                сообщениями
+              </div>
+            </div>
+
+            <!-- CLOUDFLARE_INCLUDE -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Cloudflare <span class="tag-az">AZ</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="cloudflare-toggle" class="toggle-input" {% if
+                    antizapret_settings.cloudflare_include=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(CLOUDFLARE_INCLUDE)</span>
+                Перенаправляет трафик Cloudflare через antizapret, включая сайты и
+                сервисы, использующие Cloudflare для защиты от DDoS-атак
+              </div>
+            </div>
+          </div>
+
+          <!-- Второй столбец -->
+          <div class="config-column">
+
+            <!-- TELEGRAM_INCLUDE -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Telegram <span class="tag-az">AZ</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="telegram-toggle" class="toggle-input" {% if
+                    antizapret_settings.telegram_include=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(TELEGRAM_INCLUDE)</span>
+                Перенаправляет трафик Telegram через Antizapret, включая обмен
+                сообщениями, каналы и группы
+              </div>
+            </div>
+            <!-- WhatsApp_INCLUDE -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">WhatsApp <span class="tag-az">AZ</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="whatsapp-toggle" class="toggle-input" {% if
+                    antizapret_settings.whatsapp_include=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(WHATSAPP_INCLUDE)</span>
+                Перенаправляет трафик WhatsApp через Antizapret, включая обмен
+                сообщениями, звонки и медиафайлы.
+              </div>
+            </div>
+            <!-- ROBLOX_INCLUDE -->
+            <div class="config-item az-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Roblox <span class="tag-az">AZ</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="roblox-toggle" class="toggle-input" {% if
+                    antizapret_settings.roblox_include=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(ROBLOX_INCLUDE)</span> Перенаправляет
+                трафик Roblox через Antizapret, включая игровой контент, платежи и
+                социальные функции.
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <p class="config-description">Дополнительные IP-диапазоны крупных CDN и облачных провайдеров</p>
+        <p class="config-description">
+          Маршрутизация сетей популярных сервисов через Antizapret. Добавьте свои файлы в
+          <code>/root/antizapret/config</code> по маскам
+          <code>*include-ips.txt</code> и <code>*exclude-ips.txt</code>, например
+          <code>AP-amazon-include-ips.txt</code>.
+        </p>
+        {% if ip_files %}
+        <div class="config-grid">
+          {% for filename, file_info in ip_files.items() %}
+          <div class="config-item az-item">
+            <div class="settings-form" data-ip-file-row="{{ filename }}">
+              <label class="toggle-wrapper">
+                <span class="toggle-label"><span class="config-item-title">{{ file_info.name }}</span></span>
+                <div class="toggle-switch">
+                  <input type="checkbox" class="toggle-input ip-file-toggle" data-ip-file="{{ filename }}" {% if
+                    ip_file_states[filename] %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+            <div class="config-item-tooltip">
+              <span class="config-param">({{ filename }})</span> {{ file_info.description }}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="ip-files-actions">
+          <button id="ip-files-sync-btn" type="button" class="button ip-files-sync-btn">
+            Сверить файлы из списка и синхронизировать
+          </button>
+        </div>
+        {% else %}
+        <p class="no-data">Нет доступных файлов</p>
+        {% endif %}
+      </section>
+
+      <section class="settings-group" data-antizapret-group="experimental">
+        <div class="settings-group__head">
+          <h3>Дополнительные фильтры</h3>
+          <span class="section-micro-status" data-section-status="experimental">актуально</span>
+        </div>
+        <!----------------------- AdBlock ----------------------->
+        <p class="config-description">Фильтрация нежелательного контента на уровне DNS и сетевых списков:</p>
+        <div class="config-grid">
+          <div class="config-item az-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">AdBlock <span class="tag-az">AZ</span></span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="AdBlock-toggle" class="toggle-input" {% if antizapret_settings.block_ads=='y'
+                  %}checked{% endif %} />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(BLOCK_ADS)</span> Блокировка рекламы,
+              трекеров, вредоносных программ и фишинговых веб-сайтов в AntiZapret
+              VPN (Antizapret-*) на основе правил AdGuard и OISD
+            </div>
+          </div>
+          <div class="config-item az-item">
+            <label class="toggle-wrapper">
+              <span class="toggle-label">
+                <span class="config-item-title">Очистка хостов: казино-домены
+                  <span class="tag-az">AZ</span></span>
+              </span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="clear-hosts-toggle" class="toggle-input" {% if
+                  antizapret_settings.clear_hosts=='y' %}checked{% endif %} />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <div class="config-item-tooltip">
+              <span class="config-param">(CLEAR_HOSTS)</span>
+              Удаляет домены с азартными играми при авто-обновлении списков (≈ 170
+              000 записей), уменьшая объём мусора и нагрузку.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Резервные порты -->
+      <section class="settings-group" data-antizapret-group="ports">
+        <div class="settings-group__head">
+          <h3>Резервные порты VPN</h3>
+          <span class="section-micro-status" data-section-status="ports">актуально</span>
+        </div>
+        <p class="config-description">
+          Если провайдер блокирует стандартный порт VPN — включите резервные порты 80, 443, 504, 508:
+        </p>
+        <div class="config-grid">
+          <div class="config-column">
+            <div class="config-item ov-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">TCP <span class="tag-ov">OVPN</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="OPENVPN_BACKUP_TCP-toggle" class="toggle-input" {% if
+                    antizapret_settings.OPENVPN_BACKUP_TCP=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(OPENVPN_BACKUP_TCP)</span> Включает
+                резервные порты OpenVPN TCP (80,443,504,508) для обхода блокировок
+                провайдеров, если стандартный порт заблокирован.
+              </div>
+            </div>
+          </div>
+          <div class="config-column">
+            <div class="config-item ov-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">UDP <span class="tag-ov">OVPN</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="OPENVPN_BACKUP_UDP-toggle" class="toggle-input" {% if
+                    antizapret_settings.OPENVPN_BACKUP_UDP=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(OPENVPN_BACKUP_UDP)</span> Включает
+                резервные порты OpenVPN UDP (80,443,504,508) для обхода блокировок
+                провайдеров, если стандартный порт заблокирован.
+              </div>
+            </div>
+          </div>
+          <div class="config-column">
+            <div class="config-item wg-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">WireGuard/AmneziaWG <span class="tag-wg">WG</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="WIREGUARD_540_580-toggle" class="toggle-input" {% if
+                    antizapret_settings.WIREGUARD_BACKUP=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(WIREGUARD_BACKUP_TCP)</span> Включает
+                резервные порты WireGuard/AmneziaWG (540,580) для обхода блокировок
+                провайдеров, если стандартный порт заблокирован.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Хосты -->
+      <section class="settings-group" data-antizapret-group="hosts">
+        <div class="settings-group__head">
+          <h3>Домен сервера</h3>
+          <span class="section-micro-status" data-section-status="hosts">актуально</span>
+        </div>
+        <p class="config-description">
+          Если IP-адрес вашего сервера меняется, укажите домен, чтобы конфигурации оставались рабочими:
+        </p>
+        <div class="config-grid">
+          <div class="config-column">
+            <div class="config-item ov-item">
+              <label class="input-wrapper">
+                <span class="input-label">
+                  <span class="config-item-title">OpenVPN Host <span class="tag-ov">OVPN</span></span>
+                </span>
+                <input type="text" id="openvpn-host-input" class="input-field ov-input" placeholder="vpn.example.ru"
+                  value="{{ antizapret_settings.openvpn_host | default('') | e }}" />
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(OPENVPN_HOST)</span> Укажите хост для
+                OpenVPN сервера. Этот параметр задает адрес сервера, используемого
+                для OpenVPN подключений.
+                <span class="config-host-param">После включения необходимо пересоздать все конфигурации на
+                  сервере!!!</span>
+              </div>
+            </div>
+          </div>
+          <div class="config-column">
+            <div class="config-item wg-item">
+              <label class="input-wrapper">
+                <span class="input-label">
+                  <span class="config-item-title">WireGuard Host <span class="tag-wg">WG</span></span>
+                </span>
+                <input type="text" id="wireguard-host-input" class="input-field wg-input" placeholder="vpn.example.ru"
+                  value="{{ antizapret_settings.wireguard_host | default('') | e }}" />
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(WIREGUARD_HOST)</span> Укажите хост
+                для WireGuard сервера. Этот параметр задает адрес сервера,
+                используемого для WireGuard подключений.
+                <span class="config-host-param">После включения необходимо пересоздать все конфигурации на
+                  сервере!!!</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WARP -->
+      <section class="settings-group" data-antizapret-group="protection">
+        <div class="settings-group__head">
+          <h3>Cloudflare WARP</h3>
+          <span class="section-micro-status" data-section-status="protection">актуально</span>
+        </div>
+        <p class="config-description">Перенаправить исходящий VPN-трафик через Cloudflare WARP — помогает обходить
+          блокировку VPN провайдером:</p>
+        <div class="config-grid">
+          <div class="config-column">
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Cloudflare WARP for Antizapret
+                    <span class="tag-server">Server</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="ANTIZAPRET_WARP-toggle" class="toggle-input" {% if
+                    antizapret_settings.ANTIZAPRET_WARP=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(ANTIZAPRET_WARP)</span> Отправка трафика Antizapret
+                через Cloudflare WARP
+              </div>
+            </div>
+          </div>
+          <div class="config-column">
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Cloudflare WARP for VPN outbound
+                    <span class="tag-server">Server</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="VPN_WARP-toggle" class="toggle-input" {% if
+                    antizapret_settings.VPN_WARP=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(VPN_WARP)</span> Отправка исходящего VPN трафика
+                через Cloudflare WARP
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Сетевые защиты -->
+        <p class="config-description">Защита сервера от нежелательной активности:</p>
+        <div class="config-grid">
+          <div class="config-column">
+            <!-- SSH_PROTECTION -->
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Защита от брутфорса SSH
+                    <span class="tag-server">Server</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="ssh_protection-toggle" class="toggle-input" {% if
+                    antizapret_settings.ssh_protection=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(SSH_PROTECTION)</span> Включить защиту
+                от перебора паролей SSH (не более 3 новых подключений в час с
+                одного IP)
+              </div>
+            </div>
+            <!-- TORRENT_GUARD -->
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Torrent Guard <span class="tag-server">Server</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="torrent_guard-toggle" class="toggle-input" {% if
+                    antizapret_settings.torrent_guard=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(TORRENT_GUARD)</span> Torrent Guard —
+                если хостер запрещает торренты или присылает жалобы, эта опция
+                поможет: при обнаружении торрент-трафика VPN будет блокироваться
+                на 1 минуту
+              </div>
+            </div>
+          </div>
+          <div class="config-column">
+            <!-- ATTACK_PROTECTION -->
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Защита от атак
+                    <span class="tag-server">Server</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="attack_protection-toggle" class="toggle-input" {% if
+                    antizapret_settings.attack_protection=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(ATTACK_PROTECTION)</span> Блокирует
+                подозрительную сетевую активность: превышение лимита подключений
+                и попытки подключения по нетипичным портам.
+              </div>
+            </div>
+            <!-- SCAN_PROTECTION -->
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Scan protection
+                    <span class="tag-server">Server</span>
+                  </span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="scan_protection-toggle" class="toggle-input" {% if
+                    antizapret_settings.scan_protection=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(SCAN_PROTECTION)</span> Скрывает
+                сервер от простого сканирования: отключает ответ на ping и на
+                запросы к закрытым портам.
+              </div>
+            </div>
+            <!-- RESTRICT_FORWARD -->
+            <div class="config-item server-item">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Ограничение форвардинга
+                    <span class="tag-server">Server</span></span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="restrict_forward-toggle" class="toggle-input" {% if
+                    antizapret_settings.restrict_forward=='y' %}checked{% endif %} />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <div class="config-item-tooltip">
+                <span class="config-param">(restrict_forward)</span> Включить
+                ограничение форвардинга — через AntiZapret VPN будет
+                маршрутизироваться только трафик к IP-адресам, которые явно
+                указаны в файлах config/forward-ips.txt и result/route-ips.txt
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div id="config-status" class="notification settings-inline-hidden"></div>
+      <div class="config-status-msg notification settings-inline-hidden"></div>
+    </div>
+
+    <!-- ═══════════════ 2. Обновление IP-списков ═══════════════ -->
+    <div id="cidr-update" class="content-tab">
+      <h2>Обновление IP-списков</h2>
+
+      <!-- ── CIDR БД: статус ────────────────────────────────────────────── -->
+      <div class="card settings-inline-card-mb" id="cidr-db-card">
+        <div class="cidr-db-head">
+          <div>
+            <h3>База данных CIDR</h3>
+            <p class="help-text">
+              Данные загружаются из источников провайдеров и хранятся в БД вручную.
+              Генерация файлов маршрутизации выполняется только по требованию — из БД без обращения к интернету.
+            </p>
+          </div>
+          <div class="cidr-db-head__right">
+            <div class="cidr-db-status-row" id="cidr-db-status-row">
+              <span class="cidr-db-badge cidr-db-badge--loading" id="cidr-db-badge">…</span>
+              <span class="cidr-db-total" id="cidr-db-total"></span>
+              <span class="cidr-db-ts" id="cidr-db-ts"></span>
+            </div>
+            <button class="card-collapse-btn" data-collapse-target="cidr-db-body" aria-expanded="true"
+              title="Свернуть/развернуть">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="cidr-db-body" class="cidr-card-body">
+          <div class="cidr-db-toolbar" aria-label="Инструменты таблицы CIDR БД">
+            <div class="cidr-db-toolbar__controls">
+              <label class="cidr-db-control">
+                <span class="cidr-db-control__label">Поиск</span>
+                <input id="cidr-db-search" type="search" class="cidr-db-control__field"
+                  placeholder="Провайдер, ASN, описание..." autocomplete="off">
+              </label>
+              <label class="cidr-db-control">
+                <span class="cidr-db-control__label">Статус</span>
+                <select id="cidr-db-filter-status" class="cidr-db-control__field">
+                  <option value="all">Все</option>
+                  <option value="ok">OK</option>
+                  <option value="partial">Частично</option>
+                  <option value="error">Ошибка</option>
+                  <option value="never">Нет данных</option>
+                </select>
+              </label>
+              <label class="cidr-db-control">
+                <span class="cidr-db-control__label">Категория</span>
+                <select id="cidr-db-filter-category" class="cidr-db-control__field">
+                  <option value="all">Все</option>
+                  <option value="cdn">CDN</option>
+                  <option value="cloud">Облако</option>
+                  <option value="hosting">Хостинг</option>
+                </select>
+              </label>
+              <label class="cidr-db-control">
+                <span class="cidr-db-control__label">Сортировка</span>
+                <select id="cidr-db-sort" class="cidr-db-control__field">
+                  <option value="cidr-desc">CIDR: больше сверху</option>
+                  <option value="cidr-asc">CIDR: меньше сверху</option>
+                  <option value="updated-desc">Обновлено: новые сверху</option>
+                  <option value="name-asc">Имя: А-Я</option>
+                </select>
+              </label>
+            </div>
+            <div class="cidr-db-toolbar__meta">
+              <span id="cidr-db-visible-count" class="cidr-db-visible-count">Показано: 0</span>
+            </div>
+          </div>
+
+          <div id="cidr-db-providers-table-wrap" class="cidr-db-table-wrap">
+            <table class="cidr-db-table" id="cidr-db-providers-table">
+              <colgroup>
+                <col style="width:200px">
+                <col style="width:150px">
+                <col style="width:90px">
+                <col style="width:80px">
+                <col style="width:110px">
+                <col style="width:80px">
+                <col>
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">Провайдер</th>
+                  <th scope="col">AS</th>
+                  <th scope="col">Категория</th>
+                  <th scope="col">CIDR в БД</th>
+                  <th scope="col">Обновлено</th>
+                  <th scope="col">Статус</th>
+                  <th scope="col">Что размещено</th>
+                </tr>
+              </thead>
+              <tbody id="cidr-db-providers-tbody">
+                <tr>
+                  <td colspan="7" class="help-text cidr-db-table__placeholder">Загрузка…</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="cidr-actions-row settings-inline-card-mt">
+            <button id="cidr-db-refresh-all" type="button" class="button save-button">Обновить всю БД сейчас</button>
+            <button id="cidr-db-refresh-selected" type="button" class="button">Обновить выбранных в БД</button>
+            <button id="cidr-db-toggle-history" type="button" class="button">История обновлений</button>
+          </div>
+
+          <div id="cidr-db-history" hidden style="margin-top:.75rem">
+            <h5>История последних обновлений</h5>
+            <ul id="cidr-db-history-list" class="cidr-result-list" style="margin-top:.4rem"></ul>
+          </div>
+
+          <div id="cidr-db-status-msg" class="notification settings-inline-hidden" style="margin-top:.5rem"></div>
+          <div id="cidr-db-alerts" class="notification notification--warning settings-inline-hidden"
+            style="margin-top:.5rem"></div>
+        </div><!-- /cidr-db-body -->
+      </div>
+
+      <!-- ── Антифильтр (antifilter.download) ───────────────────────────── -->
+      <div class="card settings-inline-card-mb" id="antifilter-card">
+        <div class="cidr-db-head">
+          <div>
+            <h3>Антифильтр: заблокированные IP</h3>
+            <p class="help-text">
+              Список подсетей, заблокированных в России — <strong>antifilter.download</strong>.
+              При генерации с включённым фильтром в маршруты попадут только те IP провайдеров,
+              которые реально заблокированы. Это снижает количество маршрутов в 5–20 раз и повышает точность.
+            </p>
+          </div>
+          <div class="cidr-db-head__right">
+            <div class="cidr-db-status-row" id="antifilter-status-row">
+              <span class="cidr-db-badge cidr-db-badge--loading" id="antifilter-badge">…</span>
+              <span class="cidr-db-total" id="antifilter-total"></span>
+              <span class="cidr-db-ts" id="antifilter-ts"></span>
+            </div>
+            <button class="card-collapse-btn" data-collapse-target="antifilter-body" aria-expanded="true"
+              title="Свернуть/развернуть">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div id="antifilter-body" class="cidr-card-body">
+          <div class="cidr-actions-row settings-inline-card-mt">
+            <button id="antifilter-refresh-btn" type="button" class="button save-button">Обновить антифильтр
+              сейчас</button>
+          </div>
+          <div id="antifilter-status-msg" class="notification settings-inline-hidden" style="margin-top:.5rem"></div>
+        </div><!-- /antifilter-body -->
+      </div>
+
+      <div class="card settings-inline-card-mb">
+        <h3>DPI-анализ приоритетов</h3>
+        <div class="form-group settings-inline-card-mt">
+          <label for="cidr-dpi-log-input">Вставьте лог DPI checking для расстановки приоритетов
+            провайдеров</label>
+          <textarea id="cidr-dpi-log-input" class="form-control" rows="4"
+            placeholder="Вставьте лог DPI checking сюда..."></textarea>
+          <div class="cidr-actions-row" style="margin-top:.4rem">
+            <button id="cidr-dpi-analyze" type="button" class="button">Анализировать</button>
+            <input id="cidr-dpi-priority-min-budget" type="number" min="0" step="1" class="form-control" value="6"
+              style="max-width:80px" title="Минимальный резерв маршрутов на приоритетного провайдера" />
+          </div>
+          <small id="cidr-dpi-summary" class="help-text">DPI-анализ не выполнен.</small>
+          <small id="cidr-dpi-mini-report" class="help-text settings-inline-card-mt"></small>
+        </div>
+      </div>
+
+      <div class="card settings-inline-card-mb cidr-shell">
+        <div class="cidr-shell__head">
+          <div>
+            <h3>Генерация списков маршрутизации</h3>
+            <p class="help-text">
+              Порядок действий: 1) выберите провайдеров, 2) задайте геофильтр, 3) настройте режим,
+              4) при необходимости добавьте игры, затем запустите обновление или откат.
+            </p>
+          </div>
+          <div class="cidr-meta-summary" aria-live="polite">
+            <span class="cidr-meta-chip">
+              <span class="cidr-meta-chip__lbl">Провайдеры</span>
+              <span id="cidr-meta-selected-providers" class="cidr-meta-chip__val">0</span>
+            </span>
+            <span class="cidr-meta-chip">
+              <span class="cidr-meta-chip__lbl">Регионы</span>
+              <span id="cidr-meta-selected-scopes" class="cidr-meta-chip__val">1</span>
+            </span>
+            <span class="cidr-meta-chip">
+              <span class="cidr-meta-chip__lbl">CIDR</span>
+              <span id="cidr-meta-total-cidr" class="cidr-meta-chip__val">—</span>
+            </span>
+            <span class="cidr-meta-chip">
+              <span class="cidr-meta-chip__lbl">Игры</span>
+              <span id="cidr-meta-games-selected" class="cidr-meta-chip__val">0</span>
+            </span>
+          </div>
+          <div class="cidr-gen-options" aria-live="polite">
+            <div class="cidr-gen-options__row">
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Fallback: включать провайдеров без geo-меток целиком</span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="cidr-include-non-geo-fallback" class="toggle-input" />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Strict geo: исключать спорные префиксы</span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="cidr-strict-geo-filter" class="toggle-input" />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Исключать российские CIDR (RU)</span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="cidr-exclude-ru-cidrs" class="toggle-input" />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+              <label class="toggle-wrapper">
+                <span class="toggle-label">
+                  <span class="config-item-title">Только заблокированные IP (antifilter.download)</span>
+                </span>
+                <div class="toggle-switch">
+                  <input type="checkbox" id="cidr-filter-by-antifilter" class="toggle-input" />
+                  <span class="toggle-slider"></span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <input type="hidden" id="cidr-csrf-token" value="{{ csrf_token() }}" />
+
+        <div class="cidr-control-grid">
+          <section class="cidr-control-panel settings-inline-card-mt">
+            <div class="cidr-panel-head">
+              <div class="cidr-panel-head__title">
+                <span class="cidr-step-badge">1</span>
+                <h4>Провайдеры CIDR</h4>
+              </div>
+              <span id="cidr-estimate-mode-badge" class="cidr-estimate-mode-badge" hidden>Preview: strict</span>
+            </div>
+            <div class="cidr-regions-grid" id="cidr-regions-grid">
+              {% for item in cidr_regions %}
+              <label class="cidr-region-card" data-cidr-file="{{ item.file }}">
+                <input type="checkbox" class="cidr-region-checkbox" value="{{ item.file }}" />
+                <span class="cidr-region-title">{{ item.region }}</span>
+                <span class="cidr-region-file">{{ item.file }}</span>
+                <small class="cidr-region-desc">{{ item.description }}</small>
+                {% if item.supports_geo_filter %}
+                <span class="cidr-region-badge">Geo-фильтр: да</span>
+                {% else %}
+                <span class="cidr-region-badge cidr-region-badge--muted">Geo-фильтр: нет</span>
+                {% endif %}
+                <small class="cidr-region-estimate" data-cidr-estimate-for="{{ item.file }}">Под фильтр: —</small>
+              </label>
+              {% endfor %}
+            </div>
+            <div class="cidr-actions-row settings-inline-card-mt cidr-regions-toolbar">
+              <div class="cidr-regions-toolbar__main">
+                <button id="cidr-select-all" type="button" class="button">Выбрать все</button>
+                <button id="cidr-clear-all" type="button" class="button">Снять выбор</button>
+              </div>
+              <button id="cidr-refresh-regions" type="button" class="button cidr-refresh-regions-btn"
+                title="Обновить список провайдеров">↺</button>
+            </div>
+          </section>
+
+          <section class="cidr-control-panel">
+            <div class="cidr-panel-head">
+              <div class="cidr-panel-head__title">
+                <span class="cidr-step-badge">2</span>
+                <h4>Геофильтр</h4>
+              </div>
+            </div>
+            <div class="form-group settings-inline-card-mt">
+              <label>Георегионы для обновления CIDR</label>
+              <div id="cidr-region-scopes" class="cidr-scope-grid" role="group" aria-label="Георегионы">
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="all" checked />
+                  <span>Все регионы</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="europe" />
+                  <span>Европа</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="north-america" />
+                  <span>Северная Америка</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="central-america" />
+                  <span>Центральная Америка</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="south-america" />
+                  <span>Южная Америка</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="asia-east" />
+                  <span>Восточная Азия</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="asia-south" />
+                  <span>Южная Азия</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="asia-southeast" />
+                  <span>Юго-Восточная Азия</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="asia-pacific" />
+                  <span>Азия и Океания</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="oceania" />
+                  <span>Океания</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="middle-east" />
+                  <span>Ближний Восток</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="africa" />
+                  <span>Африка</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="china" />
+                  <span>Китай</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="government" />
+                  <span>Gov/гос. облака</span>
+                </label>
+                <label class="cidr-scope-chip">
+                  <input type="checkbox" class="cidr-scope-checkbox" value="global" />
+                  <span>Global</span>
+                </label>
+              </div>
+              <small class="help-text">Отмечайте нужные регионы кликом, без Ctrl/Cmd и выпадающих списков.</small>
+            </div>
+
+            <div class="cidr-geo-presets-grid settings-inline-card-mt">
+              <button id="cidr-preset-europe" type="button" class="cidr-geo-preset-chip">🇪🇺 Только Европа</button>
+              <button id="cidr-preset-europe-asia" type="button" class="cidr-geo-preset-chip">🌏 Европа + Азия</button>
+              <button id="cidr-preset-eu-na" type="button" class="cidr-geo-preset-chip">🌎 Европа + Сев.
+                Америка</button>
+              <button id="cidr-preset-americas" type="button" class="cidr-geo-preset-chip">🌍 Обе Америки</button>
+              <button id="cidr-preset-asia-focus" type="button" class="cidr-geo-preset-chip">🗾 Азия расширенно</button>
+              <button id="cidr-preset-gov-global" type="button" class="cidr-geo-preset-chip">🏛 Gov + China +
+                Global</button>
+              <button id="cidr-preset-all-fallback" type="button" class="cidr-geo-preset-chip">🌐 Все +
+                fallback</button>
+              <button id="cidr-preset-all-no-ru" type="button" class="cidr-geo-preset-chip">🚫 Все без RU</button>
+            </div>
+          </section>
+
+          <section class="cidr-control-panel cidr-control-panel--execution">
+            <div class="cidr-panel-head">
+              <div class="cidr-panel-head__title">
+                <span class="cidr-step-badge">3</span>
+                <h4>Запуск</h4>
+              </div>
+            </div>
+
+            <!-- Кнопки запуска — главное действие -->
+            <div class="cidr-launch-block settings-inline-card-mt">
+              <div class="cidr-launch-group">
+                <span class="cidr-launch-group__label">Быстрая генерация из БД</span>
+                <button id="cidr-generate-from-db" type="button"
+                  class="button save-button cidr-launch-btn cidr-launch-btn--full"
+                  title="Сгенерировать файлы из БД без загрузки из интернета">
+                  ⚡ Применить из БД (без интернета)
+                </button>
+              </div>
+              <div class="cidr-launch-group">
+                <span class="cidr-launch-group__label">Обновить из интернета</span>
+                <div class="cidr-launch-pair">
+                  <button id="cidr-update-selected" type="button" class="button save-button cidr-launch-btn">Выбранные
+                    провайдеры</button>
+                  <button id="cidr-update-all" type="button" class="button save-button cidr-launch-btn">Всех
+                    провайдеров</button>
+                </div>
+              </div>
+              <div class="cidr-launch-group">
+                <span class="cidr-launch-group__label cidr-launch-group__label--danger">Откат к резервной копии</span>
+                <div class="cidr-launch-pair">
+                  <button id="cidr-rollback-selected" type="button"
+                    class="button delete-button cidr-launch-btn">Выбранных</button>
+                  <button id="cidr-rollback-all" type="button"
+                    class="button delete-button cidr-launch-btn">Всех</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Лимит iOS -->
+            <details class="cidr-advanced-details settings-inline-card-mt">
+              <summary class="cidr-advanced-summary">
+                <svg class="cidr-advanced-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none"
+                  aria-hidden="true">
+                  <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+                Дополнительные параметры
+              </summary>
+              <div class="cidr-advanced-body">
+                <div class="form-group">
+                  <label for="cidr-total-limit-input">Лимит CIDR на iOS (максимум 900)</label>
+                  <div class="cidr-actions-row" style="margin-top:.4rem">
+                    <input id="cidr-total-limit-input" type="number" min="1" max="900" step="1" class="form-control"
+                      value="{{ cidr_total_limit }}" style="max-width:120px" />
+                    <button id="cidr-save-total-limit" type="button" class="button">Сохранить</button>
+                  </div>
+                </div>
+
+              </div>
+            </details>
+          </section>
+        </div>
+
+        <div id="cidr-progress" class="cidr-progress settings-inline-card-mt" hidden>
+          <div class="cidr-progress__head">
+            <span id="cidr-progress-label">Выполняется операция...</span>
+            <span id="cidr-progress-percent">0%</span>
+          </div>
+          <div id="cidr-progress-track" class="cidr-progress__track" role="progressbar" aria-valuemin="0"
+            aria-valuemax="100" aria-valuenow="0" aria-valuetext="0%">
+            <div id="cidr-progress-fill" class="cidr-progress__fill"></div>
+          </div>
+          <small id="cidr-progress-stage" class="help-text">Подготовка...</small>
+        </div>
+
+        <div id="cidr-step-list" class="cidr-step-list" hidden>
+          <ol id="cidr-step-items" class="cidr-step-items"></ol>
+        </div>
+
+        <div id="cidr-update-status" class="notification settings-inline-hidden"></div>
+
+        <section id="cidr-result-panel" class="cidr-result-panel settings-inline-card-mt" hidden>
+          <div class="cidr-result-panel__head">
+            <h4>Результат последней операции</h4>
+            <small id="cidr-result-timestamp" class="help-text"></small>
+          </div>
+          <div class="cidr-result-stats">
+            <div class="cidr-result-stat cidr-result-stat--ok">
+              <span id="cidr-result-updated-count" class="cidr-result-stat__value">0</span>
+              <span class="cidr-result-stat__label">обновлено</span>
+            </div>
+            <div class="cidr-result-stat cidr-result-stat--warn">
+              <span id="cidr-result-skipped-count" class="cidr-result-stat__value">0</span>
+              <span class="cidr-result-stat__label">пропущено</span>
+            </div>
+            <div class="cidr-result-stat cidr-result-stat--error">
+              <span id="cidr-result-failed-count" class="cidr-result-stat__value">0</span>
+              <span class="cidr-result-stat__label">ошибок</span>
+            </div>
+          </div>
+
+          <div class="cidr-result-columns">
+            <div class="cidr-result-column">
+              <h5>Обновлено</h5>
+              <ul id="cidr-result-updated-list" class="cidr-result-list"></ul>
+            </div>
+            <div class="cidr-result-column">
+              <h5>Пропущено</h5>
+              <ul id="cidr-result-skipped-list" class="cidr-result-list"></ul>
+            </div>
+            <div class="cidr-result-column">
+              <h5>Ошибки</h5>
+              <ul id="cidr-result-failed-list" class="cidr-result-list"></ul>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ═══════════════ Игровые серверы ═══════════════ -->
+    <div id="game-filters" class="content-tab">
+      <h2>Игровые серверы</h2>
+      <div class="card settings-inline-card-mb">
+        <h3>Издательства и игровые платформы</h3>
+        <p class="help-text">
+          Выберите издательства, трафик которых нужно маршрутизировать через Antizapret.
+          IP-диапазоны загружаются автоматически из официальных ASN через RIPE API при каждом применении.
+          Для платформ без выделенного AS используется DNS-резолв доменов.
+        </p>
+
+        <div class="cidr-games-search-wrap settings-inline-card-mt">
+          <input id="cidr-games-search-input" type="search" class="cidr-games-search-input"
+            placeholder="Поиск по издательству или игре..." autocomplete="off" />
+          <small id="cidr-games-search-meta" class="help-text">Показано: —</small>
+        </div>
+
+        <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid settings-inline-card-mt" role="group"
+          aria-label="Фильтры по издательствам">
+          {% for item in cidr_game_filters %}
+          <label class="cidr-scope-chip cidr-game-chip{% if item.key in saved_game_keys %} is-checked{% endif %}"
+            title="{{ item.subtitle }}">
+            <input type="checkbox" class="cidr-game-checkbox" value="{{ item.key }}" data-subtitle="{{ item.subtitle }}"
+              {% if item.key in saved_game_keys %}checked{% endif %} />
+            <span class="cidr-game-chip__title">{{ item.title }}</span>
+            {% if item.subtitle %}
+            <span class="cidr-game-chip__sub">{{ item.subtitle }}</span>
+            {% endif %}
+          </label>
+          {% endfor %}
+        </div>
+
+        <div class="cidr-actions-row settings-inline-card-mt">
+          <button id="cidr-games-select-all" type="button" class="button">Выбрать все</button>
+          <button id="cidr-games-clear-all" type="button" class="button">Снять все</button>
+          <button id="cidr-sync-games-hosts" type="button" class="button save-button">💾 Применить в
+            include-hosts/include-ips</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ 6. Обслуживание ═══════════════ -->
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='assets/js/settings.js') }}"></script>
+<script>
+  // ── CIDR DB + Presets ─────────────────────────────────────────────────
+  (function () {
+    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content || document.querySelector('input[name="csrf_token"]')?.value || "";
+
+    // ── DB Status ──────────────────────────────────────────────────────
+    const dbBadge = document.getElementById("cidr-db-badge");
+    const dbTotal = document.getElementById("cidr-db-total");
+    const dbTs = document.getElementById("cidr-db-ts");
+    const dbTbody = document.getElementById("cidr-db-providers-tbody");
+    const dbSearch = document.getElementById("cidr-db-search");
+    const dbFilterStatus = document.getElementById("cidr-db-filter-status");
+    const dbFilterCategory = document.getElementById("cidr-db-filter-category");
+    const dbSort = document.getElementById("cidr-db-sort");
+    const dbVisibleCount = document.getElementById("cidr-db-visible-count");
+    const dbHistoryList = document.getElementById("cidr-db-history-list");
+    const dbMsg = document.getElementById("cidr-db-status-msg");
+    const dbAlerts = document.getElementById("cidr-db-alerts");
+    const dbTableState = { providers: [] };
+
+    const catLabel = { cdn: "CDN", cloud: "Облако", hosting: "Хостинг" };
+    const statusLabel = { ok: "OK", partial: "Частично", error: "Ошибка", never: "Нет данных", running: "Обновляется" };
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function timestampValue(iso) {
+      if (!iso) return 0;
+      const parsed = Date.parse(iso);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function getDbTableViewOptions() {
+      return {
+        search: String(dbSearch?.value || "").trim().toLowerCase(),
+        status: String(dbFilterStatus?.value || "all").toLowerCase(),
+        category: String(dbFilterCategory?.value || "all").toLowerCase(),
+        sort: String(dbSort?.value || "cidr-desc"),
+      };
+    }
+
+    function renderDbProvidersTable() {
+      if (!dbTbody) return;
+
+      const options = getDbTableViewOptions();
+      const filtered = (dbTableState.providers || []).filter((row) => {
+        if (options.status !== "all" && String(row.refresh_status || "never") !== options.status) {
+          return false;
+        }
+        if (options.category !== "all" && String(row.category || "") !== options.category) {
+          return false;
+        }
+        if (!options.search) return true;
+
+        const haystack = [
+          row.key,
+          row.name,
+          row.category,
+          row.what_hosts,
+          (row.as_numbers || []).join(" "),
+          row.source_used,
+        ].join(" ").toLowerCase();
+        return haystack.includes(options.search);
+      });
+
+      filtered.sort((a, b) => {
+        switch (options.sort) {
+          case "cidr-asc":
+            return Number(a.cidr_count || 0) - Number(b.cidr_count || 0);
+          case "name-asc":
+            return String(a.name || a.key || "").localeCompare(String(b.name || b.key || ""), "ru");
+          case "updated-desc":
+            return timestampValue(b.last_refreshed_at) - timestampValue(a.last_refreshed_at);
+          case "cidr-desc":
+          default:
+            return Number(b.cidr_count || 0) - Number(a.cidr_count || 0);
+        }
+      });
+
+      if (dbVisibleCount) {
+        dbVisibleCount.textContent = `Показано: ${filtered.length}/${(dbTableState.providers || []).length}`;
+      }
+
+      if (!filtered.length) {
+        dbTbody.innerHTML = '<tr><td colspan="7" class="help-text cidr-db-table__placeholder">Нет провайдеров по текущим фильтрам</td></tr>';
+        return;
+      }
+
+      const rowsHtml = filtered.map((p) => {
+        const asList = Array.isArray(p.as_numbers) ? p.as_numbers : [];
+        const asVisible = asList.slice(0, 10);
+        const asHtml = asVisible.map((a) => `<span class="cidr-db-as-badge">${escapeHtml(a)}</span>`).join("")
+          + (asList.length > 10 ? `<span class="cidr-db-as-badge">+${asList.length - 10}</span>` : "");
+
+        const cat = p.category || "";
+        const catHtml = cat ? `<span class="cidr-db-cat cidr-db-cat--${escapeHtml(cat)}">${escapeHtml(catLabel[cat] || cat)}</span>` : "—";
+        const st = String(p.refresh_status || "never");
+        const stLbl = statusLabel[st] || st;
+        const stCls = `cidr-db-status-pill cidr-db-status-pill--${st}`;
+        const errTip = p.refresh_error ? ` title="${escapeHtml(p.refresh_error)}"` : "";
+
+        const anomaly = p.anomaly_level && p.anomaly_level !== "none"
+          ? `<div class="cidr-db-anomaly" title="${escapeHtml(p.anomaly_reason || "")}">⚠ ${escapeHtml(p.anomaly_level)}</div>`
+          : "";
+        const asnMeta = (p.active_asn_count || p.asn_count)
+          ? `<div class="cidr-db-as-meta">ASN: ${Number(p.active_asn_count || 0)}/${Number(p.asn_count || 0)}</div>`
+          : "";
+
+        const providerName = escapeHtml(p.name || p.key || "—");
+        const providerKey = escapeHtml(p.key || "");
+        const sourceUsed = escapeHtml(p.source_used || "источник не указан");
+        const whatHosts = escapeHtml(p.what_hosts || "—");
+        const cidrCount = p.cidr_count ? Number(p.cidr_count).toLocaleString("ru-RU") : "—";
+        const rowClass = p.anomaly_level && p.anomaly_level !== "none" ? "cidr-db-row--anomaly" : "";
+
+        return `<tr class="${rowClass}">
+              <td data-label="Провайдер">
+                <div class="cidr-db-provider-cell">
+                  <strong>${providerName}</strong>
+                  <span class="cidr-db-provider-key">${providerKey}</span>
+                  <span class="cidr-db-provider-source" title="${sourceUsed}">${sourceUsed}</span>
+                </div>
+              </td>
+              <td data-label="AS"><div class="cidr-db-as">${asHtml || "—"}</div>${asnMeta}</td>
+              <td data-label="Категория">${catHtml}</td>
+              <td data-label="CIDR в БД" class="cidr-db-num">${cidrCount}</td>
+              <td data-label="Обновлено">${fmtDt(p.last_refreshed_at)}</td>
+              <td data-label="Статус"><span class="${stCls}"${errTip}>${escapeHtml(stLbl)}</span>${anomaly}</td>
+              <td data-label="Что размещено"><span class="cidr-db-what" title="${whatHosts}">${whatHosts}</span></td>
+            </tr>`;
+      });
+
+      dbTbody.innerHTML = rowsHtml.join("");
+    }
+
+    function setDbMsg(text, level) {
+      if (!dbMsg) return;
+      dbMsg.textContent = text;
+      dbMsg.className = "notification " + (level === "error" ? "notification--error" : level === "success" ? "notification--success" : "notification--info");
+      dbMsg.hidden = !text;
+    }
+
+    function fmtDt(iso) {
+      if (!iso) return "—";
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      } catch { return iso; }
+    }
+
+    function renderDbStatus(data) {
+      if (!dbBadge) return;
+      const st = data.last_refresh_status || "never";
+      const labels = { ok: "OK", partial: "Частично", error: "Ошибка", never: "Нет данных", running: "Обновляется" };
+      dbBadge.textContent = labels[st] || st;
+      dbBadge.className = "cidr-db-badge cidr-db-badge--" + st;
+      if (dbTotal) dbTotal.textContent = data.total_cidrs ? `${data.total_cidrs.toLocaleString("ru-RU")} CIDR` : "";
+      if (dbTs && data.last_refresh_finished) dbTs.textContent = "Обновлено: " + fmtDt(data.last_refresh_finished);
+
+      if (dbAlerts) {
+        const alerts = Array.isArray(data.alerts) ? data.alerts : [];
+        if (!alerts.length) {
+          dbAlerts.hidden = true;
+        } else {
+          const lines = alerts.slice(0, 8).map((alert) => {
+            const provider = alert.provider_key ? `[${alert.provider_key}] ` : "";
+            return `• ${provider}${alert.message || "Обнаружена деградация"}`;
+          });
+          dbAlerts.textContent = lines.join("\n");
+          dbAlerts.className = "notification " + (alerts.some(a => a.level === "critical") ? "notification--error" : "notification--warning");
+          dbAlerts.hidden = false;
+        }
+      }
+
+      // Expose per-provider CIDR counts for the 900-limit counter
+      window._cidrDbProviderCounts = {};
+      Object.entries(data.providers || {}).forEach(([key, p]) => {
+        if (p.cidr_count) window._cidrDbProviderCounts[key] = p.cidr_count;
+      });
+      if (typeof window._cidrRenderMeta === "function") window._cidrRenderMeta();
+
+      dbTableState.providers = Object.entries(data.providers || {}).map(([key, provider]) => ({
+        key,
+        ...provider,
+      }));
+      renderDbProvidersTable();
+
+      if (dbHistoryList) {
+        const hist = data.history || [];
+        dbHistoryList.innerHTML = hist.map(h => {
+          const stLbl = h.status === "ok" ? "OK" : h.status === "partial" ? "Частично" : h.status === "error" ? "Ошибка" : h.status;
+          const by = h.triggered_by || "";
+          return `<li><strong>${fmtDt(h.started_at)}</strong> — ${stLbl} | обновлено: ${h.providers_updated}, ошибок: ${h.providers_failed}, CIDR: ${h.total_cidrs} ${by ? `[${by}]` : ""}</li>`;
+        }).join("") || "<li>Нет истории</li>";
+      }
+    }
+
+    async function loadDbStatus() {
+      try {
+        const r = await fetch("/api/cidr-db/status", { cache: "no-store" });
+        const d = await r.json();
+        if (d.success) renderDbStatus(d);
+      } catch (e) {
+        if (dbBadge) { dbBadge.textContent = "Ошибка"; dbBadge.className = "cidr-db-badge cidr-db-badge--error"; }
+      }
+    }
+
+    async function triggerDbRefresh(selectedFiles) {
+      const section = document.getElementById("cidr-update");
+      if (section && section.classList.contains("cidr-busy")) return;
+
+      setDbMsg("Запускаю обновление БД…", "info");
+      try {
+        if (typeof window._pollCidrTaskExternal === "function") {
+          await window._pollCidrTaskExternal([
+            {
+              label: "Обновление CIDR БД",
+              start: async () => {
+                const r = await fetch("/api/cidr-db/refresh", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+                  body: JSON.stringify({ selected_files: selectedFiles || null }),
+                });
+                const d = await r.json();
+                if (!d.success) throw new Error(d.message || "Ошибка обновления CIDR БД");
+                return d.task_id;
+              },
+            },
+          ]);
+          await loadDbStatus();
+          setDbMsg("Обновление БД завершено. Детали прогресса показаны в панели операций.", "success");
+          return;
+        }
+
+        const r = await fetch("/api/cidr-db/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+          body: JSON.stringify({ selected_files: selectedFiles || null }),
+        });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.message || "Ошибка");
+        setDbMsg("Обновление запущено в фоне. Это займёт 1–3 минуты.", "success");
+
+        const taskId = d.task_id;
+        if (!taskId) return;
+        const poll = setInterval(async () => {
+          try {
+            const tr = await fetch(`/api/cidr-lists/task/${encodeURIComponent(taskId)}`, { cache: "no-store" });
+            const td = await tr.json();
+            if (td.status === "running") {
+              const pct = Number(td.progress_percent || 0);
+              const stage = String(td.progress_stage || td.message || "Выполняется");
+              setDbMsg(`Обновление БД: ${pct}% — ${stage}`, "info");
+              return;
+            }
+            if (td.status === "completed" || td.status === "failed") {
+              clearInterval(poll);
+              await loadDbStatus();
+              setDbMsg(td.status === "completed" ? "БД обновлена успешно." : "Обновление завершено с ошибками.", td.status === "completed" ? "success" : "error");
+            }
+          } catch {
+            clearInterval(poll);
+          }
+        }, 1500);
+      } catch (e) {
+        setDbMsg("Ошибка: " + (e.message || e), "error");
+      }
+    }
+
+    document.getElementById("cidr-db-refresh-all")?.addEventListener("click", () => triggerDbRefresh(null));
+    document.getElementById("cidr-db-refresh-selected")?.addEventListener("click", () => {
+      const checked = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+      triggerDbRefresh(checked.length ? checked : null);
+    });
+    document.getElementById("cidr-db-toggle-history")?.addEventListener("click", () => {
+      const h = document.getElementById("cidr-db-history");
+      if (h) h.hidden = !h.hidden;
+    });
+
+    [dbSearch, dbFilterStatus, dbFilterCategory, dbSort].forEach((control) => {
+      if (!control) return;
+      const eventName = control.tagName === "INPUT" ? "input" : "change";
+      control.addEventListener(eventName, renderDbProvidersTable);
+    });
+
+    // ── Generate from DB ───────────────────────────────────────────────
+    document.getElementById("cidr-generate-from-db")?.addEventListener("click", async () => {
+      const section = document.getElementById("cidr-update");
+      if (section && section.classList.contains("cidr-busy")) return;
+
+      const selectedRegions = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+      const regionScopes = Array.from(document.querySelectorAll(".cidr-scope-checkbox:checked")).map(el => el.value);
+      const includeNonGeo = document.getElementById("cidr-include-non-geo-fallback")?.checked || false;
+      const excludeRu = document.getElementById("cidr-exclude-ru-cidrs")?.checked || false;
+      const strictGeo = document.getElementById("cidr-strict-geo-filter")?.checked || false;
+      const gameKeys = Array.from(document.querySelectorAll(".cidr-game-checkbox:checked")).map(el => el.value);
+      const filterByAntifilter = document.getElementById("cidr-filter-by-antifilter")?.checked || false;
+      const dpiPriorityFiles = Array.isArray(window._cidrDpiPriorityFiles) ? window._cidrDpiPriorityFiles : [];
+      const dpiMandatoryFiles = Array.isArray(window._cidrDpiMandatoryFiles) ? window._cidrDpiMandatoryFiles : [];
+      const dpiPriorityMinBudgetRaw = String(document.getElementById("cidr-dpi-priority-min-budget")?.value || "").trim();
+      const dpiPriorityMinBudget = /^\d+$/.test(dpiPriorityMinBudgetRaw) ? Number(dpiPriorityMinBudgetRaw) : 0;
+
+      const statusEl = document.getElementById("cidr-update-status");
+
+      if (typeof window._pollCidrTaskExternal !== "function") {
+        if (statusEl) { statusEl.textContent = "Ошибка: интерфейс не готов, обновите страницу"; statusEl.className = "notification notification--error"; statusEl.hidden = false; }
+        return;
+      }
+
+      const steps = [];
+
+      steps.push({
+        label: "Генерация маршрутов из БД",
+        start: async () => {
+          const r = await fetch("/api/cidr-db/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+            body: JSON.stringify({
+              action: "generate",
+              regions: selectedRegions,
+              region_scopes: regionScopes,
+              include_non_geo_fallback: includeNonGeo,
+              exclude_ru_cidrs: excludeRu,
+              strict_geo_filter: strictGeo,
+              include_game_keys: gameKeys,
+              filter_by_antifilter: filterByAntifilter,
+              dpi_priority_files: dpiPriorityFiles,
+              dpi_mandatory_files: dpiMandatoryFiles,
+              dpi_priority_min_budget: dpiPriorityMinBudget,
+            }),
+          });
+          const d = await r.json();
+          if (!d.success) throw new Error(d.message || "Ошибка генерации");
+          return d.task_id;
+        },
+      });
+
+      window._pollCidrTaskExternal(steps);
+    });
+
+    // ── Antifilter.download ─────────────────────────────────────────────
+    (function () {
+      const badge = document.getElementById("antifilter-badge");
+      const total = document.getElementById("antifilter-total");
+      const ts = document.getElementById("antifilter-ts");
+      const msg = document.getElementById("antifilter-status-msg");
+
+      function fmtDt(iso) {
+        if (!iso) return "—";
+        try { return new Date(iso).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch { return iso; }
+      }
+      function setMsg(text, level) {
+        if (!msg) return;
+        msg.textContent = text;
+        msg.className = "notification " + (level === "error" ? "notification--error" : level === "success" ? "notification--success" : "notification--info");
+        msg.hidden = !text;
+      }
+
+      async function loadStatus() {
+        try {
+          const r = await fetch("/api/antifilter/status", { cache: "no-store" });
+          const d = await r.json();
+          if (!d.success) return;
+          const st = d.refresh_status || "never";
+          const labels = { ok: "OK", error: "Ошибка", never: "Нет данных", running: "Обновляется" };
+          if (badge) { badge.textContent = labels[st] || st; badge.className = "cidr-db-badge cidr-db-badge--" + st; }
+          if (total) total.textContent = d.cidr_count ? `${d.cidr_count.toLocaleString("ru-RU")} заблок. подсетей` : "";
+          if (ts && d.last_refreshed_at) ts.textContent = "Обновлено: " + fmtDt(d.last_refreshed_at);
+        } catch { }
+      }
+
+      document.getElementById("antifilter-refresh-btn")?.addEventListener("click", async () => {
+        setMsg("Запускаю обновление антифильтра…", "info");
+        try {
+          const r = await fetch("/api/antifilter/refresh", {
+            method: "POST",
+            headers: { "X-CSRFToken": csrf() },
+          });
+          const d = await r.json();
+          if (!d.success) throw new Error(d.message || "Ошибка");
+          setMsg("Обновление запущено. Займёт ~1–2 минуты.", "success");
+          const taskId = d.task_id;
+          if (taskId) {
+            const poll = setInterval(async () => {
+              try {
+                const tr = await fetch(`/api/cidr-lists/task/${encodeURIComponent(taskId)}`, { cache: "no-store" });
+                const td = await tr.json();
+                if (td.status === "completed" || td.status === "failed") {
+                  clearInterval(poll);
+                  await loadStatus();
+                  setMsg(td.status === "completed" ? "Антифильтр обновлён." : "Ошибка обновления антифильтра.", td.status === "completed" ? "success" : "error");
+                }
+              } catch { clearInterval(poll); }
+            }, 3000);
+          }
+        } catch (e) { setMsg("Ошибка: " + (e.message || e), "error"); }
+      });
+
+      // Load on tab activation
+      const cidrTabMenuItem = document.querySelector('[data-tab="cidr-update"]');
+      if (cidrTabMenuItem) {
+        cidrTabMenuItem.addEventListener("click", loadStatus);
+      }
+      if (document.getElementById("cidr-update")?.classList.contains("active")) {
+        loadStatus();
+      }
+    })();
+
+    // ── Presets ────────────────────────────────────────────────────────
+    const presetsGrid = document.getElementById("cidr-presets-grid");
+    let _presetsData = [];
+
+    function providerName(key) {
+      // Try to get from DB providers table first, then strip -ips.txt
+      const row = document.querySelector(`[data-cidr-file="${key}"] .cidr-region-title`);
+      if (row) return row.textContent.trim();
+      return key.replace(/-ips\.txt$/, "");
+    }
+
+    function renderPresets(presets) {
+      if (!presetsGrid) return;
+      if (!presets.length) { presetsGrid.innerHTML = '<div class="help-text" style="padding:.5rem">Нет пресетов</div>'; return; }
+      presetsGrid.innerHTML = presets.map(p => {
+        const providers = Array.isArray(p.providers) ? p.providers : [];
+        const provBadges = providers.slice(0, 6)
+          .map(k => `<span class="cidr-preset-prov-badge">${escapeHtml(providerName(k))}</span>`)
+          .join("");
+        const more = providers.length > 6 ? `<span class="cidr-preset-prov-badge">+${providers.length - 6}</span>` : "";
+
+        const manageBtns = !p.is_builtin ? `
+              <button class="button cidr-preset-card__icon-btn" data-preset-edit="${p.id}" title="Редактировать">✏️</button>
+              <button class="button delete-button cidr-preset-card__icon-btn" data-preset-delete="${p.id}" title="Удалить">🗑</button>
+            ` : `
+              <button class="button cidr-preset-card__icon-btn" data-preset-reset="${p.id}" title="Сбросить к умолчанию">↩</button>
+            `;
+
+        const typeLabel = p.is_builtin ? "Встроенный" : "Пользовательский";
+        return `<article class="cidr-preset-card cidr-preset-card--${p.is_builtin ? 'builtin' : 'custom'}" data-preset-id="${p.id}">
+            <div class="cidr-preset-card__head">
+              <div class="cidr-preset-card__name">${escapeHtml(p.name || "Без названия")}</div>
+              <span class="cidr-preset-card__type">${typeLabel}</span>
+            </div>
+            <div class="cidr-preset-card__desc">${escapeHtml(p.description || "Без описания")}</div>
+            <div class="cidr-preset-card__providers">${provBadges}${more}</div>
+
+            <div class="cidr-preset-card__actions-main">
+              <button class="button save-button" data-preset-apply="${p.id}">Заменить</button>
+              <button class="button" data-preset-add="${p.id}">Добавить</button>
+              <button class="button" data-preset-remove="${p.id}">Убрать</button>
+            </div>
+
+            <div class="cidr-preset-card__actions-meta">
+              <label class="cidr-preset-card__mark">
+                <input type="checkbox" data-preset-select="${p.id}">
+                <span>Отметить</span>
+              </label>
+              <div class="cidr-preset-card__manage">${manageBtns}</div>
+            </div>
+          </article>`;
+      }).join("");
+
+      presetsGrid.querySelectorAll("[data-preset-apply]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const p = _presetsData.find(x => x.id === parseInt(btn.dataset.presetApply));
+          if (p) applyPreset(p, "replace");
+        });
+      });
+      presetsGrid.querySelectorAll("[data-preset-add]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const p = _presetsData.find(x => x.id === parseInt(btn.dataset.presetAdd));
+          if (p) applyPreset(p, "add");
+        });
+      });
+      presetsGrid.querySelectorAll("[data-preset-remove]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const p = _presetsData.find(x => x.id === parseInt(btn.dataset.presetRemove));
+          if (p) applyPreset(p, "remove");
+        });
+      });
+      presetsGrid.querySelectorAll("[data-preset-edit]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const p = _presetsData.find(x => x.id === parseInt(btn.dataset.presetEdit));
+          if (p) openPresetForm(p);
+        });
+      });
+      presetsGrid.querySelectorAll("[data-preset-delete]").forEach(btn => {
+        btn.addEventListener("click", () => deletePreset(parseInt(btn.dataset.presetDelete)));
+      });
+      presetsGrid.querySelectorAll("[data-preset-reset]").forEach(btn => {
+        btn.addEventListener("click", () => resetPreset(parseInt(btn.dataset.presetReset)));
+      });
+    }
+
+    async function loadPresets() {
+      try {
+        const r = await fetch("/api/cidr-presets", { cache: "no-store" });
+        const d = await r.json();
+        if (d.success) { _presetsData = d.presets; renderPresets(d.presets); }
+      } catch (e) {
+        if (presetsGrid) presetsGrid.innerHTML = '<div class="help-text" style="padding:.5rem;color:#e06060">Ошибка загрузки пресетов</div>';
+      }
+    }
+
+    function _collectMarkedPresets() {
+      const markedIds = Array.from(document.querySelectorAll('[data-preset-select]:checked'))
+        .map(el => parseInt(el.dataset.presetSelect))
+        .filter(id => Number.isFinite(id));
+      return _presetsData.filter(p => markedIds.includes(p.id));
+    }
+
+    function applyPreset(preset, mode = "replace") {
+      applyPresetBatch([preset], mode);
+    }
+
+    function applyPresetBatch(presets, mode = "replace") {
+      if (!Array.isArray(presets) || !presets.length) return;
+
+      const selectedProviders = new Set(Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value));
+      if (mode === "replace") selectedProviders.clear();
+
+      presets.forEach((preset) => {
+        (preset.providers || []).forEach((key) => {
+          if (mode === "remove") selectedProviders.delete(key);
+          else selectedProviders.add(key);
+        });
+      });
+
+      document.querySelectorAll(".cidr-region-checkbox").forEach((cb) => {
+        cb.checked = selectedProviders.has(cb.value);
+      });
+
+      const selectedScopes = new Set(Array.from(document.querySelectorAll(".cidr-scope-checkbox:checked")).map(el => el.value));
+      const presetScopes = new Set();
+      let fallbackPreset = false;
+      let excludeRuPreset = false;
+      presets.forEach((preset) => {
+        const settings = preset.settings || {};
+        (settings.region_scopes || []).forEach((scope) => presetScopes.add(scope));
+        fallbackPreset = fallbackPreset || !!settings.include_non_geo_fallback;
+        excludeRuPreset = excludeRuPreset || !!settings.exclude_ru_cidrs;
+      });
+
+      const finalScopes = new Set();
+      if (mode === "replace") {
+        (presetScopes.size ? presetScopes : new Set(["all"]))
+          .forEach((scope) => finalScopes.add(scope));
+      } else if (mode === "add") {
+        selectedScopes.forEach((scope) => finalScopes.add(scope));
+        presetScopes.forEach((scope) => finalScopes.add(scope));
+      } else {
+        selectedScopes.forEach((scope) => finalScopes.add(scope));
+      }
+
+      document.querySelectorAll(".cidr-scope-checkbox").forEach((cb) => {
+        cb.checked = finalScopes.has(cb.value);
+      });
+
+      const fallbackCb = document.getElementById("cidr-include-non-geo-fallback");
+      if (fallbackCb) {
+        if (mode === "replace") fallbackCb.checked = fallbackPreset;
+        else if (mode === "add") fallbackCb.checked = fallbackCb.checked || fallbackPreset;
+      }
+      const excludeRuCb = document.getElementById("cidr-exclude-ru-cidrs");
+      if (excludeRuCb) {
+        if (mode === "replace") excludeRuCb.checked = excludeRuPreset;
+        else if (mode === "add") excludeRuCb.checked = excludeRuCb.checked || excludeRuPreset;
+      }
+
+      if (typeof window._cidrRenderMeta === "function") window._cidrRenderMeta();
+      if (typeof window._scheduleCidrToIpFileSync === "function") {
+        window._scheduleCidrToIpFileSync(40, { persist: true });
+      }
+
+      const statusEl = document.getElementById("cidr-update-status");
+      if (statusEl) {
+        const modeLabel = mode === "replace" ? "заменён" : mode === "add" ? "добавлен" : "убран";
+        statusEl.textContent = `Пресет(ы) ${modeLabel}: активно ${selectedProviders.size} провайдеров.`;
+        statusEl.className = "notification notification--success";
+        statusEl.hidden = false;
+        setTimeout(() => { statusEl.hidden = true; }, 4500);
+      }
+    }
+
+    function openPresetForm(preset) {
+      const wrap = document.getElementById("cidr-preset-form-wrap");
+      if (!wrap) return;
+      wrap.hidden = false;
+      document.getElementById("cidr-preset-form-title").textContent = preset ? "Редактировать пресет" : "Новый пресет";
+      document.getElementById("cidr-preset-edit-id").value = preset ? preset.id : "";
+      document.getElementById("cidr-preset-name-input").value = preset ? preset.name : "";
+      document.getElementById("cidr-preset-desc-input").value = preset ? preset.description : "";
+      wrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    async function savePreset() {
+      const id = document.getElementById("cidr-preset-edit-id").value;
+      const name = document.getElementById("cidr-preset-name-input").value.trim();
+      const desc = document.getElementById("cidr-preset-desc-input").value.trim();
+      const formMsg = document.getElementById("cidr-preset-form-msg");
+      if (!name) { if (formMsg) { formMsg.textContent = "Введите название"; formMsg.className = "notification notification--error"; formMsg.hidden = false; } return; }
+
+      const providers = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+      const regionScopes = Array.from(document.querySelectorAll(".cidr-scope-checkbox:checked")).map(el => el.value);
+      const settings = {
+        region_scopes: regionScopes,
+        include_non_geo_fallback: document.getElementById("cidr-include-non-geo-fallback")?.checked || false,
+        exclude_ru_cidrs: document.getElementById("cidr-exclude-ru-cidrs")?.checked || false,
+      };
+
+      const url = id ? `/api/cidr-presets/${id}` : "/api/cidr-presets";
+      const method = id ? "PUT" : "POST";
+      try {
+        const r = await fetch(url, { method, headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() }, body: JSON.stringify({ name, description: desc, providers, settings }) });
+        const d = await r.json();
+        if (!d.success) throw new Error(d.message || "Ошибка сохранения");
+        document.getElementById("cidr-preset-form-wrap").hidden = true;
+        await loadPresets();
+      } catch (e) {
+        if (formMsg) { formMsg.textContent = "Ошибка: " + (e.message || e); formMsg.className = "notification notification--error"; formMsg.hidden = false; }
+      }
+    }
+
+    async function deletePreset(id) {
+      if (!confirm("Удалить пресет?")) return;
+      try {
+        const r = await fetch(`/api/cidr-presets/${id}`, { method: "DELETE", headers: { "X-CSRFToken": csrf() } });
+        const d = await r.json();
+        if (d.success) await loadPresets();
+      } catch (e) { }
+    }
+
+    async function resetPreset(id) {
+      if (!confirm("Сбросить пресет к встроенным значениям?")) return;
+      try {
+        const r = await fetch(`/api/cidr-presets/${id}/reset`, { method: "POST", headers: { "X-CSRFToken": csrf() } });
+        const d = await r.json();
+        if (d.success) await loadPresets();
+      } catch (e) { }
+    }
+
+    document.getElementById("cidr-preset-create-btn")?.addEventListener("click", () => openPresetForm(null));
+    document.getElementById("cidr-preset-save-btn")?.addEventListener("click", savePreset);
+    document.getElementById("cidr-preset-cancel-btn")?.addEventListener("click", () => {
+      document.getElementById("cidr-preset-form-wrap").hidden = true;
+    });
+    document.getElementById("cidr-presets-apply-selected")?.addEventListener("click", () => {
+      const selected = _collectMarkedPresets();
+      if (!selected.length) return;
+      applyPresetBatch(selected, "replace");
+    });
+    document.getElementById("cidr-presets-add-selected")?.addEventListener("click", () => {
+      const selected = _collectMarkedPresets();
+      if (!selected.length) return;
+      applyPresetBatch(selected, "add");
+    });
+    document.getElementById("cidr-presets-clear-selection")?.addEventListener("click", () => {
+      document.querySelectorAll('[data-preset-select]').forEach((cb) => { cb.checked = false; });
+    });
+
+    // ── Init: load on tab activation ──────────────────────────────────
+    let _dbLoaded = false;
+    let _presetsLoaded = false;
+
+    function onCidrTabActive() {
+      if (!_dbLoaded) { _dbLoaded = true; loadDbStatus(); }
+      if (!_presetsLoaded) { _presetsLoaded = true; loadPresets(); }
+    }
+
+    // Watch for tab activation via the existing menu system
+    const cidrTabMenuItem = document.querySelector('[data-tab="cidr-update"]');
+    if (cidrTabMenuItem) {
+      cidrTabMenuItem.addEventListener("click", onCidrTabActive);
+    }
+    // Also load if already active
+    if (document.getElementById("cidr-update")?.classList.contains("active")) {
+      onCidrTabActive();
+    }
+  })();
+
+  // ── Card collapse buttons ────────────────────────────────────────────
+  (function () {
+    const STORAGE_KEY = "cidr_card_collapsed";
+    const collapsed = new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"));
+
+    function applyState(btn) {
+      const targetId = btn.dataset.collapseTarget;
+      const body = document.getElementById(targetId);
+      if (!body) return;
+      const isCollapsed = collapsed.has(targetId);
+      body.hidden = isCollapsed;
+      btn.setAttribute("aria-expanded", String(!isCollapsed));
+      btn.classList.toggle("is-collapsed", isCollapsed);
+    }
+
+    document.querySelectorAll(".card-collapse-btn").forEach(btn => {
+      applyState(btn);
+      btn.addEventListener("click", () => {
+        const targetId = btn.dataset.collapseTarget;
+        if (collapsed.has(targetId)) {
+          collapsed.delete(targetId);
+        } else {
+          collapsed.add(targetId);
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify([...collapsed]));
+        applyState(btn);
+      });
+    });
+  })();
+</script>
+{% endblock %}

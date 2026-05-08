@@ -1447,6 +1447,7 @@ body {
 
 .settings-content.page-unified-card {
   min-width: 0;
+  overflow-x: clip;
   border: 1px solid var(--set-border);
   border-radius: 14px;
   background:
@@ -1532,6 +1533,7 @@ body {
   border-radius: 12px;
   background: rgba(23, 32, 38, 0.9);
   box-shadow: var(--set-shadow-soft);
+  min-width: 0;
 }
 
 .card h3,
@@ -2630,6 +2632,7 @@ body.settings-nav-merged .settings-content.page-unified-card {
   padding: 0.18rem 0.12rem 0.55rem;
   border-radius: 12px;
   border: 1px solid transparent;
+  min-width: 0;
 }
 
 .content-tab.active {
@@ -2862,6 +2865,7 @@ body.settings-nav-merged .settings-content.page-unified-card {
 #cidr-update .cidr-shell {
   border: 1px solid rgba(98, 129, 144, 0.34);
   background: linear-gradient(160deg, rgba(24, 34, 41, 0.84), rgba(18, 27, 34, 0.72));
+  padding: 1rem;
 }
 
 #cidr-update .cidr-shell__head {
@@ -3475,12 +3479,59 @@ body.settings-nav-merged .settings-content.page-unified-card {
 }
 
 /* ── CIDR DB status card ───────────────────────────────────────────── */
+#cidr-db-card,
+#antifilter-card,
+#game-filters .card {
+  min-width: 0;
+  padding: 1rem;
+}
+
 .cidr-db-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.cidr-db-head__right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.card-collapse-btn {
+  appearance: none;
+  background: none;
+  border: 1px solid rgba(98, 130, 143, 0.3);
+  border-radius: 6px;
+  color: #7a9aaa;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  padding: 0;
+}
+.card-collapse-btn svg {
+  transition: transform 0.22s ease;
+  display: block;
+}
+.card-collapse-btn.is-collapsed svg {
+  transform: rotate(-90deg);
+}
+.card-collapse-btn:hover {
+  color: #b8cfd8;
+  border-color: rgba(98, 130, 143, 0.6);
+  background: rgba(98, 130, 143, 0.08);
+}
+
+.cidr-card-body {
+  margin-top: 0;
 }
 
 .cidr-db-status-row {
@@ -3547,6 +3598,7 @@ body.settings-nav-merged .settings-content.page-unified-card {
   grid-template-columns: minmax(230px, 1.2fr) repeat(3, minmax(150px, 0.75fr));
   gap: 0.5rem;
   width: min(100%, 980px);
+  min-width: 0;
 }
 
 .cidr-db-control {
@@ -3600,10 +3652,14 @@ body.settings-nav-merged .settings-content.page-unified-card {
   max-height: min(68vh, 560px);
   overflow: auto;
   background: rgba(14, 23, 29, 0.55);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .cidr-db-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.8rem;
@@ -3638,6 +3694,10 @@ body.settings-nav-merged .settings-content.page-unified-card {
   left: 0;
   z-index: 2;
   background: rgba(16, 27, 34, 0.98);
+}
+
+.cidr-db-table th:first-child {
+  z-index: 4;
 }
 
 .cidr-db-table tbody tr:nth-child(2n) td {
@@ -3727,12 +3787,14 @@ body.settings-nav-merged .settings-content.page-unified-card {
 }
 
 .cidr-db-what {
-  max-width: 350px;
   font-size: 0.72rem;
   color: #7a8b9a;
   line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -4141,12 +4203,50 @@ body.settings-nav-merged .settings-content.page-unified-card {
   border-bottom: 1px solid rgba(98, 130, 143, 0.22);
 }
 
+#cidr-update .cidr-advanced-details[open] .cidr-advanced-chevron {
+  transform: rotate(180deg);
+}
+
+.cidr-advanced-chevron {
+  flex-shrink: 0;
+  transition: transform 0.22s ease;
+}
+
 #cidr-update .cidr-advanced-summary:hover {
   color: #c6dde6;
 }
 
 #cidr-update .cidr-advanced-body {
   padding: 0.75rem;
+}
+
+/* ── Regions toolbar ──────────────────────────────────────────────── */
+#cidr-update .cidr-gen-options {
+  border: 1px solid rgba(98, 130, 143, 0.22);
+  border-radius: 10px;
+  background: rgba(17, 27, 34, 0.4);
+  padding: 0.65rem 0.75rem;
+}
+
+#cidr-update .cidr-gen-options__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+#cidr-update .cidr-gen-options .toggle-wrapper {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  margin-top: 0;
+}
+
+#cidr-update .cidr-gen-options .toggle-wrapper:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+#cidr-update .cidr-gen-options .toggle-wrapper:first-child {
+  padding-top: 0;
 }
 
 /* ── Regions toolbar ──────────────────────────────────────────────── */

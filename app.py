@@ -755,10 +755,6 @@ def _ensure_runtime_backup_cleanup_cron():
     return maintenance_scheduler_service.ensure_runtime_backup_cleanup_cron()
 
 
-def _ensure_cidr_db_refresh_cron():
-    return maintenance_scheduler_service.ensure_cidr_db_refresh_cron()
-
-
 _services = build_services(
     app=app,
     db=db,
@@ -890,14 +886,6 @@ try:
         app.logger.warning(_backup_cleanup_msg)
 except (RuntimeError, OSError, ValueError) as e:
     app.logger.warning(f"Не удалось инициализировать cron очистки runtime_backups: {e}")
-
-try:
-    _cidr_db_ok, _cidr_db_msg = _ensure_cidr_db_refresh_cron()
-    if not _cidr_db_ok:
-        app.logger.warning(_cidr_db_msg)
-except (RuntimeError, OSError, ValueError) as e:
-    app.logger.warning(f"Не удалось инициализировать cron обновления CIDR БД: {e}")
-
 
 def _normalize_traffic_protocol_scope(protocol_scope):
     return traffic_maintenance_service.normalize_traffic_protocol_scope(protocol_scope)

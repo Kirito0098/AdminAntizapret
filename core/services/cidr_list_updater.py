@@ -394,9 +394,9 @@ GAME_FILTER_CATALOG = [
     {
         "key": "sony_playstation",
         "title": "Sony / PlayStation Network",
-        "subtitle": "PSN, PlayStation Store",
+        "subtitle": "PS4, PS5, PSN, PlayStation Store",
         "asns": [13213],
-        "domains": ["playstation.com", "sonyentertainmentnetwork.com"],
+        "domains": ["playstation.com", "sonyentertainmentnetwork.com", "playstation.net"],
     },
     # ── Microsoft / Xbox / Mojang (AS8075) ───────────────────────────
     {
