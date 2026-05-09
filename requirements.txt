@@ -13,6 +13,7 @@ MarkupSafe==3.0.2
 netaddr>=0.10.1
 Pillow==11.0.0
 psutil
+pytest==9.0.3
 python-dotenv
 qrcode==7.4.2
 SQLAlchemy==2.0.36
