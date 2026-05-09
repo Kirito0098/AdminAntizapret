@@ -115,7 +115,7 @@ _spin_start() {
     local msg="$1"
     _SP_START=$(date +%s)
     (
-        trap '' INT TERM HUP
+        trap '' INT
         i=0
         start=$(date +%s)
         while true; do
@@ -137,7 +137,8 @@ _spin_start() {
 _spin_stop() {
     [ -z "${_SP_PID:-}" ] && return
     kill "$_SP_PID" 2>/dev/null || true
-    { wait "$_SP_PID"; } 2>/dev/null || true
+    kill -9 "$_SP_PID" 2>/dev/null || true
+    wait "$_SP_PID" 2>/dev/null || true
     _SP_PID=
     printf '\r%80s\r' ''
 }
@@ -216,6 +217,13 @@ _do_clone_or_update() {
 
 _do_permissions() {
     find "$SCRIPT_SH_DIR" -type f -name "*.sh" -exec chmod +x {} \;
+}
+
+_do_apt_update() {
+    # На Ubuntu 24.04 apt-daily/unattended-upgrades держат lock при старте — убиваем их
+    systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true
+    systemctl kill --kill-who=all apt-daily.service apt-daily-upgrade.service 2>/dev/null || true
+    apt-get -o DPkg::Lock::Timeout=60 update
 }
 
 _do_write_env() {
@@ -316,7 +324,13 @@ _trap_exit() {
         printf "  %bПодробности в лог-файле: %s%b\n\n" "$DIM" "$LOG_FILE" "$NC"
     fi
 }
+_trap_int() {
+    _spin_stop
+    printf '\n  %bПрервано пользователем.%b\n\n' "$YELLOW" "$NC" >&2
+    exit 130
+}
 trap '_trap_exit' EXIT
+trap '_trap_int'  INT TERM
 
 # ─── Точка входа ──────────────────────────────────
 _parse_args "$@"
@@ -367,11 +381,11 @@ if [ "${#_miss[@]}" -gt 0 ]; then
     _log "Отсутствуют пакеты: ${_miss[*]}"
 
     run_step "Обновление индексов пакетов" \
-        apt-get update \
+        _do_apt_update \
         || { _ui_err "Не удалось обновить apt. Проверьте сеть."; exit 1; }
 
     run_step "Установка пакетов (${#_miss[@]} шт.)" \
-        apt-get install -y "${_miss[@]}" \
+        apt-get -o DPkg::Lock::Timeout=60 install -y "${_miss[@]}" \
         || { _ui_err "Не удалось установить пакеты."; exit 1; }
 else
     _log "Все пакеты уже установлены"
