@@ -40,10 +40,16 @@ from routes.route_wiring import register_all_routes
 from routes.settings_antizapret import init_antizapret
 from core.models import (
     ActiveWebSession,
+    AntifilterCidr,
+    AntifilterMeta,
     BackgroundTask,
+    CidrDbRefreshLog,
+    CidrPreset,
     LogsDashboardCache,
     OpenVPNPeerInfoCache,
     OpenVPNPeerInfoHistory,
+    ProviderCidr,
+    ProviderMeta,
     QrDownloadAuditLog,
     QrDownloadToken,
     TelegramMiniAuditLog,
@@ -57,6 +63,7 @@ from core.models import (
     WireGuardPeerCache,
     db,
 )
+from core.services.cidr_db_updater import CidrDbUpdaterService
 from core.services.logs_dashboard_collector import collect_logs_dashboard_data as collect_logs_dashboard_data_service
 from core.services.request_user import get_user_by_username
 from core.services import (
@@ -270,10 +277,6 @@ def normalize_openvpn_group_key(filename):
     return config_access_service.normalize_openvpn_group_key(filename)
 
 
-def get_openvpn_group_display_name(filename):
-    return config_access_service.get_openvpn_group_display_name(filename)
-
-
 def collect_all_openvpn_files_for_access():
     return config_access_service.collect_all_openvpn_files_for_access()
 
@@ -284,10 +287,6 @@ def build_openvpn_access_groups(openvpn_paths):
 
 def normalize_conf_group_key(filename, config_type):
     return config_access_service.normalize_conf_group_key(filename, config_type)
-
-
-def get_conf_group_display_name(filename, config_type):
-    return config_access_service.get_conf_group_display_name(filename, config_type)
 
 
 def build_conf_access_groups(conf_paths, config_type):
@@ -303,7 +302,23 @@ MAX_CERT_EXPIRE = 3650
 # Настройка БД
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "connect_args": {"timeout": 30},
+}
 db.init_app(app)
+
+# Включаем WAL-режим SQLite — позволяет читать БД во время длинных write-транзакций
+from sqlalchemy import event as _sa_event
+from sqlalchemy.engine import Engine as _SAEngine
+import sqlite3 as _sqlite3
+
+@_sa_event.listens_for(_SAEngine, "connect")
+def _set_sqlite_wal(dbapi_conn, _conn_record):
+    if isinstance(dbapi_conn, _sqlite3.Connection):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.close()
 
 
 def _collect_bw_interface_groups():
@@ -518,20 +533,8 @@ background_task_service = BackgroundTaskService(
 )
 
 
-def _trim_background_task_text(value):
-    return background_task_service.trim_background_task_text(value)
-
-
 def _serialize_background_task(task):
     return background_task_service.serialize_background_task(task)
-
-
-def _update_background_task(task_id, **fields):
-    return background_task_service.update_background_task(task_id, **fields)
-
-
-def _run_background_task(task_id, task_callable):
-    return background_task_service.run_background_task(task_id, task_callable)
 
 
 def _enqueue_background_task(task_type, task_callable, created_by_username=None, queued_message=None):
@@ -569,38 +572,6 @@ def _task_update_system():
     return background_task_service.task_update_system()
 
 
-def _logs_dashboard_cache_row():
-    return logs_dashboard_cache_service.logs_dashboard_cache_row()
-
-
-def _save_logs_dashboard_cache_payload(payload, last_error=None):
-    return logs_dashboard_cache_service.save_logs_dashboard_cache_payload(payload, last_error=last_error)
-
-
-def _load_logs_dashboard_cache_payload():
-    return logs_dashboard_cache_service.load_logs_dashboard_cache_payload()
-
-
-def _build_empty_logs_dashboard_payload(reason_message=None):
-    return logs_dashboard_cache_service.build_empty_logs_dashboard_payload(reason_message=reason_message)
-
-
-def _is_logs_dashboard_refresh_in_progress():
-    return logs_dashboard_cache_service.is_logs_dashboard_refresh_in_progress()
-
-
-def _get_logs_dashboard_refresh_task():
-    return logs_dashboard_cache_service.get_logs_dashboard_refresh_task()
-
-
-def _task_refresh_logs_dashboard_cache():
-    return logs_dashboard_cache_service.task_refresh_logs_dashboard_cache()
-
-
-def _queue_logs_dashboard_refresh_if_needed(created_by_username=None):
-    return logs_dashboard_cache_service.queue_logs_dashboard_refresh_if_needed(created_by_username=created_by_username)
-
-
 def _get_logs_dashboard_data_cached(created_by_username=None):
     return logs_dashboard_cache_service.get_logs_dashboard_data_cached(created_by_username=created_by_username)
 
@@ -609,6 +580,15 @@ def _run_db_migrations():
 
 
 _run_db_migrations()
+
+cidr_db_updater_service = CidrDbUpdaterService(db=db)
+
+try:
+    with app.app_context():
+        cidr_db_updater_service.seed_builtin_presets()
+        cidr_db_updater_service.cleanup_retired_provider_data()
+except Exception as _e:
+    app.logger.warning(f"Не удалось инициализировать CIDR-пресеты и очистку провайдеров: {_e}")
 
 
 register_current_user_context_processor(app, session, User)
@@ -632,6 +612,10 @@ TRAFFIC_SYNC_CRON_MARKER = runtime_settings["TRAFFIC_SYNC_CRON_MARKER"]
 TRAFFIC_SYNC_CRON_EXPR = runtime_settings["TRAFFIC_SYNC_CRON_EXPR"]
 TRAFFIC_SYNC_ENABLED = runtime_settings["TRAFFIC_SYNC_ENABLED"]
 NIGHTLY_IDLE_RESTART_MARKER = runtime_settings["NIGHTLY_IDLE_RESTART_MARKER"]
+RUNTIME_BACKUP_CLEANUP_MARKER = runtime_settings["RUNTIME_BACKUP_CLEANUP_MARKER"]
+RUNTIME_BACKUP_CLEANUP_CRON_EXPR = runtime_settings["RUNTIME_BACKUP_CLEANUP_CRON_EXPR"]
+RUNTIME_BACKUP_RETENTION_HOURS = runtime_settings["RUNTIME_BACKUP_RETENTION_HOURS"]
+RUNTIME_BACKUP_ROOT = os.path.join(APP_ROOT, "ips", "runtime_backups")
 _runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", runtime_settings["NIGHTLY_IDLE_RESTART_CRON_EXPR"])
 _runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", runtime_settings["NIGHTLY_IDLE_RESTART_ENABLED"])
 _runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", runtime_settings["ACTIVE_WEB_SESSION_TTL_SECONDS"])
@@ -679,40 +663,16 @@ STATUS_LOG_CLEANUP_MARKER = runtime_settings["STATUS_LOG_CLEANUP_MARKER"]
 STATUS_LOG_CLEANUP_PERIODS = runtime_settings["STATUS_LOG_CLEANUP_PERIODS"]
 
 
-def _status_log_cleanup_command():
-    return maintenance_scheduler_service.status_log_cleanup_command()
-
-
-def _read_crontab_lines():
-    return maintenance_scheduler_service.read_crontab_lines()
-
-
-def _write_crontab_lines(lines):
-    maintenance_scheduler_service.write_crontab_lines(lines)
-
-
-def _strip_status_cleanup_jobs(lines):
-    return maintenance_scheduler_service.strip_status_cleanup_jobs(lines)
-
-
-def _traffic_sync_command():
-    return maintenance_scheduler_service.traffic_sync_command()
-
-
-def _nightly_idle_restart_command():
-    return maintenance_scheduler_service.nightly_idle_restart_command()
-
-
-def _is_systemd_traffic_sync_timer_enabled():
-    return maintenance_scheduler_service.is_systemd_traffic_sync_timer_enabled()
-
-
 def _ensure_traffic_sync_cron():
     return maintenance_scheduler_service.ensure_traffic_sync_cron()
 
 
 def _ensure_nightly_idle_restart_cron():
     return maintenance_scheduler_service.ensure_nightly_idle_restart_cron()
+
+
+def _ensure_runtime_backup_cleanup_cron():
+    return maintenance_scheduler_service.ensure_runtime_backup_cleanup_cron()
 
 
 _services = build_services(
@@ -726,6 +686,10 @@ _services = build_services(
     traffic_sync_cron_expr=TRAFFIC_SYNC_CRON_EXPR,
     traffic_sync_enabled=TRAFFIC_SYNC_ENABLED,
     nightly_idle_restart_marker=NIGHTLY_IDLE_RESTART_MARKER,
+    runtime_backup_cleanup_marker=RUNTIME_BACKUP_CLEANUP_MARKER,
+    runtime_backup_cleanup_cron_expr=RUNTIME_BACKUP_CLEANUP_CRON_EXPR,
+    runtime_backup_root=RUNTIME_BACKUP_ROOT,
+    runtime_backup_retention_hours=RUNTIME_BACKUP_RETENTION_HOURS,
     openvpn_socket_dir=OPENVPN_SOCKET_DIR,
     openvpn_socket_timeout=OPENVPN_SOCKET_TIMEOUT,
     openvpn_socket_idle_timeout=OPENVPN_SOCKET_IDLE_TIMEOUT,
@@ -785,14 +749,6 @@ peer_info_cache_service = _services["peer_info_cache_service"]
 logs_dashboard_cache_service = _services["logs_dashboard_cache_service"]
 
 
-def _get_or_create_auth_session_id():
-    return active_web_session_service.get_or_create_auth_session_id(session)
-
-
-def _cleanup_stale_active_web_sessions(now=None):
-    active_web_session_service.cleanup_stale_active_web_sessions(now=now)
-
-
 def _touch_active_web_session(username, force=False):
     active_web_session_service.touch_active_web_session(
         username,
@@ -808,10 +764,6 @@ def _remove_active_web_session():
         session_obj=session,
         db_session=db.session,
     )
-
-
-def _get_status_cleanup_schedule():
-    return maintenance_scheduler_service.get_status_cleanup_schedule()
 
 
 def _set_status_cleanup_schedule(period):
@@ -836,6 +788,12 @@ try:
 except (RuntimeError, OSError, ValueError) as e:
     app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
 
+try:
+    _backup_cleanup_ok, _backup_cleanup_msg = _ensure_runtime_backup_cleanup_cron()
+    if not _backup_cleanup_ok:
+        app.logger.warning(_backup_cleanup_msg)
+except (RuntimeError, OSError, ValueError) as e:
+    app.logger.warning(f"Не удалось инициализировать cron очистки runtime_backups: {e}")
 
 def _normalize_traffic_protocol_scope(protocol_scope):
     return traffic_maintenance_service.normalize_traffic_protocol_scope(protocol_scope)
@@ -843,26 +801,6 @@ def _normalize_traffic_protocol_scope(protocol_scope):
 
 def _normalize_traffic_protocol_type(protocol_type, fallback="openvpn"):
     return traffic_maintenance_service.normalize_traffic_protocol_type(protocol_type, fallback=fallback)
-
-
-def _profile_matches_protocol_scope(profile, protocol_scope):
-    return traffic_maintenance_service.profile_matches_protocol_scope(profile, protocol_scope)
-
-
-def _collect_wireguard_only_client_names_lower():
-    return traffic_maintenance_service.collect_wireguard_only_client_names_lower()
-
-
-def _delete_persisted_traffic_rows_by_scope(protocol_scope):
-    return traffic_maintenance_service.delete_persisted_traffic_rows_by_scope(protocol_scope)
-
-
-def _seed_traffic_session_baseline_for_scope(status_rows, protocol_scope, now=None):
-    return traffic_maintenance_service.seed_traffic_session_baseline_for_scope(
-        status_rows,
-        protocol_scope,
-        now=now,
-    )
 
 
 def _rebuild_user_traffic_stats_from_samples(seed_users=None, now=None):
@@ -876,28 +814,8 @@ def _reset_persisted_traffic_data(protocol_scope="all"):
     return traffic_maintenance_service.reset_persisted_traffic_data(protocol_scope=protocol_scope)
 
 
-def _read_log_file(path):
-    return openvpn_socket_reader_service.read_log_file(path)
-
-
 def _openvpn_socket_path(profile_key):
     return openvpn_socket_reader_service.openvpn_socket_path(profile_key)
-
-
-def _query_openvpn_management_socket(socket_path, command, max_response_bytes=0):
-    return openvpn_socket_reader_service.query_openvpn_management_socket(
-        socket_path,
-        command,
-        max_response_bytes=max_response_bytes,
-    )
-
-
-def _extract_status_payload_from_management(raw):
-    return openvpn_socket_reader_service.extract_status_payload_from_management(raw)
-
-
-def _extract_event_payload_from_management(raw):
-    return openvpn_socket_reader_service.extract_event_payload_from_management(raw)
 
 
 def _read_status_source(profile_key, fallback_path):
@@ -910,10 +828,6 @@ def _read_event_source(profile_key, fallback_path):
 
 def _persist_peer_info_cache(event_rows):
     return peer_info_cache_service.persist_peer_info_cache(event_rows)
-
-
-def _prune_peer_info_history():
-    return peer_info_cache_service.prune_peer_info_history()
 
 
 def _load_peer_info_cache_map(include_stale=False):

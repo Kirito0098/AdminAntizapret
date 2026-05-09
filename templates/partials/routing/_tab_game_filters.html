@@ -1,0 +1,43 @@
+    <div id="game-filters" class="content-tab">
+      <h2>Игровые серверы</h2>
+      <div class="card settings-inline-card-mb">
+        <h3>Издательства и игровые платформы</h3>
+        <p class="help-text">
+          Выберите издательства, трафик которых нужно маршрутизировать через Antizapret.
+          IP-диапазоны загружаются автоматически из официальных ASN через RIPE API при каждом применении.
+          Для платформ без выделенного AS используется DNS-резолв доменов.
+        </p>
+
+        <div class="cidr-games-search-wrap settings-inline-card-mt">
+          <input id="cidr-games-search-input" type="search" class="cidr-games-search-input"
+            placeholder="Поиск по издательству или игре..." autocomplete="off" />
+          <small id="cidr-games-search-meta" class="help-text">Показано: —</small>
+        </div>
+
+        <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid settings-inline-card-mt" role="group"
+          aria-label="Фильтры по издательствам">
+          {% for item in cidr_game_filters %}
+          <label class="cidr-scope-chip cidr-game-chip{% if item.key in saved_game_keys %} is-checked{% endif %}"
+            title="{{ item.subtitle }}">
+            <input type="checkbox" class="cidr-game-checkbox" value="{{ item.key }}" data-subtitle="{{ item.subtitle }}"
+              {% if item.key in saved_game_keys %}checked{% endif %} />
+            <span class="cidr-game-chip__title">{{ item.title }}</span>
+            {% if item.subtitle %}
+            <span class="cidr-game-chip__sub">{{ item.subtitle }}</span>
+            {% endif %}
+          </label>
+          {% endfor %}
+        </div>
+
+        <div class="cidr-actions-row settings-inline-card-mt">
+          <button id="cidr-games-select-all" type="button" class="button">Выбрать все</button>
+          <button id="cidr-games-clear-all" type="button" class="button">Снять все</button>
+          <button id="cidr-sync-games-hosts" type="button" class="button save-button">💾 Применить в
+            include-hosts/include-ips</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ 6. Обслуживание ═══════════════ -->
+
+  </div>

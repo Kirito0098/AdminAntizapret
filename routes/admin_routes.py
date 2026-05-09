@@ -1,4 +1,6 @@
 import os
+import re
+import urllib.request
 from typing import Any
 
 from flask import jsonify, request, session
@@ -35,15 +37,111 @@ def register_admin_routes(
             local_commit, _ = run_checked_command(["git", "rev-parse", "HEAD"], cwd=app_root, timeout=10)
             remote_commit, _ = run_checked_command(["git", "rev-parse", "origin/main"], cwd=app_root, timeout=10)
 
+            local_short = local_commit.strip()[:7]
+            remote_short = remote_commit.strip()[:7]
+
+            branch_out, _ = run_checked_command(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=app_root, timeout=10)
+            branch = branch_out.strip()
+
+            local_date_out, _ = run_checked_command(
+                ["git", "log", "-1", "--format=%ci", "HEAD"], cwd=app_root, timeout=10
+            )
+
+            pending_commits: list[dict[str, str]] = []
             if local_commit.strip() != remote_commit.strip():
-                return {"update_available": True, "message": "Доступно обновление!"}, 200
-            return {"update_available": False, "message": "У вас последняя версия"}, 200
+                log_out, _ = run_checked_command(
+                    ["git", "log", "--oneline", "--format=%h|%s|%ci|%an", f"HEAD..origin/main"],
+                    cwd=app_root,
+                    timeout=10,
+                )
+                for line in log_out.strip().splitlines():
+                    parts = line.split("|", 3)
+                    if len(parts) == 4:
+                        pending_commits.append(
+                            {"hash": parts[0], "subject": parts[1], "date": parts[2][:10], "author": parts[3]}
+                        )
+
+                return {
+                    "update_available": True,
+                    "message": f"Доступно обновление! ({len(pending_commits)} коммит(ов))",
+                    "local_commit": local_short,
+                    "remote_commit": remote_short,
+                    "branch": branch,
+                    "local_date": local_date_out.strip()[:10],
+                    "pending_count": len(pending_commits),
+                    "pending_commits": pending_commits,
+                }, 200
+
+            return {
+                "update_available": False,
+                "message": "У вас последняя версия",
+                "local_commit": local_short,
+                "remote_commit": remote_short,
+                "branch": branch,
+                "local_date": local_date_out.strip()[:10],
+                "pending_count": 0,
+                "pending_commits": [],
+            }, 200
 
         except (RuntimeError, OSError, ValueError):
             return {
                 "update_available": False,
                 "message": "Не удалось проверить обновления",
+                "local_commit": "—",
+                "remote_commit": "—",
+                "branch": "—",
+                "local_date": "—",
+                "pending_count": 0,
+                "pending_commits": [],
             }, 200
+
+    @app.route("/api/latest-changelog", methods=["GET"])
+    @auth_manager.login_required
+    def api_latest_changelog():
+        _CHANGELOG_URL = (
+            "https://raw.githubusercontent.com/Kirito0098/AdminAntizapret/main/CHANGELOG.md"
+        )
+        try:
+            req = urllib.request.Request(_CHANGELOG_URL, headers={"User-Agent": "AdminAntizapret/1.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                content = resp.read().decode("utf-8")
+
+            version_pattern = re.compile(r"^## \[(.+?)\]\s*[–\-]\s*(.+)$", re.MULTILINE)
+            matches = list(version_pattern.finditer(content))
+            if not matches:
+                return jsonify({"success": False, "message": "CHANGELOG не содержит версий"}), 200
+
+            first = matches[0]
+            end = matches[1].start() if len(matches) > 1 else len(content)
+            block = content[first.start():end].strip()
+
+            version = first.group(1).strip()
+            date = first.group(2).strip()
+
+            sections = []
+            section_pattern = re.compile(r"^#{3,4}\s+(.+)$", re.MULTILINE)
+            sec_matches = list(section_pattern.finditer(block))
+
+            for i, sm in enumerate(sec_matches):
+                sec_end = sec_matches[i + 1].start() if i + 1 < len(sec_matches) else len(block)
+                sec_text = block[sm.end():sec_end].strip()
+                items = [
+                    line.lstrip("-* \t").strip()
+                    for line in sec_text.splitlines()
+                    if line.strip().startswith(("-", "*"))
+                ]
+                if items:
+                    sections.append({"title": sm.group(1).strip(), "items": items})
+
+            return jsonify({
+                "success": True,
+                "version": version,
+                "date": date,
+                "sections": sections,
+            }), 200
+
+        except Exception as e:
+            return jsonify({"success": False, "message": str(e)}), 200
 
     @app.route("/update_system", methods=["POST"])
     @auth_manager.admin_required

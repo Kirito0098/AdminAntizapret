@@ -1,0 +1,155 @@
+    <div id="security" class="content-tab">
+      <h2>Безопасность — управление IP ограничениями</h2>
+
+      <!-- ROW 1: Статус (2 кол) | Примеры (1 кол, rowspan 2) -->
+      <div class="status-card security-card-main">
+        <div class="status-indicator {% if ip_enabled %}status-enabled{% else %}status-disabled{% endif %}">
+          {% if ip_enabled %} 🔒 IP ограничения ВКЛЮЧЕНЫ {% else %} 🔓 IP
+          ограничения ВЫКЛЮЧЕНЫ (доступ всем) {% endif %}
+        </div>
+        {% set quick_toggle_ip = current_ip or '127.0.0.1' %}
+        <div class="security-master-toggle">
+          <div class="security-master-toggle__text">
+            <strong>Быстрый переключатель доступа</strong>
+            <small class="help-text">
+              {% if ip_enabled %}
+              Выключение снимет все ограничения IP.
+              {% else %}
+              Включение добавит только текущий IP: {{ quick_toggle_ip }}.
+              {% endif %}
+            </small>
+          </div>
+          {% if ip_enabled %}
+          <form method="POST" class="settings-inline-form-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="ip_action" value="clear_all_ips" />
+            <label class="toggle-wrapper security-master-toggle__switch">
+              <div class="toggle-switch">
+                <input type="checkbox" class="toggle-input" checked
+                  onchange="if (!confirm('Выключить IP ограничения и разрешить доступ всем?')) { this.checked = true; return; } this.form.submit();" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </form>
+          {% else %}
+          <form method="POST" class="settings-inline-form-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="ip_action" value="enable_ips" />
+            <input type="hidden" name="ips_text" value="{{ quick_toggle_ip }}" />
+            <label class="toggle-wrapper security-master-toggle__switch">
+              <div class="toggle-switch">
+                <input type="checkbox" class="toggle-input"
+                  onchange="if (!this.checked) return; if (!confirm('Включить IP ограничения только для текущего IP {{ quick_toggle_ip }}?')) { this.checked = false; return; } this.form.submit();" />
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </form>
+          {% endif %}
+        </div>
+        <p class="security-current-ip">Ваш IP: <strong>{{ current_ip }}</strong></p>
+      </div>
+
+      <!-- Примеры (1 кол, справа, rowspan 2) -->
+      <div class="card security-card-examples">
+        <details class="security-examples-details" open>
+          <summary>Примеры формата IP</summary>
+          <div class="examples">
+            <div class="example">
+              <h4>Один IP</h4>
+              <pre><code>{{ current_ip }}</code></pre>
+            </div>
+            <div class="example">
+              <h4>Подсеть</h4>
+              <pre><code>192.168.1.0/24</code></pre>
+            </div>
+            <div class="example">
+              <h4>Несколько через запятую</h4>
+              <pre><code>10.0.0.1, 10.0.0.2, 192.168.1.0/24</code></pre>
+            </div>
+          </div>
+          <p class="help-text security-examples-note">Неполный адрес <code>192.168.1</code> — ошибка.</p>
+        </details>
+      </div>
+
+      <!-- ROW 2: Таблица IP (2 кол) | Примеры продолжаются -->
+      <div class="card security-card-main">
+        <h3>Разрешенные IP-адреса</h3>
+        {% if allowed_ips %}
+        <div class="ip-list">
+          <table class="ip-table">
+            <thead>
+              <tr>
+                <th>IP-адрес/подсеть</th>
+                <th>Тип</th>
+                <th>Действие</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ip in allowed_ips %}
+              <tr>
+                <td><code>{{ ip }}</code></td>
+                <td>
+                  {% if '/' in ip %}
+                  <span class="badge subnet">Подсеть</span>
+                  {% else %}
+                  <span class="badge single">Один IP</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="POST" onsubmit="return confirm('Удалить IP {{ ip }}?')"
+                    class="settings-inline-form-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <input type="hidden" name="ip_to_remove" value="{{ ip }}" />
+                    <button type="submit" name="ip_action" value="remove_ip" class="button small delete-button">
+                      Удалить
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="no-data">Нет разрешенных IP-адресов</p>
+        {% endif %}
+      </div>
+
+      <!-- ROW 3: Добавить IP (1 кол) + Быстрая настройка (2 кол) -->
+      <div class="card security-card-sidebar">
+        <h3>Добавить IP-адрес</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <label for="new_ip">IP-адрес или подсеть</label>
+            <input type="text" id="new_ip" name="new_ip" placeholder="192.168.1.100 или 192.168.1.0/24"
+              class="full-width" />
+            <small class="help-text">
+              Примеры: <code>192.168.1.100</code> (один IP),
+              <code>192.168.1.0/24</code> (вся подсеть)
+            </small>
+          </div>
+          <button type="submit" name="ip_action" value="add_ip" class="button add-button full-width">
+            Добавить IP
+          </button>
+        </form>
+      </div>
+
+      <div class="card security-card-main">
+        <h3>Заменить список IP</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <div class="form-group">
+            <label for="ips_text">Новый список через запятую</label>
+            <textarea id="ips_text" name="ips_text" rows="3" placeholder="127.0.0.1, ::1, 192.168.1.0/24, 10.0.0.1"
+              class="full-width"></textarea>
+            <small class="help-text">Полностью заменит текущий список и включит ограничения.</small>
+          </div>
+          <button type="submit" name="ip_action" value="enable_ips" class="button save-button full-width">
+            Применить список
+          </button>
+        </form>
+      </div>
+
+    </div>
+

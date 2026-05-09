@@ -120,6 +120,32 @@ class FakeConfigFileHandler:
         return ([], [], [])
 
 
+class FakeCidrDbUpdaterService:
+    def get_db_status(self):
+        return {"providers": {}, "alerts": [], "total_cidrs": 0}
+
+    def get_refresh_history(self, limit=10):
+        return []
+
+    def refresh_all_providers(self, **_kwargs):
+        return {"success": True, "status": "ok", "providers_updated": 0, "providers_failed": 0, "total_cidrs": 0, "per_provider": {}}
+
+    def get_presets(self):
+        return []
+
+    def create_preset(self, **_kwargs):
+        return None
+
+    def update_preset(self, *_args, **_kwargs):
+        return None
+
+    def delete_preset(self, *_args, **_kwargs):
+        return False, "not-found"
+
+    def reset_builtin_preset(self, *_args, **_kwargs):
+        return None
+
+
 class SettingsSecurityTabTests(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
@@ -175,6 +201,7 @@ class SettingsSecurityTabTests(unittest.TestCase):
             get_public_download_enabled=lambda: False,
             log_telegram_audit_event=lambda *_args, **_kwargs: None,
             log_user_action_event=lambda *args, **kwargs: self.logged_events.append((args, kwargs)),
+            cidr_db_updater_service=FakeCidrDbUpdaterService(),
         )
 
     def test_enable_ips_rejects_invalid_entries_without_overwriting_existing_state(self):

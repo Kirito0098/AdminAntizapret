@@ -17,6 +17,10 @@ class MaintenanceSchedulerService:
         traffic_sync_cron_expr,
         traffic_sync_enabled,
         nightly_idle_restart_marker,
+        runtime_backup_cleanup_marker,
+        runtime_backup_cleanup_cron_expr,
+        runtime_backup_root,
+        runtime_backup_retention_hours,
         is_valid_cron_expression,
         get_nightly_idle_restart_settings,
     ):
@@ -29,6 +33,10 @@ class MaintenanceSchedulerService:
         self.traffic_sync_cron_expr = traffic_sync_cron_expr
         self.traffic_sync_enabled = bool(traffic_sync_enabled)
         self.nightly_idle_restart_marker = nightly_idle_restart_marker
+        self.runtime_backup_cleanup_marker = runtime_backup_cleanup_marker
+        self.runtime_backup_cleanup_cron_expr = runtime_backup_cleanup_cron_expr
+        self.runtime_backup_root = runtime_backup_root
+        self.runtime_backup_retention_hours = max(0, int(runtime_backup_retention_hours or 0))
         self.is_valid_cron_expression = is_valid_cron_expression
         self.get_nightly_idle_restart_settings = get_nightly_idle_restart_settings
 
@@ -82,6 +90,15 @@ class MaintenanceSchedulerService:
         python_bin = shlex.quote(self.python_executable)
         script_path = shlex.quote(os.path.join(self.app_root, "utils", "nightly_idle_restart.py"))
         return f"{python_bin} {script_path} >/dev/null 2>&1"
+
+    def runtime_backup_cleanup_command(self):
+        quoted_backup_root = shlex.quote(self.runtime_backup_root)
+        retention_minutes = self.runtime_backup_retention_hours * 60
+        return (
+            f"mkdir -p {quoted_backup_root} && "
+            f"find {quoted_backup_root} -mindepth 1 -maxdepth 1 -type d "
+            f"-mmin +{retention_minutes} -exec rm -rf {{}} + >/dev/null 2>&1"
+        )
 
     def is_systemd_traffic_sync_timer_enabled(self):
         try:
@@ -145,6 +162,33 @@ class MaintenanceSchedulerService:
         if nightly_enabled:
             return True, "Cron ночного рестарта включен"
         return True, "Cron ночного рестарта отключен"
+
+    def ensure_runtime_backup_cleanup_cron(self):
+        lines = self.read_crontab_lines()
+        if lines is None:
+            return False, "Не удалось прочитать crontab для очистки runtime_backups."
+
+        lines = [line for line in lines if self.runtime_backup_cleanup_marker not in line]
+
+        if self.runtime_backup_retention_hours > 0:
+            if not self.is_valid_cron_expression(self.runtime_backup_cleanup_cron_expr):
+                return False, "Некорректное cron-выражение для очистки runtime_backups."
+            command = self.runtime_backup_cleanup_command()
+            lines.append(
+                f"{self.runtime_backup_cleanup_cron_expr} {command} {self.runtime_backup_cleanup_marker}"
+            )
+
+        try:
+            self.write_crontab_lines(lines)
+        except Exception as e:
+            return False, f"Ошибка записи cron очистки runtime_backups: {e}"
+
+        if self.runtime_backup_retention_hours > 0:
+            return True, (
+                "Cron очистки runtime_backups включен "
+                f"(хранение: {self.runtime_backup_retention_hours} ч)"
+            )
+        return True, "Cron очистки runtime_backups отключен"
 
     def get_status_cleanup_schedule(self):
         lines = self.read_crontab_lines()

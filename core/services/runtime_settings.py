@@ -68,6 +68,11 @@ class RuntimeSettingsService:
             "NIGHTLY_IDLE_RESTART_MARKER": "# adminantizapret-nightly-idle-restart",
             "NIGHTLY_IDLE_RESTART_CRON_EXPR": self._env_str("NIGHTLY_IDLE_RESTART_CRON", "0 4 * * *"),
             "NIGHTLY_IDLE_RESTART_ENABLED": self._env_bool("NIGHTLY_IDLE_RESTART_ENABLED", default=True),
+            "RUNTIME_BACKUP_CLEANUP_MARKER": "# adminantizapret-runtime-backup-cleanup",
+            "RUNTIME_BACKUP_CLEANUP_CRON_EXPR": self._env_str("RUNTIME_BACKUP_CLEANUP_CRON", "0 * * * *"),
+            "RUNTIME_BACKUP_RETENTION_HOURS": self._env_int(
+                "RUNTIME_BACKUP_RETENTION_HOURS", 12, min_value=0
+            ),
             "ACTIVE_WEB_SESSION_TTL_SECONDS": active_web_session_ttl_seconds,
             "ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS": active_web_session_touch_interval_seconds,
             "LOGS_DASHBOARD_CACHE_TTL_SECONDS": logs_dashboard_cache_ttl_seconds,

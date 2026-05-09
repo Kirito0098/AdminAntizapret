@@ -305,6 +305,18 @@ find "$SCRIPT_SH_DIR" -type f -name "*.sh" -exec chmod +x {} \; || {
 
 # Запуск основного скрипта
 echo -e "${GREEN}Установка завершена. Запускаем основной скрипт...${NC}"
+
+# Базовый дефолт лимита CIDR для последующей настройки через web UI.
+if [ ! -f "$INSTALL_DIR/.env" ]; then
+  touch "$INSTALL_DIR/.env" || {
+    echo -e "${RED}Ошибка: не удалось создать $INSTALL_DIR/.env${NC}" >&2
+    exit 1
+  }
+fi
+if ! grep -q "^OPENVPN_ROUTE_TOTAL_CIDR_LIMIT=" "$INSTALL_DIR/.env"; then
+  echo "OPENVPN_ROUTE_TOTAL_CIDR_LIMIT=1500" >>"$INSTALL_DIR/.env"
+fi
+
 log "Bootstrap-этап завершен успешно"
 echo -e "${YELLOW}Подробный лог bootstrap-установки: ${BOOTSTRAP_LOG_FILE}${NC}"
 exec bash "$MAIN_SCRIPT"

@@ -739,6 +739,9 @@ EOL
 	echo "${YELLOW}Добавление дополнительных настроек в .env...${NC}"
 	set_env_value "ALLOWED_IPS" ""
 	set_env_value "IP_RESTRICTION_MODE" "strict"
+	if ! grep -q "^OPENVPN_ROUTE_TOTAL_CIDR_LIMIT=" "$INSTALL_DIR/.env" 2>/dev/null; then
+		set_env_value "OPENVPN_ROUTE_TOTAL_CIDR_LIMIT" "1500"
+	fi
 	echo "${GREEN}[✓] Дополнительные настройки добавлены в .env${NC}"
 
 	# Проверка установки

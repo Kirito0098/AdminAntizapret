@@ -39,3 +39,27 @@ class FileEditor:
             except FileNotFoundError:
                 file_contents[key] = ""
         return file_contents
+
+    def get_file_display_titles(self):
+        titles = {}
+        for key, path in self.files.items():
+            fallback_title = key.replace("_", " ").replace("-", " ").title()
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    first_line = f.readline().strip()
+            except OSError:
+                titles[key] = fallback_title
+                continue
+
+            if not first_line:
+                titles[key] = fallback_title
+                continue
+
+            if first_line.startswith("#"):
+                normalized = first_line.lstrip("#").strip()
+            else:
+                normalized = first_line
+
+            titles[key] = normalized or fallback_title
+
+        return titles

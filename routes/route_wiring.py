@@ -1,4 +1,5 @@
 from routes.admin_routes import register_admin_routes
+from routes.routing_routes import register_routing_routes
 from routes.auth_routes import register_auth_routes
 from routes.config_routes import register_config_routes
 from routes.index_routes import register_index_routes
@@ -103,6 +104,14 @@ def register_all_routes(app, sock, deps):
         get_public_download_enabled=g("_get_public_download_enabled"),
         log_telegram_audit_event=g("_log_telegram_audit_event"),
         log_user_action_event=g("_log_user_action_event"),
+        cidr_db_updater_service=g("cidr_db_updater_service"),
+    )
+
+    register_routing_routes(
+        app,
+        auth_manager=g("auth_manager"),
+        ip_manager=g("ip_manager"),
+        get_env_value=g("_get_env_value"),
     )
 
     register_index_routes(

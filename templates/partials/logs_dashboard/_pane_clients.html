@@ -1,0 +1,174 @@
+        <div class="logs-tab-pane" data-tab-pane="clients">
+
+            <section class="logs-section">
+                <div class="section-title-wrap">
+                    <h2>Подключенные клиенты</h2>
+                </div>
+                <p class="traffic-table-hint">
+                    Иногда у подключения видно "Устройство: Не определено" и "Версия: Не определено".
+                    Это нормально: эти данные приходят только от самого клиентского приложения во время подключения.
+                    Если клиент не передал их или давно не переподключался, панель покажет "Не определено".
+                    {% if openvpn_log_tail_lines == 0 %}
+                    Сначала панель читает текущие данные OpenVPN management (без лимита по строкам).
+                    Если свежих данных нет, используются записи из БД за последние 7 дней
+                    при совпадении имени клиента и IP.
+                    {% else %}
+                    Сначала панель читает хвост OpenVPN management: последние {{ openvpn_log_tail_lines }} строк.
+                    Если свежих данных нет, используются записи из БД за последние 7 дней
+                    при совпадении имени клиента и IP.
+                    {% endif %}
+                </p>
+                <div class="logs-inline-filters">
+                    <label class="logs-inline-control">
+                        <input type="checkbox" id="hideStaleSessionsToggle" />
+                        <span>Скрыть неактивные/возможно зависшие сессии</span>
+                    </label>
+                    <label class="logs-inline-control">
+                        <span>Протокол:</span>
+                        <select id="clientsProtocolFilter" class="traffic-client-select traffic-client-select--compact">
+                            <option value="all">Все</option>
+                            <option value="openvpn">Только OpenVPN</option>
+                            <option value="wireguard">Только WireGuard</option>
+                        </select>
+                    </label>
+                </div>
+                <p class="traffic-table-hint traffic-table-hint-muted">
+                    Как определяется "возможно зависшая": если у одного пользователя есть несколько сессий
+                    с одним и тем же IP в одном профиле, более старая сессия помечается как "возможно зависшая",
+                    а самая новая считается активной.
+                </p>
+                {% if connected_clients %}
+                <div class="client-cards-list" id="clientCardsList">
+                    {% for client in connected_clients %}
+                    <article class="client-card" data-client-card data-client-name="{{ client.common_name }}"
+                        data-client-protocols="{{ (client.protocols or '-') | lower }}"
+                        data-client-sessions="{{ client.sessions }}" data-client-profiles="{{ client.profiles }}"
+                        data-client-rx="{{ client.bytes_received_human }}"
+                        data-client-tx="{{ client.bytes_sent_human }}"
+                        data-client-total="{{ client.total_bytes_human }}">
+                        <button type="button" class="client-card-toggle" data-client-toggle
+                            aria-label="Открыть подробности клиента {{ client.common_name }}">
+                            <div class="client-card-main">
+                                <div class="client-card-name">{{ client.common_name }}</div>
+                                <div class="client-card-subline">Сессий: {{ client.sessions }} | Профили: {{
+                                    client.profiles }}</div>
+                                <div class="client-card-subline protocol-badges-line">
+                                    <span class="ip-device-key">Протоколы:</span>
+                                    {% set protocol_items = (client.protocols or '').split(',') %}
+                                    {% set protocol_ns = namespace(has_items=false) %}
+                                    {% for protocol_raw in protocol_items %}
+                                    {% set protocol_name = protocol_raw.strip() %}
+                                    {% if protocol_name %}
+                                    {% set protocol_ns.has_items = true %}
+                                    <span
+                                        class="protocol-badge {% if protocol_name == 'OpenVPN' %}protocol-badge--ovpn{% elif protocol_name == 'WireGuard' %}protocol-badge--wg{% endif %}">
+                                        {{ protocol_name }}
+                                    </span>
+                                    {% endif %}
+                                    {% endfor %}
+                                    {% if not protocol_ns.has_items %}-{% endif %}
+                                </div>
+                            </div>
+                            <div class="client-card-stats" aria-hidden="true">
+                                <div class="client-stat-pill">
+                                    <span>Rx</span>
+                                    <strong>{{ client.bytes_received_human }}</strong>
+                                </div>
+                                <div class="client-stat-pill">
+                                    <span>Tx</span>
+                                    <strong>{{ client.bytes_sent_human }}</strong>
+                                </div>
+                                <div class="client-stat-pill">
+                                    <span>Итого</span>
+                                    <strong>{{ client.total_bytes_human }}</strong>
+                                </div>
+                            </div>
+                            <span class="client-card-chevron" aria-hidden="true">▼</span>
+                        </button>
+
+                        <div class="client-card-body" data-client-body hidden>
+                            <div class="client-card-meta">
+                                <span class="ip-device-key">Профили:</span> {{ client.profiles }}
+                            </div>
+
+                            {% if client.ip_device_map %}
+                            <div class="ip-device-list">
+                                {% for item in client.ip_device_map %}
+                                <div class="ip-device-item"
+                                    data-stale-candidate="{% if item.stale_candidate %}1{% else %}0{% endif %}">
+                                    <div>
+                                        <span class="ip-device-key">Протокол:</span>
+                                        <span
+                                            class="protocol-badge {% if item.protocol == 'OpenVPN' %}protocol-badge--ovpn{% elif item.protocol == 'WireGuard' %}protocol-badge--wg{% endif %}">
+                                            {{ item.protocol or '-' }}
+                                        </span>
+                                    </div>
+                                    <div><span class="ip-device-key">IP:</span> {{ item.ip }}</div>
+                                    <div><span class="ip-device-key">Профиль:</span> {{ item.profile_label or '-' }}
+                                    </div>
+                                    {% if item.show_real_address %}
+                                    <div><span class="ip-device-key">Сессия:</span> {{ item.real_address }}</div>
+                                    {% endif %}
+                                    {% if item.stale_candidate %}
+                                    <div><span class="ip-device-key">Статус:</span> возможно зависшая (есть более
+                                        новая сессия с тем же IP и профилем)</div>
+                                    {% endif %}
+                                    {% if item.show_client_meta %}
+                                    <div><span class="ip-device-key">Устройство:</span> {{ item.platform or 'Не
+                                        определено' }}</div>
+                                    <div><span class="ip-device-key">Версия:</span> {{ item.version or 'Не
+                                        определено' }}</div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                                <div class="ip-device-empty-state">Сессии
+                                    скрыты фильтром</div>
+                            </div>
+                            {% else %}
+                            <div class="client-card-empty">Нет данных по подключениям</div>
+                            {% endif %}
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="client-card-empty">Нет подключенных клиентов</div>
+                {% endif %}
+
+                <div class="client-modal" id="clientDetailsModal" hidden>
+                    <div class="client-modal-backdrop" data-client-modal-close></div>
+                    <div class="client-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="clientModalTitle">
+                        <button type="button" class="client-modal-close" data-client-modal-close aria-label="Закрыть">
+                            ×
+                        </button>
+
+                        <div class="client-modal-header">
+                            <h3 id="clientModalTitle">Клиент</h3>
+                            <p id="clientModalSummary" class="client-modal-summary">Загрузка...</p>
+                        </div>
+
+                        <section class="client-modal-section">
+                            <div class="client-modal-section-title">Трафик клиента (БД)</div>
+                            <div class="client-modal-range" role="tablist" aria-label="Диапазон графика клиента">
+                                <button type="button" class="client-modal-range-btn" data-range="1h">1 час</button>
+                                <button type="button" class="client-modal-range-btn" data-range="24h">24 часа</button>
+                                <button type="button" class="client-modal-range-btn" data-range="7d">7 дней</button>
+                                <button type="button" class="client-modal-range-btn" data-range="30d">30 дней</button>
+                                <button type="button" class="client-modal-range-btn" data-range="all">За все
+                                    время</button>
+                            </div>
+                            <div id="clientModalTrafficMeta" class="traffic-chart-meta">Загрузка...</div>
+                            <div class="client-modal-chart-wrap">
+                                <canvas id="clientModalTrafficChart"></canvas>
+                            </div>
+                        </section>
+
+                        <section class="client-modal-section">
+                            <div class="client-modal-section-title">Подключения (IP, устройство, версия)</div>
+                            <div id="clientModalConnections" class="client-modal-connections"></div>
+                        </section>
+                    </div>
+                </div>
+            </section>
+
+        </div>

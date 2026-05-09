@@ -1,0 +1,11 @@
+<script src="https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js"></script>
+<script>
+  window.__logsDashboardBootstrap = {
+    openvpnLoggingEnabled: {{ (openvpn_logging_enabled | default(false)) | tojson }},
+    groupedStatusRows: {{ (grouped_status_rows | default([])) | tojson }},
+    connectedClients: {{ (connected_clients | default([])) | tojson }},
+    overviewSummary: {{ (summary | default({})) | tojson }},
+    refreshTaskId: {{ (cache_meta.refresh_task_id if cache_meta and cache_meta.is_stale and cache_meta.refresh_in_progress and cache_meta.refresh_task_id else none) | tojson }}
+  };
+</script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard-page-extra.js') }}"></script>

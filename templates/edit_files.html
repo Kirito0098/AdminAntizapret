@@ -8,8 +8,15 @@
 
 <div id="notification" class="notification" hidden aria-live="polite"></div>
 
+<button id="editfiles-mobile-toggle" class="editfiles-mobile-toggle" type="button" aria-controls="editfiles-sidebar"
+  aria-expanded="false" aria-label="Открыть меню редактирования">
+  <span class="editfiles-mobile-toggle-icon" aria-hidden="true">☰</span>
+  <span class="editfiles-mobile-toggle-text">Меню редактирования</span>
+</button>
+
 <div class="main-layout page-unified-wrapper page-unified-grid editfiles-layout">
-  <aside class="left-sidebar page-unified-card editfiles-sidebar" aria-label="Панель управления файлами">
+  <aside id="editfiles-sidebar" class="left-sidebar page-unified-card editfiles-sidebar"
+    aria-label="Панель управления файлами">
     <div class="editfiles-sidebar-head">
       <p class="editfiles-sidebar-kicker">Operations</p>
       <h2 class="editfiles-sidebar-title">Редактор списков</h2>
@@ -23,35 +30,30 @@
         <button id="btn-routes" class="toggle-btn" type="button" aria-selected="false">Маршруты</button>
       </div>
       <div id="lists-panel" class="editfiles-panel">
+        <div class="file-filter-wrap">
+          <label class="file-filter-label" for="file-filter">Быстрый поиск списка</label>
+          <input id="file-filter" class="file-filter-input" type="search" placeholder="Введите часть названия списка..."
+            autocomplete="off">
+        </div>
         <nav class="file-nav" aria-label="Списки файлов">
           {% for file_type, content in file_contents.items() %}
+          {% if file_type in ["include_hosts", "exclude_hosts", "remove-hosts"] %}
+          {% set file_group = "Домены" %}
+          {% elif file_type in ["include_ips", "exclude-ips", "forward-ips", "drop-ips"] %}
+          {% set file_group = "IP и маршрутизация" %}
+          {% elif file_type in ["include-adblock-hosts", "exclude-adblock-hosts"] %}
+          {% set file_group = "Рекламные фильтры" %}
+          {% elif file_type == "allow-ips" %}
+          {% set file_group = "Безопасность" %}
+          {% else %}
+          {% set file_group = "Прочее" %}
+          {% endif %}
           <button class="nav-item {% if loop.first %}active{% endif %}" data-file="{{ file_type }}" type="button"
-            title="{{ file_type }}">
+            title="{{ file_type }}" data-group="{{ file_group }}">
             <span class="label">
-              {% if file_type == "include_hosts" %}
-              Добавить домены в маршрутизацию VPN
-              {% elif file_type == "exclude_hosts" %}
-              Исключить домены из VPN
-              {% elif file_type == "include_ips" %}
-              Добавить IPv4 в маршрутизацию
-              {% elif file_type == "allow-ips" %}
-              Разрешить прямой доступ (без проверки)
-              {% elif file_type == "exclude-ips" %}
-              Исключить IP из VPN
-              {% elif file_type == "drop-ips" %}
-              Жестко запретить форвардинг IPv4 CIDR
-              {% elif file_type == "forward-ips" %}
-              Только эти IP через VPN
-              {% elif file_type == "include-adblock-hosts" %}
-              Добавить в блокировку рекламы
-              {% elif file_type == "exclude-adblock-hosts" %}
-              Исключить из блокировки рекламы
-              {% elif file_type == "remove-hosts" %}
-              Удалить домены из обработки
-              {% else %}
-              {{ file_type | replace('_', ' ') | replace('-', ' ') | title }}
-              {% endif %}
+              {{ file_display_titles.get(file_type, file_type | replace('_', ' ') | replace('-', ' ') | title) }}
             </span>
+            <span class="nav-item-status" aria-hidden="true"></span>
           </button>
           {% endfor %}
         </nav>
@@ -132,29 +134,8 @@
 
         <div class="editor-header">
           <h1>
-            {% if file_type == "include_hosts" %}
-            Добавление доменов для маршрутизации через AntiZapret VPN
-            {% elif file_type == "exclude_hosts" %}
-            Исключение доменов из маршрутизации через AntiZapret VPN
-            {% elif file_type == "include_ips" %}
-            Добавление IPv4-адресов для маршрутизации через AntiZapret VPN
-            {% elif file_type == "allow-ips" %}
-            Исключение IPv4-адресов из проверки защиты от сканирования и сетевых атак
-            {% elif file_type == "exclude-ips" %}
-            Исключение IPv4-адресов из маршрутизации через AntiZapret VPN
-            {% elif file_type == "drop-ips" %}
-            Жесткий запрет форвардинга через AntiZapret VPN и полный VPN (IPv4 CIDR)
-            {% elif file_type == "forward-ips" %}
-            Добавление IPv4-адресов неявно разрешённых для маршрутизации через AntiZapret VPN
-            {% elif file_type == "include-adblock-hosts" %}
-            Добавление рекламных доменов для блокировки через AntiZapret VPN
-            {% elif file_type == "exclude-adblock-hosts" %}
-            Исключение рекламных доменов из блокировки через AntiZapret VPN
-            {% elif file_type == "remove-hosts" %}
-            Исключение доменов из обработки в AntiZapret VPN
-            {% else %}
-            Редактирование файла: {{ file_type | replace('_', ' ') | replace('-', ' ') | title }}
-            {% endif %}
+            {{ file_display_titles.get(file_type, "Редактирование файла: " ~ (file_type | replace('_', ' ') |
+            replace('-', ' ') | title)) }}
           </h1>
           <p class="editor-subtitle">
             {% if file_type == "drop-ips" %}
@@ -169,12 +150,31 @@
         <div class="editor-toolbar" aria-hidden="true">
           <span class="editor-chip">{{ file_type | replace('_', ' ') | replace('-', ' ') | upper }}</span>
           <span class="editor-hint">Сохранение запускает фоновую задачу применения.</span>
+          <span class="editor-state" data-editor-state>Без изменений</span>
         </div>
 
         <textarea name="content" class="code-area" spellcheck="false" rows="22"
           placeholder="# Один адрес / IP на строку&#10;# Примеры:&#10;example.com&#10;*.blocked.ru&#10;192.168.1.1&#10;# комментарии начинаются с #">{{ content | e if content else '' }}</textarea>
 
+        <div class="editor-meta" aria-live="polite">
+          <span class="editor-meta-item">Строк: <strong data-lines-count>0</strong></span>
+          <span class="editor-meta-item">Непустых: <strong data-nonempty-count>0</strong></span>
+          <span class="editor-meta-item">Символов: <strong data-chars-count>0</strong></span>
+        </div>
+
+        <div class="diff-toolbar" aria-live="polite">
+          <button type="button" class="btn btn-secondary btn-diff-toggle" data-toggle-diff aria-expanded="false">
+            Показать diff
+          </button>
+          <span class="diff-summary" data-diff-summary>Нет отличий от сохраненной версии</span>
+        </div>
+
+        <div class="diff-panel" data-diff-panel hidden>
+          <div class="diff-list" data-diff-list></div>
+        </div>
+
         <div class="actions-bar">
+          <button type="button" class="btn btn-secondary" data-reset-content>Сбросить</button>
           <button type="submit" class="btn btn-save">Сохранить</button>
         </div>
       </form>

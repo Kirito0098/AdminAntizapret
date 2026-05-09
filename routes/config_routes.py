@@ -979,9 +979,11 @@ def register_config_routes(
             return jsonify({"success": False, "message": "Неверный тип файла."}), 400
 
         file_contents = file_editor.get_file_contents()
+        file_display_titles = file_editor.get_file_display_titles()
         return render_template(
             "edit_files.html",
             file_contents=file_contents,
+            file_display_titles=file_display_titles,
             public_download_enabled=get_public_download_enabled(),
         )
 

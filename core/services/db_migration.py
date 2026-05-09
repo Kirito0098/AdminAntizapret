@@ -193,5 +193,58 @@ class DatabaseMigrationService:
                             )
                         )
                         conn.commit()
+
+                if insp.has_table("provider_meta"):
+                    provider_meta_cols = {c["name"] for c in insp.get_columns("provider_meta")}
+                    provider_meta_missing = {
+                        "expected_asn_min": "ALTER TABLE provider_meta ADD COLUMN expected_asn_min INTEGER NOT NULL DEFAULT 0",
+                        "asn_count": "ALTER TABLE provider_meta ADD COLUMN asn_count INTEGER NOT NULL DEFAULT 0",
+                        "active_asn_count": "ALTER TABLE provider_meta ADD COLUMN active_asn_count INTEGER NOT NULL DEFAULT 0",
+                        "anomaly_level": "ALTER TABLE provider_meta ADD COLUMN anomaly_level VARCHAR(16) NOT NULL DEFAULT 'none'",
+                        "anomaly_reason": "ALTER TABLE provider_meta ADD COLUMN anomaly_reason VARCHAR(512)",
+                    }
+                    with self.db.engine.connect() as conn:
+                        for col_name, alter_sql in provider_meta_missing.items():
+                            if col_name not in provider_meta_cols:
+                                conn.execute(text(alter_sql))
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_provider_meta_anomaly_level "
+                                "ON provider_meta (anomaly_level)"
+                            )
+                        )
+                        conn.commit()
+
+                if insp.has_table("provider_asn"):
+                    with self.db.engine.connect() as conn:
+                        conn.execute(
+                            text(
+                                "CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_asn_key_asn "
+                                "ON provider_asn (provider_key, asn)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_provider_asn_provider_active "
+                                "ON provider_asn (provider_key, active)"
+                            )
+                        )
+                        conn.commit()
+
+                if insp.has_table("provider_asn_snapshot"):
+                    with self.db.engine.connect() as conn:
+                        conn.execute(
+                            text(
+                                "CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_asn_snapshot "
+                                "ON provider_asn_snapshot (refresh_log_id, provider_key, asn)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_provider_asn_snapshot_provider_refresh "
+                                "ON provider_asn_snapshot (provider_key, refresh_log_id)"
+                            )
+                        )
+                        conn.commit()
             except Exception as exc:
                 logger.warning("DB migration warning: %s", exc, exc_info=True)

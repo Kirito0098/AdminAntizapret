@@ -169,30 +169,258 @@ ANTIZAPRET_PARAMS = [
     {"key": "wireguard_host",         "env": "WIREGUARD_HOST",         "type": "string", "default": "", "html_id": "wireguard-host-input"},
 ]
 
-# Список разрешенных IP-файлов с отображаемыми именами и описаниями
+# Список разрешенных IP-файлов с отображаемыми именами, описаниями и метаданными AS
 IP_FILES = {
     "akamai-ips.txt": {
         "name": "Akamai",
-        "description": "Перенаправляет трафик Akamai через Antizapret, включая сайты и сервисы, использующие Akamai для доставки контента."
+        "description": "Маршрутизация сетей Akamai через Antizapret (CDN и edge-сервисы).",
+        "as_numbers": ["AS20940", "AS16625"],
+        "category": "cdn",
+        "what_hosts": "CDN: Apple App Store, Adobe, крупные новостные сайты, стриминг-платформы. Один из крупнейших мировых CDN-провайдеров.",
+        "tags": ["cdn", "streaming", "enterprise"],
     },
     "amazon-ips.txt": {
         "name": "Amazon",
-        "description": "Перенаправляет трафик Amazon через Antizapret, включая облачные сервисы и веб-сайты Amazon."
+        "description": "Маршрутизация сетей Amazon/AWS через Antizapret.",
+        "as_numbers": ["AS16509", "AS14618", "AS8987", "AS9059", "AS45773"],
+        "category": "cloud",
+        "what_hosts": "AWS: Twitch, Slack, GitHub Actions, Netflix (частично), Amazon.com, Discord (голосовые серверы), сотни тысяч SaaS-сервисов и игровых серверов.",
+        "tags": ["cloud", "gaming", "social", "streaming", "enterprise"],
     },
     "digitalocean-ips.txt": {
         "name": "DigitalOcean",
-        "description": "Перенаправляет трафик DigitalOcean через Antizapret, включая облачные серверы и сервисы, предоставляемые DigitalOcean"
+        "description": "Маршрутизация сетей DigitalOcean через Antizapret.",
+        "as_numbers": ["AS14061", "AS46652"],
+        "category": "hosting",
+        "what_hosts": "Хостинг независимых разработчиков и стартапов, игровые серверы сообщества, self-hosted сервисы.",
+        "tags": ["hosting", "gaming"],
     },
     "google-ips.txt": {
         "name": "Google",
-        "description": "Перенаправляет трафик Google через Antizapret, включая поисковую систему и другие сервисы Google"
+        "description": "Маршрутизация сетей Google/Google Cloud через Antizapret.",
+        "as_numbers": ["AS15169"],
+        "category": "cloud",
+        "what_hosts": "YouTube, Google Search, Gmail, Google Play, Android обновления, Google Maps, Google Drive, Firebase, Google Cloud Platform.",
+        "tags": ["cloud", "streaming", "enterprise", "mobile"],
     },
     "hetzner-ips.txt": {
         "name": "Hetzner",
-        "description": "Перенаправляет трафик Hetzner через Antizapret, включая серверы и сервисы, размещенные в дата-центрах Hetzner"
+        "description": "Маршрутизация сетей Hetzner через Antizapret.",
+        "as_numbers": ["AS24940", "AS213230", "AS212317", "AS215859", "AS210248"],
+        "category": "hosting",
+        "what_hosts": "Немецкий хостинг-провайдер: игровые серверы, self-hosted приложения, европейские разработчики.",
+        "tags": ["hosting", "gaming", "europe"],
     },
     "ovh-ips.txt": {
         "name": "OVH",
-        "description": "Перенаправляет трафик OVH через Antizapret, включая серверы и сервисы, размещенные в дата-центрах OVH"
-    }
+        "description": "Маршрутизация сетей OVH через Antizapret.",
+        "as_numbers": ["AS16276", "AS35540"],
+        "category": "hosting",
+        "what_hosts": "Французский хостинг: европейские игровые серверы (MMO, Minecraft), хостинг игровых проектов, VPS-серверы.",
+        "tags": ["hosting", "gaming", "europe"],
+    },
+    "cloudflare-ips.txt": {
+        "name": "Cloudflare",
+        "description": "Маршрутизация сетей Cloudflare через Antizapret.",
+        "as_numbers": ["AS13335", "AS209242"],
+        "category": "cdn",
+        "what_hosts": "Cloudflare CDN/Proxy: сайты и API за Cloudflare, защитные страницы, edge-сервисы.",
+        "tags": ["cdn", "security", "enterprise"],
+    },
+    "fastly-ips.txt": {
+        "name": "Fastly",
+        "description": "Маршрутизация сетей Fastly через Antizapret.",
+        "as_numbers": ["AS54113"],
+        "category": "cdn",
+        "what_hosts": "CDN: Reddit, GitHub, Twitter/X, Spotify, Vimeo, The Guardian, BBC. Ускорение контента для крупных медиа-платформ.",
+        "tags": ["cdn", "social", "streaming", "enterprise"],
+    },
+    "azure-ips.txt": {
+        "name": "Microsoft Azure",
+        "description": "Маршрутизация сетей Microsoft/Azure через Antizapret.",
+        "as_numbers": ["AS8075"],
+        "category": "cloud",
+        "what_hosts": "Microsoft Azure, Xbox Live, LinkedIn, GitHub (частично), Microsoft 365, Teams, OneDrive, Windows Update.",
+        "tags": ["cloud", "gaming", "social", "enterprise"],
+    },
+    "oracle-ips.txt": {
+        "name": "Oracle",
+        "description": "Маршрутизация сетей Oracle Cloud через Antizapret.",
+        "as_numbers": ["AS31898", "AS54253", "AS1219", "AS6142", "AS14544", "AS20054"],
+        "category": "cloud",
+        "what_hosts": "Oracle Cloud Infrastructure: бесплатный tier популярен для self-hosted проектов, TikTok (частично использует OCI).",
+        "tags": ["cloud", "hosting"],
+    },
+    "cdn77-ips.txt": {
+        "name": "CDN77",
+        "description": "Маршрутизация сетей CDN77 через Antizapret.",
+        "as_numbers": ["AS60068", "AS212238"],
+        "category": "cdn",
+        "what_hosts": "CDN для стриминга и медиа-контента. Используется многими стриминг-сервисами.",
+        "tags": ["cdn", "streaming"],
+    },
+    "m247-ips.txt": {
+        "name": "M247",
+        "description": "Маршрутизация сетей M247 через Antizapret.",
+        "as_numbers": ["AS9009"],
+        "category": "hosting",
+        "what_hosts": "M247 Europe SRL: транзит и дата-центры, часто используется CDN/hosting-сервисами.",
+        "tags": ["hosting", "transit", "europe"],
+    },
 }
+
+# Встроенные пресеты выбора провайдеров для маршрутизации
+# Хранятся в БД и могут быть изменены пользователем; при первом запуске засеиваются из этого списка.
+BUILTIN_CIDR_PRESETS = [
+    {
+        "key": "cdn_only",
+        "name": "Только CDN",
+        "description": "Akamai, Fastly, CDN77, Cloudflare — крупнейшие CDN. Охватывает большинство заблокированных сайтов с минимальным количеством маршрутов.",
+        "sort_order": 10,
+        "providers": [
+            "akamai-ips.txt",
+            "fastly-ips.txt",
+            "cdn77-ips.txt",
+            "cloudflare-ips.txt",
+        ],
+        "settings": {
+            "region_scopes": ["all"],
+            "exclude_ru_cidrs": False,
+            "include_non_geo_fallback": True,
+        },
+    },
+    {
+        "key": "web_surfing",
+        "name": "Веб-серфинг",
+        "description": "Оптимально для обычного веб-серфинга: Google (поиск, YouTube), Fastly (Reddit, GitHub, Twitter/X, Spotify), Akamai (крупные СМИ, Adobe). Баланс покрытия и объёма маршрутов.",
+        "sort_order": 15,
+        "providers": [
+            "google-ips.txt",
+            "fastly-ips.txt",
+            "akamai-ips.txt",
+        ],
+        "settings": {
+            "region_scopes": ["all"],
+            "exclude_ru_cidrs": False,
+            "include_non_geo_fallback": True,
+        },
+    },
+    {
+        "key": "social_media",
+        "name": "Соцсети и мессенджеры",
+        "description": "Twitter/X (Fastly), Instagram (Amazon), Twitch (AWS). Оптимально для общения и социальных сетей.",
+        "sort_order": 20,
+        "providers": [
+            "amazon-ips.txt",
+            "fastly-ips.txt",
+        ],
+        "settings": {
+            "region_scopes": ["all"],
+            "exclude_ru_cidrs": False,
+            "include_non_geo_fallback": True,
+        },
+    },
+    {
+        "key": "streaming",
+        "name": "Видео и стриминг",
+        "description": "YouTube (Google), Twitch (AWS), Netflix CDN (Akamai/Fastly), Spotify (Fastly), Vimeo (Fastly). Для любителей видеоконтента.",
+        "sort_order": 30,
+        "providers": [
+            "google-ips.txt",
+            "amazon-ips.txt",
+            "akamai-ips.txt",
+            "fastly-ips.txt",
+        ],
+        "settings": {
+            "region_scopes": ["all"],
+            "exclude_ru_cidrs": False,
+            "include_non_geo_fallback": True,
+        },
+    },
+    {
+        "key": "gaming",
+        "name": "Игровые сервисы",
+        "description": "AWS (Riot Games/LoL, EA, Epic Games), Azure (Xbox Live, Halo), OVH и Hetzner (EU MMO-серверы, Minecraft). Гео: Европа + Северная Америка.",
+        "sort_order": 40,
+        "providers": [
+            "amazon-ips.txt",
+            "azure-ips.txt",
+            "ovh-ips.txt",
+            "hetzner-ips.txt",
+        ],
+        "settings": {
+            "region_scopes": ["europe", "north-america"],
+            "exclude_ru_cidrs": False,
+            "include_non_geo_fallback": True,
+        },
+    },
+    {
+        "key": "all_cloud",
+        "name": "Все облачные провайдеры",
+        "description": "AWS, Azure, Google Cloud, DigitalOcean, Hetzner, OVH, Oracle. Максимальное покрытие облачных сервисов.",
+        "sort_order": 50,
+        "providers": [
+            "amazon-ips.txt",
+            "azure-ips.txt",
+            "google-ips.txt",
+            "digitalocean-ips.txt",
+            "hetzner-ips.txt",
+            "ovh-ips.txt",
+            "oracle-ips.txt",
+        ],
+        "settings": {
+            "region_scopes": ["all"],
+            "exclude_ru_cidrs": False,
+            "include_non_geo_fallback": True,
+        },
+    },
+    {
+        "key": "popular_services",
+        "name": "Популярные сервисы",
+        "description": "Оптимальный набор для массово используемых сервисов: YouTube/Google, GitHub, Twitch, CDN-платформы и популярные облака.",
+        "sort_order": 55,
+        "providers": [
+            "akamai-ips.txt",
+            "amazon-ips.txt",
+            "azure-ips.txt",
+            "cdn77-ips.txt",
+            "cloudflare-ips.txt",
+            "digitalocean-ips.txt",
+            "fastly-ips.txt",
+            "google-ips.txt",
+            "hetzner-ips.txt",
+            "oracle-ips.txt",
+            "ovh-ips.txt",
+        ],
+        "settings": {
+            "region_scopes": ["all"],
+            "exclude_ru_cidrs": False,
+            "include_non_geo_fallback": True,
+        },
+    },
+    {
+        "key": "all_providers",
+        "name": "Все провайдеры",
+        "description": "Полный список всех доступных провайдеров. Максимальное покрытие — автоматически сжимается до 900 маршрутов.",
+        "sort_order": 60,
+        "providers": [
+            "akamai-ips.txt",
+            "amazon-ips.txt",
+            "azure-ips.txt",
+            "cdn77-ips.txt",
+            "cloudflare-ips.txt",
+            "digitalocean-ips.txt",
+            "fastly-ips.txt",
+            "google-ips.txt",
+            "hetzner-ips.txt",
+            "m247-ips.txt",
+            "ovh-ips.txt",
+            "oracle-ips.txt",
+        ],
+        "settings": {
+            "region_scopes": ["all"],
+            "exclude_ru_cidrs": False,
+            "include_non_geo_fallback": True,
+        },
+    },
+]

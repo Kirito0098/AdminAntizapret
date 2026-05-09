@@ -1,0 +1,32 @@
+<!-- Menu-item для settings.js: на desktop скрыто, на mobile доступно как компактные вкладки -->
+<div class="routing-mobile-tabs" aria-label="Разделы маршрутизации">
+  <button type="button" class="menu-item active" data-tab="antizapret-config">Фильтры и сервисы</button>
+  <button type="button" class="menu-item" data-tab="cidr-update">Обновление IP-списков</button>
+  <button type="button" class="menu-item" data-tab="game-filters">Игровые серверы</button>
+</div>
+
+<div class="page-unified-wrapper" style="display:block">
+  <div class="settings-content page-unified-card" style="max-width:100%">
+    <section class="settings-workbench" aria-label="Рабочая панель">
+      <div class="settings-workbench__main">
+        <p class="settings-workbench__kicker">Маршрутизация</p>
+        <h1 class="settings-workbench__title">Управление трафиком</h1>
+        <p class="settings-workbench__subtitle">Настройте, какие сервисы и сети маршрутизировать через Antizapret,
+          обновите IP-списки и задайте игровые серверы.</p>
+      </div>
+      <div class="settings-workbench__meta">
+        <span id="workbench-dirty-state" class="workbench-state workbench-state-applied">Применено</span>
+        <button id="workbench-primary-apply" type="button" class="button save-button">Применить изменения</button>
+      </div>
+    </section>
+
+    <div id="settingsStickyActions" class="settings-sticky-actions" aria-label="Панель действий" hidden>
+      <div class="settings-sticky-actions__status">
+        <span id="sticky-dirty-status" class="workbench-state workbench-state-applied">Применено</span>
+      </div>
+      <div class="settings-sticky-actions__buttons">
+        <button id="sticky-cancel" type="button" class="button">Отменить</button>
+        <button id="sticky-save" type="button" class="button save-button">Сохранить</button>
+        <button id="sticky-apply" type="button" class="button save-button">Применить</button>
+      </div>
+    </div>
