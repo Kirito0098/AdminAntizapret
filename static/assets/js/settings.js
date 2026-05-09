@@ -2285,85 +2285,224 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   };
 
-  // === ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ СИСТЕМЫ ===
-  const updateSystem = async () => {
-    const statusElement = document.getElementById("update-status");
-    const button = document.getElementById("update-system");
+  // === ВКЛАДКА ОБНОВЛЕНИЙ СИСТЕМЫ ===
+  const initUpdatesTab = () => {
+    const els = {
+      hero:            document.getElementById("upd-hero"),
+      heroIcon:        document.getElementById("upd-hero-icon"),
+      heroLabel:       document.getElementById("upd-hero-label"),
+      heroSub:         document.getElementById("upd-hero-sub"),
+      checkBtn:        document.getElementById("upd-check-btn"),
+      branch:          document.getElementById("upd-branch"),
+      localHash:       document.getElementById("upd-local-hash"),
+      localDate:       document.getElementById("upd-local-date"),
+      remoteHash:      document.getElementById("upd-remote-hash"),
+      releaseCard:     document.getElementById("upd-release-card"),
+      releaseVersion:  document.getElementById("upd-release-version"),
+      releaseDate:     document.getElementById("upd-release-date"),
+      releaseSections: document.getElementById("upd-release-sections"),
+      changelogCard:   document.getElementById("upd-changelog-card"),
+      changelogCount:  document.getElementById("upd-changelog-count"),
+      changelogList:   document.getElementById("upd-changelog-list"),
+      applyBtn:        document.getElementById("upd-apply-btn"),
+      progress:        document.getElementById("upd-progress"),
+      progressFill:   document.getElementById("upd-progress-fill"),
+      progressLabel:  document.getElementById("upd-progress-label"),
+      resultMsg:      document.getElementById("upd-result-msg"),
+      menuItem:       document.getElementById("menu-system-updates"),
+    };
 
-    statusElement.textContent = "Обновление системы...";
-    statusElement.className = "notification notification-info";
-    statusElement.style.display = "block";
+    if (!els.checkBtn) return;
 
-    try {
-      const getCsrfToken = () => {
-        return document.querySelector('input[name="csrf_token"]')?.value ||
-          document.querySelector('meta[name="csrf-token"]')?.content ||
-          "";
+    const getCsrfToken = () =>
+      document.querySelector('input[name="csrf_token"]')?.value ||
+      document.querySelector('meta[name="csrf-token"]')?.content || "";
+
+    const ICONS = {
+      loading: `<svg class="upd-hero__icon upd-hero__icon--spin" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="16" stroke="currentColor" stroke-width="2.4" stroke-dasharray="60 40" stroke-linecap="round"/>
+      </svg>`,
+      ok: `<svg class="upd-hero__icon" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="17" stroke="currentColor" stroke-width="2.2"/>
+        <path d="M12 20l6 6 10-12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`,
+      available: `<svg class="upd-hero__icon" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="17" stroke="currentColor" stroke-width="2.2"/>
+        <path d="M20 10v14M13 18l7 7 7-7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`,
+      error: `<svg class="upd-hero__icon" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="17" stroke="currentColor" stroke-width="2.2"/>
+        <path d="M20 12v11M20 27v2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>`,
+    };
+
+    const setHeroState = (state) => {
+      if (!els.hero) return;
+      els.hero.dataset.state = state;
+      if (els.heroIcon) els.heroIcon.innerHTML = ICONS[state] || ICONS.loading;
+    };
+
+    const pluralCommit = (n) => {
+      if (n % 10 === 1 && n % 100 !== 11) return `${n} коммит`;
+      if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return `${n} коммита`;
+      return `${n} коммитов`;
+    };
+
+    const esc = (s) => String(s).replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    const renderChangelog = (commits) => {
+      if (!commits?.length) { els.changelogCard.hidden = true; return; }
+      els.changelogCount.textContent = commits.length;
+      els.changelogList.innerHTML = commits.map(c => `
+        <div class="upd-commit">
+          <code class="upd-commit__hash">${esc(c.hash)}</code>
+          <span class="upd-commit__subject">${esc(c.subject)}</span>
+          <span class="upd-commit__meta">
+            <span class="upd-commit__date">${esc(c.date)}</span>
+            <span class="upd-commit__author">${esc(c.author)}</span>
+          </span>
+        </div>`).join("");
+      els.changelogCard.hidden = false;
+    };
+
+    const animateProgress = (duration = 90000) => {
+      if (!els.progressFill) return;
+      let start = null;
+      const tick = (ts) => {
+        if (!start) start = ts;
+        const pct = Math.min(92, ((ts - start) / duration) * 92);
+        els.progressFill.style.width = `${pct}%`;
+        if (pct < 92) requestAnimationFrame(tick);
       };
-      const response = await fetch("/update_system", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCsrfToken(),
-        },
-      });
+      requestAnimationFrame(tick);
+    };
 
-      const data = await response.json();
+    const checkForUpdates = async () => {
+      setHeroState("loading");
+      els.heroLabel.textContent = "Проверяем обновления…";
+      els.heroSub.textContent   = "Получаем данные из репозитория";
+      els.checkBtn.disabled = true;
+      els.applyBtn.disabled = true;
+      els.changelogCard.hidden = true;
 
-      if (data.queued && data.task_id) {
-        statusElement.textContent = data.message || "Обновление запущено в фоне...";
-        const task = await pollBackgroundTask(data.task_id, { timeoutMs: 1200000 });
-        statusElement.textContent = task.message || "Обновление завершено!";
-        statusElement.className = "notification notification-success";
-      } else if (data.success) {
-        statusElement.textContent = data.message || "Обновление завершено!";
-        statusElement.className = "notification notification-success";
-      } else {
-        statusElement.textContent = data.message || "Ошибка обновления";
-        statusElement.className = "notification notification-error";
+      try {
+        const resp = await fetch("/check_updates");
+        const data = await resp.json();
+
+        if (els.branch)     els.branch.textContent    = data.branch        || "—";
+        if (els.localHash)  els.localHash.textContent  = data.local_commit  || "—";
+        if (els.remoteHash) els.remoteHash.textContent = data.remote_commit || "—";
+        if (els.localDate)  els.localDate.textContent  = data.local_date    || "—";
+
+        if (data.update_available) {
+          setHeroState("available");
+          els.heroLabel.textContent = `Доступно обновление — ${pluralCommit(data.pending_count)}`;
+          els.heroSub.textContent   = "Нажмите «Установить», чтобы применить изменения";
+          els.applyBtn.disabled = false;
+          els.menuItem?.classList.add("upd-menu-badge");
+          renderChangelog(data.pending_commits || []);
+        } else {
+          setHeroState("ok");
+          els.heroLabel.textContent = "Система обновлена";
+          els.heroSub.textContent   = "Установлена последняя версия из репозитория";
+          els.menuItem?.classList.remove("upd-menu-badge");
+        }
+      } catch {
+        setHeroState("error");
+        els.heroLabel.textContent = "Ошибка проверки";
+        els.heroSub.textContent   = "Нет соединения с репозиторием";
+      } finally {
+        els.checkBtn.disabled = false;
       }
-    } catch (error) {
-      statusElement.textContent = "Ошибка соединения";
-      statusElement.className = "notification notification-error";
-    } finally {
-      hideNotificationWithFx(statusElement, 10000);
+    };
+
+    const applyUpdate = async () => {
+      if (!confirm("ВНИМАНИЕ!\nВсе локальные изменения файлов будут перезаписаны.\nПродолжить обновление?")) return;
+
+      els.applyBtn.disabled = true;
+      els.checkBtn.disabled = true;
+      els.progress.hidden = false;
+      if (els.progressFill) els.progressFill.style.width = "0%";
+      els.resultMsg.className = "notification settings-inline-hidden";
+      animateProgress();
+
+      try {
+        const resp = await fetch("/update_system", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
+        });
+        const data = await resp.json();
+
+        if (data.queued && data.task_id) {
+          if (els.progressLabel) els.progressLabel.textContent = "Выполняется обновление…";
+          const task = await pollBackgroundTask(data.task_id, { timeoutMs: 1200000 });
+          const ok = task.status === "done";
+          if (els.progressFill) els.progressFill.style.width = "100%";
+          els.resultMsg.textContent   = task.message || (ok ? "Обновление завершено!" : "Ошибка обновления");
+          els.resultMsg.className     = `notification ${ok ? "notification-success" : "notification-error"}`;
+          els.resultMsg.style.display = "block";
+          if (ok) {
+            setHeroState("ok");
+            els.heroLabel.textContent = "Обновление установлено";
+            els.heroSub.textContent   = "Служба будет перезапущена автоматически";
+            els.changelogCard.hidden = true;
+            els.menuItem?.classList.remove("upd-menu-badge");
+          }
+        } else {
+          els.resultMsg.textContent   = data.message || "Ошибка обновления";
+          els.resultMsg.className     = "notification notification-error";
+          els.resultMsg.style.display = "block";
+        }
+      } catch {
+        els.resultMsg.textContent   = "Ошибка соединения";
+        els.resultMsg.className     = "notification notification-error";
+        els.resultMsg.style.display = "block";
+      } finally {
+        els.progress.hidden = true;
+        els.checkBtn.disabled = false;
+        hideNotificationWithFx(els.resultMsg, 15000);
+      }
+    };
+
+    const renderReleaseNotes = (data) => {
+      if (!data?.success || !data.sections?.length) return;
+      if (els.releaseVersion) els.releaseVersion.textContent = `v${data.version}`;
+      if (els.releaseDate)    els.releaseDate.textContent    = data.date;
+      if (els.releaseSections) {
+        els.releaseSections.innerHTML = data.sections.map(sec => `
+          <div class="upd-release-section">
+            <p class="upd-release-section__title">${esc(sec.title)}</p>
+            <ul class="upd-release-section__list">
+              ${sec.items.map(item => `<li>${esc(item)}</li>`).join("")}
+            </ul>
+          </div>`).join("");
+      }
+    };
+
+    const loadReleaseNotes = async () => {
+      try {
+        const resp = await fetch("/api/latest-changelog");
+        const data = await resp.json();
+        renderReleaseNotes(data);
+      } catch { /* silent — non-critical */ }
+    };
+
+    els.checkBtn.addEventListener("click", checkForUpdates);
+    els.applyBtn.addEventListener("click", applyUpdate);
+
+    document.querySelectorAll(".menu-item[data-tab='system-updates']").forEach(item => {
+      item.addEventListener("click", checkForUpdates);
+    });
+
+    loadReleaseNotes();
+
+    if (document.getElementById("system-updates")?.classList.contains("active")) {
+      checkForUpdates();
     }
   };
 
-  // === УМНАЯ КНОПКА: ПРОВЕРКА ОБНОВЛЕНИЙ ===
-  const updateButton = document.getElementById("update-system");
-  const checkForUpdates = async () => {
-    if (!updateButton) return;
-    try {
-      const response = await fetch("/check_updates");
-      const data = await response.json();
-
-      if (data.update_available) {
-        updateButton.textContent = "Доступно обновление!";
-        updateButton.style.background = "var(--theme-update-available, #e74c3c)";
-        updateButton.disabled = false;
-      } else {
-        updateButton.textContent = "У вас последняя версия";
-        updateButton.style.background = "var(--theme-update-latest, #27ae60)";
-        updateButton.disabled = true;
-      }
-    } catch {
-      updateButton.textContent = "Проверка недоступна";
-      updateButton.style.background = "var(--theme-update-unavailable, #95a5a6)";
-      updateButton.disabled = true;
-    }
-  };
-
-  updateButton?.addEventListener("click", () => {
-    if (updateButton.disabled) return;
-    if (
-      confirm(
-        "ВНИМАНИЕ!\nВсе ваши изменения будут удалены навсегда.\nПродолжить обновление?"
-      )
-    ) {
-      updateSystem();
-    }
-  });
+  initUpdatesTab();
 
   // Запуск
   initConfigItemDetails();

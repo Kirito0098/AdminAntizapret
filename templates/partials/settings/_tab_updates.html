@@ -1,0 +1,125 @@
+    <div id="system-updates" class="content-tab">
+      <h2>Обновления системы</h2>
+
+      <!-- ── Hero-баннер статуса ─────────────────────────────────────────── -->
+      <div class="upd-hero" id="upd-hero">
+        <div class="upd-hero__glow" aria-hidden="true"></div>
+
+        <div class="upd-hero__icon-wrap" id="upd-hero-icon">
+          <!-- loading -->
+          <svg class="upd-hero__icon upd-hero__icon--spin" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+            <circle cx="20" cy="20" r="16" stroke="currentColor" stroke-width="2.4" stroke-dasharray="60 40"
+              stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <div class="upd-hero__text">
+          <p class="upd-hero__label" id="upd-hero-label">Проверяем обновления…</p>
+          <p class="upd-hero__sub"   id="upd-hero-sub">Запрашиваем данные из репозитория</p>
+        </div>
+
+        <button id="upd-check-btn" type="button" class="upd-check-btn" title="Проверить снова">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M12 7a5 5 0 1 1-1.5-3.5L12 2v3.5H8.5" stroke="currentColor" stroke-width="1.6"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Обновить
+        </button>
+      </div>
+
+      <!-- ── Версионные карточки ──────────────────────────────────────────── -->
+      <div class="upd-version-row" id="upd-version-row">
+        <div class="upd-ver-card">
+          <span class="upd-ver-card__lbl">Текущая версия</span>
+          <code class="upd-ver-card__hash" id="upd-local-hash">—</code>
+          <span class="upd-ver-card__date" id="upd-local-date">—</span>
+        </div>
+
+        <div class="upd-ver-arrow" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M4 10h12M12 6l4 4-4 4" stroke="currentColor" stroke-width="1.6"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <div class="upd-ver-card upd-ver-card--remote">
+          <span class="upd-ver-card__lbl">В репозитории</span>
+          <code class="upd-ver-card__hash" id="upd-remote-hash">—</code>
+          <span class="upd-ver-card__branch">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+              <circle cx="2.5" cy="2" r="1.5" stroke="currentColor" stroke-width="1.2"/>
+              <circle cx="8.5" cy="9" r="1.5" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M2.5 3.5V6a2.5 2.5 0 0 0 2.5 2.5h1" stroke="currentColor" stroke-width="1.2"
+                stroke-linecap="round"/>
+            </svg>
+            <span id="upd-branch">—</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- ── Что нового в последней версии ────────────────────────────────── -->
+      <div class="upd-release-wrap" id="upd-release-card">
+        <div class="upd-changelog-header">
+          <div class="upd-changelog-header__left">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+              <rect x="1" y="3" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M4 7h7M4 10h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M5 1v3M10 1v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <span>Что нового</span>
+          </div>
+          <span class="upd-changelog-badge" id="upd-release-version">—</span>
+        </div>
+        <div class="upd-release-date" id="upd-release-date"></div>
+        <div class="upd-release-sections" id="upd-release-sections"></div>
+      </div>
+
+      <!-- ── Pending commits changelog ──────────────────────────────────────── -->
+      <div class="upd-changelog-wrap" id="upd-changelog-card" hidden>
+        <div class="upd-changelog-header">
+          <div class="upd-changelog-header__left">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+              <rect x="1" y="3" width="13" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M4 7h7M4 10h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M5 1v3M10 1v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <span>Список изменений</span>
+          </div>
+          <span class="upd-changelog-badge" id="upd-changelog-count">0</span>
+        </div>
+        <div class="upd-changelog-list" id="upd-changelog-list"></div>
+      </div>
+
+      <!-- ── Действие: установить ─────────────────────────────────────────── -->
+      <div class="upd-action-panel" id="upd-action-panel">
+        <div class="upd-action-panel__info">
+          <p class="upd-action-panel__title">Установить обновление</p>
+          <p class="upd-action-panel__desc">
+            Выполнит <code>git pull</code> и перезапустит службу.
+            Локальные изменения файлов будут перезаписаны.
+            Занимает&nbsp;30–120&nbsp;сек.
+          </p>
+        </div>
+        <button id="upd-apply-btn" type="button" class="button save-button upd-apply-btn" disabled>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M7 1v8M3.5 5.5 7 9l3.5-3.5" stroke="currentColor" stroke-width="1.6"
+              stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M1 11h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          Установить
+        </button>
+      </div>
+
+      <!-- Прогресс-блок (скрыт до запуска) -->
+      <div id="upd-progress" class="upd-progress-block" hidden>
+        <div class="upd-progress-block__track">
+          <div class="upd-progress-block__fill" id="upd-progress-fill"></div>
+        </div>
+        <div class="upd-progress-block__foot">
+          <span class="upd-progress-block__spinner" aria-hidden="true"></span>
+          <span id="upd-progress-label">Выполняется обновление…</span>
+        </div>
+      </div>
+
+      <div id="upd-result-msg" class="notification settings-inline-hidden" style="margin-top:.7rem"></div>
+    </div>

@@ -4640,3 +4640,424 @@ body.settings-nav-merged .settings-content.page-unified-card {
     font-size: 0.79rem;
   }
 }
+
+/* ===== Вкладка «Обновления системы» ===== */
+
+/* ── Hero-баннер ─────────────────────────────────────────────────────── */
+.upd-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.3rem 1.2rem;
+  border-radius: 14px;
+  border: 1px solid rgba(80, 110, 125, 0.35);
+  background: linear-gradient(135deg, rgba(24, 34, 42, 0.95) 0%, rgba(20, 30, 38, 0.98) 100%);
+  margin-bottom: 1rem;
+  overflow: hidden;
+  flex-wrap: wrap;
+  transition: border-color 0.35s;
+}
+
+/* Состояния */
+.upd-hero[data-state="ok"]        { border-color: rgba(62, 175, 115, 0.55); }
+.upd-hero[data-state="available"] { border-color: rgba(220, 145, 45, 0.6); }
+.upd-hero[data-state="error"]     { border-color: rgba(200, 75, 68, 0.5); }
+
+/* Свечение */
+.upd-hero__glow {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 70% 60% at 15% 50%, rgba(55, 140, 105, 0.07), transparent 70%);
+  transition: background 0.4s;
+}
+.upd-hero[data-state="available"] .upd-hero__glow {
+  background: radial-gradient(ellipse 70% 60% at 15% 50%, rgba(210, 130, 40, 0.1), transparent 70%);
+}
+.upd-hero[data-state="error"] .upd-hero__glow {
+  background: radial-gradient(ellipse 70% 60% at 15% 50%, rgba(195, 65, 60, 0.1), transparent 70%);
+}
+
+/* Иконка */
+.upd-hero__icon-wrap {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(40, 58, 70, 0.7);
+  border: 1px solid rgba(80, 110, 125, 0.35);
+  color: #8ab8cc;
+  transition: background 0.35s, color 0.35s, border-color 0.35s;
+}
+.upd-hero[data-state="ok"]        .upd-hero__icon-wrap { background: rgba(35, 110, 72, 0.28); color: #50d090; border-color: rgba(62,175,115,0.4); }
+.upd-hero[data-state="available"] .upd-hero__icon-wrap { background: rgba(175, 100, 25, 0.28); color: #f0a844; border-color: rgba(220,145,45,0.45); }
+.upd-hero[data-state="error"]     .upd-hero__icon-wrap { background: rgba(140, 40, 35, 0.3);  color: #e06060; border-color: rgba(200,75,68,0.4); }
+
+.upd-hero__icon {
+  width: 26px;
+  height: 26px;
+}
+.upd-hero__icon--spin {
+  animation: upd-spin 1.1s linear infinite;
+}
+@keyframes upd-spin { to { transform: rotate(360deg); } }
+
+/* Текст */
+.upd-hero__text {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+}
+.upd-hero__label {
+  margin: 0;
+  font-size: 1.06rem;
+  font-weight: 700;
+  color: #e4f0f6;
+  line-height: 1.25;
+}
+.upd-hero__sub {
+  margin: 0.22rem 0 0;
+  font-size: 0.82rem;
+  color: #8ab0c0;
+  line-height: 1.4;
+}
+
+/* Кнопка «Обновить» */
+.upd-check-btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  flex-shrink: 0;
+  padding: 0.46rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid rgba(90, 120, 135, 0.5);
+  background: rgba(40, 58, 70, 0.75);
+  color: #b8d5e2;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+}
+.upd-check-btn:hover:not(:disabled) {
+  background: rgba(55, 78, 92, 0.85);
+  border-color: rgba(110, 155, 175, 0.6);
+  color: #d8eaf4;
+}
+.upd-check-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Версионные карточки ─────────────────────────────────────────────── */
+.upd-version-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.upd-ver-card {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.8rem 1rem;
+  border-radius: 11px;
+  border: 1px solid rgba(70, 95, 112, 0.38);
+  background: rgba(22, 33, 41, 0.82);
+}
+.upd-ver-card--remote {
+  border-color: rgba(70, 95, 112, 0.38);
+}
+.upd-hero[data-state="available"] ~ .upd-version-row .upd-ver-card--remote {
+  border-color: rgba(220, 145, 45, 0.45);
+  background: rgba(28, 36, 22, 0.82);
+}
+
+.upd-ver-card__lbl {
+  font-size: 0.68rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #7090a0;
+}
+.upd-ver-card__hash {
+  font-family: monospace;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: #9dd0e8;
+  letter-spacing: 0.04em;
+}
+.upd-ver-card__date {
+  font-size: 0.78rem;
+  color: #7a98a8;
+}
+.upd-ver-card__branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: #7a98a8;
+}
+
+.upd-ver-arrow {
+  flex-shrink: 0;
+  color: #4a6878;
+}
+
+/* ── Changelog ──────────────────────────────────────────────────────── */
+.upd-changelog-wrap {
+  border-radius: 12px;
+  border: 1px solid rgba(70, 95, 112, 0.38);
+  background: rgba(20, 30, 37, 0.85);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.upd-changelog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(60, 85, 100, 0.35);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #b8d0dc;
+}
+.upd-changelog-header__left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #c8dde8;
+}
+
+.upd-changelog-badge {
+  min-width: 22px;
+  text-align: center;
+  font-size: 0.73rem;
+  font-weight: 700;
+  padding: 0.12rem 0.52rem;
+  border-radius: 999px;
+  background: rgba(210, 130, 40, 0.22);
+  border: 1px solid rgba(220, 145, 45, 0.4);
+  color: #f0a844;
+}
+
+.upd-changelog-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.upd-commit {
+  display: grid;
+  grid-template-columns: 58px 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(50, 72, 86, 0.28);
+  transition: background 0.15s;
+}
+.upd-commit:last-child { border-bottom: none; }
+.upd-commit:hover { background: rgba(35, 52, 63, 0.5); }
+
+.upd-commit__hash {
+  font-family: monospace;
+  font-size: 0.76rem;
+  color: #6aace4;
+  background: rgba(40, 70, 100, 0.22);
+  border-radius: 4px;
+  padding: 0.15rem 0.35rem;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+.upd-commit__subject {
+  font-size: 0.86rem;
+  color: #d2e3ea;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upd-commit__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  flex-shrink: 0;
+}
+.upd-commit__date {
+  font-size: 0.72rem;
+  color: #5e8090;
+  white-space: nowrap;
+}
+.upd-commit__author {
+  font-size: 0.72rem;
+  color: #7090a0;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Блок "Что нового" ───────────────────────────────────────────────── */
+.upd-release-wrap {
+  border-radius: 12px;
+  border: 1px solid rgba(70, 95, 112, 0.38);
+  background: rgba(20, 30, 37, 0.85);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.upd-release-date {
+  font-size: 0.78rem;
+  color: #5e8090;
+  padding: 0.3rem 1rem 0.55rem;
+  border-bottom: 1px solid rgba(50, 72, 86, 0.22);
+}
+
+.upd-release-sections {
+  padding: 0.6rem 1rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.upd-release-section__title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #8ab8cc;
+  margin: 0 0 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.upd-release-section__list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.upd-release-section__list li {
+  font-size: 0.84rem;
+  color: #c4d8e2;
+  line-height: 1.45;
+}
+
+/* ── Панель действий ─────────────────────────────────────────────────── */
+.upd-action-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(70, 95, 112, 0.38);
+  background: rgba(20, 30, 37, 0.85);
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+.upd-action-panel__info { flex: 1; min-width: 0; }
+.upd-action-panel__title {
+  margin: 0 0 0.2rem;
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: #d8eaf2;
+}
+.upd-action-panel__desc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #7a98a8;
+  line-height: 1.45;
+}
+.upd-action-panel__desc code {
+  font-size: 0.78rem;
+  color: #9dd0e8;
+  background: rgba(40, 70, 95, 0.3);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+}
+
+.upd-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  flex-shrink: 0;
+  padding: 0.56rem 1.15rem;
+  white-space: nowrap;
+}
+
+/* ── Прогресс-полоса ─────────────────────────────────────────────────── */
+.upd-progress-block {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: rgba(18, 28, 36, 0.9);
+  border: 1px solid rgba(55, 80, 95, 0.45);
+}
+.upd-progress-block__track {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(50, 75, 90, 0.5);
+  overflow: hidden;
+  margin-bottom: 0.6rem;
+}
+.upd-progress-block__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #3d9d7a, #5bc89a);
+  transition: width 0.4s ease;
+}
+.upd-progress-block__foot {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.83rem;
+  color: #9ab8c8;
+}
+.upd-progress-block__spinner {
+  flex-shrink: 0;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(80, 190, 140, 0.35);
+  border-top-color: #50d090;
+  animation: upd-spin 0.75s linear infinite;
+}
+
+/* ── Значок на пункте меню ───────────────────────────────────────────── */
+.upd-menu-badge::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f0a844;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+  box-shadow: 0 0 6px rgba(240, 168, 68, 0.5);
+}
+
+/* ── Адаптив ─────────────────────────────────────────────────────────── */
+@media (max-width: 660px) {
+  .upd-hero { gap: 0.75rem; padding: 1rem; }
+  .upd-hero__icon-wrap { width: 46px; height: 46px; }
+  .upd-hero__label { font-size: 0.94rem; }
+  .upd-version-row { flex-direction: column; }
+  .upd-ver-arrow { transform: rotate(90deg); align-self: center; }
+  .upd-ver-card { min-width: 0; width: 100%; }
+  .upd-commit { grid-template-columns: 1fr; gap: 0.3rem; }
+  .upd-commit__meta { align-items: flex-start; flex-direction: row; gap: 0.5rem; }
+  .upd-action-panel { flex-direction: column; }
+  .upd-apply-btn { width: 100%; justify-content: center; }
+}
