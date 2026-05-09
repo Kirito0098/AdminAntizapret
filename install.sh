@@ -91,6 +91,7 @@ _ui_header() {
     printf '\n'
     printf "  %bAdminAntizapret%b — Установщик\n" "$BOLD" "$NC"
     printf "  %bЛог: %s%b\n" "$DIM" "$LOG_FILE" "$NC"
+    printf "  %bПервая установка может занять 5–10 минут%b\n" "$DIM" "$NC"
     printf '\n'
 }
 
@@ -106,18 +107,28 @@ _ui_err() {
 
 # ─── Спиннер ──────────────────────────────────────
 _SP_PID=
+_SP_START=0
 _SP_FR=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
 
 _spin_start() {
     [ "$USE_SPIN" -eq 0 ] && return
     local msg="$1"
+    _SP_START=$(date +%s)
     (
         trap '' INT TERM HUP
         i=0
+        start=$(date +%s)
         while true; do
-            printf '\r  %b%s%b  %s   ' "$CYAN" "${_SP_FR[$i]}" "$NC" "$msg"
+            elapsed=$(( $(date +%s) - start ))
+            if [ "$elapsed" -ge 60 ]; then
+                timer="$(( elapsed / 60 ))м$(( elapsed % 60 ))с"
+            else
+                timer="${elapsed}с"
+            fi
+            printf '\r  %b%s%b  %s  %b(%s)%b  ' \
+                "$CYAN" "${_SP_FR[$i]}" "$NC" "$msg" "$DIM" "$timer" "$NC"
             i=$(( (i + 1) % 10 ))
-            sleep 0.08
+            sleep 0.5
         done
     ) &
     _SP_PID=$!
@@ -128,7 +139,7 @@ _spin_stop() {
     kill "$_SP_PID" 2>/dev/null || true
     { wait "$_SP_PID"; } 2>/dev/null || true
     _SP_PID=
-    printf '\r%72s\r' ''
+    printf '\r%80s\r' ''
 }
 
 # ─── run_step: шаг с прогрессом ───────────────────
@@ -165,6 +176,36 @@ _check_os() {
         debian) [ "${major:-0}" -ge 13 ] 2>/dev/null ;;
         *)      return 1 ;;
     esac
+}
+
+# ─── Ожидание блокировки apt ─────────────────────
+# На свежем Ubuntu apt-daily/unattended-upgrades держат lock после загрузки
+_wait_apt_lock() {
+    local lock="/var/lib/dpkg/lock-frontend"
+    local waited=0
+
+    # Проверяем через lsof: если lock занят — ждём
+    if ! lsof "$lock" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    _spin_stop  # останавливаем спиннер чтобы написать сообщение
+    printf "  ${YELLOW}!${NC}  Ожидание освобождения блокировки apt...\n"
+    printf "  ${DIM}(Фоновое обновление Ubuntu займёт несколько минут)${NC}\n"
+    _log "Ожидание блокировки apt (занята другим процессом)"
+
+    while lsof "$lock" >/dev/null 2>&1; do
+        sleep 2
+        waited=$((waited + 2))
+        if [ "$((waited % 20))" -eq 0 ]; then
+            printf "  ${DIM}Ожидаем apt: %d сек...${NC}\n" "$waited"
+            _log "Ожидание apt lock: ${waited}с"
+        fi
+    done
+
+    _log "Блокировка снята через ${waited}с"
+    printf "  ${GREEN}✓${NC}  Блокировка снята (ожидали %d сек)\n" "$waited"
+    # Пересоздаём спиннер для следующего шага (вызывающий сам запустит)
 }
 
 # ─── Шаги установки ───────────────────────────────
@@ -354,12 +395,17 @@ unset _pkg _st
 
 if [ "${#_miss[@]}" -gt 0 ]; then
     _log "Отсутствуют пакеты: ${_miss[*]}"
+
+    # Ждём освобождения блокировки перед apt (Ubuntu держит её при автообновлении)
+    _wait_apt_lock
+
+    # -o Acquire::ForceIPv4=true — исключает зависание на IPv6-таймаутах
     run_step "Обновление индексов пакетов" \
-        apt-get update -y \
+        apt-get -o Acquire::ForceIPv4=true update \
         || { _ui_err "Не удалось обновить apt. Проверьте сеть."; exit 1; }
 
     run_step "Установка пакетов (${#_miss[@]} шт.)" \
-        apt-get install -y "${_miss[@]}" \
+        apt-get -o Acquire::ForceIPv4=true install -y "${_miss[@]}" \
         || { _ui_err "Не удалось установить пакеты."; exit 1; }
 else
     _log "Все пакеты уже установлены"
