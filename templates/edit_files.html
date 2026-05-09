@@ -8,8 +8,15 @@
 
 <div id="notification" class="notification" hidden aria-live="polite"></div>
 
+<button id="editfiles-mobile-toggle" class="editfiles-mobile-toggle" type="button" aria-controls="editfiles-sidebar"
+  aria-expanded="false" aria-label="Открыть меню редактирования">
+  <span class="editfiles-mobile-toggle-icon" aria-hidden="true">☰</span>
+  <span class="editfiles-mobile-toggle-text">Меню редактирования</span>
+</button>
+
 <div class="main-layout page-unified-wrapper page-unified-grid editfiles-layout">
-  <aside class="left-sidebar page-unified-card editfiles-sidebar" aria-label="Панель управления файлами">
+  <aside id="editfiles-sidebar" class="left-sidebar page-unified-card editfiles-sidebar"
+    aria-label="Панель управления файлами">
     <div class="editfiles-sidebar-head">
       <p class="editfiles-sidebar-kicker">Operations</p>
       <h2 class="editfiles-sidebar-title">Редактор списков</h2>

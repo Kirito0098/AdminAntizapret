@@ -54,7 +54,7 @@
         <p id="cpu-usage" class="metric-value">{{ cpu_usage }}%</p>
         <div id="cpu-indicator" class="status-indicator green"></div>
       </div>
-      <canvas id="cpuChart" width="320" height="120"></canvas>
+      <canvas id="cpuChart" class="metric-mini-chart"></canvas>
     </article>
 
     <article class="info-item page-unified-card">
@@ -63,7 +63,7 @@
         <p id="memory-usage" class="metric-value">{{ memory_usage }}%</p>
         <div id="memory-indicator" class="status-indicator green"></div>
       </div>
-      <canvas id="memoryChart" width="320" height="120"></canvas>
+      <canvas id="memoryChart" class="metric-mini-chart"></canvas>
     </article>
 
     <article class="info-item page-unified-card">
@@ -102,23 +102,38 @@
     </article>
   </section>
 
-  <section class="server-info bw-section page-unified-card" aria-label="Пропускная способность сети">
+  <section class="bw-section page-unified-card" aria-label="Пропускная способность сети">
     <div class="bw-header">
       <h3 class="card-title">Загрузка канала</h3>
       <p>Агрегация через vnStat по группам интерфейсов.</p>
     </div>
 
-    <div class="bw-controls" aria-label="Настройки графика">
+    <button id="monitorFiltersToggle" class="monitor-filters-toggle" type="button" aria-expanded="false"
+      aria-controls="bwControls" aria-label="Открыть меню фильтров графика">
+      <span class="monitor-filters-toggle-icon" aria-hidden="true">☰</span>
+      <span>Фильтры графика</span>
+    </button>
+
+    <div id="bwControls" class="bw-controls" aria-label="Настройки графика">
       <div class="iface-buttons" role="group" aria-label="Выбор интерфейса">
         <button class="iface-btn" data-iface="{{ iface }}" type="button">{{ iface }}</button>
-        <button class="iface-btn" data-iface="vpn" type="button">VPN ({{ (bw_iface_groups.vpn or ['vpn']) | join(', ')
-          }})</button>
-        <button class="iface-btn" data-iface="antizapret" type="button">Antizapret ({{ (bw_iface_groups.antizapret or
-          ['antizapret']) | join(', ') }})</button>
-        <button class="iface-btn" data-iface="openvpn" type="button">OpenVPN ({{ (bw_iface_groups.openvpn or ['vpn-udp',
-          'vpn-tcp', 'antizapret-udp', 'antizapret-tcp']) | join(', ') }})</button>
-        <button class="iface-btn" data-iface="wireguard" type="button">WG/AWG ({{ (bw_iface_groups.wireguard or ['vpn',
-          'antizapret']) | join(', ') }})</button>
+        <button class="iface-btn" data-iface="vpn" type="button">
+          <span class="iface-btn-label">VPN</span>
+          <span class="iface-btn-meta">({{ (bw_iface_groups.vpn or ['vpn']) | join(', ') }})</span>
+        </button>
+        <button class="iface-btn" data-iface="antizapret" type="button">
+          <span class="iface-btn-label">Antizapret</span>
+          <span class="iface-btn-meta">({{ (bw_iface_groups.antizapret or ['antizapret']) | join(', ') }})</span>
+        </button>
+        <button class="iface-btn" data-iface="openvpn" type="button">
+          <span class="iface-btn-label">OpenVPN</span>
+          <span class="iface-btn-meta">({{ (bw_iface_groups.openvpn or ['vpn-udp', 'vpn-tcp', 'antizapret-udp',
+            'antizapret-tcp']) | join(', ') }})</span>
+        </button>
+        <button class="iface-btn" data-iface="wireguard" type="button">
+          <span class="iface-btn-label">WG/AWG</span>
+          <span class="iface-btn-meta">({{ (bw_iface_groups.wireguard or ['vpn', 'antizapret']) | join(', ') }})</span>
+        </button>
       </div>
 
       <div class="bw-range" role="tablist" aria-label="Диапазон">

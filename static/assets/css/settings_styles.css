@@ -2439,6 +2439,34 @@ body.settings-nav-merged .settings-content.page-unified-card {
   margin: 0;
 }
 
+/* ===== Routing: mobile-only in-page tabs ===== */
+
+.routing-mobile-tabs {
+  display: none;
+  gap: 0.42rem;
+  margin: 0 0 0.7rem;
+}
+
+.routing-mobile-tabs .menu-item {
+  margin: 0;
+  border: 1px solid #42545f;
+  border-radius: 0.68rem;
+  background: rgba(33, 45, 52, 0.86);
+  color: #d2e3ea;
+  font-weight: 600;
+  padding: 0.52rem 0.62rem;
+}
+
+.routing-mobile-tabs .menu-item.active {
+  border-color: rgba(130, 186, 168, 0.7);
+  background: linear-gradient(
+    140deg,
+    rgba(61, 125, 152, 0.88),
+    rgba(47, 108, 133, 0.9)
+  );
+  color: #f8fffb;
+}
+
 /* ===== Settings Single-Nav Layout ===== */
 
 .settings-layout.page-unified-wrapper {
@@ -2488,7 +2516,7 @@ body.settings-nav-merged .settings-content.page-unified-card {
   padding: 0.62rem 0.78rem;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 760px) {
   body.settings-nav-merged #sidebar.settings-page-wrapper {
     display: block !important;
   }
@@ -2504,16 +2532,49 @@ body.settings-nav-merged .settings-content.page-unified-card {
   }
 
   #sidebar .sidebar-menu {
-    flex-wrap: nowrap;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    overflow-x: visible;
     padding-bottom: 0.2rem;
-    -webkit-overflow-scrolling: touch;
   }
 
   #sidebar .menu-item {
-    flex: 0 0 auto;
-    min-width: max-content;
-    white-space: nowrap;
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 0;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 1024px) {
+  .routing-mobile-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .routing-mobile-tabs .menu-item {
+    flex: 1 1 calc(33.33% - 0.3rem);
+    white-space: normal;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 760px) {
+  .routing-mobile-tabs .menu-item {
+    flex: 1 1 calc(50% - 0.25rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .routing-mobile-tabs .menu-item {
+    flex: 1 1 100%;
+  }
+
+  #sidebar .menu-item {
+    flex: 1 1 100%;
   }
 }
 

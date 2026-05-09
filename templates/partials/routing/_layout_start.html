@@ -1,8 +1,8 @@
-<!-- Скрытые menu-item для settings.js: переключение вкладок по хэшу из nav base.html -->
-<div style="display:none" aria-hidden="true">
-  <button class="menu-item active" data-tab="antizapret-config"></button>
-  <button class="menu-item" data-tab="cidr-update"></button>
-  <button class="menu-item" data-tab="game-filters"></button>
+<!-- Menu-item для settings.js: на desktop скрыто, на mobile доступно как компактные вкладки -->
+<div class="routing-mobile-tabs" aria-label="Разделы маршрутизации">
+  <button type="button" class="menu-item active" data-tab="antizapret-config">Фильтры и сервисы</button>
+  <button type="button" class="menu-item" data-tab="cidr-update">Обновление IP-списков</button>
+  <button type="button" class="menu-item" data-tab="game-filters">Игровые серверы</button>
 </div>
 
 <div class="page-unified-wrapper" style="display:block">
@@ -30,4 +30,3 @@
         <button id="sticky-apply" type="button" class="button save-button">Применить</button>
       </div>
     </div>
-

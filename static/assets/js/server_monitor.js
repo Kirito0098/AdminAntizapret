@@ -60,12 +60,45 @@ document.addEventListener("DOMContentLoaded", () => {
   const rangeBtns = Array.from(document.querySelectorAll(".bw-range-btn"));
   const ifaceBtns = Array.from(document.querySelectorAll(".iface-btn"));
   const unitBtns = Array.from(document.querySelectorAll(".unit-btn"));
+  const monitorFiltersToggle = document.getElementById("monitorFiltersToggle");
+  const bwControls = document.getElementById("bwControls");
+  const mobileUiMedia = window.matchMedia("(max-width: 768px)");
 
   const elLoad = document.getElementById("network_load");
   const elIface = document.getElementById("bwIface");
   const elNetIf = document.getElementById("network_interface");
   const elRx = document.getElementById("rx_bytes");
   const elTx = document.getElementById("tx_bytes");
+
+  function initMobileFiltersMenu() {
+    if (!monitorFiltersToggle || !bwControls) return;
+
+    const setFiltersOpen = (open) => {
+      const shouldOpen = !mobileUiMedia.matches || open;
+      bwControls.classList.toggle("is-open", shouldOpen);
+      monitorFiltersToggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+      monitorFiltersToggle.setAttribute("aria-label", shouldOpen ? "Скрыть меню фильтров графика" : "Открыть меню фильтров графика");
+    };
+
+    const syncFiltersMode = () => {
+      const isMobile = mobileUiMedia.matches;
+      monitorFiltersToggle.hidden = !isMobile;
+      setFiltersOpen(!isMobile);
+    };
+
+    monitorFiltersToggle.addEventListener("click", () => {
+      if (!mobileUiMedia.matches) return;
+      setFiltersOpen(!bwControls.classList.contains("is-open"));
+    });
+
+    if (typeof mobileUiMedia.addEventListener === "function") {
+      mobileUiMedia.addEventListener("change", syncFiltersMode);
+    } else if (typeof mobileUiMedia.addListener === "function") {
+      mobileUiMedia.addListener(syncFiltersMode);
+    }
+
+    syncFiltersMode();
+  }
 
   function updateStatusIndicator(elementId, value, thresholds = { yellow: 70, red: 90 }) {
     const el = document.getElementById(elementId);
@@ -148,7 +181,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }],
       },
       options: {
-        responsive: false,
+        responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
           y: { min: 0, max: 100, ticks: { color: chartColors.legend }, grid: { color: chartColors.miniGrid } },
@@ -172,7 +206,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }],
       },
       options: {
-        responsive: false,
+        responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
           y: { min: 0, max: 100, ticks: { color: chartColors.legend }, grid: { color: chartColors.miniGrid } },
@@ -524,11 +559,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function closeMobileFiltersMenu() {
+    if (!mobileUiMedia.matches || !bwControls) return;
+    bwControls.classList.remove("is-open");
+    monitorFiltersToggle?.setAttribute("aria-expanded", "false");
+    monitorFiltersToggle?.setAttribute("aria-label", "Открыть меню фильтров графика");
+  }
+
   rangeBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       currentRange = btn.dataset.range;
       localStorage.setItem("bw_range", currentRange);
       loadBandwidth();
+      closeMobileFiltersMenu();
     });
   });
 
@@ -537,6 +580,7 @@ document.addEventListener("DOMContentLoaded", () => {
       currentIfaceGroup = btn.dataset.iface;
       localStorage.setItem("bw_iface_group", currentIfaceGroup);
       loadBandwidth();
+      closeMobileFiltersMenu();
     });
   });
 
@@ -545,6 +589,7 @@ document.addEventListener("DOMContentLoaded", () => {
       currentUnit = btn.dataset.unit;
       localStorage.setItem("bw_unit", currentUnit);
       loadBandwidth();
+      closeMobileFiltersMenu();
     });
   });
 
@@ -555,6 +600,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btn?.classList.remove("loading");
   });
 
+  initMobileFiltersMenu();
   initMiniCharts();
   setActiveBtns();
   loadSystemInfo();

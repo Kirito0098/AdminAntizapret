@@ -1248,7 +1248,7 @@ body.client-modal-open {
   word-break: break-word;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1024px) {
   .logs-summary-grid {
     grid-template-columns: repeat(3, minmax(150px, 1fr));
   }
@@ -1682,6 +1682,7 @@ body {
 }
 
 .logs-tabs-shell {
+  display: none;
   padding: 0.58rem;
 }
 
@@ -1912,7 +1913,7 @@ body {
   background: rgba(45, 62, 72, 0.92);
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1024px) {
   .logs-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1927,11 +1928,23 @@ body {
 }
 
 @media (max-width: 760px) {
+  .logs-tabs-shell {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    background: rgba(20, 28, 34, 0.97);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(49, 64, 73, 0.85);
+  }
+
   .logs-page-wrapper {
     width: 100%;
     margin: 1rem auto 1.2rem;
     padding-left: max(0.5rem, env(safe-area-inset-left));
     padding-right: max(0.5rem, env(safe-area-inset-right));
+    box-sizing: border-box;
   }
 
   .logs-section,
@@ -1959,13 +1972,26 @@ body {
   }
 
   .logs-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .logs-tab-btn,
   .cleanup-btn,
   .charts-toggle-btn {
+    width: 100%;
+  }
+
+  .section-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .section-actions .cleanup-form-inline {
+    width: 100%;
+  }
+
+  .section-actions .cleanup-btn {
     width: 100%;
   }
 
@@ -1981,9 +2007,16 @@ body {
     flex: 1 1 auto;
   }
 
+  .logs-inline-control .traffic-client-select--compact {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+  }
+
   .bw-range {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(68px, 1fr));
     width: 100%;
   }
 
@@ -2005,5 +2038,56 @@ body {
 
   .chart-card {
     min-height: 255px;
+  }
+
+  .logs-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .logs-tab-btn {
+    font-size: 0.72rem;
+    padding: 0.38rem 0.3rem;
+    letter-spacing: 0;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.25;
+    min-height: 38px;
+  }
+
+  .logs-section,
+  .logs-hero.logs-section {
+    padding: 0.65rem;
+  }
+
+  .client-card-toggle {
+    grid-template-columns: 1fr auto;
+    gap: 0.4rem;
+    padding: 0.46rem 0.55rem;
+  }
+
+  .client-card-stats {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .client-stat-pill {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+
+  .client-modal-range {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 0.38rem;
+  }
+
+  .client-modal-range-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .bw-range {
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
   }
 }

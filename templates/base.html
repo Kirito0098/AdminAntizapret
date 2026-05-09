@@ -24,12 +24,18 @@
 
   <div class="app-shell">
     <nav class="navigation" aria-label="Основная навигация">
-      <div class="nav-brand">
-        <span class="nav-brand-kicker">AdminAntizapret</span>
-        <strong class="nav-brand-title">Control Panel</strong>
+      <div class="nav-brand-row">
+        <div class="nav-brand">
+          <span class="nav-brand-kicker">AdminAntizapret</span>
+          <strong class="nav-brand-title">Control Panel</strong>
+        </div>
+        <button class="nav-mobile-toggle" type="button" aria-expanded="false"
+          aria-controls="navMobileContent" aria-label="Открыть меню">
+          <span class="nav-mobile-toggle-icon" aria-hidden="true">☰</span>
+        </button>
       </div>
 
-      <div class="nav-content">
+      <div class="nav-content" id="navMobileContent">
         <div class="nav-group">
           <a href="{{ url_for('index') }}" class="nav-link{% if endpoint == 'index' %} is-active{% endif %}">Главная</a>
           {% if current_user and current_user.is_admin() %}
@@ -37,8 +43,23 @@
             class="nav-link{% if endpoint == 'edit_files' %} is-active{% endif %}">Редактировать файлы</a>
           <a href="{{ url_for('server_monitor') }}"
             class="nav-link{% if endpoint == 'server_monitor' %} is-active{% endif %}">Мониторинг сервера</a>
-          <a href="{{ url_for('logs_dashboard') }}"
-            class="nav-link{% if endpoint == 'logs_dashboard' %} is-active{% endif %}">Подключенные клиенты</a>
+
+          <div class="nav-settings-group{% if endpoint == 'logs_dashboard' %} is-open{% endif %}">
+            <a href="{{ url_for('logs_dashboard') }}"
+              class="nav-link nav-link-settings{% if endpoint == 'logs_dashboard' %} is-active{% endif %}">
+              <span>Подключенные клиенты</span>
+              <span class="nav-settings-caret" aria-hidden="true">▾</span>
+            </a>
+
+            <div class="nav-settings-submenu" aria-label="Разделы подключенных клиентов">
+              <a href="{{ url_for('logs_dashboard', _anchor='overview') }}" class="nav-sublink"
+                data-logs-tab="overview">Обзор</a>
+              <a href="{{ url_for('logs_dashboard', _anchor='clients') }}" class="nav-sublink"
+                data-logs-tab="clients">Клиенты</a>
+              <a href="{{ url_for('logs_dashboard', _anchor='traffic') }}" class="nav-sublink"
+                data-logs-tab="traffic">Трафик (БД)</a>
+            </div>
+          </div>
 
           <div class="nav-settings-group{% if endpoint == 'routing' %} is-open{% endif %}">
             <a href="{{ url_for('routing') }}"
@@ -104,6 +125,69 @@
   </div>
 
   {% block scripts %}{% endblock %}
+
+  <script>
+    (function () {
+      const nav = document.querySelector(".navigation");
+      const toggle = nav && nav.querySelector(".nav-mobile-toggle");
+      const content = document.getElementById("navMobileContent");
+      if (!nav || !toggle || !content) return;
+
+      const mq = window.matchMedia("(max-width: 1024px)");
+
+      function setOpen(open) {
+        nav.classList.toggle("nav-is-open", open);
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-label", open ? "Закрыть меню" : "Открыть меню");
+        toggle.querySelector(".nav-mobile-toggle-icon").textContent = open ? "✕" : "☰";
+        document.body.classList.toggle("nav-mobile-open", open);
+        content.hidden = !open;
+      }
+
+      function sync() {
+        if (!mq.matches) {
+          nav.classList.remove("nav-is-open", "nav-mobile-mode");
+          document.body.classList.remove("nav-mobile-open");
+          content.hidden = false;
+        } else {
+          nav.classList.add("nav-mobile-mode");
+          if (!nav.classList.contains("nav-is-open")) {
+            content.hidden = true;
+          }
+        }
+      }
+
+      toggle.addEventListener("click", () => {
+        if (mq.matches) setOpen(!nav.classList.contains("nav-is-open"));
+      });
+
+      nav.querySelectorAll(".nav-link, .nav-sublink").forEach((link) => {
+        link.addEventListener("click", () => {
+          if (mq.matches) setOpen(false);
+        });
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && mq.matches && nav.classList.contains("nav-is-open")) {
+          setOpen(false);
+        }
+      });
+
+      document.addEventListener("click", (e) => {
+        if (mq.matches && nav.classList.contains("nav-is-open") && !nav.contains(e.target)) {
+          setOpen(false);
+        }
+      });
+
+      if (typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", sync);
+      } else if (typeof mq.addListener === "function") {
+        mq.addListener(sync);
+      }
+
+      sync();
+    })();
+  </script>
 
   <script>
     (function () {

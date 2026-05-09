@@ -249,9 +249,56 @@ groupNavItems();
 const navItems = Array.from(document.querySelectorAll('.nav-item'));
 const editForms = Array.from(document.querySelectorAll('.edit-form'));
 const fileFilterInput = document.getElementById('file-filter');
+const editfilesLayout = document.querySelector('.editfiles-layout');
+const mobileSidebarToggle = document.getElementById('editfiles-mobile-toggle');
+const mobileSidebarMedia = window.matchMedia('(max-width: 768px)');
 
 let activeForm = editForms.find((form) => !form.hidden) || null;
 const formMeta = new Map();
+
+function setSidebarMenuOpen(isOpen) {
+    if (!editfilesLayout || !mobileSidebarToggle) {
+        return;
+    }
+
+    editfilesLayout.classList.toggle('is-sidebar-open', isOpen);
+    mobileSidebarToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    mobileSidebarToggle.setAttribute(
+        'aria-label',
+        isOpen ? 'Скрыть меню редактирования' : 'Открыть меню редактирования'
+    );
+}
+
+function syncSidebarMobileMode() {
+    if (!editfilesLayout || !mobileSidebarToggle) {
+        return;
+    }
+
+    const isMobile = mobileSidebarMedia.matches;
+    editfilesLayout.classList.toggle('is-mobile-collapsible', isMobile);
+    if (isMobile) {
+        setSidebarMenuOpen(false);
+    } else {
+        editfilesLayout.classList.remove('is-sidebar-open');
+        mobileSidebarToggle.setAttribute('aria-expanded', 'false');
+    }
+}
+
+mobileSidebarToggle?.addEventListener('click', () => {
+    if (!editfilesLayout || !mobileSidebarMedia.matches) {
+        return;
+    }
+
+    const shouldOpen = !editfilesLayout.classList.contains('is-sidebar-open');
+    setSidebarMenuOpen(shouldOpen);
+});
+
+if (typeof mobileSidebarMedia.addEventListener === 'function') {
+    mobileSidebarMedia.addEventListener('change', syncSidebarMobileMode);
+} else if (typeof mobileSidebarMedia.addListener === 'function') {
+    mobileSidebarMedia.addListener(syncSidebarMobileMode);
+}
+syncSidebarMobileMode();
 
 function getFormForNav(btn) {
     return document.getElementById(`form-${btn.dataset.file}`);
@@ -340,7 +387,7 @@ function applyFileFilter(rawQuery) {
         }
     });
 
-    const groupSections = Array.from(document.querySelectorAll('.nav-group'));
+    const groupSections = Array.from(document.querySelectorAll('.file-nav .nav-group'));
     groupSections.forEach((section) => {
         const hasVisible = Array.from(section.querySelectorAll('.nav-item')).some((btn) => !btn.hidden);
         section.hidden = !hasVisible;
@@ -502,6 +549,9 @@ editForms.forEach((form) => {
 navItems.forEach(btn => {
     btn.addEventListener('click', () => {
         selectNav(btn);
+        if (mobileSidebarMedia.matches) {
+            setSidebarMenuOpen(false);
+        }
     });
 });
 
@@ -515,6 +565,11 @@ fileFilterInput?.addEventListener('input', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && mobileSidebarMedia.matches && editfilesLayout?.classList.contains('is-sidebar-open')) {
+        setSidebarMenuOpen(false);
+        return;
+    }
+
     const isSave = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's';
     if (!isSave) {
         return;
