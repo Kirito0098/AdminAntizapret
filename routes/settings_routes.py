@@ -1533,6 +1533,123 @@ def register_settings_routes(
             return jsonify({"success": False, "message": "Доступ разрешён только из Telegram Mini App."}), 403
         return jsonify({"success": True, "settings": _build_tg_mini_settings_payload()})
 
+    def _tests_subprocess_env(app_root_dir):
+        import sys as _sys
+        env = os.environ.copy()
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = app_root_dir + (":" + existing if existing else "")
+        return env
+
+    @app.route("/api/tests/collect", methods=["GET"])
+    @auth_manager.admin_required
+    def api_tests_collect():
+        app_root_dir = os.path.dirname(os.path.dirname(__file__))
+        venv_pytest = os.path.join(app_root_dir, "venv", "bin", "pytest")
+        if not os.path.isfile(venv_pytest):
+            venv_pytest = "pytest"
+        tests_dir = os.path.join(app_root_dir, "tests")
+        try:
+            proc = subprocess.run(
+                [venv_pytest, "--collect-only", "-q", "--no-header", tests_dir],
+                capture_output=True, text=True, timeout=30, cwd=app_root_dir,
+                env=_tests_subprocess_env(app_root_dir),
+            )
+            lines = (proc.stdout + proc.stderr).strip().splitlines()
+            tests = []
+            for line in lines:
+                stripped = line.strip()
+                if "::" in stripped and not stripped.startswith("="):
+                    tests.append(stripped)
+            return jsonify({"success": True, "tests": tests, "count": len(tests)})
+        except Exception as exc:
+            return jsonify({"success": False, "message": str(exc)}), 500
+
+    @app.route("/api/tests/run", methods=["POST"])
+    @auth_manager.admin_required
+    def api_tests_run():
+        payload = request.get_json(silent=True) or {}
+        test_ids = [str(t) for t in (payload.get("test_ids") or []) if t]
+
+        app_root_dir = os.path.dirname(os.path.dirname(__file__))
+        venv_pytest = os.path.join(app_root_dir, "venv", "bin", "pytest")
+        if not os.path.isfile(venv_pytest):
+            venv_pytest = "pytest"
+        tests_dir = os.path.join(app_root_dir, "tests")
+
+        active = _find_active_cidr_task("pytest_run")
+        if active:
+            return jsonify({
+                "success": True,
+                "queued": True,
+                "task_id": active.get("task_id"),
+                "message": "Тесты уже выполняются",
+                "status_url": url_for("api_cidr_task_status", task_id=active.get("task_id")),
+            }), 202
+
+        task_id = _create_cidr_task("pytest_run", "Запуск тестов...")
+
+        def _runner(progress_callback):
+            progress_callback(5, "Запуск pytest...")
+            cmd = [venv_pytest, "-v", "--tb=short", "--no-header"]
+            if test_ids:
+                cmd.extend(test_ids)
+            else:
+                cmd.append(tests_dir)
+
+            try:
+                proc = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=300, cwd=app_root_dir,
+                    env=_tests_subprocess_env(app_root_dir),
+                )
+                output = proc.stdout + (proc.stderr or "")
+                progress_callback(90, "Разбор результатов...")
+
+                tests_result = []
+                passed = failed = errors = 0
+                for line in output.splitlines():
+                    stripped = line.strip()
+                    if " PASSED" in stripped and "::" in stripped:
+                        test_id = stripped.split(" PASSED")[0].strip()
+                        tests_result.append({"id": test_id, "status": "passed"})
+                        passed += 1
+                    elif " FAILED" in stripped and "::" in stripped:
+                        test_id = stripped.split(" FAILED")[0].strip()
+                        tests_result.append({"id": test_id, "status": "failed"})
+                        failed += 1
+                    elif " ERROR" in stripped and "::" in stripped:
+                        test_id = stripped.split(" ERROR")[0].strip()
+                        tests_result.append({"id": test_id, "status": "error"})
+                        errors += 1
+
+                total = passed + failed + errors
+                success = proc.returncode == 0
+                return {
+                    "success": success,
+                    "message": f"Выполнено {total}: {passed} прошло, {failed} упало, {errors} ошибок",
+                    "summary": {"passed": passed, "failed": failed, "error": errors, "total": total},
+                    "tests": tests_result,
+                    "raw_output": output,
+                }
+            except subprocess.TimeoutExpired:
+                return {"success": False, "message": "Таймаут выполнения тестов (300 сек)"}
+            except Exception as exc:
+                return {"success": False, "message": str(exc)}
+
+        _start_cidr_task(task_id, _runner)
+        log_user_action_event(
+            "settings_tests_run",
+            target_type="tests",
+            target_name="pytest",
+            details=f"count={'all' if not test_ids else len(test_ids)}",
+        )
+        return jsonify({
+            "success": True,
+            "queued": True,
+            "task_id": task_id,
+            "message": "Тесты запущены в фоне",
+            "status_url": url_for("api_cidr_task_status", task_id=task_id),
+        }), 202
+
     @app.route("/api/tg-mini/settings", methods=["POST"])
     @auth_manager.admin_required
     def api_tg_mini_settings_update():

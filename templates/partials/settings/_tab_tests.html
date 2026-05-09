@@ -1,0 +1,248 @@
+    <div id="tests" class="content-tab">
+      <h2>Тесты системы</h2>
+
+      <!-- ── Сводка результатов ──────────────────────────────────────── -->
+      <div class="tests-summary" id="tests-summary" hidden>
+        <div class="tests-summary__stat tests-summary__stat--passed">
+          <span class="tests-summary__num" id="tests-stat-passed">0</span>
+          <span class="tests-summary__lbl">прошло</span>
+        </div>
+        <div class="tests-summary__stat tests-summary__stat--failed">
+          <span class="tests-summary__num" id="tests-stat-failed">0</span>
+          <span class="tests-summary__lbl">упало</span>
+        </div>
+        <div class="tests-summary__stat">
+          <span class="tests-summary__num" id="tests-stat-total">0</span>
+          <span class="tests-summary__lbl">всего</span>
+        </div>
+      </div>
+
+      <!-- ── Панель действий ─────────────────────────────────────────── -->
+      <div class="tests-action-panel">
+        <div class="tests-action-panel__info">
+          <p class="tests-action-panel__title">Запуск тестов</p>
+          <p class="tests-action-panel__desc">
+            Выполняет все unit-тесты через pytest. Занимает 10–60 секунд.
+          </p>
+        </div>
+        <button id="tests-run-btn" type="button" class="button save-button tests-run-btn">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <polygon points="2,1 12,6.5 2,12" fill="currentColor"/>
+          </svg>
+          Запустить все
+        </button>
+      </div>
+
+      <!-- ── Прогресс ────────────────────────────────────────────────── -->
+      <div id="tests-progress" class="upd-progress-block" hidden>
+        <div class="upd-progress-block__track">
+          <div class="upd-progress-block__fill" id="tests-progress-fill"></div>
+        </div>
+        <div class="upd-progress-block__foot">
+          <span class="upd-progress-block__spinner" aria-hidden="true"></span>
+          <span id="tests-progress-label">Выполняется...</span>
+        </div>
+      </div>
+
+      <!-- ── Список тестов ───────────────────────────────────────────── -->
+      <div class="tests-list-wrap">
+        <div class="tests-list-header">
+          <span class="tests-list-header__title">Тесты</span>
+          <span id="tests-list-count" class="tests-list-header__badge">—</span>
+        </div>
+        <div id="tests-list" class="tests-list">
+          <p class="tests-list-empty" id="tests-list-placeholder">Загрузка списка тестов…</p>
+        </div>
+      </div>
+
+      <!-- ── Вывод pytest ────────────────────────────────────────────── -->
+      <details id="tests-output-wrap" class="tests-output-wrap" hidden>
+        <summary>Вывод pytest</summary>
+        <pre id="tests-raw-output" class="tests-raw-output"></pre>
+      </details>
+    </div>
+
+    <script>
+    (function () {
+      'use strict';
+
+      var testsMap = {};
+      var currentTaskId = null;
+      var pollTimer = null;
+
+      function getCsrf() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+      }
+
+      function setRunning(running) {
+        var btn = document.getElementById('tests-run-btn');
+        var progress = document.getElementById('tests-progress');
+        if (!btn) return;
+        btn.disabled = running;
+        btn.innerHTML = running
+          ? '<span class="upd-progress-block__spinner" style="width:12px;height:12px;border-width:2px;margin-right:0.4rem" aria-hidden="true"></span>Выполняется…'
+          : '<svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><polygon points="2,1 12,6.5 2,12" fill="currentColor"/></svg> Запустить все';
+        if (progress) progress.hidden = !running;
+      }
+
+      function updateProgress(percent, label) {
+        var fill = document.getElementById('tests-progress-fill');
+        var lbl = document.getElementById('tests-progress-label');
+        if (fill) fill.style.width = (percent || 0) + '%';
+        if (lbl) lbl.textContent = label || 'Выполняется…';
+      }
+
+      function updateSummary(summary) {
+        var el = document.getElementById('tests-summary');
+        if (!el) return;
+        el.hidden = false;
+        document.getElementById('tests-stat-passed').textContent = summary.passed || 0;
+        document.getElementById('tests-stat-failed').textContent = summary.failed || 0;
+        document.getElementById('tests-stat-total').textContent = summary.total || 0;
+      }
+
+      function setBadge(badge, status) {
+        var map = { passed: ['tests-item__badge--passed', '✓ OK'],
+                    failed: ['tests-item__badge--failed', '✗ FAIL'],
+                    error:  ['tests-item__badge--error',  '! ERR'],
+                    running:['tests-item__badge--running', '…'],
+                    idle:   ['tests-item__badge--idle', '—'] };
+        var info = map[status] || map.idle;
+        badge.className = 'tests-item__badge ' + info[0];
+        badge.textContent = info[1];
+      }
+
+      function applyResults(tests) {
+        Object.values(testsMap).forEach(function (b) { setBadge(b, 'idle'); });
+        tests.forEach(function (t) {
+          var badge = testsMap[t.id];
+          if (badge) setBadge(badge, t.status);
+        });
+      }
+
+      function stopPoll() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      }
+
+      function pollStatus(taskId) {
+        fetch('/api/cidr-lists/task/' + taskId, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin',
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          updateProgress(data.progress_percent, data.progress_stage || data.message);
+
+          if (data.status === 'completed' || data.status === 'failed') {
+            stopPoll();
+            setRunning(false);
+
+            var result = data.result || {};
+            if (result.summary) updateSummary(result.summary);
+            if (result.tests)   applyResults(result.tests);
+
+            if (result.raw_output) {
+              var wrap = document.getElementById('tests-output-wrap');
+              var pre  = document.getElementById('tests-raw-output');
+              if (wrap) { wrap.hidden = false; if (data.status === 'failed') wrap.open = true; }
+              if (pre)  pre.textContent = result.raw_output;
+            }
+          }
+        })
+        .catch(function () { /* keep polling on network hiccup */ });
+      }
+
+      function renderList(tests) {
+        var list = document.getElementById('tests-list');
+        var countEl = document.getElementById('tests-list-count');
+        if (!list) return;
+        if (countEl) countEl.textContent = tests.length;
+        list.innerHTML = '';
+        testsMap = {};
+        tests.forEach(function (id) {
+          var item  = document.createElement('div');
+          item.className = 'tests-item';
+
+          var idEl  = document.createElement('span');
+          idEl.className = 'tests-item__id';
+          idEl.title = id;
+          idEl.textContent = id;
+
+          var badge = document.createElement('span');
+          badge.className = 'tests-item__badge tests-item__badge--idle';
+          badge.textContent = '—';
+
+          item.appendChild(idEl);
+          item.appendChild(badge);
+          list.appendChild(item);
+          testsMap[id] = badge;
+        });
+      }
+
+      function fetchCollect() {
+        fetch('/api/tests/collect', {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin',
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.success) {
+            renderList(data.tests);
+          } else {
+            var ph = document.getElementById('tests-list-placeholder');
+            if (ph) ph.textContent = 'Ошибка загрузки: ' + (data.message || '');
+          }
+        })
+        .catch(function (e) {
+          var ph = document.getElementById('tests-list-placeholder');
+          if (ph) ph.textContent = 'Ошибка сети: ' + e.message;
+        });
+      }
+
+      function runTests() {
+        setRunning(true);
+        updateProgress(3, 'Отправка запроса…');
+        Object.values(testsMap).forEach(function (b) { setBadge(b, 'running'); });
+
+        fetch('/api/tests/run', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCsrf(),
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({}),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.task_id) {
+            currentTaskId = data.task_id;
+            stopPoll();
+            pollTimer = setInterval(function () { pollStatus(currentTaskId); }, 1500);
+          } else {
+            setRunning(false);
+            Object.values(testsMap).forEach(function (b) { setBadge(b, 'idle'); });
+          }
+        })
+        .catch(function (e) {
+          setRunning(false);
+          Object.values(testsMap).forEach(function (b) { setBadge(b, 'idle'); });
+        });
+      }
+
+      function init() {
+        var btn = document.getElementById('tests-run-btn');
+        if (!btn) return;
+        btn.addEventListener('click', runTests);
+        fetchCollect();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+    </script>

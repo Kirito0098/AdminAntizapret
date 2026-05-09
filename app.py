@@ -277,10 +277,6 @@ def normalize_openvpn_group_key(filename):
     return config_access_service.normalize_openvpn_group_key(filename)
 
 
-def get_openvpn_group_display_name(filename):
-    return config_access_service.get_openvpn_group_display_name(filename)
-
-
 def collect_all_openvpn_files_for_access():
     return config_access_service.collect_all_openvpn_files_for_access()
 
@@ -291,10 +287,6 @@ def build_openvpn_access_groups(openvpn_paths):
 
 def normalize_conf_group_key(filename, config_type):
     return config_access_service.normalize_conf_group_key(filename, config_type)
-
-
-def get_conf_group_display_name(filename, config_type):
-    return config_access_service.get_conf_group_display_name(filename, config_type)
 
 
 def build_conf_access_groups(conf_paths, config_type):
@@ -541,20 +533,8 @@ background_task_service = BackgroundTaskService(
 )
 
 
-def _trim_background_task_text(value):
-    return background_task_service.trim_background_task_text(value)
-
-
 def _serialize_background_task(task):
     return background_task_service.serialize_background_task(task)
-
-
-def _update_background_task(task_id, **fields):
-    return background_task_service.update_background_task(task_id, **fields)
-
-
-def _run_background_task(task_id, task_callable):
-    return background_task_service.run_background_task(task_id, task_callable)
 
 
 def _enqueue_background_task(task_type, task_callable, created_by_username=None, queued_message=None):
@@ -590,38 +570,6 @@ def _task_restart_service():
 
 def _task_update_system():
     return background_task_service.task_update_system()
-
-
-def _logs_dashboard_cache_row():
-    return logs_dashboard_cache_service.logs_dashboard_cache_row()
-
-
-def _save_logs_dashboard_cache_payload(payload, last_error=None):
-    return logs_dashboard_cache_service.save_logs_dashboard_cache_payload(payload, last_error=last_error)
-
-
-def _load_logs_dashboard_cache_payload():
-    return logs_dashboard_cache_service.load_logs_dashboard_cache_payload()
-
-
-def _build_empty_logs_dashboard_payload(reason_message=None):
-    return logs_dashboard_cache_service.build_empty_logs_dashboard_payload(reason_message=reason_message)
-
-
-def _is_logs_dashboard_refresh_in_progress():
-    return logs_dashboard_cache_service.is_logs_dashboard_refresh_in_progress()
-
-
-def _get_logs_dashboard_refresh_task():
-    return logs_dashboard_cache_service.get_logs_dashboard_refresh_task()
-
-
-def _task_refresh_logs_dashboard_cache():
-    return logs_dashboard_cache_service.task_refresh_logs_dashboard_cache()
-
-
-def _queue_logs_dashboard_refresh_if_needed(created_by_username=None):
-    return logs_dashboard_cache_service.queue_logs_dashboard_refresh_if_needed(created_by_username=created_by_username)
 
 
 def _get_logs_dashboard_data_cached(created_by_username=None):
@@ -715,34 +663,6 @@ STATUS_LOG_CLEANUP_MARKER = runtime_settings["STATUS_LOG_CLEANUP_MARKER"]
 STATUS_LOG_CLEANUP_PERIODS = runtime_settings["STATUS_LOG_CLEANUP_PERIODS"]
 
 
-def _status_log_cleanup_command():
-    return maintenance_scheduler_service.status_log_cleanup_command()
-
-
-def _read_crontab_lines():
-    return maintenance_scheduler_service.read_crontab_lines()
-
-
-def _write_crontab_lines(lines):
-    maintenance_scheduler_service.write_crontab_lines(lines)
-
-
-def _strip_status_cleanup_jobs(lines):
-    return maintenance_scheduler_service.strip_status_cleanup_jobs(lines)
-
-
-def _traffic_sync_command():
-    return maintenance_scheduler_service.traffic_sync_command()
-
-
-def _nightly_idle_restart_command():
-    return maintenance_scheduler_service.nightly_idle_restart_command()
-
-
-def _is_systemd_traffic_sync_timer_enabled():
-    return maintenance_scheduler_service.is_systemd_traffic_sync_timer_enabled()
-
-
 def _ensure_traffic_sync_cron():
     return maintenance_scheduler_service.ensure_traffic_sync_cron()
 
@@ -829,14 +749,6 @@ peer_info_cache_service = _services["peer_info_cache_service"]
 logs_dashboard_cache_service = _services["logs_dashboard_cache_service"]
 
 
-def _get_or_create_auth_session_id():
-    return active_web_session_service.get_or_create_auth_session_id(session)
-
-
-def _cleanup_stale_active_web_sessions(now=None):
-    active_web_session_service.cleanup_stale_active_web_sessions(now=now)
-
-
 def _touch_active_web_session(username, force=False):
     active_web_session_service.touch_active_web_session(
         username,
@@ -852,10 +764,6 @@ def _remove_active_web_session():
         session_obj=session,
         db_session=db.session,
     )
-
-
-def _get_status_cleanup_schedule():
-    return maintenance_scheduler_service.get_status_cleanup_schedule()
 
 
 def _set_status_cleanup_schedule(period):
@@ -895,26 +803,6 @@ def _normalize_traffic_protocol_type(protocol_type, fallback="openvpn"):
     return traffic_maintenance_service.normalize_traffic_protocol_type(protocol_type, fallback=fallback)
 
 
-def _profile_matches_protocol_scope(profile, protocol_scope):
-    return traffic_maintenance_service.profile_matches_protocol_scope(profile, protocol_scope)
-
-
-def _collect_wireguard_only_client_names_lower():
-    return traffic_maintenance_service.collect_wireguard_only_client_names_lower()
-
-
-def _delete_persisted_traffic_rows_by_scope(protocol_scope):
-    return traffic_maintenance_service.delete_persisted_traffic_rows_by_scope(protocol_scope)
-
-
-def _seed_traffic_session_baseline_for_scope(status_rows, protocol_scope, now=None):
-    return traffic_maintenance_service.seed_traffic_session_baseline_for_scope(
-        status_rows,
-        protocol_scope,
-        now=now,
-    )
-
-
 def _rebuild_user_traffic_stats_from_samples(seed_users=None, now=None):
     return traffic_maintenance_service.rebuild_user_traffic_stats_from_samples(
         seed_users=seed_users,
@@ -926,28 +814,8 @@ def _reset_persisted_traffic_data(protocol_scope="all"):
     return traffic_maintenance_service.reset_persisted_traffic_data(protocol_scope=protocol_scope)
 
 
-def _read_log_file(path):
-    return openvpn_socket_reader_service.read_log_file(path)
-
-
 def _openvpn_socket_path(profile_key):
     return openvpn_socket_reader_service.openvpn_socket_path(profile_key)
-
-
-def _query_openvpn_management_socket(socket_path, command, max_response_bytes=0):
-    return openvpn_socket_reader_service.query_openvpn_management_socket(
-        socket_path,
-        command,
-        max_response_bytes=max_response_bytes,
-    )
-
-
-def _extract_status_payload_from_management(raw):
-    return openvpn_socket_reader_service.extract_status_payload_from_management(raw)
-
-
-def _extract_event_payload_from_management(raw):
-    return openvpn_socket_reader_service.extract_event_payload_from_management(raw)
 
 
 def _read_status_source(profile_key, fallback_path):
@@ -960,10 +828,6 @@ def _read_event_source(profile_key, fallback_path):
 
 def _persist_peer_info_cache(event_rows):
     return peer_info_cache_service.persist_peer_info_cache(event_rows)
-
-
-def _prune_peer_info_history():
-    return peer_info_cache_service.prune_peer_info_history()
 
 
 def _load_peer_info_cache_map(include_stale=False):
