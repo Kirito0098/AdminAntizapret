@@ -2482,7 +2482,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const loadReleaseNotes = async () => {
       try {
-        const resp = await fetch("/api/latest-changelog");
+        const resp = await fetch("/api/latest-changelog", { cache: "no-store" });
         const data = await resp.json();
         renderReleaseNotes(data);
       } catch { /* silent — non-critical */ }

@@ -133,12 +133,14 @@ def register_admin_routes(
                 if items:
                     sections.append({"title": sm.group(1).strip(), "items": items})
 
-            return jsonify({
+            resp = jsonify({
                 "success": True,
                 "version": version,
                 "date": date,
                 "sections": sections,
-            }), 200
+            })
+            resp.headers["Cache-Control"] = "no-store"
+            return resp, 200
 
         except Exception as e:
             return jsonify({"success": False, "message": str(e)}), 200
