@@ -6,7 +6,7 @@ show_network_connections() {
     elif command -v netstat >/dev/null 2>&1; then
         netstat -tuln
     else
-        echo "${YELLOW}Команды ss/netstat не найдены. Установите iproute2 или net-tools.${NC}"
+        ui_warn "Команды ss/netstat не найдены. Установите iproute2 или net-tools."
     fi
 }
 
@@ -14,30 +14,51 @@ show_network_connections() {
 show_monitor() {
     while true; do
         clear
-        echo "${GREEN}┌────────────────────────────────────────────┐"
-        echo "│          Мониторинг системы                │"
-        echo "├────────────────────────────────────────────┤"
-        echo "│ 1. Проверить использование CPU             │"
-        echo "│ 2. Проверить использование памяти          │"
-        echo "│ 3. Проверить использование диска           │"
-        echo "│ 4. Просмотреть логи сервиса                │"
-        echo "│ 5. Проверить сетевые соединения            │"
-        echo "│ 0. Назад                                   │"
-        echo "└────────────────────────────────────────────┘${NC}"
+        _m_top
+        _m_title "Мониторинг системы"
+        _m_sep
+        _m_item "1. CPU"
+        _m_item "2. Память"
+        _m_item "3. Диск"
+        _m_item "4. Журнал сервиса"
+        _m_item "5. Сетевые соединения"
+        _m_sep
+        _m_item "0. Назад"
+        _m_bot
+        printf "\n"
 
-        read -r -p "Выберите действие: " choice
+        read -r -p "  Выберите действие [0-5]: " choice
         case $choice in
-        1) top -bn1 | grep "Cpu(s)" ;;
-        2) free -h ;;
-        3) df -h ;;
-        4) journalctl -u "$SERVICE_NAME" -n 50 --no-pager ;;
-        5) show_network_connections ;;
+        1)
+            printf "\n"
+            top -bn1 | grep "Cpu(s)"
+            press_any_key
+            ;;
+        2)
+            printf "\n"
+            free -h
+            press_any_key
+            ;;
+        3)
+            printf "\n"
+            df -h
+            press_any_key
+            ;;
+        4)
+            printf "\n"
+            journalctl -u "$SERVICE_NAME" -n 50 --no-pager
+            press_any_key
+            ;;
+        5)
+            printf "\n"
+            show_network_connections
+            press_any_key
+            ;;
         0) break ;;
         *)
-            echo "${RED}Неверный выбор!${NC}"
+            ui_warn "Неверный выбор"
             sleep 1
             ;;
         esac
-        press_any_key
     done
 }

@@ -1,123 +1,126 @@
 #!/bin/bash
 
-# Управление сервисом
+# Перезапуск сервиса
 restart_service() {
-	echo "${YELLOW}Перезапуск сервиса...${NC}"
-	systemctl restart "$SERVICE_NAME"
-	check_status
+    ui_info "Перезапуск сервиса..."
+    systemctl restart "$SERVICE_NAME"
+    check_status
 }
 
-# Проверка статуса сервиса
+# Статус сервиса
 check_status() {
-	echo "${YELLOW}Статус сервиса:${NC}"
-	systemctl status "$SERVICE_NAME" --no-pager -l
-	press_any_key
+    printf "\n"
+    systemctl status "$SERVICE_NAME" --no-pager -l
+    press_any_key
 }
 
 check_updates() {
-	auto_update
-	press_any_key
+    auto_update
+    press_any_key
 }
 
-# Просмотр логов сервиса
+# Журнал сервиса
 show_logs() {
-	echo "${YELLOW}Log File:${NC}"
-	journalctl -u "$SERVICE_NAME" -n 50 --no-pager
-	press_any_key
+    printf "\n"
+    journalctl -u "$SERVICE_NAME" -n 50 --no-pager
+    press_any_key
 }
 
-# Валидация конфигурации
+# Проверка конфигурации
 validate_config() {
-	local errors=0
-	local env_file="$INSTALL_DIR/.env"
+    local errors=0 env_file="$INSTALL_DIR/.env"
 
-	echo "${YELLOW}Проверка конфигурации...${NC}"
+    ui_section "Проверка конфигурации"
 
-	if [ ! -f "$env_file" ]; then
-		echo "${RED}Ошибка: .env файл не найден${NC}"
-		errors=$((errors + 1))
-	else
-		if ! grep -q "^SECRET_KEY=" "$env_file"; then
-			echo "${RED}Ошибка: SECRET_KEY не установлен${NC}"
-			errors=$((errors + 1))
-		fi
-		if ! grep -q "^VNSTAT_IFACE=" "$env_file"; then
-			echo "${RED}Ошибка: VNSTAT_IFACE не установлен${NC}"
-			errors=$((errors + 1))
-		fi
-	fi
+    if [ ! -f "$env_file" ]; then
+        ui_fail ".env файл не найден"
+        errors=$((errors + 1))
+    else
+        if grep -q "^SECRET_KEY=" "$env_file"; then
+            ui_ok "SECRET_KEY задан"
+        else
+            ui_fail "SECRET_KEY не установлен"
+            errors=$((errors + 1))
+        fi
+        if grep -q "^VNSTAT_IFACE=" "$env_file"; then
+            ui_ok "VNSTAT_IFACE задан"
+        else
+            ui_fail "VNSTAT_IFACE не установлен"
+            errors=$((errors + 1))
+        fi
+    fi
 
-	if [ ! -f "$DB_FILE" ]; then
-		echo "${RED}Ошибка: База данных не найдена${NC}"
-		errors=$((errors + 1))
-	fi
+    if [ -f "$DB_FILE" ]; then
+        ui_ok "База данных найдена"
+    else
+        ui_fail "База данных не найдена"
+        errors=$((errors + 1))
+    fi
 
-	if [ ! -f "/etc/systemd/system/$SERVICE_NAME.service" ]; then
-		echo "${RED}Ошибка: Сервис systemd не найден${NC}"
-		errors=$((errors + 1))
-	fi
+    if [ -f "/etc/systemd/system/$SERVICE_NAME.service" ]; then
+        ui_ok "Systemd unit найден"
+    else
+        ui_fail "Systemd unit не найден"
+        errors=$((errors + 1))
+    fi
 
-	if [ "$errors" -eq 0 ]; then
-		echo "${GREEN}Конфигурация в порядке.${NC}"
-		return 0
-	else
-		echo "${RED}Найдено $errors ошибок в конфигурации.${NC}"
-		return 1
-	fi
+    printf "\n"
+    if [ "$errors" -eq 0 ]; then
+        ui_ok "Конфигурация в порядке"
+        return 0
+    else
+        ui_fail "Найдено $errors ошибок"
+        return 1
+    fi
 }
 
-# Проверка и установка прав выполнения для файлов
+# Проверка и установка прав выполнения
 check_and_set_permissions() {
-	echo "${YELLOW}Проверка и установка прав выполнения для client.sh и doall.sh...${NC}"
-	local files
-	local file
-
-	files=("$INSTALL_DIR/client.sh" "$ANTIZAPRET_INSTALL_DIR/doall.sh")
-	for file in "${files[@]}"; do
-		if [ -f "$file" ]; then
-			if [ ! -x "$file" ]; then
-				if chmod +x "$file"; then
-					echo "${GREEN}Права выполнения установлены для $file${NC}"
-				else
-					echo "${RED}Ошибка при установке прав выполнения для $file!${NC}"
-				fi
-			else
-				echo "${GREEN}Права выполнения уже установлены для $file${NC}"
-			fi
-		else
-			echo "${RED}Файл $file не найден!${NC}"
-		fi
-	done
-
-	press_any_key
+    ui_section "Проверка прав выполнения"
+    local files=("$INSTALL_DIR/client.sh" "$ANTIZAPRET_INSTALL_DIR/doall.sh")
+    for file in "${files[@]}"; do
+        if [ -f "$file" ]; then
+            if [ ! -x "$file" ]; then
+                if chmod +x "$file"; then
+                    ui_ok "Права установлены: $file"
+                else
+                    ui_fail "Не удалось установить права: $file"
+                fi
+            else
+                ui_ok "Права уже установлены: $file"
+            fi
+        else
+            ui_warn "Файл не найден: $file"
+        fi
+    done
+    press_any_key
 }
 
 # Изменение порта сервиса
 change_port() {
-	echo "${YELLOW}Изменение порта сервиса...${NC}"
-	local current_port=""
-	get_port
-	# Обновляем .env
-	if [ -f "$INSTALL_DIR/.env" ]; then
-		current_port=$(grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env" 2>/dev/null || true)
-	fi
-	if [[ "$current_port" == "$APP_PORT" ]]; then
-		echo "${GREEN}Порт не изменился${NC}"
-		press_any_key
-		return
-	fi
-	if [ -f "$INSTALL_DIR/.env" ]; then
-		sed -i "/^APP_PORT=/d" "$INSTALL_DIR/.env"
-	fi
-	echo "APP_PORT=$APP_PORT" >>"$INSTALL_DIR/.env"
-	echo "${GREEN}Порт изменен на $APP_PORT. Перезапуск сервиса.${NC}"
-	restart_service
+    ui_info "Изменение порта сервиса..."
+    local current_port=""
+    get_port
+    if [ -f "$INSTALL_DIR/.env" ]; then
+        current_port=$(grep -oP 'APP_PORT=\K\d+' "$INSTALL_DIR/.env" 2>/dev/null || true)
+    fi
+    if [[ "$current_port" == "$APP_PORT" ]]; then
+        ui_ok "Порт не изменился ($APP_PORT)"
+        press_any_key
+        return
+    fi
+    if [ -f "$INSTALL_DIR/.env" ]; then
+        sed -i "/^APP_PORT=/d" "$INSTALL_DIR/.env"
+    fi
+    printf 'APP_PORT=%s\n' "$APP_PORT" >> "$INSTALL_DIR/.env"
+    ui_ok "Порт изменён на $APP_PORT. Перезапуск..."
+    restart_service
 }
 
 copy_to_adminpanel() {
-	echo "${YELLOW}Копирование скрипта в ${ADMIN_PANEL_DIR}...${NC}"
-	mkdir -p "$ADMIN_PANEL_DIR"
-	cp "$0" "$ADMIN_PANEL_DIR/"
-	chmod +x "$ADMIN_PANEL_DIR/$(basename "$0")"
-	echo "${GREEN}[✓] Скрипт успешно скопирован в ${ADMIN_PANEL_DIR}${NC}"
+    ui_info "Копирование скрипта в $ADMIN_PANEL_DIR..."
+    mkdir -p "$ADMIN_PANEL_DIR"
+    cp "$0" "$ADMIN_PANEL_DIR/"
+    chmod +x "$ADMIN_PANEL_DIR/$(basename "$0")"
+    ui_ok "Скрипт скопирован в $ADMIN_PANEL_DIR"
 }

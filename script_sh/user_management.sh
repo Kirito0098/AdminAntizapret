@@ -2,66 +2,67 @@
 
 # Добавление администратора
 add_admin() {
-    echo "${YELLOW}Добавление нового администратора...${NC}"
+    ui_section "Добавление администратора"
 
+    local username
     while true; do
-        read -r -p "Введите логин администратора: " username
-        username=$(echo "$username" | tr -d '[:space:]')
-
+        read -r -p "  Логин: " username
+        username=$(printf '%s' "$username" | tr -d '[:space:]')
         if [ -z "$username" ]; then
-            echo "${RED}Логин не может быть пустым!${NC}"
+            ui_fail "Логин не может быть пустым"
         elif [[ "$username" =~ [^a-zA-Z0-9_-] ]]; then
-            echo "${RED}Логин может содержать только буквы, цифры, '-' и '_'!${NC}"
+            ui_fail "Допустимы только буквы, цифры, '-' и '_'"
         else
             break
         fi
     done
 
-    # Запрос пароля с проверкой
+    local password password_confirm
     while true; do
-        read -r -s -p "Введите пароль: " password
-        echo
-        read -r -s -p "Повторите пароль: " password_confirm
-        echo
-
+        read -r -s -p "  Пароль: " password; printf "\n"
+        read -r -s -p "  Повторите пароль: " password_confirm; printf "\n"
         if [ -z "$password" ]; then
-            echo "${RED}Пароль не может быть пустым!${NC}"
+            ui_fail "Пароль не может быть пустым"
         elif [ "$password" != "$password_confirm" ]; then
-            echo "${RED}Пароли не совпадают! Попробуйте снова.${NC}"
+            ui_fail "Пароли не совпадают"
         elif [ "${#password}" -lt 8 ]; then
-            echo "${RED}Пароль должен содержать минимум 8 символов!${NC}"
+            ui_fail "Пароль должен содержать минимум 8 символов"
         else
             break
         fi
     done
 
-    printf '%s\n' "$password" | "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py" --add-user "$username" --password-stdin
+    printf '%s\n' "$password" | \
+        "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py" \
+        --add-user "$username" --password-stdin
     check_error "Не удалось добавить администратора"
+    ui_ok "Администратор '$username' добавлен"
     press_any_key
 }
 
 # Удаление администратора
 delete_admin() {
-    echo "${YELLOW}Удаление администратора...${NC}"
+    ui_section "Удаление администратора"
 
-    echo "${YELLOW}Список администраторов:${NC}"
+    ui_info "Список администраторов:"
     if ! "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py" --list-users; then
-        echo "${RED}Ошибка при получении списка администраторов!${NC}"
+        ui_fail "Не удалось получить список администраторов"
         press_any_key
         return
     fi
 
-    read -r -p "Введите логин администратора для удаления: " username
+    local username
+    read -r -p "  Логин для удаления: " username
     if [ -z "$username" ]; then
-        echo "${RED}Логин не может быть пустым!${NC}"
+        ui_fail "Логин не может быть пустым"
         press_any_key
         return
     fi
 
     if "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py" --delete-user "$username"; then
-        echo "${GREEN}Администратор '$username' успешно удалён!${NC}"
+        ui_ok "Администратор '$username' удалён"
     else
-        echo "${RED}Ошибка при удалении администратора '$username'!${NC}"
+        ui_fail "Не удалось удалить '$username'"
     fi
     press_any_key
 }
@@ -69,7 +70,8 @@ delete_admin() {
 # Инициализация базы данных
 init_db() {
     log "Инициализация базы данных"
-    echo "${YELLOW}Инициализация базы данных...${NC}"
+    ui_info "Инициализация базы данных..."
     PYTHONIOENCODING=utf-8 "$VENV_PATH/bin/python" "$INSTALL_DIR/utils/init_db.py"
     check_error "Не удалось инициализировать базу данных"
+    ui_ok "База данных инициализирована"
 }
