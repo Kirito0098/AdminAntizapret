@@ -121,7 +121,7 @@ verify_project_environment() {
     _vpe_fail() { ui_fail "$1"; failed=$((failed + 1)); }
 
     normalize_pkg_name() {
-        printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[-_.]+/-/g'
+        printf '%s\n' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[-_.]+/-/g'
     }
 
     ui_section "1) Системные команды"
