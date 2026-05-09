@@ -178,36 +178,6 @@ _check_os() {
     esac
 }
 
-# ─── Ожидание блокировки apt ─────────────────────
-# На свежем Ubuntu apt-daily/unattended-upgrades держат lock после загрузки
-_wait_apt_lock() {
-    local lock="/var/lib/dpkg/lock-frontend"
-    local waited=0
-
-    # Проверяем через lsof: если lock занят — ждём
-    if ! lsof "$lock" >/dev/null 2>&1; then
-        return 0
-    fi
-
-    _spin_stop  # останавливаем спиннер чтобы написать сообщение
-    printf "  ${YELLOW}!${NC}  Ожидание освобождения блокировки apt...\n"
-    printf "  ${DIM}(Фоновое обновление Ubuntu займёт несколько минут)${NC}\n"
-    _log "Ожидание блокировки apt (занята другим процессом)"
-
-    while lsof "$lock" >/dev/null 2>&1; do
-        sleep 2
-        waited=$((waited + 2))
-        if [ "$((waited % 20))" -eq 0 ]; then
-            printf "  ${DIM}Ожидаем apt: %d сек...${NC}\n" "$waited"
-            _log "Ожидание apt lock: ${waited}с"
-        fi
-    done
-
-    _log "Блокировка снята через ${waited}с"
-    printf "  ${GREEN}✓${NC}  Блокировка снята (ожидали %d сек)\n" "$waited"
-    # Пересоздаём спиннер для следующего шага (вызывающий сам запустит)
-}
-
 # ─── Шаги установки ───────────────────────────────
 
 _do_vnstat() {
@@ -396,16 +366,12 @@ unset _pkg _st
 if [ "${#_miss[@]}" -gt 0 ]; then
     _log "Отсутствуют пакеты: ${_miss[*]}"
 
-    # Ждём освобождения блокировки перед apt (Ubuntu держит её при автообновлении)
-    _wait_apt_lock
-
-    # -o Acquire::ForceIPv4=true — исключает зависание на IPv6-таймаутах
     run_step "Обновление индексов пакетов" \
-        apt-get -o Acquire::ForceIPv4=true update \
+        apt-get update \
         || { _ui_err "Не удалось обновить apt. Проверьте сеть."; exit 1; }
 
     run_step "Установка пакетов (${#_miss[@]} шт.)" \
-        apt-get -o Acquire::ForceIPv4=true install -y "${_miss[@]}" \
+        apt-get install -y "${_miss[@]}" \
         || { _ui_err "Не удалось установить пакеты."; exit 1; }
 else
     _log "Все пакеты уже установлены"
