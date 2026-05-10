@@ -4112,30 +4112,6 @@ body.index-page-dark {
   background-attachment: fixed;
 }
 
-body.index-page-dark.index-night-soft {
-  --index-contrast-multiplier: 0.92;
-  --index-contrast-border-alpha: 0.16;
-  --index-contrast-shadow-alpha: 0.2;
-  --theme-chart-grid-soft: rgba(101, 124, 138, 0.16);
-  --theme-chart-grid-strong: rgba(101, 124, 138, 0.24);
-  --theme-chart-antizapret-border: rgba(141, 163, 176, 0.64);
-  --theme-chart-antizapret-fill: rgba(141, 163, 176, 0.06);
-}
-
-body.index-page-dark.index-night-contrast {
-  --index-contrast-multiplier: 1.12;
-  --index-contrast-border-alpha: 0.35;
-  --index-contrast-shadow-alpha: 0.44;
-  --theme-chart-axis-x: rgba(193, 215, 226, 0.96);
-  --theme-chart-axis-y: rgba(209, 227, 236, 0.98);
-  --theme-chart-legend: rgba(235, 244, 250, 0.98);
-  --theme-chart-grid-soft: rgba(125, 152, 167, 0.24);
-  --theme-chart-grid-strong: rgba(125, 152, 167, 0.36);
-  --theme-chart-vpn-border: #65ceb1;
-  --theme-chart-vpn-fill: rgba(101, 206, 177, 0.2);
-  --theme-chart-antizapret-border: rgba(171, 195, 209, 0.8);
-  --theme-chart-antizapret-fill: rgba(171, 195, 209, 0.12);
-}
 
 body.index-page-dark .navigation {
   background: linear-gradient(
@@ -4691,6 +4667,7 @@ body.index-page-dark .client-details-key {
   padding: 0;
   border-radius: 0.72rem;
   font-size: 1.1rem;
+  width: 10%;
 }
 
 @media (max-width: 1024px) {
@@ -4874,6 +4851,7 @@ body.index-page-dark .client-details-key {
   background: rgba(63, 160, 131, 0.19);
   color: #cdf5e8;
   border-color: rgba(89, 190, 160, 0.46);
+  justify-content: center;
 }
 
 .sidebar-ops-layout .client-block-badge.is-blocked {
@@ -4938,11 +4916,6 @@ body.index-page-dark .client-details-key {
   color: #a9bcc7;
 }
 
-body.index-page-dark.index-night-contrast .sidebar-ops-layout {
-  --ops-text: #f5fbff;
-  --ops-muted: #c2d3dc;
-  --ops-border: #597180;
-}
 
 body.index-page-dark .sidebar-ops-layout .main-content.page-unified-card,
 body.index-page-dark .sidebar-ops-layout .index-ops-header-card,
@@ -4983,44 +4956,6 @@ body.index-page-dark .sidebar-ops-layout .tab-btn {
   border-color: #5f7785;
 }
 
-.index-rail-section--contrast {
-  border-top: 1px dashed #46606d;
-}
-
-.index-contrast-note {
-  margin: 0 0 0.5rem;
-  font-size: 0.79rem;
-  color: #a8beca;
-}
-
-.index-contrast-toggle {
-  width: 100%;
-  border: 1px solid #5a7583;
-  border-radius: 0.62rem;
-  background: #25343d;
-  color: #e5f0f6;
-  padding: 0.45rem 0.58rem;
-  font-size: 0.79rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.index-contrast-toggle:hover {
-  border-color: #79a2b3;
-  background: #2f434f;
-}
-
-.index-contrast-toggle.is-soft {
-  border-color: #4a5d68;
-  background: #232d34;
-  color: #d3e1e8;
-}
-
-.index-contrast-toggle.is-high {
-  border-color: #6fa9bf;
-  box-shadow: 0 0 0 1px rgba(111, 169, 191, 0.26);
-}
 
 .sidebar-ops-layout .index-ops-rail {
   background: var(--ops-surface);
@@ -5350,6 +5285,10 @@ body.index-page-dark .sidebar-ops-layout .tab-btn {
   .sidebar-ops-layout .config-table.client-grid-table td.client-name.client-name-cell {
     min-height: 88px;
     padding: 0.5rem 0.54rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .sidebar-ops-layout .search-and-filter {
