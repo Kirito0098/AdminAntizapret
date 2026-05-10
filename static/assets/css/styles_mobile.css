@@ -379,6 +379,11 @@
     line-height: 1;
   }
 
+  /* Hide nav-content on mobile by default (overrides base display:flex via higher specificity) */
+  .navigation.nav-mobile-mode .nav-content {
+    display: none;
+  }
+
   /* Expanded nav-content */
   .navigation.nav-is-open .nav-content {
     display: flex;
@@ -393,6 +398,20 @@
 body.nav-mobile-open {
   overflow: hidden;
   height: 100dvh;
+}
+
+body.nav-mobile-open::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.800);
+  z-index: 5;
+  animation: navOverlayFadeIn 0.2s ease forwards;
+}
+
+@keyframes navOverlayFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* Hide in-page section tabs while main nav drawer is open */
@@ -414,7 +433,7 @@ body.nav-mobile-open.settings-nav-merged #sidebar.settings-page-wrapper {
     width: 100%;
     flex-basis: auto;
     height: auto;
-    position: static;
+    position: relative;
     top: auto;
     max-height: none;
     overflow: visible;
@@ -424,7 +443,7 @@ body.nav-mobile-open.settings-nav-merged #sidebar.settings-page-wrapper {
     border-bottom: 1px solid rgba(113, 143, 158, 0.3);
     padding: 0.65rem;
     gap: 0.55rem;
-    z-index: auto;
+    z-index: 10;
   }
 
   .nav-brand-row {
