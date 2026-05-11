@@ -37,25 +37,17 @@ document.addEventListener("DOMContentLoaded", function () {
     throw new Error("Превышено время ожидания фоновой задачи");
   };
 
-  // Инициализация меню
+  // Инициализация меню (tab switching via base-nav [data-settings-tab] links + URL hash)
   const initMenu = () => {
-    const menuItems = document.querySelectorAll(".menu-item");
+    const navLinks = document.querySelectorAll(".nav-sublink[data-settings-tab]");
     const contentTabs = document.querySelectorAll(".content-tab");
 
-    const syncMainNavSettingsLinks = (tabId) => {
-      const links = document.querySelectorAll(".nav-sublink[data-settings-tab]");
-      if (!links.length) return;
+    if (!contentTabs.length) return;
 
-      let hasActive = false;
-      links.forEach((link) => {
-        const isActive = link.getAttribute("data-settings-tab") === tabId;
-        link.classList.toggle("is-active", isActive);
-        if (isActive) hasActive = true;
+    const syncNavLinks = (tabId) => {
+      navLinks.forEach((link) => {
+        link.classList.toggle("is-active", link.getAttribute("data-settings-tab") === tabId);
       });
-
-      if (!hasActive && links.length) {
-        links[0].classList.add("is-active");
-      }
     };
 
     const activateTab = (tabId) => {
@@ -63,48 +55,28 @@ document.addEventListener("DOMContentLoaded", function () {
         tab.classList.remove("active");
         if (tab.id === tabId) tab.classList.add("active");
       });
-      syncMainNavSettingsLinks(tabId);
+      syncNavLinks(tabId);
       document.body.setAttribute("data-active-settings-tab", tabId);
       window.dispatchEvent(new CustomEvent("settings:tab-changed", { detail: { tabId } }));
     };
 
-    menuItems.forEach((item) => {
-      item.addEventListener("click", function () {
-        menuItems.forEach((i) => i.classList.remove("active"));
-        this.classList.add("active");
-        const tabId = this.getAttribute("data-tab");
-
-        if (tabId) {
-          activateTab(tabId);
-        }
-
-        if (tabId === "antizapret-config") {
-          loadAntizapretSettings();
-        }
-      });
-
-      if (window.location.hash === `#${item.getAttribute("data-tab")}`) {
-        item.click();
-      }
-    });
-
-    if (menuItems.length > 0 && !window.location.hash) {
-      const activeMenuItem = document.querySelector(".menu-item.active");
-      (activeMenuItem || menuItems[0]).click();
-    }
+    const resolveTabFromHash = () => {
+      const tabId = (window.location.hash || "").replace(/^#/, "").trim();
+      return tabId && document.getElementById(tabId)?.classList.contains("content-tab") ? tabId : "";
+    };
 
     window.addEventListener("hashchange", () => {
-      const tabId = (window.location.hash || "").replace(/^#/, "").trim();
+      const tabId = resolveTabFromHash();
       if (!tabId) return;
-
-      const hashMenuItem = document.querySelector(`.menu-item[data-tab='${tabId}']`);
-      if (hashMenuItem) {
-        hashMenuItem.click();
-        return;
-      }
-
-      syncMainNavSettingsLinks(tabId);
+      activateTab(tabId);
+      if (tabId === "antizapret-config") loadAntizapretSettings();
     });
+
+    const initialTabId = resolveTabFromHash() || contentTabs[0]?.id || "";
+    if (initialTabId) {
+      activateTab(initialTabId);
+      if (initialTabId === "antizapret-config") loadAntizapretSettings();
+    }
   };
 
   const createUserActionConfirm = () => {
@@ -2309,7 +2281,7 @@ document.addEventListener("DOMContentLoaded", function () {
       progressFill:   document.getElementById("upd-progress-fill"),
       progressLabel:  document.getElementById("upd-progress-label"),
       resultMsg:      document.getElementById("upd-result-msg"),
-      menuItem:       document.getElementById("menu-system-updates"),
+      menuItem:       document.querySelector(".nav-sublink[data-settings-tab='system-updates']"),
     };
 
     if (!els.checkBtn) return;
@@ -2491,8 +2463,8 @@ document.addEventListener("DOMContentLoaded", function () {
     els.checkBtn.addEventListener("click", checkForUpdates);
     els.applyBtn.addEventListener("click", applyUpdate);
 
-    document.querySelectorAll(".menu-item[data-tab='system-updates']").forEach(item => {
-      item.addEventListener("click", checkForUpdates);
+    window.addEventListener("settings:tab-changed", (e) => {
+      if (e.detail?.tabId === "system-updates") checkForUpdates();
     });
 
     loadReleaseNotes();
@@ -2581,14 +2553,6 @@ document.addEventListener("DOMContentLoaded", function () {
   window.addEventListener("orientationchange", handleOrientationChange);
   initMiniAppLinkCopy();
   initSettingsRangeControls();
-
-  if (history.pushState) {
-    document.querySelectorAll(".menu-item[data-tab]").forEach((link) => {
-      link.addEventListener("click", () => {
-        history.pushState(null, null, "#" + link.getAttribute("data-tab"));
-      });
-    });
-  }
 
   // Expose helpers for inline scripts (settings.html DB/preset blocks)
   window._cidrRenderMeta = renderCidrMeta;

@@ -13,7 +13,7 @@ const logsBootstrap = window.__logsDashboardBootstrap || {};
             .filter(Boolean)
     );
 
-    if (!tabButtons.length || !tabPanes.length) {
+    if (!tabPanes.length) {
         return;
     }
 
@@ -88,6 +88,16 @@ const logsBootstrap = window.__logsDashboardBootstrap || {};
     tabButtons.forEach(btn => {
         btn.addEventListener('click', function () {
             activateTab(btn.dataset.tabTarget || 'overview');
+        });
+    });
+
+    navTabLinks.forEach(link => {
+        link.addEventListener('click', function (e) {
+            const tabName = normalizeTabName(link.dataset.logsTab);
+            if (validTabs.has(tabName)) {
+                e.preventDefault();
+                activateTab(tabName);
+            }
         });
     });
 
