@@ -650,6 +650,21 @@ body {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* Override conflicting display:flex !important, grid-column and multi-column from styles_index.css */
+.server-monitor-wrapper .bw-section {
+  display: grid !important;
+  grid-column: initial !important;
+  justify-content: initial !important;
+  flex-direction: initial !important;
+  margin-top: 0 !important;
+}
+
+.server-monitor-wrapper .bw-stats,
+.server-monitor-wrapper .bw-aggregate {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
 .info-item {
   min-height: 0;
   padding: 0.78rem;
@@ -830,7 +845,11 @@ body {
   }
 
   .server-monitor-wrapper .bw-chart {
-    height: 220px !important;
+    height: 190px !important;
+  }
+
+  .server-monitor-wrapper .bw-chart-wrap {
+    padding: 0.15rem;
   }
 }
 
@@ -844,7 +863,7 @@ body {
   }
 
   .server-monitor-wrapper .bw-chart {
-    height: 200px !important;
+    height: 175px !important;
   }
 }
 
@@ -852,6 +871,10 @@ body {
   .system-info-grid,
   .bw-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .server-monitor-wrapper .bw-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
@@ -873,6 +896,11 @@ body {
   .bw-stats,
   .bw-aggregate {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .server-monitor-wrapper .bw-stats,
+  .server-monitor-wrapper .bw-aggregate {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
   .iface-buttons,
@@ -913,5 +941,10 @@ body {
   .bw-stats,
   .bw-aggregate {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .server-monitor-wrapper .bw-stats,
+  .server-monitor-wrapper .bw-aggregate {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
