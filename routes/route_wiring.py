@@ -21,6 +21,7 @@ def register_all_routes(app, sock, deps):
         touch_active_web_session=g("_touch_active_web_session"),
         remove_active_web_session=g("_remove_active_web_session"),
         log_telegram_audit_event=g("_log_telegram_audit_event"),
+        log_user_action_event=g("_log_user_action_event"),
     )
 
     register_config_routes(

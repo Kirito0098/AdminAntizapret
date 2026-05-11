@@ -32,6 +32,7 @@ def register_auth_routes(
     touch_active_web_session,
     remove_active_web_session,
     log_telegram_audit_event,
+    log_user_action_event=None,
     app_name: str = "AdminAntizapret",
 ) -> None:
     def _limit(rule: str) -> Callable:
@@ -286,6 +287,14 @@ def register_auth_routes(
 
                 _finish_telegram_login(user, mini=False)
                 return redirect(url_for("index"))
+            if callable(log_user_action_event):
+                log_user_action_event(
+                    "login_failed",
+                    target_type="user",
+                    target_name=username[:255] if username else None,
+                    status="error",
+                    details="invalid_credentials",
+                )
             flash("Неверные учетные данные. Попробуйте снова.", "error")
             return redirect(url_for("login"))
         return render_template(

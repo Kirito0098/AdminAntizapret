@@ -12,6 +12,7 @@ from flask import flash, jsonify, redirect, render_template, request, session, u
 from core.services.audit_view_presenter import (
     build_telegram_mini_audit_view,
     build_user_action_audit_view,
+    build_user_action_sessions,
 )
 from core.services.cidr_list_updater import (
     analyze_dpi_log,
@@ -826,6 +827,7 @@ def register_settings_routes(
             user_action_log_model.created_at.desc()
         ).limit(300).all()
         user_action_audit_view = _build_user_action_audit_view(user_action_logs)
+        user_action_sessions = build_user_action_sessions(user_action_logs)
         users = user_model.query.all()
         viewer_users = user_model.query.filter_by(role="viewer").all()
 
@@ -893,6 +895,7 @@ def register_settings_routes(
             qr_download_audit_logs=qr_download_audit_logs,
             telegram_mini_audit_logs=telegram_mini_audit_view,
             user_action_audit_logs=user_action_audit_view,
+            user_action_sessions=user_action_sessions,
         )
 
     @app.route("/api/antizapret/ip-files", methods=["GET", "POST"])

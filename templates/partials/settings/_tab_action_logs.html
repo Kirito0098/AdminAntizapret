@@ -2,36 +2,161 @@
       <h2>Логи действий</h2>
       <div class="card settings-inline-card-mb">
         <h3>Журнал действий пользователей</h3>
-        <p class="help-text">Последние 300 операций: изменения настроек, создание/удаление конфигов и скачивания.</p>
+        <p class="help-text">Последние 300 операций сгруппированы по сессиям и дням. Кликните по дню или сессии, чтобы развернуть или свернуть.</p>
 
-        {% if user_action_audit_logs %}
-        <div class="users-list qr-links-log-list">
-          <table class="qr-links-log-table action-audit-log-table">
+        {% if user_action_sessions %}
+        <div class="audit-log-filters" id="auditLogFilters">
+          <div class="audit-log-filters__search">
+            <svg class="audit-search-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <input
+              type="search"
+              id="auditSearch"
+              class="audit-search-input"
+              placeholder="Поиск по действию, пользователю, IP…"
+              autocomplete="off"
+              spellcheck="false">
+          </div>
+
+          <div class="audit-log-filters__sources" id="auditSourcePills">
+            <button class="audit-pill audit-pill--active" data-src="">Все</button>
+            <button class="audit-pill" data-src="web">
+              <span class="log-source-badge log-source-badge-web">Панель</span>
+            </button>
+            <button class="audit-pill" data-src="miniapp">
+              <span class="log-source-badge log-source-badge-miniapp">MiniApp</span>
+            </button>
+            <button class="audit-pill" data-src="qr">
+              <span class="log-source-badge log-source-badge-qr">QR</span>
+            </button>
+            <button class="audit-pill" data-src="api">
+              <span class="log-source-badge log-source-badge-api">API</span>
+            </button>
+            <button class="audit-pill" data-src="public">
+              <span class="log-source-badge log-source-badge-public">Public</span>
+            </button>
+          </div>
+
+          <div class="audit-log-filters__user">
+            <select id="auditUserFilter" class="audit-user-select">
+              <option value="">Все пользователи</option>
+            </select>
+          </div>
+
+          <div class="audit-log-filters__alerts">
+            <button class="audit-pill audit-pill--threat" id="auditAlertToggle" data-active="false" title="Показать только подозрительные события">
+              <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:11px;height:11px;flex-shrink:0">
+                <path d="M7 1.5L12.5 11.5H1.5L7 1.5Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                <path d="M7 5.5V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                <circle cx="7" cy="10" r="0.6" fill="currentColor"/>
+              </svg>
+              Угрозы
+            </button>
+          </div>
+
+          <div class="audit-log-filters__meta">
+            <span class="audit-count-badge" id="auditLogCount"></span>
+            <button class="audit-clear-btn" id="auditClearBtn" title="Сбросить все фильтры">✕ Сбросить</button>
+          </div>
+        </div>
+
+        <div class="audit-log-list-wrap">
+          <table class="qr-links-log-table action-audit-log-table" id="auditLogTable">
             <thead>
               <tr>
-                <th class="settings-inline-table-head">Время (UTC)</th>
+                <th class="settings-inline-table-head" id="auditTimeHeader">Время</th>
                 <th class="settings-inline-table-head">Пользователь</th>
                 <th class="settings-inline-table-head">Действие</th>
+                <th class="settings-inline-table-head audit-th-status">Статус</th>
                 <th class="settings-inline-table-head">IP</th>
               </tr>
             </thead>
-            <tbody>
-              {% for row in user_action_audit_logs %}
+
+            {% for session in user_action_sessions %}
+            <tbody
+              class="audit-session-tbody{% if session.has_alerts %} audit-session-has-alerts{% endif %}"
+              id="auditSessionBody{{ session.session_id }}"
+              data-session-id="{{ session.session_id }}"
+              data-session-user="{{ session.actor_username }}"
+              data-alert-count="{{ session.alert_count }}">
+
+              {# ── Session header row ── #}
+              <tr class="audit-session-hdr" data-session="{{ session.session_id }}">
+                <td colspan="5" class="audit-session-hdr-cell">
+                  <div class="audit-session-hdr-inner">
+                    <span class="audit-session-chevron" aria-hidden="true"></span>
+                    <span class="audit-session-username">{{ session.actor_username }}</span>
+                    <span class="audit-session-sep">·</span>
+                    <span class="audit-session-timerange"
+                      data-session-start="{{ session.session_start.isoformat() }}"
+                      data-session-end="{{ session.session_end.isoformat() }}">
+                      {{ session.session_start.strftime('%Y-%m-%d') }}
+                      {% if session.session_start.date() != session.session_end.date() %}
+                        {{ session.session_start.strftime('%H:%M') }} — {{ session.session_end.strftime('%Y-%m-%d') }} {{ session.session_end.strftime('%H:%M') }}
+                      {% elif session.session_start != session.session_end %}
+                        {{ session.session_start.strftime('%H:%M') }} — {{ session.session_end.strftime('%H:%M') }}
+                      {% else %}
+                        {{ session.session_start.strftime('%H:%M:%S') }}
+                      {% endif %}
+                    </span>
+                    <span class="audit-session-sep">·</span>
+                    <span class="audit-session-count">{{ session.row_count }} {{ 'действие' if session.row_count == 1 else ('действия' if 2 <= session.row_count <= 4 else 'действий') }}</span>
+                    {% if session.has_alerts %}
+                    <span class="audit-alert-badge audit-session-alert-badge" title="Подозрительные события в этой сессии">⚠ {{ session.alert_count }}</span>
+                    {% endif %}
+                    <span class="audit-session-ip">{{ session.ip_display }}</span>
+                  </div>
+                </td>
+              </tr>
+
+              {# ── Action rows ── #}
+              {% for row in session.rows %}
               <tr
-                class="log-source-row log-source-{{ row.source_kind }}{% if row.is_miniapp %} miniapp-event{% endif %}">
-                <td class="settings-inline-table-cell-nowrap">{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                <td class="settings-inline-table-cell">{{ row.actor_username or 'system/anonymous' }}</td>
+                class="log-source-row log-source-{{ row.source_kind }}{% if row.is_miniapp %} miniapp-event{% endif %}{% if row.is_security_alert %} audit-security-alert{% endif %} audit-action-row"
+                data-src="{{ row.source_kind }}"
+                data-user="{{ row.actor_username or 'system/anonymous' }}"
+                data-alert="{{ 'true' if row.is_security_alert else '' }}"
+                data-session-id="{{ session.session_id }}"
+                data-text="{{ ((row.actor_username or 'system/anonymous') ~ ' ' ~ row.event_display ~ ' ' ~ (row.remote_addr or '') ~ ' ' ~ row.event_label) | lower }}">
+                <td class="settings-inline-table-cell-nowrap audit-td-time" data-utc="{{ row.created_at.isoformat() }}">
+                  <span class="audit-time-date">{{ row.created_at.strftime('%Y-%m-%d') }}</span>
+                  <span class="audit-time-clock">{{ row.created_at.strftime('%H:%M:%S') }}</span>
+                </td>
+                <td class="settings-inline-table-cell audit-td-user">
+                  {{ row.actor_username or 'system/anonymous' }}
+                </td>
                 <td class="settings-inline-table-cell action-with-source" title="{{ row.event_type }}">
-                  <span class="log-source-badge log-source-badge-{{ row.source_kind }}" title="Источник действия">
-                    {{ row.source_label }}
-                  </span>
+                  <div class="action-badges-row">
+                    {% if row.is_security_alert %}
+                    <span class="audit-alert-badge" title="Возможная попытка несанкционированного доступа">⚠ Угроза</span>
+                    {% endif %}
+                    <span class="log-source-badge log-source-badge-{{ row.source_kind }}" title="Источник действия">{{ row.source_label }}</span>
+                  </div>
                   <span class="action-text">{{ row.event_display }}</span>
                 </td>
-                <td class="settings-inline-table-cell">{{ row.remote_addr or '-' }}</td>
+                <td class="settings-inline-table-cell audit-td-status">
+                  <span class="audit-status-badge audit-status-{{ row.status }}">{{ row.status }}</span>
+                </td>
+                <td class="settings-inline-table-cell audit-td-ip">{{ row.remote_addr or '—' }}</td>
               </tr>
               {% endfor %}
+
             </tbody>
+            {% endfor %}
+
           </table>
+
+          <div class="audit-log-empty-filter" id="auditEmptyFilter" hidden>
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M16.5 16.5L21 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M8.5 13.5L9.5 12.5M13.5 8.5L12.5 9.5M9.5 9.5L13.5 13.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <p>Нет записей по заданным фильтрам</p>
+            <button class="audit-clear-btn" id="auditEmptyClearBtn">Сбросить фильтры</button>
+          </div>
         </div>
         {% else %}
         <p class="no-data">Событий пока нет</p>
@@ -46,8 +171,7 @@
           <h3 id="userActionModalTitle" class="user-action-modal__title">Подтвердите действие</h3>
           <button type="button" class="user-action-modal__close" data-user-action-close aria-label="Закрыть">×</button>
         </div>
-        <p id="userActionModalText" class="user-action-modal__text">Изменение будет применено сразу после подтверждения.
-        </p>
+        <p id="userActionModalText" class="user-action-modal__text">Изменение будет применено сразу после подтверждения.</p>
         <div class="user-action-modal__actions">
           <button type="button" class="user-action-modal__btn user-action-modal__btn-cancel" data-user-action-close>
             Отмена

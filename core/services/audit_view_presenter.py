@@ -60,6 +60,26 @@ def mini_event_label(event_type: str | None) -> str:
     return fallback.capitalize() if fallback else "Событие"
 
 
+def _translate_auth_failure_detail(raw: str) -> str:
+    """Translate raw English auth failure detail strings to Russian."""
+    v = raw.strip().lower()
+    if not raw.strip():
+        return "Причина не указана"
+    if "telegram_id_not_bound" in v or "not_bound" in v:
+        return "Telegram ID не привязан ни к одному пользователю"
+    if "verification_failed" in v or "некорректные данные" in v:
+        return "Ошибка проверки подписи Telegram"
+    if "mini_verification_failed" in v:
+        return "Ошибка проверки данных Mini App"
+    if "invalid_credentials" in v:
+        return "Неверный логин или пароль"
+    if "invalid_hash" in v or "hash" in v:
+        return "Недействительная подпись запроса"
+    if "expired" in v:
+        return "Срок действия авторизации истёк"
+    return raw
+
+
 def mini_event_details_label(
     event_type: str | None,
     details: str | None,
@@ -96,7 +116,7 @@ def mini_event_details_label(
         "telegram_mini_login_failed",
         "telegram_mini_login_unlinked",
     }:
-        return f"Причина: {details_value}"
+        return _translate_auth_failure_detail(details_value)
 
     if event_key == "mini_openvpn_block_toggle":
         blocked_state = detail_map.get("blocked")
@@ -232,6 +252,25 @@ def user_action_event_label(event_type: str | None) -> str:
         "settings_viewer_access_grant": "Выдача доступа viewer",
         "settings_viewer_access_revoke": "Отзыв доступа viewer",
         "settings_antizapret_update": "Изменение настроек Antizapret",
+        # Auth
+        "login_failed": "Неудачная попытка входа",
+        # Antizapret / обновления
+        "settings_antifilter_refresh": "Обновление списков Antizapret",
+        # CIDR
+        "settings_cidr_update_queued": "Обновление CIDR-файлов",
+        "settings_cidr_rollback_queued": "Откат CIDR-файлов",
+        "settings_cidr_db_refresh_queued": "Обновление базы CIDR",
+        "settings_cidr_generate_from_db": "Генерация CIDR из базы",
+        "settings_cidr_games_sync": "Синхронизация игровых хостов",
+        "settings_cidr_total_limit_update": "Изменение лимита CIDR",
+        "settings_cidr_preset_create": "Создание пресета CIDR",
+        "settings_cidr_preset_update": "Изменение пресета CIDR",
+        "settings_cidr_preset_delete": "Удаление пресета CIDR",
+        "settings_cidr_preset_reset": "Сброс пресета CIDR до базового",
+        # IP
+        "settings_ip_files_sync": "Синхронизация IP-файлов",
+        # Тесты
+        "settings_tests_run": "Запуск тестов панели",
     }
     event_key = str(event_type or "").strip()
 
@@ -257,86 +296,192 @@ def user_action_event_display(
     details_value = str(details or "").strip()
     detail_map = parse_mini_details_kv(details_value)
 
+    label = user_action_event_label(event_key)
+
+    # ── MiniApp events ──────────────────────────────────────────────────
     if event_key.startswith("miniapp:"):
         original_event = event_key[8:]
-        return mini_event_details_label(original_event, details_value, target_value)
+        # For config actions append config name
+        if target_value and original_event in {
+            "mini_send_config", "mini_create_openvpn_config", "mini_delete_openvpn_config",
+            "mini_create_wireguard_config", "mini_delete_wireguard_config",
+            "mini_recreate_wireguard_config", "mini_index_action",
+        }:
+            return f"{label}: {target_value}"
+        # For auth failures/unlinked — translate the reason into clean Russian
+        if original_event in {
+            "telegram_login_failed", "telegram_mini_login_failed",
+            "telegram_login_unlinked", "telegram_mini_login_unlinked",
+        }:
+            reason = _translate_auth_failure_detail(details_value)
+            return f"{label} — {reason}"
+        return label
 
+    # ── QR settings ─────────────────────────────────────────────────────
     if event_key == "settings_qr_max_downloads_update":
         value = detail_map.get("value")
-        if value:
-            return f"Изменение лимита скачиваний QR-ссылки: увеличение до {value}"
-        return "Изменение лимита скачиваний QR-ссылки"
+        return f"Лимит скачиваний QR-ссылки изменён до {value}" if value else label
 
     if event_key == "settings_qr_ttl_update":
         value = detail_map.get("value")
-        if value:
-            return f"Изменение TTL одноразовой ссылки: до {value} секунд"
-        return "Изменение TTL одноразовой ссылки"
+        return f"TTL одноразовой ссылки изменён до {value} сек." if value else label
 
+    if event_key == "settings_qr_pin_update":
+        return "PIN одноразовой ссылки обновлён"
+
+    if event_key == "settings_qr_pin_clear":
+        return "PIN одноразовой ссылки сброшен"
+
+    # ── Порт ────────────────────────────────────────────────────────────
     if event_key == "settings_port_update":
         value = detail_map.get("value")
-        if value:
-            return f"Изменение порта панели: до {value}"
-        return "Изменение порта панели"
+        return f"Порт панели изменён на {value}" if value else label
 
+    # ── Публичное скачивание ────────────────────────────────────────────
     if event_key == "settings_public_download_toggle":
         enabled = detail_map.get("enabled")
         if enabled == "1":
-            return "Публичное скачивание: включено"
+            return "Публичное скачивание конфигов: включено"
         if enabled == "0":
-            return "Публичное скачивание: выключено"
-        return "Переключение публичного скачивания"
+            return "Публичное скачивание конфигов: выключено"
+        return label
 
-    if event_key == "config_download":
-        if target_value:
-            return f"Скачивание конфига: {target_value}"
-        return "Скачивание конфига"
+    # ── Конфиги ─────────────────────────────────────────────────────────
+    if event_key == "config_download" and target_value:
+        return f"Скачивание конфига: {target_value}"
 
-    if event_key == "config_send_telegram":
-        if target_value:
-            return f"Отправка конфига в Telegram: {target_value}"
-        return "Отправка конфига в Telegram"
+    if event_key == "config_send_telegram" and target_value:
+        return f"Отправка конфига в Telegram: {target_value}"
 
+    if event_key in {"config_create", "config_delete", "config_recreate", "config_action"} and target_value:
+        return f"{label}: {target_value}"
+
+    # ── Telegram-бот ────────────────────────────────────────────────────
     if event_key == "telegram_bot_delivery_check":
         result = str(detail_map.get("result") or "").strip().lower()
         if result == "ok":
-            return "Проверка связи с Telegram-ботом: успешно"
+            return "Проверка связи с Telegram-ботом: соединение в норме"
         if result == "failed":
-            return "Проверка связи с Telegram-ботом: ошибка"
-        return "Проверка связи с Telegram-ботом"
+            return "Проверка связи с Telegram-ботом: ошибка соединения"
+        return label
 
+    # ── OpenVPN-клиент ──────────────────────────────────────────────────
     if event_key == "openvpn_client_block_toggle":
         blocked_state = str(detail_map.get("blocked") or "").strip()
+        client = target_value or "—"
         if blocked_state == "1":
-            return f"OpenVPN-клиент: блокировка включена ({target_value or '-'})"
+            return f"Клиент {client}: доступ заблокирован"
         if blocked_state == "0":
-            return f"OpenVPN-клиент: блокировка выключена ({target_value or '-'})"
-        if target_value:
-            return f"Изменение статуса OpenVPN-клиента: {target_value}"
-        return "Изменение статуса OpenVPN-клиента"
+            return f"Клиент {client}: доступ разблокирован"
+        return f"{label}: {client}" if target_value else label
 
+    # ── Применение изменений ────────────────────────────────────────────
     if event_key == "settings_run_doall":
         task_id = str(detail_map.get("task_id") or "").strip()
-        if task_id:
-            return f"Применение изменений (doall): задача {task_id}"
-        return "Применение изменений (doall)"
+        return f"Применение изменений: задача {task_id}" if task_id else "Применение изменений (doall)"
 
-    if event_key in {"config_create", "config_delete", "config_recreate", "config_action"} and target_value:
-        return f"{user_action_event_label(event_key)}: {target_value}"
+    if event_key == "settings_restart_service":
+        svc = target_value or "служба"
+        return f"Запуск перезапуска: {svc}"
 
+    # ── Пользователи ────────────────────────────────────────────────────
     if event_key in {
-        "settings_user_create",
-        "settings_user_delete",
-        "settings_user_role_update",
-        "settings_user_password_update",
+        "settings_user_create", "settings_user_delete",
+        "settings_user_role_update", "settings_user_password_update",
         "settings_user_telegram_update",
     } and target_value:
-        return f"{user_action_event_label(event_key)}: {target_value}"
+        return f"{label}: {target_value}"
+
+    # ── IP-ограничения ──────────────────────────────────────────────────
+    if event_key == "settings_ip_clear":
+        return "Все IP-ограничения сброшены"
+
+    if event_key == "settings_ip_bulk_enable":
+        return "IP-ограничения: массовое включение"
+
+    if event_key == "settings_ip_add_from_file":
+        return f"IP-адреса добавлены из файла: {target_value}" if target_value else label
+
+    if event_key == "settings_ip_files_sync":
+        synced = detail_map.get("synced", "")
+        updated = detail_map.get("updated", "")
+        parts = []
+        if synced:
+            parts.append(f"синхронизировано: {synced}")
+        if updated:
+            parts.append(f"обновлено: {updated}")
+        suffix = "; ".join(parts)
+        return f"Синхронизация IP-файлов — {suffix}" if suffix else "Синхронизация IP-файлов выполнена"
 
     if target_value and target_kind in {"ip_restriction", "ip_file"}:
-        return f"{user_action_event_label(event_key)}: {target_value}"
+        return f"{label}: {target_value}"
 
-    return user_action_event_label(event_key)
+    # ── Ночной рестарт ──────────────────────────────────────────────────
+    if event_key == "settings_nightly_update":
+        enabled = detail_map.get("enabled")
+        if enabled == "1":
+            return "Ночной рестарт: включён"
+        if enabled == "0":
+            return "Ночной рестарт: выключен"
+        return label
+
+    # ── Viewer-доступ ───────────────────────────────────────────────────
+    if event_key in {"settings_viewer_access_grant", "settings_viewer_access_revoke"} and target_value:
+        return f"{label}: {target_value}"
+
+    # ── CIDR ────────────────────────────────────────────────────────────
+    if event_key == "settings_cidr_total_limit_update":
+        value = detail_map.get("value")
+        return f"Лимит CIDR изменён: {value} маршрутов" if value else label
+
+    if event_key == "settings_cidr_games_sync":
+        games = detail_map.get("selected_games", "")
+        domains = detail_map.get("domains", "")
+        cidrs = detail_map.get("cidrs", "")
+        parts = []
+        if games:
+            parts.append(f"игр: {games}")
+        if domains:
+            parts.append(f"доменов: {domains}")
+        if cidrs:
+            parts.append(f"CIDR: {cidrs}")
+        suffix = ", ".join(parts)
+        return f"Синхронизация игровых хостов — {suffix}" if suffix else label
+
+    if event_key in {
+        "settings_cidr_preset_create", "settings_cidr_preset_update",
+        "settings_cidr_preset_delete", "settings_cidr_preset_reset",
+    } and target_value:
+        return f"{label}: {target_value}"
+
+    if event_key in {
+        "settings_cidr_update_queued", "settings_cidr_rollback_queued",
+        "settings_cidr_db_refresh_queued", "settings_cidr_generate_from_db",
+    }:
+        scope = target_value if target_value and target_value != "all" else "все файлы"
+        return f"{label} ({scope})"
+
+    # ── Antizapret ──────────────────────────────────────────────────────
+    if event_key == "settings_antifilter_refresh":
+        return "Обновление списков Antizapret: запущена загрузка"
+
+    if event_key == "settings_antizapret_update":
+        return label
+
+    # ── Тесты ───────────────────────────────────────────────────────────
+    if event_key == "settings_tests_run":
+        count = detail_map.get("count", "")
+        if count == "all":
+            return "Запуск всех тестов панели"
+        if count:
+            return f"Запуск тестов панели: {count} тестов"
+        return "Запуск тестов панели"
+
+    # ── Вход ────────────────────────────────────────────────────────────
+    if event_key == "login_failed":
+        return f"Неудачная попытка входа: пользователь «{target_value}»" if target_value else label
+
+    return label
 
 
 def build_user_action_audit_view(rows: list[Any] | None) -> list[dict[str, Any]]:
@@ -351,6 +496,15 @@ def build_user_action_audit_view(rows: list[Any] | None) -> list[dict[str, Any]]
 
         source_kind, source_label = resolve_user_action_source(event_type, getattr(row, "details", None))
         is_miniapp = source_kind == "miniapp"
+
+        _SECURITY_ALERT_EVENTS = {
+            "login_failed",
+            "miniapp:telegram_login_failed",
+            "miniapp:telegram_mini_login_failed",
+            "miniapp:telegram_login_unlinked",
+            "miniapp:telegram_mini_login_unlinked",
+        }
+        is_security_alert = event_type in _SECURITY_ALERT_EVENTS
 
         view_rows.append(
             {
@@ -371,6 +525,110 @@ def build_user_action_audit_view(rows: list[Any] | None) -> list[dict[str, Any]]
                 "is_miniapp": is_miniapp,
                 "source_kind": source_kind,
                 "source_label": source_label,
+                "is_security_alert": is_security_alert,
             }
         )
     return view_rows
+
+
+# ── Session grouping ───────────────────────────────────────────────────────
+
+
+def _make_session(rows: list[dict[str, Any]], index: int) -> dict[str, Any]:
+    alert_count = sum(1 for r in rows if r.get("is_security_alert"))
+    ips: list[str] = list(dict.fromkeys(r["remote_addr"] for r in rows if r.get("remote_addr")))
+    if len(ips) == 1:
+        ip_display = ips[0]
+    elif len(ips) > 1:
+        ip_display = "разные IP"
+    else:
+        ip_display = "—"
+    return {
+        "session_id": str(index),
+        "actor_username": rows[0]["actor_username"] or "system/anonymous",
+        "session_end": rows[0]["created_at"],     # newest (rows are DESC)
+        "session_start": rows[-1]["created_at"],  # oldest
+        "session_date": rows[0]["created_at"].date().isoformat(),  # UTC date for day grouping
+        "ip_display": ip_display,
+        "row_count": len(rows),
+        "alert_count": alert_count,
+        "has_alerts": alert_count > 0,
+        "rows": rows,
+    }
+
+
+def _make_day_group(date_key: str, sessions: list[dict[str, Any]]) -> dict[str, Any]:
+    total_rows = sum(s["row_count"] for s in sessions)
+    total_alerts = sum(s["alert_count"] for s in sessions)
+    return {
+        "date_key": date_key,
+        "date_utc": sessions[0]["session_end"].isoformat(),
+        "sessions": sessions,
+        "session_count": len(sessions),
+        "row_count": total_rows,
+        "alert_count": total_alerts,
+        "has_alerts": total_alerts > 0,
+    }
+
+
+def build_user_action_sessions(
+    rows: list[Any] | None,
+    gap_seconds: int = 7200,
+) -> list[dict[str, Any]]:
+    """Group flat UserActionLog rows into sessions.
+
+    A new session starts when the user changes, the time gap between consecutive
+    actions exceeds gap_seconds (default 2 h), or an anonymous user changes IP.
+    """
+    flat = build_user_action_audit_view(rows)
+    if not flat:
+        return []
+
+    sessions: list[dict[str, Any]] = []
+    current: list[dict[str, Any]] = [flat[0]]
+
+    for row in flat[1:]:
+        last = current[-1]  # oldest so far in current session (DESC order)
+        curr_user = row["actor_username"] or "system/anonymous"
+        last_user = last["actor_username"] or "system/anonymous"
+
+        same_user = curr_user == last_user
+        gap = (last["created_at"] - row["created_at"]).total_seconds()
+        within_gap = gap <= gap_seconds
+
+        is_anon = not (row["actor_username"] or "").strip()
+        diff_ip = is_anon and row.get("remote_addr") != last.get("remote_addr")
+
+        if same_user and within_gap and not diff_ip:
+            current.append(row)
+        else:
+            sessions.append(_make_session(current, len(sessions)))
+            current = [row]
+
+    sessions.append(_make_session(current, len(sessions)))
+    return sessions
+
+
+def build_user_action_day_groups(
+    rows: list[Any] | None,
+    gap_seconds: int = 7200,
+) -> list[dict[str, Any]]:
+    """Group sessions by calendar day (UTC). Returns DESC-ordered day groups."""
+    sessions = build_user_action_sessions(rows, gap_seconds)
+    if not sessions:
+        return []
+
+    groups: list[dict[str, Any]] = []
+    current_date = sessions[0]["session_date"]
+    current_sessions: list[dict[str, Any]] = [sessions[0]]
+
+    for session in sessions[1:]:
+        if session["session_date"] == current_date:
+            current_sessions.append(session)
+        else:
+            groups.append(_make_day_group(current_date, current_sessions))
+            current_date = session["session_date"]
+            current_sessions = [session]
+
+    groups.append(_make_day_group(current_date, current_sessions))
+    return groups
