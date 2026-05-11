@@ -244,7 +244,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const topApplyBtn = document.getElementById("workbench-primary-apply");
 
     if (sticky) {
-      sticky.hidden = !isAntizapretTab;
+      sticky.hidden = !isAntizapretTab || (!antizapretHasUnsavedChanges && !antizapretNeedsApply);
     }
 
     if (saveBtn) {
@@ -273,13 +273,42 @@ document.addEventListener("DOMContentLoaded", function () {
     setWorkbenchState("applied");
   };
 
-  const markAntizapretDirty = (element) => {
-    antizapretHasUnsavedChanges = true;
-    const groupSection = element?.closest("[data-antizapret-group]");
+  // Snapshot-based dirty tracking: panel appears only when values differ from baseline.
+  let _dirtySnapshot = new Map();
+
+  const _getControlValue = (control) =>
+    control.type === "checkbox" ? control.checked : control.value;
+
+  const _rebuildDirtySnapshot = () => {
+    const root = document.getElementById("antizapret-config");
+    if (!root) return;
+    _dirtySnapshot = new Map();
+    root.querySelectorAll("input, select, textarea").forEach((control) => {
+      if (control.type === "hidden") return;
+      _dirtySnapshot.set(control, _getControlValue(control));
+    });
+  };
+
+  const _checkAntizapretDirty = (changedElement) => {
+    let isDirty = false;
+    _dirtySnapshot.forEach((initial, control) => {
+      if (_getControlValue(control) !== initial) isDirty = true;
+    });
+
+    antizapretHasUnsavedChanges = isDirty;
+
+    const groupSection = changedElement?.closest("[data-antizapret-group]");
     const sectionName = groupSection?.getAttribute("data-antizapret-group");
     if (sectionName) {
-      setSectionStatus("unsaved", sectionName);
+      setSectionStatus(isDirty ? "unsaved" : "applied", sectionName);
     }
+    updateActionSurface();
+  };
+
+  // Call after save or cancel to make current values the new baseline.
+  const refreshDirtySnapshot = () => {
+    _rebuildDirtySnapshot();
+    antizapretHasUnsavedChanges = false;
     updateActionSurface();
   };
 
@@ -287,12 +316,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const root = document.getElementById("antizapret-config");
     if (!root) return;
 
-    const controls = root.querySelectorAll("input, select, textarea");
-    controls.forEach((control) => {
+    _rebuildDirtySnapshot();
+
+    root.querySelectorAll("input, select, textarea").forEach((control) => {
       if (control.type === "hidden") return;
-      const markDirty = () => markAntizapretDirty(control);
-      control.addEventListener("input", markDirty);
-      control.addEventListener("change", markDirty);
+      control.addEventListener("input", () => _checkAntizapretDirty(control));
+      control.addEventListener("change", () => _checkAntizapretDirty(control));
     });
   };
 
@@ -1923,8 +1952,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!antizapretNeedsApply) {
       setSectionStatus("idle");
     }
-    antizapretHasUnsavedChanges = false;
-    updateActionSurface();
+    refreshDirtySnapshot();
   }
 
   async function applyAntizapretChanges(statusElement) {
@@ -2006,7 +2034,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const antizapretChanges = Number(saveData.changes || 0);
       const hasAntizapretChanges = antizapretChanges > 0;
 
-      antizapretHasUnsavedChanges = false;
+      refreshDirtySnapshot();
 
       if (!applyChanges) {
         if (hasAntizapretChanges) {
@@ -2042,13 +2070,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const cancelAntizapretChanges = async () => {
     await loadAntizapretSettings();
-    antizapretHasUnsavedChanges = false;
     if (antizapretNeedsApply) {
       setSectionStatus("pending");
     } else {
       setSectionStatus("idle");
     }
-    updateActionSurface();
+    refreshDirtySnapshot();
   };
 
   const applyPendingAntizapretChanges = async () => {

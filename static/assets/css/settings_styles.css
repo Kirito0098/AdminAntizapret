@@ -2410,16 +2410,19 @@ body {
   display: none !important;
 }
 .settings-sticky-actions {
-  position: sticky;
-  top: 0.72rem;
-  z-index: 25;
-  border: 1px solid rgba(102, 130, 143, 0.44);
-  border-radius: 11px;
-  background: rgba(23, 33, 39, 0.95);
-  box-shadow: var(--set-shadow-soft);
-  backdrop-filter: blur(4px);
-  margin-bottom: 0.85rem;
-  padding: 0.56rem 0.68rem;
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 2.4rem);
+  max-width: 920px;
+  z-index: 500;
+  border: 1px solid rgba(102, 130, 143, 0.5);
+  border-radius: 12px;
+  background: rgba(18, 27, 33, 0.97);
+  box-shadow: 0 6px 32px rgba(0, 0, 0, 0.55), 0 1px 4px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  padding: 0.56rem 0.8rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2575,7 +2578,7 @@ body {
   }
 
   .settings-sticky-actions {
-    top: 0.45rem;
+    bottom: 0.7rem;
     flex-direction: column;
     align-items: stretch;
     overflow: hidden;
@@ -2602,8 +2605,14 @@ body {
 
 @media (max-width: 760px) {
   .settings-sticky-actions {
-    position: static;
-    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    transform: none;
+    border-radius: 12px 12px 0 0;
+    border-bottom: none;
   }
 
   .settings-sticky-actions__buttons {
