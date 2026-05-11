@@ -1547,6 +1547,16 @@ body {
   gap: 0.95rem;
 }
 
+/* Grid-children must have min-width:0 so the grid column can constrain them.
+   Without this, a wide table (min-width:1280px) inside any child pushes the
+   whole grid container — and thus the page — to 1280px on mobile. */
+.logs-hero.logs-section,
+.logs-summary-grid,
+.logs-tabs-nav,
+.logs-tab-content {
+  min-width: 0;
+}
+
 .logs-hero.logs-section {
   margin-bottom: 0;
   border: 1px solid #314049;
@@ -1559,6 +1569,12 @@ body {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.8rem;
   align-items: center;
+}
+
+/* Hero inner grid-children need min-width:0 to stay inside their column */
+.logs-hero-main,
+.logs-hero-status {
+  min-width: 0;
 }
 
 .logs-hero-kicker {
@@ -1958,9 +1974,78 @@ body {
   }
 }
 
+/* ── Tab navigation bar ── */
+
+.logs-tabs-nav {
+  display: flex;
+  gap: 0.48rem;
+  flex-wrap: wrap;
+}
+
+.logs-tab-btn {
+  border: 1px solid #4b6170;
+  border-radius: 0.64rem;
+  background: rgba(35, 48, 56, 0.84);
+  color: #d3e3ea;
+  min-height: 36px;
+  padding: 0.42rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logs-tab-btn:hover {
+  border-color: #79a2b3;
+  background: rgba(45, 62, 72, 0.92);
+  color: #eff7fb;
+}
+
+.logs-tab-btn.is-active {
+  border-color: rgba(126, 220, 184, 0.72);
+  background: linear-gradient(140deg, #3d7d98 0%, #2f6c85 100%);
+  color: #f7fffb;
+}
+
+@media (max-width: 760px) {
+  .logs-tabs-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.42rem;
+  }
+
+  .logs-tab-btn {
+    text-align: center;
+    min-height: 40px;
+    font-size: 0.8rem;
+  }
+
+  .logs-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Hero: chips and subtitle must not overflow the container */
+  .logs-hero-status {
+    overflow: hidden;
+  }
+
+  .logs-hero-chip {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .logs-hero-subtitle {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+}
+
 @media (max-width: 430px) {
   .logs-summary-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
   .logs-hero-chip {
@@ -2007,5 +2092,14 @@ body {
 
   .bw-range {
     grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+  }
+
+  .logs-tabs-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .logs-tab-btn {
+    min-height: 38px;
+    font-size: 0.78rem;
   }
 }

@@ -591,6 +591,7 @@ body.nav-mobile-open::after {
 }
 
 body.nav-mobile-open .routing-mobile-tabs,
+body.nav-mobile-open .logs-tabs-nav,
 body.nav-mobile-open.settings-nav-merged #sidebar.settings-page-wrapper {
   display: none !important;
 }
