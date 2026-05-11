@@ -5531,3 +5531,65 @@ body {
   .tests-action-panel { flex-direction: column; }
   .tests-run-btn { width: 100%; justify-content: center; }
 }
+
+/* ── Telegram notify toggles ── */
+.tg-notify-form { margin: 0; }
+
+.tg-notify-events-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  margin-bottom: 12px;
+}
+
+.tg-notify-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+}
+
+.tg-notify-toggle input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--theme-settings-chip-border, rgba(155, 199, 255, 0.7));
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tg-notify-toggle__label {
+  font-size: 0.835rem;
+  color: var(--theme-text-primary, #e9f2ff);
+  line-height: 1.4;
+}
+
+.tg-notify-save-btn { margin-top: 2px; }
+
+@media (max-width: 600px) {
+  .tg-notify-events-grid { grid-template-columns: 1fr; }
+}
+
+.monitor-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 20px;
+  margin-bottom: 12px;
+}
+
+.monitor-settings-grid .form-label {
+  font-size: 0.8rem;
+  color: var(--theme-text-secondary, #a0b4cc);
+  margin-bottom: 4px;
+  display: block;
+}
+
+.monitor-settings-grid .monitor-input {
+  width: 100%;
+  max-width: 120px;
+}
+
+@media (max-width: 600px) {
+  .monitor-settings-grid { grid-template-columns: 1fr; }
+}

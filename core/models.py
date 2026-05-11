@@ -12,6 +12,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(120), nullable=False)
     telegram_id = db.Column(db.String(32), unique=True, nullable=True, index=True)
+    tg_notify_events = db.Column(db.Text, nullable=True, default=None)
     role = db.Column(db.String(20), nullable=False, default="admin", index=True)
     allowed_configs = db.relationship(
         "ViewerConfigAccess",
@@ -28,6 +29,16 @@ class User(db.Model):
 
     def is_admin(self):
         return self.role == "admin"
+
+    def get_tg_notify_events(self):
+        import json as _json
+        try:
+            return _json.loads(self.tg_notify_events or "{}")
+        except (ValueError, TypeError):
+            return {}
+
+    def has_tg_notify_event(self, event_type):
+        return bool(self.get_tg_notify_events().get(event_type, False))
 
 
 class QrDownloadToken(db.Model):

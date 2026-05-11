@@ -28,6 +28,7 @@ from core.services.cidr_list_updater import (
 )
 from config.antizapret_params import IP_FILES as _IP_FILES_META
 from core.services.telegram_mini_session import has_telegram_mini_session
+from core.services.tg_notify import send_tg_message
 
 
 CIDR_TASKS = {}
@@ -295,6 +296,7 @@ def register_settings_routes(
             new_port_raw = (request.form.get("port") or "").strip()
             if new_port_raw:
                 if new_port_raw.isdigit() and 1 <= int(new_port_raw) <= 65535:
+                    old_port = (get_env_value("APP_PORT", os.getenv("APP_PORT", "5050")) or "5050").strip()
                     set_env_value("APP_PORT", new_port_raw)
                     os.environ["APP_PORT"] = new_port_raw
                     flash("Порт успешно изменён. Перезапуск службы...", "success")
@@ -302,7 +304,7 @@ def register_settings_routes(
                         "settings_port_update",
                         target_type="app",
                         target_name="APP_PORT",
-                        details=f"value={new_port_raw}",
+                        details=f"{old_port} → {new_port_raw}",
                     )
 
                     try:
@@ -320,6 +322,7 @@ def register_settings_routes(
                 if ttl_raw.isdigit():
                     ttl_value = int(ttl_raw)
                     if 60 <= ttl_value <= 3600:
+                        old_ttl = (get_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600") or "600").strip()
                         set_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", str(ttl_value))
                         os.environ["QR_DOWNLOAD_TOKEN_TTL_SECONDS"] = str(ttl_value)
                         flash("TTL одноразовой QR-ссылки обновлен", "success")
@@ -327,7 +330,7 @@ def register_settings_routes(
                             "settings_qr_ttl_update",
                             target_type="qr",
                             target_name="QR_DOWNLOAD_TOKEN_TTL_SECONDS",
-                            details=f"value={ttl_value}",
+                            details=f"{old_ttl} → {ttl_value}с",
                         )
                     else:
                         flash("TTL QR-ссылки должен быть в диапазоне 60..3600 секунд", "error")
@@ -337,6 +340,7 @@ def register_settings_routes(
             max_downloads_raw = request.form.get("qr_download_token_max_downloads", "").strip()
             if max_downloads_raw:
                 if max_downloads_raw.isdigit() and int(max_downloads_raw) in (1, 3, 5):
+                    old_max_dl = (get_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", "1") or "1").strip()
                     set_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", max_downloads_raw)
                     os.environ["QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS"] = max_downloads_raw
                     flash("Лимит скачиваний одноразовой ссылки обновлен", "success")
@@ -344,7 +348,7 @@ def register_settings_routes(
                         "settings_qr_max_downloads_update",
                         target_type="qr",
                         target_name="QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS",
-                        details=f"value={max_downloads_raw}",
+                        details=f"{old_max_dl} → {max_downloads_raw}",
                     )
                 else:
                     flash("Лимит скачиваний должен быть одним из значений: 1, 3 или 5", "error")
@@ -445,8 +449,8 @@ def register_settings_routes(
                         target_type="maintenance",
                         target_name="nightly_idle_restart",
                         details=(
-                            f"enabled={1 if nightly_enabled else 0} "
-                            f"cron={cron_expr} ttl={ttl_value} touch={touch_value}"
+                            f"enabled={'вкл' if nightly_enabled else 'выкл'} "
+                            f"cron={cron_expr} ttl={ttl_value}с touch={touch_value}с"
                         ),
                         status="success" if cron_ok else "warning",
                     )
@@ -502,11 +506,11 @@ def register_settings_routes(
                     log_user_action_event(
                         "settings_telegram_auth_update",
                         target_type="telegram_auth",
-                        target_name=(tg_username or "-"),
+                        target_name=(tg_username or "—"),
                         details=(
-                            f"max_age={tg_max_age_value} "
-                            f"token_set={1 if bool(token_to_apply) else 0} "
-                            f"token_updated={1 if token_updated else 0}"
+                            f"bot=@{tg_username or '—'} "
+                            f"max_age={tg_max_age_value}с"
+                            + (" токен обновлён" if token_updated else "")
                         ),
                     )
 
@@ -542,8 +546,33 @@ def register_settings_routes(
                             "settings_user_create",
                             target_type="user",
                             target_name=username,
-                            details=f"role={role} telegram_id={normalized_telegram_id or '-'}",
+                            details=f"роль={role}" + (f" TG={normalized_telegram_id}" if normalized_telegram_id else ""),
                         )
+
+            change_tg_notify_username = request.form.get("change_tg_notify_username")
+            if change_tg_notify_username:
+                import json as _json
+                notify_user = user_model.query.filter_by(username=change_tg_notify_username).first()
+                if notify_user:
+                    _ev_keys = [
+                        "login_success", "login_failed", "tg_unlinked",
+                        "config_create", "config_delete",
+                        "user_create", "user_delete",
+                        "client_ban", "settings_change",
+                        "high_cpu", "high_ram",
+                    ]
+                    events = {k: (request.form.get(f"tg_e_{k}") == "1") for k in _ev_keys}
+                    notify_user.tg_notify_events = _json.dumps(events)
+                    db.session.commit()
+                    flash(f"Настройки уведомлений для '{change_tg_notify_username}' сохранены", "success")
+                    log_user_action_event(
+                        "settings_user_tg_notify_update",
+                        target_type="user",
+                        target_name=change_tg_notify_username,
+                        details=_json.dumps({k: v for k, v in events.items() if v}),
+                    )
+                else:
+                    flash(f"Пользователь '{change_tg_notify_username}' не найден!", "error")
 
             change_telegram_username = request.form.get("change_telegram_username")
             if change_telegram_username:
@@ -568,6 +597,7 @@ def register_settings_routes(
                                 )
                                 return redirect(url_for("settings"))
 
+                        old_telegram_id = tg_user.telegram_id or "—"
                         tg_user.telegram_id = normalized_telegram_id or None
                         db.session.commit()
                         if normalized_telegram_id:
@@ -584,7 +614,7 @@ def register_settings_routes(
                             "settings_user_telegram_update",
                             target_type="user",
                             target_name=change_telegram_username,
-                            details=f"telegram_id={normalized_telegram_id or '-'}",
+                            details=f"{old_telegram_id} → {normalized_telegram_id or '—'}",
                         )
 
             delete_username = request.form.get("delete_username")
@@ -615,6 +645,7 @@ def register_settings_routes(
                 else:
                     role_user = user_model.query.filter_by(username=change_role_username).first()
                     if role_user:
+                        old_role = role_user.role
                         role_user.role = new_role
                         db.session.commit()
                         flash(f"Роль пользователя '{change_role_username}' изменена на '{new_role}'!", "success")
@@ -622,7 +653,7 @@ def register_settings_routes(
                             "settings_user_role_update",
                             target_type="user",
                             target_name=change_role_username,
-                            details=f"role={new_role}",
+                            details=f"{old_role} → {new_role}",
                         )
                     else:
                         flash(f"Пользователь '{change_role_username}' не найден!", "error")
@@ -642,6 +673,7 @@ def register_settings_routes(
                             "settings_user_password_update",
                             target_type="user",
                             target_name=change_password_username,
+                            details="пароль изменён",
                         )
                     else:
                         flash(f"Пользователь '{change_password_username}' не найден!", "error")
@@ -857,6 +889,11 @@ def register_settings_routes(
         cidr_game_filters = get_available_game_filters()
         saved_game_keys = get_saved_game_keys()
 
+        monitor_cpu_threshold = int((get_env_value("MONITOR_CPU_THRESHOLD", "90") or "90").strip())
+        monitor_ram_threshold = int((get_env_value("MONITOR_RAM_THRESHOLD", "90") or "90").strip())
+        monitor_interval_seconds = int((get_env_value("MONITOR_CHECK_INTERVAL_SECONDS", "60") or "60").strip())
+        monitor_cooldown_minutes = int((get_env_value("MONITOR_COOLDOWN_MINUTES", "30") or "30").strip())
+
         return render_template(
             "settings.html",
             port=current_port,
@@ -896,6 +933,10 @@ def register_settings_routes(
             telegram_mini_audit_logs=telegram_mini_audit_view,
             user_action_audit_logs=user_action_audit_view,
             user_action_sessions=user_action_sessions,
+            monitor_cpu_threshold=monitor_cpu_threshold,
+            monitor_ram_threshold=monitor_ram_threshold,
+            monitor_interval_seconds=monitor_interval_seconds,
+            monitor_cooldown_minutes=monitor_cooldown_minutes,
         )
 
     @app.route("/api/antizapret/ip-files", methods=["GET", "POST"])
@@ -991,7 +1032,7 @@ def register_settings_routes(
                 "settings_ip_file_toggle",
                 target_type="ip_file",
                 target_name=ip_file,
-                details=f"action={action_name} count={affected_count}",
+                details=f"{'вкл' if desired_enabled else 'выкл'}: {ip_file} ({affected_count} IP)",
             )
 
         refreshed_states = {k: bool(v) for k, v in ip_manager.get_file_states().items()}
@@ -1076,6 +1117,7 @@ def register_settings_routes(
             if limit_value <= 0 or limit_value > OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS:
                 return jsonify({"success": False, "message": f"Лимит CIDR должен быть в диапазоне 1..{OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS} (ограничение iOS)"}), 400
 
+            old_cidr_limit = (get_env_value("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT", str(OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)) or str(OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)).strip()
             set_env_value("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT", str(limit_value))
             os.environ["OPENVPN_ROUTE_TOTAL_CIDR_LIMIT"] = str(limit_value)
 
@@ -1083,7 +1125,7 @@ def register_settings_routes(
                 "settings_cidr_total_limit_update",
                 target_type="cidr",
                 target_name="OPENVPN_ROUTE_TOTAL_CIDR_LIMIT",
-                details=f"value={limit_value}",
+                details=f"{old_cidr_limit} → {limit_value}",
                 status="success",
             )
 
@@ -1147,19 +1189,18 @@ def register_settings_routes(
 
             _start_cidr_task(task_id, _runner)
 
+            _files_label = "все файлы" if not selected_files else ", ".join(selected_files[:5]) + ("…" if len(selected_files) > 5 else "")
             log_user_action_event(
                 "settings_cidr_update_queued",
                 target_type="cidr",
                 target_name="all" if not selected_files else ",".join(selected_files[:10]),
                 details=(
-                    f"scopes={scopes_text} "
-                    f"fallback_non_geo={1 if include_non_geo_fallback else 0} "
-                    f"exclude_ru={1 if exclude_ru_cidrs else 0} "
-                    f"include_games={1 if include_game_hosts else 0} "
-                    f"include_games_count={len(include_game_keys)} "
-                    f"strict_geo={1 if strict_geo_filter else 0} "
-                    f"mode=background"
-                ),
+                    f"файлы: {_files_label}; "
+                    f"регионы: {scopes_text}; "
+                    + (f"игры: {len(include_game_keys)}; " if include_game_hosts else "")
+                    + (f"exclude_ru; " if exclude_ru_cidrs else "")
+                    + (f"strict_geo" if strict_geo_filter else "")
+                ).rstrip("; "),
                 status="info",
             )
             return (
@@ -1201,11 +1242,12 @@ def register_settings_routes(
 
             _start_cidr_task(task_id, _runner)
 
+            _rollback_files_label = "все файлы" if not selected_files else ", ".join(selected_files[:5]) + ("…" if len(selected_files) > 5 else "")
             log_user_action_event(
                 "settings_cidr_rollback_queued",
                 target_type="cidr",
                 target_name="all" if not selected_files else ",".join(selected_files[:10]),
-                details="mode=background",
+                details=f"файлы: {_rollback_files_label}",
                 status="info",
             )
             return (
@@ -1532,7 +1574,7 @@ def register_settings_routes(
             )
 
         _start_cidr_task(task_id, _runner)
-        log_user_action_event("settings_antifilter_refresh", target_type="antifilter", target_name="antifilter.download", status="info")
+        log_user_action_event("settings_antifilter_refresh", target_type="antifilter", target_name="antifilter.download", details="запущено обновление", status="info")
         return jsonify({
             "success": True,
             "queued": True,
@@ -1664,6 +1706,81 @@ def register_settings_routes(
             "message": "Тесты запущены в фоне",
             "status_url": url_for("api_cidr_task_status", task_id=task_id),
         }), 202
+
+    @app.route("/api/monitor-settings", methods=["POST"])
+    @auth_manager.admin_required
+    def api_monitor_settings():
+        data = request.get_json(silent=True) or {}
+
+        def _int_clamp(val, lo, hi, default):
+            try:
+                v = int(str(val).strip())
+                return max(lo, min(hi, v))
+            except (TypeError, ValueError):
+                return default
+
+        cpu_threshold = _int_clamp(data.get("cpu_threshold"), 1, 100, 90)
+        ram_threshold = _int_clamp(data.get("ram_threshold"), 1, 100, 90)
+        interval_sec  = _int_clamp(data.get("interval_seconds"), 10, 3600, 60)
+        cooldown_min  = _int_clamp(data.get("cooldown_minutes"), 1, 1440, 30)
+
+        set_env_value("MONITOR_CPU_THRESHOLD", str(cpu_threshold))
+        set_env_value("MONITOR_RAM_THRESHOLD", str(ram_threshold))
+        set_env_value("MONITOR_CHECK_INTERVAL_SECONDS", str(interval_sec))
+        set_env_value("MONITOR_COOLDOWN_MINUTES", str(cooldown_min))
+        os.environ["MONITOR_CPU_THRESHOLD"] = str(cpu_threshold)
+        os.environ["MONITOR_RAM_THRESHOLD"] = str(ram_threshold)
+        os.environ["MONITOR_CHECK_INTERVAL_SECONDS"] = str(interval_sec)
+        os.environ["MONITOR_COOLDOWN_MINUTES"] = str(cooldown_min)
+
+        log_user_action_event(
+            "settings_monitor_update",
+            target_type="monitor",
+            target_name="resource_monitor",
+            details=f"cpu={cpu_threshold}% ram={ram_threshold}% interval={interval_sec}с cooldown={cooldown_min}мин",
+        )
+        return jsonify({"success": True, "message": "Настройки мониторинга сохранены"})
+
+    @app.route("/api/tg-notify-test", methods=["POST"])
+    @auth_manager.admin_required
+    def api_tg_notify_test():
+        data = request.get_json(silent=True) or {}
+        target_username = (data.get("username") or "").strip()
+        current_username = session.get("username", "")
+        if not target_username or target_username != current_username:
+            return jsonify({"success": False, "message": "Тест разрешён только для собственного аккаунта"}), 403
+
+        user = user_model.query.filter_by(username=target_username).first()
+        if not user or not user.telegram_id:
+            return jsonify({"success": False, "message": "Telegram ID не привязан"}), 400
+
+        bot_token = (get_env_value("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip()
+        if not bot_token:
+            return jsonify({"success": False, "message": "Бот не настроен"}), 400
+
+        _ev_labels = [
+            ("login_success",   "Успешный вход"),
+            ("login_failed",    "Неверный пароль"),
+            ("tg_unlinked",     "Вход с непривязанным TG ID"),
+            ("config_create",   "Создание / пересоздание конфига"),
+            ("config_delete",   "Удаление конфига"),
+            ("user_create",     "Добавление пользователя"),
+            ("user_delete",     "Удаление пользователя"),
+            ("client_ban",      "Блокировка / разблокировка клиента"),
+            ("settings_change", "Изменение настроек"),
+            ("high_cpu",        "Высокая нагрузка CPU"),
+            ("high_ram",        "Высокая нагрузка RAM"),
+        ]
+        enabled = [label for key, label in _ev_labels if user.has_tg_notify_event(key)]
+        events_text = "\n".join(f"  ✓ {l}" for l in enabled) if enabled else "  (нет включённых событий)"
+
+        text = (
+            "🔔 <b>Тест уведомлений AdminAntiZapret</b>\n\n"
+            f"Аккаунт: <code>{target_username}</code>\n\n"
+            f"Включённые события:\n{events_text}"
+        )
+        send_tg_message(bot_token, user.telegram_id, text)
+        return jsonify({"success": True, "message": "Тестовое сообщение отправлено"})
 
     @app.route("/api/tg-mini/settings", methods=["POST"])
     @auth_manager.admin_required

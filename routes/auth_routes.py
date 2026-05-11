@@ -33,6 +33,7 @@ def register_auth_routes(
     remove_active_web_session,
     log_telegram_audit_event,
     log_user_action_event=None,
+    send_tg_admin_notification=None,
     app_name: str = "AdminAntizapret",
 ) -> None:
     def _limit(rule: str) -> Callable:
@@ -286,6 +287,9 @@ def register_auth_routes(
                     session.permanent = False
 
                 _finish_telegram_login(user, mini=False)
+                if callable(send_tg_admin_notification):
+                    _lip = (request.headers.get("X-Forwarded-For", "") or request.remote_addr or "").split(",", 1)[0].strip()
+                    send_tg_admin_notification("login_success", actor_username=username, remote_addr=_lip)
                 return redirect(url_for("index"))
             if callable(log_user_action_event):
                 log_user_action_event(
@@ -294,6 +298,15 @@ def register_auth_routes(
                     target_name=username[:255] if username else None,
                     status="error",
                     details="invalid_credentials",
+                )
+            if callable(send_tg_admin_notification):
+                client_ip = (
+                    request.headers.get("X-Forwarded-For", "") or request.remote_addr or ""
+                ).split(",", 1)[0].strip()
+                send_tg_admin_notification(
+                    "login_failed",
+                    actor_username=username[:64] if username else None,
+                    remote_addr=client_ip,
                 )
             flash("Неверные учетные данные. Попробуйте снова.", "error")
             return redirect(url_for("login"))
@@ -336,6 +349,15 @@ def register_auth_routes(
                 details="telegram_id_not_bound",
                 telegram_id=telegram_id,
             )
+            if callable(send_tg_admin_notification):
+                client_ip = (
+                    request.headers.get("X-Forwarded-For", "") or request.remote_addr or ""
+                ).split(",", 1)[0].strip()
+                send_tg_admin_notification(
+                    "tg_login_unlinked",
+                    target_name=telegram_id,
+                    remote_addr=client_ip,
+                )
             flash("Этот Telegram аккаунт не привязан ни к одному пользователю панели.", "error")
             return redirect(url_for("login"))
 
@@ -346,6 +368,9 @@ def register_auth_routes(
             actor_username=user.username,
             telegram_id=telegram_id,
         )
+        if callable(send_tg_admin_notification):
+            _lip = (request.headers.get("X-Forwarded-For", "") or request.remote_addr or "").split(",", 1)[0].strip()
+            send_tg_admin_notification("login_success", actor_username=user.username, remote_addr=_lip)
 
         return redirect(url_for("index"))
 
@@ -381,6 +406,15 @@ def register_auth_routes(
                 details="telegram_id_not_bound",
                 telegram_id=telegram_id,
             )
+            if callable(send_tg_admin_notification):
+                client_ip = (
+                    request.headers.get("X-Forwarded-For", "") or request.remote_addr or ""
+                ).split(",", 1)[0].strip()
+                send_tg_admin_notification(
+                    "tg_mini_login_unlinked",
+                    target_name=telegram_id,
+                    remote_addr=client_ip,
+                )
             flash("Этот Telegram аккаунт не привязан ни к одному пользователю панели.", "error")
             return redirect(url_for("login"))
 
@@ -397,6 +431,9 @@ def register_auth_routes(
             actor_username=user.username,
             telegram_id=telegram_id,
         )
+        if callable(send_tg_admin_notification):
+            _lip = (request.headers.get("X-Forwarded-For", "") or request.remote_addr or "").split(",", 1)[0].strip()
+            send_tg_admin_notification("login_success", actor_username=user.username, remote_addr=_lip)
 
         next_url = _safe_internal_next_url(request.form.get("next", ""))
         return redirect(next_url)

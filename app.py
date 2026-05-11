@@ -21,6 +21,7 @@ import secrets
 from datetime import datetime, timezone, timedelta
 import shlex
 from threading import RLock
+from core.services.admin_notify import AdminNotifyService, SETTINGS_CHANGE_NOTIFY
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
@@ -95,6 +96,7 @@ from core.services import (
     register_current_user_context_processor,
 )
 from core.services.session_security import build_session_security_config
+
 
 # Абсолютный путь к корню приложения и .env (не зависит от рабочего каталога процесса).
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -479,6 +481,7 @@ def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_
         app.logger.warning("Не удалось записать событие Telegram audit: %s", e)
 
 
+
 def _log_user_action_event(
     event_type,
     *,
@@ -489,6 +492,8 @@ def _log_user_action_event(
     actor_username=None,
 ):
     """Writes user action audit events without affecting primary workflow."""
+    username = None
+    remote_addr = None
     try:
         username = str(actor_username or session.get("username") or "").strip() or None
         actor_user_id = None
@@ -517,6 +522,35 @@ def _log_user_action_event(
     except SQLAlchemyError as e:
         db.session.rollback()
         app.logger.warning("Не удалось записать событие UserAction audit: %s", e)
+        return
+
+    # Fire Telegram notification for mapped events
+    if status in ("error", "warning"):
+        return
+    try:
+        _notify_type = None
+        _notify_target = target_name
+        if event_type == "config_delete":
+            _notify_type = "config_delete"
+        elif event_type == "settings_user_create":
+            _notify_type = "user_create"
+        elif event_type == "settings_user_delete":
+            _notify_type = "user_delete"
+        elif event_type == "openvpn_client_block_toggle":
+            _notify_type = "client_ban"
+        elif event_type in SETTINGS_CHANGE_NOTIFY:
+            _notify_type = "settings_change"
+            _notify_target = event_type
+        if _notify_type:
+            _send_tg_admin_notification(
+                _notify_type,
+                actor_username=username,
+                target_name=_notify_target,
+                remote_addr=remote_addr,
+                details=details,
+            )
+    except Exception:
+        pass
 
 
 app.config["TELEGRAM_AUDIT_LOGGER"] = _log_telegram_audit_event
@@ -1024,6 +1058,25 @@ def _collect_logs_dashboard_data():
     )
 
 
+admin_notify_service = AdminNotifyService(
+    user_model=User,
+    get_env_value=_get_env_value,
+    logger=app.logger,
+)
+
+
+def _send_tg_admin_notification(event_type, *, actor_username=None,
+                                 target_name=None, remote_addr=None, details=None):
+    admin_notify_service.send(
+        event_type,
+        actor_username=actor_username,
+        target_name=target_name,
+        remote_addr=remote_addr,
+        details=details,
+    )
+
+
 register_all_routes(app, sock, locals())
+admin_notify_service.start_monitor()
 
 

@@ -98,6 +98,74 @@
                 </form>
               </section>
 
+              {% if user.telegram_id %}
+              <section class="user-card__section">
+                <h4>Telegram-уведомления</h4>
+                <form method="POST" class="settings-form tg-notify-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                  <input type="hidden" name="change_tg_notify_username" value="{{ user.username }}" />
+                  {% set tg_events = [
+                    ("login_success",   "Успешный вход"),
+                    ("login_failed",    "Неверный пароль"),
+                    ("tg_unlinked",     "Вход с непривязанным TG ID"),
+                    ("config_create",   "Создание / пересоздание конфига"),
+                    ("config_delete",   "Удаление конфига"),
+                    ("user_create",     "Добавление пользователя"),
+                    ("user_delete",     "Удаление пользователя"),
+                    ("client_ban",      "Блокировка / разблокировка клиента"),
+                    ("settings_change", "Изменение настроек"),
+                    ("high_cpu",        "Высокая нагрузка CPU"),
+                    ("high_ram",        "Высокая нагрузка RAM"),
+                  ] %}
+                  <div class="tg-notify-events-grid">
+                    {% for key, label in tg_events %}
+                    <label class="tg-notify-toggle">
+                      <input type="checkbox" name="tg_e_{{ key }}" value="1"
+                        {% if user.has_tg_notify_event(key) %}checked{% endif %} />
+                      <span class="tg-notify-toggle__label">{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                  </div>
+                  <button type="submit" class="button save-button tg-notify-save-btn">Сохранить</button>
+                  {% if user.username == current_user.username %}
+                  <button type="button" class="button tg-notify-test-btn"
+                    data-username="{{ user.username }}">Тест уведомлений</button>
+                  {% endif %}
+                  <small class="help-text">Уведомления отправляются через бота Telegram-авторизации.</small>
+                </form>
+              </section>
+
+              {% if user.username == current_user.username %}
+              <section class="user-card__section">
+                <h4>Мониторинг нагрузки сервера</h4>
+                <div class="monitor-settings-grid">
+                  <div class="form-group">
+                    <label class="form-label">Порог CPU (%)</label>
+                    <input type="number" id="monitor-cpu-threshold" class="form-control monitor-input"
+                      min="1" max="100" value="{{ monitor_cpu_threshold }}" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Порог RAM (%)</label>
+                    <input type="number" id="monitor-ram-threshold" class="form-control monitor-input"
+                      min="1" max="100" value="{{ monitor_ram_threshold }}" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Интервал проверки (сек)</label>
+                    <input type="number" id="monitor-interval-seconds" class="form-control monitor-input"
+                      min="10" max="3600" value="{{ monitor_interval_seconds }}" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Кулдаун между уведомлениями (мин)</label>
+                    <input type="number" id="monitor-cooldown-minutes" class="form-control monitor-input"
+                      min="1" max="1440" value="{{ monitor_cooldown_minutes }}" />
+                  </div>
+                </div>
+                <button type="button" class="button save-button monitor-save-btn">Сохранить</button>
+                <small class="help-text">Уведомления о высокой нагрузке отправляются всем, у кого включены события «Высокая нагрузка CPU / RAM».</small>
+              </section>
+              {% endif %}
+              {% endif %}
+
               <section class="user-card__section user-card__section-danger">
                 <h4>Удалить пользователя</h4>
                 {% if user.username != current_user.username %}
@@ -430,4 +498,60 @@
         <div id="viewer-access-status" class="notification settings-inline-hidden-mt"></div>
       </div>
     </div>
+
+<script>
+(function () {
+  function getCsrf() {
+    var m = document.querySelector('meta[name="csrf-token"]');
+    return m ? m.getAttribute('content') : '';
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.tg-notify-test-btn');
+    if (btn) {
+      var username = btn.dataset.username;
+      btn.disabled = true;
+      var origText = btn.textContent;
+      btn.textContent = 'Отправка…';
+      fetch('/api/tg-notify-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({ username: username }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { alert(d.message || (d.success ? 'Отправлено' : 'Ошибка')); })
+        .catch(function () { alert('Ошибка сети'); })
+        .finally(function () { btn.disabled = false; btn.textContent = origText; });
+      return;
+    }
+
+    var mbtn = e.target.closest('.monitor-save-btn');
+    if (mbtn) {
+      var cpu = document.getElementById('monitor-cpu-threshold');
+      var ram = document.getElementById('monitor-ram-threshold');
+      var interval = document.getElementById('monitor-interval-seconds');
+      var cooldown = document.getElementById('monitor-cooldown-minutes');
+      if (!cpu || !ram || !interval || !cooldown) return;
+      mbtn.disabled = true;
+      var origText2 = mbtn.textContent;
+      mbtn.textContent = 'Сохранение…';
+      fetch('/api/monitor-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify({
+          cpu_threshold: parseInt(cpu.value, 10),
+          ram_threshold: parseInt(ram.value, 10),
+          interval_seconds: parseInt(interval.value, 10),
+          cooldown_minutes: parseInt(cooldown.value, 10),
+        }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { alert(d.message || (d.success ? 'Сохранено' : 'Ошибка')); })
+        .catch(function () { alert('Ошибка сети'); })
+        .finally(function () { mbtn.disabled = false; mbtn.textContent = origText2; });
+      return;
+    }
+  });
+})();
+</script>
 

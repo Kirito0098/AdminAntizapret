@@ -866,7 +866,7 @@ def register_config_routes(
             "settings_public_download_toggle",
             target_type="public_download",
             target_name="PUBLIC_DOWNLOAD_ENABLED",
-            details=f"enabled={1 if next_state else 0}",
+            details=f"{'вкл' if current_state else 'выкл'} → {'вкл' if next_state else 'выкл'}",
         )
 
         flash(
@@ -1010,7 +1010,7 @@ def register_config_routes(
                 "settings_run_doall",
                 target_type="maintenance",
                 target_name="doall",
-                details=details_text,
+                details="запущен скрипт doall.sh",
             )
             return task_accepted_response(
                 task,
