@@ -59,8 +59,43 @@ def get_file_states():
 
 
 def get_source_states():
-    """Returns dict of filename -> bool indicating if the source list file exists in LIST_DIR."""
-    return {fname: os.path.exists(os.path.join(LIST_DIR, fname)) for fname in list_ip_files().keys()}
+    """Returns dict of filename -> bool indicating if source data is available.
+
+    A source is considered available if either the list file exists in LIST_DIR
+    or the corresponding AP-* include file exists in CONFIG_DIR. The AP-* file
+    is a verbatim copy of the list file written by enable_file(), so its presence
+    means the data is intact even if the LIST_DIR copy was lost.
+    When the AP-* file exists but the list file is absent, restore_source_from_config()
+    can recreate the list file before the next enable/disable cycle.
+    """
+    states = {}
+    for fname in list_ip_files().keys():
+        states[fname] = (
+            os.path.exists(os.path.join(LIST_DIR, fname))
+            or os.path.exists(_masked_include_file_path(fname))
+        )
+    return states
+
+
+def restore_source_from_config():
+    """Restores missing LIST_DIR files from existing AP-* config files.
+
+    Call this when ips/list/ files are absent but AP-* counterparts exist in
+    CONFIG_DIR (e.g., after a database rebuild that deleted the list files).
+    Returns dict of filename -> bool indicating which files were restored.
+    """
+    restored = {}
+    for fname in list_ip_files().keys():
+        list_path = os.path.join(LIST_DIR, fname)
+        ap_path = _masked_include_file_path(fname)
+        if not os.path.exists(list_path) and os.path.exists(ap_path):
+            try:
+                os.makedirs(LIST_DIR, exist_ok=True)
+                shutil.copyfile(ap_path, list_path)
+                restored[fname] = True
+            except OSError:
+                restored[fname] = False
+    return restored
 
 
 def _read_ips_from_listfile(fname):

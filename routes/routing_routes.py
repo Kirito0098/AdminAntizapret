@@ -63,6 +63,7 @@ def register_routing_routes(
         cidr_total_limit_raw = str(_clamp_total_cidr_limit_for_ios(cidr_total_limit_raw))
 
         ip_manager.sync_enabled()
+        ip_manager.restore_source_from_config()
         ip_files = ip_manager.list_ip_files()
         ip_file_states = ip_manager.get_file_states()
         ip_source_states = ip_manager.get_source_states()

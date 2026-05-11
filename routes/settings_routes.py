@@ -1123,7 +1123,7 @@ def register_settings_routes(
             )
 
             def _runner(progress_callback):
-                return update_cidr_files(
+                result = update_cidr_files(
                     selected_files,
                     region_scopes=region_scopes,
                     include_non_geo_fallback=include_non_geo_fallback,
@@ -1136,6 +1136,11 @@ def register_settings_routes(
                     dpi_priority_min_budget=dpi_priority_min_budget,
                     progress_callback=progress_callback,
                 )
+                # Keep AP-* files in antizapret/config in sync with freshly generated
+                # ips/list/ files so that doall.sh (run separately) reads current data.
+                if result.get("success") or result.get("updated"):
+                    ip_manager.sync_enabled_from_list()
+                return result
 
             _start_cidr_task(task_id, _runner)
 
@@ -1378,7 +1383,7 @@ def register_settings_routes(
         task_id = _create_cidr_task("cidr_generate_from_db", "Генерация CIDR-файлов из БД запущена")
 
         def _runner(progress_callback):
-            return update_cidr_files_from_db(
+            result = update_cidr_files_from_db(
                 selected_files,
                 region_scopes=region_scopes,
                 include_non_geo_fallback=include_non_geo_fallback,
@@ -1393,6 +1398,12 @@ def register_settings_routes(
                 dpi_priority_min_budget=dpi_priority_min_budget,
                 progress_callback=progress_callback,
             )
+            # Sync newly generated ips/list/ files into antizapret/config/AP-* so
+            # that the subsequent doall.sh call picks up the fresh data.
+            # update.sh reads config/*include-ips.txt, not ips/list/ directly.
+            if result.get("success") or result.get("updated"):
+                ip_manager.sync_enabled_from_list()
+            return result
 
         _start_cidr_task(task_id, _runner)
 
