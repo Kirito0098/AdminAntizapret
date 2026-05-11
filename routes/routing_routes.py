@@ -65,6 +65,7 @@ def register_routing_routes(
         ip_manager.sync_enabled()
         ip_files = ip_manager.list_ip_files()
         ip_file_states = ip_manager.get_file_states()
+        ip_source_states = ip_manager.get_source_states()
         cidr_regions = get_available_regions()
         cidr_game_filters = get_available_game_filters()
         saved_game_keys = get_saved_game_keys()
@@ -74,6 +75,7 @@ def register_routing_routes(
             "routing.html",
             ip_files=ip_files,
             ip_file_states=ip_file_states,
+            ip_source_states=ip_source_states,
             cidr_regions=cidr_regions,
             cidr_game_filters=cidr_game_filters,
             saved_game_keys=saved_game_keys,

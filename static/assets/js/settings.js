@@ -327,13 +327,24 @@ document.addEventListener("DOMContentLoaded", function () {
     return states;
   };
 
-  const applyIpFileStates = (states) => {
+  const applyIpFileStates = (states, sourceStates) => {
     if (!states || typeof states !== "object") return;
     document.querySelectorAll(".ip-file-toggle[data-ip-file]").forEach((input) => {
       const fileName = input.getAttribute("data-ip-file");
       if (!fileName) return;
       if (Object.prototype.hasOwnProperty.call(states, fileName)) {
         input.checked = Boolean(states[fileName]);
+      }
+      if (sourceStates && Object.prototype.hasOwnProperty.call(sourceStates, fileName)) {
+        const hasSource = Boolean(sourceStates[fileName]);
+        input.disabled = !hasSource;
+        input.setAttribute("data-source-exists", hasSource ? "true" : "false");
+        const item = input.closest(".config-item");
+        if (item) item.classList.toggle("ip-file-item--no-source", !hasSource);
+        const badge = item?.querySelector(".ip-file-no-source-badge");
+        const hint = item?.querySelector(".ip-file-no-source-hint");
+        if (badge) badge.hidden = hasSource;
+        if (hint) hint.hidden = hasSource;
       }
     });
   };
@@ -459,7 +470,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!response.ok || !payload.success) {
       throw new Error(payload.message || "Ошибка загрузки состояний IP-файлов");
     }
-    applyIpFileStates(payload.states || {});
+    applyIpFileStates(payload.states || {}, payload.source_states);
   };
 
   const syncIpFilesFromList = async () => {
@@ -2554,6 +2565,51 @@ document.addEventListener("DOMContentLoaded", function () {
   initMiniAppLinkCopy();
   initSettingsRangeControls();
 
+  // ── Reverse sync: IP-file toggle → CIDR checkbox ──────────────────────
+  // When user enables/disables a provider in "Фильтры и сервисы",
+  // reflect that in the CIDR providers grid so both sections stay in sync.
+  document.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!target?.matches(".ip-file-toggle[data-ip-file]")) return;
+    const fileName = target.getAttribute("data-ip-file");
+    if (!fileName) return;
+    const cidrCheckbox = document.querySelector(`.cidr-region-checkbox[value="${CSS.escape(fileName)}"]`);
+    if (cidrCheckbox && cidrCheckbox.checked !== target.checked) {
+      cidrCheckbox.checked = target.checked;
+      renderCidrMeta();
+    }
+  });
+
+  // Initial sync: mark CIDR checkboxes that already have IP-file toggles enabled.
+  // Runs once after DOMContentLoaded so the CIDR grid reflects the saved state.
+  (function syncCidrFromIpTogglesOnLoad() {
+    document.querySelectorAll(".ip-file-toggle[data-ip-file]").forEach((toggle) => {
+      if (!toggle.checked) return;
+      const fileName = toggle.getAttribute("data-ip-file");
+      const cidrCheckbox = document.querySelector(`.cidr-region-checkbox[value="${CSS.escape(fileName)}"]`);
+      if (cidrCheckbox && !cidrCheckbox.checked) {
+        cidrCheckbox.checked = true;
+      }
+    });
+    renderCidrMeta();
+  })();
+
+  // ── Navigation: data-go-tab links ─────────────────────────────────────
+  // Clicking <a data-go-tab="cidr-update"> switches to that tab.
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-go-tab]");
+    if (!link) return;
+    event.preventDefault();
+    const tabId = link.getAttribute("data-go-tab");
+    if (!tabId) return;
+    const newHash = "#" + tabId;
+    if (window.location.hash === newHash) {
+      window.dispatchEvent(new Event("hashchange"));
+    } else {
+      window.location.hash = newHash;
+    }
+  });
+
   // Expose helpers for inline scripts (settings.html DB/preset blocks)
   window._cidrRenderMeta = renderCidrMeta;
   window._scheduleCidrToIpFileSync = scheduleCidrToIpFileSync;
@@ -2677,8 +2733,6 @@ document.addEventListener("DOMContentLoaded", function () {
     setCidrBusy(false);
   };
 
-  // Проверяем обновления при загрузке
-  checkForUpdates();
   updateActionSurface();
 });
 // Обработка перезапуска службы

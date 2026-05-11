@@ -58,6 +58,11 @@ def get_file_states():
     return states
 
 
+def get_source_states():
+    """Returns dict of filename -> bool indicating if the source list file exists in LIST_DIR."""
+    return {fname: os.path.exists(os.path.join(LIST_DIR, fname)) for fname in list_ip_files().keys()}
+
+
 def _read_ips_from_listfile(fname):
     path = os.path.join(LIST_DIR, fname)
     ips = set()

@@ -1551,6 +1551,43 @@ body {
   gap: 0.9rem;
 }
 
+.ip-file-item--no-source .toggle-switch {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.ip-file-no-source-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #f0ad4e;
+  background: rgba(240, 173, 78, 0.12);
+  border: 1px solid rgba(240, 173, 78, 0.35);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.ip-file-no-source-hint {
+  font-size: 0.78rem;
+  color: #8fa8b4;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.ip-file-go-cidr-link {
+  color: #5ba3c9;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ip-file-go-cidr-link:hover {
+  color: #7bbedd;
+}
+
 .ip-files-actions {
   margin-top: 10px;
   margin-bottom: 12px;
@@ -2369,6 +2406,9 @@ body {
   color: #ddf6eb;
 }
 
+.settings-sticky-actions[hidden] {
+  display: none !important;
+}
 .settings-sticky-actions {
   position: sticky;
   top: 0.72rem;

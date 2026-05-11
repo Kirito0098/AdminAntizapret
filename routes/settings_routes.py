@@ -904,6 +904,7 @@ def register_settings_routes(
                 {
                     "success": True,
                     "states": {k: bool(v) for k, v in ip_manager.get_file_states().items()},
+                    "source_states": {k: bool(v) for k, v in ip_manager.get_source_states().items()},
                 }
             )
 

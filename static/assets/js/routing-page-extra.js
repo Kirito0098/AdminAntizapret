@@ -419,13 +419,14 @@
     });
 
     // Load on tab activation
-    const cidrTabMenuItem = document.querySelector('[data-tab="cidr-update"]');
-    if (cidrTabMenuItem) {
-      cidrTabMenuItem.addEventListener("click", loadStatus);
-    }
-    if (document.getElementById("cidr-update")?.classList.contains("active")) {
-      loadStatus();
-    }
+    window.addEventListener("settings:tab-changed", (event) => {
+      if (event?.detail?.tabId === "cidr-update") loadStatus();
+    });
+    document.addEventListener("DOMContentLoaded", () => {
+      if (document.getElementById("cidr-update")?.classList.contains("active")) {
+        loadStatus();
+      }
+    });
   })();
 
   // ── Presets ────────────────────────────────────────────────────────
