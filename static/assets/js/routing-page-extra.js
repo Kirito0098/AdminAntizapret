@@ -688,15 +688,16 @@
     if (!_presetsLoaded) { _presetsLoaded = true; loadPresets(); }
   }
 
-  // Watch for tab activation via the existing menu system
-  const cidrTabMenuItem = document.querySelector('[data-tab="cidr-update"]');
-  if (cidrTabMenuItem) {
-    cidrTabMenuItem.addEventListener("click", onCidrTabActive);
-  }
-  // Also load if already active
-  if (document.getElementById("cidr-update")?.classList.contains("active")) {
-    onCidrTabActive();
-  }
+  // Watch for tab activation via the settings:tab-changed event (fired by settings.js)
+  window.addEventListener("settings:tab-changed", (event) => {
+    if (event?.detail?.tabId === "cidr-update") onCidrTabActive();
+  });
+  // Also load if already active (check after initMenu() has run via DOMContentLoaded)
+  document.addEventListener("DOMContentLoaded", () => {
+    if (document.getElementById("cidr-update")?.classList.contains("active")) {
+      onCidrTabActive();
+    }
+  });
 })();
 
 // ── Card collapse buttons ────────────────────────────────────────────
