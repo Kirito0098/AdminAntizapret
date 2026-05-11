@@ -609,51 +609,6 @@ td {
   margin-bottom: 0.5rem;
 }
 
-/* Стили для уведомлений */
-.notification {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  padding: 1rem 1.5rem;
-  border-radius: 0.5rem;
-  font-family: "Poppins", sans-serif;
-  font-size: 1rem;
-  color: var(--theme-text-main, #fff);
-  z-index: 2000;
-  box-shadow: 0 4px 10px var(--theme-black-alpha-20, rgba(0, 0, 0, 0.2));
-  animation: fadeInOut 3s ease-in-out;
-}
-
-.notification-success {
-  background-color: var(--primary-color);
-}
-
-.notification-info {
-  background-color: var(--secondary-color);
-}
-
-.notification-error {
-  background-color: var(--danger-color);
-}
-
-@keyframes fadeInOut {
-  0% {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-
-  10%,
-  90% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-}
-
 /* Стили для ненавязчивого индикатора загрузки */
 #loading-indicator {
   position: fixed;
@@ -721,19 +676,6 @@ td {
 
 .form-container button:hover {
   background-color: var(--primary-hover-color);
-}
-
-.notifications {
-  margin-top: 1rem;
-}
-
-.notification {
-  padding: 1rem;
-  border-radius: 0.5rem;
-  margin-bottom: 0.5rem;
-  font-family: "Poppins", sans-serif;
-  font-size: 1rem;
-  color: var(--theme-text-main, #fff);
 }
 
 /*=============== FOOTER STYLES ===============*/
@@ -1352,9 +1294,6 @@ td {
   background-color: var(--theme-secondary-strong, #1e88e5);
 }
 
-.notification-warning {
-  background-color: var(--warning-color);
-}
 #update-status {
   position: fixed;
   top: 20px;
@@ -1959,15 +1898,6 @@ textarea.full-width {
     opacity: 0;
     transform: translate3d(14px, -10px, 0) scale(0.98);
   }
-}
-
-.notification {
-  animation: popup-toast-in var(--popup-fx-in) var(--popup-fx-ease);
-  transform-origin: top right;
-}
-
-.notification.notification-exit {
-  animation: popup-toast-out var(--popup-fx-out) ease forwards !important;
 }
 
 .qr-modal-container {
@@ -3619,49 +3549,6 @@ body.client-details-modal-open {
     var(--theme-text-primary, rgba(210, 233, 224, 0.86))
   );
   font-size: 0.86rem;
-}
-
-/*=============== NOTIFICATIONS ===============*/
-.notification {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  padding: 1rem 1.5rem;
-  background: var(--glass-bg);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--glass-border);
-  border-radius: 0.8rem;
-  color: var(--text-primary);
-  font-weight: 500;
-  z-index: 1100;
-  animation: slideInRight 0.3s ease;
-  box-shadow: 0 8px 32px var(--theme-black-alpha-20, rgba(0, 0, 0, 0.2));
-}
-
-.notification-success {
-  border-left: 4px solid var(--success-color);
-  background: var(--theme-primary-alpha-10, rgba(76, 175, 80, 0.1));
-}
-
-.notification-error {
-  border-left: 4px solid var(--danger-color);
-  background: var(--theme-danger-alpha-10, rgba(244, 67, 54, 0.1));
-}
-
-.notification-warning {
-  border-left: 4px solid var(--warning-color);
-  background: var(--theme-warning-alpha-10, rgba(255, 152, 0, 0.1));
-}
-
-@keyframes slideInRight {
-  from {
-    transform: translateX(400px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
 }
 
 /*=============== RESPONSIVE DESIGN ===============*/

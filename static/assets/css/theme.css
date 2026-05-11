@@ -272,3 +272,9 @@
   --theme-blocked-surface: rgba(26, 34, 40, 0.82);
   --theme-blocked-surface-strong: rgba(26, 34, 40, 0.96);
 }
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}

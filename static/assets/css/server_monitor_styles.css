@@ -555,11 +555,6 @@ body {
 }
 
 /* Mobile-first UX layer for server monitor page */
-html,
-body {
-  max-width: 100%;
-}
-
 .app-main {
   overflow-x: clip;
 }

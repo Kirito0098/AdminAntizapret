@@ -26,8 +26,6 @@
 }
 
 body {
-  margin: 0;
-  min-height: 100vh;
   color: var(--ef-text);
   overflow-x: clip;
 }
@@ -642,62 +640,6 @@ body {
   transform: none;
 }
 
-.notification {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1200;
-  min-width: 260px;
-  max-width: min(92vw, 460px);
-  padding: 0.78rem 1rem;
-  border-radius: 0.75rem;
-  color: #f8fbfe;
-  background: rgba(35, 48, 56, 0.92);
-  border: 1px solid rgba(111, 169, 191, 0.54);
-  box-shadow: 0 10px 20px rgba(5, 10, 14, 0.38);
-  backdrop-filter: blur(8px);
-  font-size: 0.9rem;
-  line-height: 1.35;
-  animation: ef-notif-in 0.2s ease;
-}
-
-.notification-success {
-  border-color: rgba(126, 220, 184, 0.64);
-  background: rgba(35, 93, 78, 0.92);
-}
-
-.notification-error {
-  border-color: rgba(213, 103, 95, 0.7);
-  background: rgba(104, 43, 39, 0.94);
-}
-
-.notification-exit {
-  animation: ef-notif-out 0.2s ease forwards;
-}
-
-@keyframes ef-notif-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes ef-notif-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-}
 
 @media (max-width: 768px) {
   .main-layout.editfiles-layout.is-mobile-collapsible .editfiles-sidebar {
@@ -755,13 +697,6 @@ body {
 
   .diff-list {
     max-height: 190px;
-  }
-
-  .notification {
-    left: 0.6rem;
-    right: 0.6rem;
-    min-width: auto;
-    top: 0.6rem;
   }
 }
 

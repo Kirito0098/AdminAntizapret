@@ -44,22 +44,10 @@
 }
 
 /*=============== BASE ===============*/
+/* box-sizing: border-box — в theme.css глобально */
 * {
-  box-sizing: border-box;
   margin: 0;
   padding: 0;
-}
-
-html,
-body {
-  min-height: 100%;
-}
-
-body,
-input,
-button {
-  font-family: var(--font-body);
-  font-size: var(--normal-font-size);
 }
 
 body.auth-index-bridge {
@@ -571,38 +559,6 @@ img {
   display: none;
 }
 
-/*=============== NOTIFICATIONS ===============*/
-.notification {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  max-width: min(92vw, 420px);
-  padding: 0.82rem 1.1rem;
-  border-radius: 0.72rem;
-  font-family: var(--font-body);
-  font-size: 0.95rem;
-  color: #fff;
-  z-index: 2000;
-  box-shadow: 0 8px 24px rgba(5, 15, 24, 0.35);
-  animation: notif-in 0.2s ease;
-}
-
-.notification-info {
-  background-color: #2f6c85;
-}
-
-.notification-success {
-  background-color: #3fa083;
-}
-
-.notification-error {
-  background-color: #c55850;
-}
-
-.notification-exit {
-  animation: notif-out 0.2s ease forwards;
-}
-
 /*=============== BREAKPOINTS ===============*/
 @media (min-width: 1600px) {
   .login-shell {
@@ -677,13 +633,6 @@ img {
   .login-context-kpis {
     grid-template-columns: 1fr;
   }
-
-  .notification {
-    left: 10px;
-    right: 10px;
-    top: 10px;
-    max-width: none;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -728,26 +677,3 @@ input:-webkit-autofill:active {
   }
 }
 
-@keyframes notif-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes notif-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-}

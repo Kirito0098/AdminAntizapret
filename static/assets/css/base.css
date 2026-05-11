@@ -618,41 +618,6 @@ body.nav-mobile-open.settings-nav-merged #sidebar.settings-page-wrapper {
   .nav-link { font-size: 1.01rem; padding: 0.68rem 0.74rem; }
 }
 
-/* ===== Toast-уведомления ===== */
-.notification {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  padding: 1rem 1.5rem;
-  border-radius: 0.5rem;
-  font-family: "Poppins", sans-serif;
-  font-size: 1rem;
-  color: var(--theme-text-main, #fff);
-  z-index: 2000;
-  box-shadow: 0 4px 10px var(--theme-black-alpha-20, rgba(0, 0, 0, 0.2));
-  animation: fadeInOut 3s ease-in-out;
-}
-
-.notification-success { background-color: var(--primary-color); }
-.notification-info    { background-color: var(--secondary-color); }
-.notification-error   { background-color: var(--danger-color); }
-.notification-warning { background-color: var(--theme-warning, #e3a65b); }
-
-.notification-exit {
-  animation: ef-notif-out 0.2s ease forwards;
-}
-
-@keyframes fadeInOut {
-  0%        { opacity: 0; transform: translateY(-20px); }
-  10%, 90%  { opacity: 1; transform: translateY(0); }
-  100%      { opacity: 0; transform: translateY(-20px); }
-}
-
-@keyframes ef-notif-out {
-  from { opacity: 1; transform: translateY(0); }
-  to   { opacity: 0; transform: translateY(-8px); }
-}
-
 /* ===== Loading indicator (spinner в углу) ===== */
 #loading-indicator {
   position: fixed;

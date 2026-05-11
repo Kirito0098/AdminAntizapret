@@ -594,12 +594,6 @@ body.nav-mobile-open.settings-nav-merged #sidebar.settings-page-wrapper {
   .folder-btn {
     width: 100%;
   }
-
-  .notification {
-    left: 0.6rem;
-    right: 0.6rem;
-    max-width: none;
-  }
 }
 
 @media (min-width: 1440px) {
