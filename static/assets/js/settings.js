@@ -275,6 +275,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Snapshot-based dirty tracking: panel appears only when values differ from baseline.
   let _dirtySnapshot = new Map();
+  let _pendingDoallContext = null;
 
   const _getControlValue = (control) =>
     control.type === "checkbox" ? control.checked : control.value;
@@ -310,6 +311,20 @@ document.addEventListener("DOMContentLoaded", function () {
     _rebuildDirtySnapshot();
     antizapretHasUnsavedChanges = false;
     updateActionSurface();
+  };
+
+  // Returns list of human-readable change strings for IP file toggles (e.g. ["вкл: Amazon", "выкл: Google"])
+  const _collectIpFileChanges = () => {
+    const changes = [];
+    _dirtySnapshot.forEach((initialValue, control) => {
+      if (!control.classList.contains("ip-file-toggle")) return;
+      const currentValue = _getControlValue(control);
+      if (currentValue === initialValue) return;
+      const name = control.dataset.ipFileName || control.dataset.ipFile || "";
+      if (!name) return;
+      changes.push((currentValue ? "вкл" : "выкл") + ": " + name);
+    });
+    return changes;
   };
 
   const initAntizapretDirtyTracking = () => {
@@ -1963,11 +1978,15 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelector('meta[name="csrf-token"]')?.content ||
         "";
     };
+    const _ctx = _pendingDoallContext || "Применение настроек Antizapret";
+    _pendingDoallContext = null;
     const applyResponse = await fetch("/run-doall", {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         "X-CSRFToken": getCsrfToken(),
       },
+      body: JSON.stringify({ context: _ctx }),
     });
 
     const applyData = await applyResponse.json();
@@ -2030,6 +2049,10 @@ document.addEventListener("DOMContentLoaded", function () {
         throw new Error(saveData.message || "Ошибка сохранения настроек");
       }
 
+      const _ipChanges = _collectIpFileChanges();
+      if (_ipChanges.length) {
+        _pendingDoallContext = "Изменения: " + _ipChanges.slice(0, 6).join(", ") + (_ipChanges.length > 6 ? "…" : "");
+      }
       const ipFilesResult = await saveIpFileStates();
       const antizapretChanges = Number(saveData.changes || 0);
       const hasAntizapretChanges = antizapretChanges > 0;

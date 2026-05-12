@@ -485,9 +485,17 @@ document.addEventListener('keydown', (event) => {
     steps.push({
       label: "Применение изменений (doall.sh)",
       start: async () => {
+        const ctxParts = [];
+        if (regionScopes && regionScopes.length) ctxParts.push("регионы: " + regionScopes.join(", "));
+        if (gameKeys && gameKeys.length) ctxParts.push("игры: " + gameKeys.length + " шт.");
+        if (excludeRu) ctxParts.push("без РУ");
+        if (strictGeo) ctxParts.push("строгий гео");
+        if (filterByAntifilter) ctxParts.push("AntiFilter");
+        const ctx = "Генерация маршрутов из БД" + (ctxParts.length ? "; " + ctxParts.join("; ") : "");
         const r = await fetch("/run-doall", {
           method: "POST",
-          headers: { "X-CSRFToken": csrf() },
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+          body: JSON.stringify({ context: ctx }),
         });
         const d = await r.json();
         if (!r.ok || !d.success) throw new Error(d.message || "Ошибка запуска doall");

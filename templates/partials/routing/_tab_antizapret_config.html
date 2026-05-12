@@ -150,6 +150,7 @@
                 </span>
                 <div class="toggle-switch">
                   <input type="checkbox" class="toggle-input ip-file-toggle" data-ip-file="{{ filename }}"
+                    data-ip-file-name="{{ file_info.name }}"
                     data-source-exists="{{ 'true' if has_source else 'false' }}"
                     {% if ip_file_states[filename] %}checked{% endif %}
                     {% if not has_source %}disabled{% endif %} />

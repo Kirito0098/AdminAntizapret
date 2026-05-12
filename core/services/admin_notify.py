@@ -77,10 +77,24 @@ SETTINGS_CHANGE_LABELS = {
     "settings_cidr_preset_create": "Создан CIDR-пресет",
     "settings_cidr_preset_update": "Обновлён CIDR-пресет",
     "settings_cidr_preset_delete": "Удалён CIDR-пресет",
-    "settings_cidr_preset_reset": "Сброс CIDR-пресета",
+    "settings_cidr_preset_reset": "Сброс CIDR-пресета до базовых значений",
     "settings_antifilter_refresh": "Обновление AntiFilter",
-    "settings_run_doall": "Запуск doall.sh",
+    "settings_run_doall": "Перегенерация конфигурации VPN (doall.sh)",
 }
+
+# These are one-shot actions (no before/after value); shown with 🔧 header
+SETTINGS_ACTION_EVENTS = frozenset({
+    "settings_restart_service",
+    "settings_run_doall",
+    "settings_cidr_update_queued",
+    "settings_cidr_rollback_queued",
+    "settings_cidr_db_refresh_queued",
+    "settings_cidr_generate_from_db",
+    "settings_cidr_games_sync",
+    "settings_ip_files_sync",
+    "settings_antifilter_refresh",
+    "settings_cidr_preset_reset",
+})
 
 # Maps internal event_type to the preference key stored in user.tg_notify_events
 _PREF_KEY_MAP = {
@@ -171,8 +185,23 @@ class AdminNotifyService:
                 ban_status = "Изменён статус"
             return f"🔒 <b>Блокировка клиента</b>\n📁 {t}\n{ban_status}\n👤 {a}\n🕐 {now}"
         if event_type == "settings_change":
+            if target_name == "settings_ip_file_toggle" and details:
+                parts = details.split("|")
+                is_on = parts[0] == "вкл" if parts else False
+                display = parts[1] if len(parts) > 1 else "—"
+                ip_info = parts[2] if len(parts) > 2 else ""
+                icon = "✅" if is_on else "🔴"
+                verb = "Включён" if is_on else "Отключён"
+                suffix = f" ({ip_info})" if ip_info else ""
+                return f"{icon} <b>{verb} фильтр: {display}{suffix}</b>\n👤 {a}\n🕐 {now}"
             label = SETTINGS_CHANGE_LABELS.get(target_name, target_name or "—")
-            return f"⚙️ <b>Изменены настройки</b>\n📝 {label}{d}\n👤 {a}\n🕐 {now}"
+            if target_name in SETTINGS_ACTION_EVENTS:
+                # One-shot action — no before/after value
+                ctx = f"\n📋 <code>{details}</code>" if details else ""
+                return f"🔧 <b>Действие выполнено</b>\n📌 {label}{ctx}\n👤 {a}\n🕐 {now}"
+            else:
+                # Value change — show old → new
+                return f"⚙️ <b>Изменены настройки</b>\n📝 {label}{d}\n👤 {a}\n🕐 {now}"
         if event_type == "high_cpu":
             return f"🔥 <b>Высокая нагрузка CPU</b>{d}\n🕐 {now}"
         if event_type == "high_ram":

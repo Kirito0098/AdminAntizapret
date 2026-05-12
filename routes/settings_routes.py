@@ -816,7 +816,6 @@ def register_settings_routes(
                         "settings_restart_service",
                         target_type="service",
                         target_name="admin-antizapret.service",
-                        details=f"task_id={task.id}",
                     )
                 except Exception as e:
                     flash(f"Ошибка запуска фонового перезапуска: {str(e)}", "error")
@@ -1003,7 +1002,8 @@ def register_settings_routes(
             return jsonify({"success": False, "message": "Ожидается поле states в формате объекта"}), 400
 
         ip_manager.sync_enabled()
-        available_files = set(ip_manager.list_ip_files().keys())
+        all_ip_files_meta = ip_manager.list_ip_files()
+        available_files = set(all_ip_files_meta.keys())
         current_states = {k: bool(v) for k, v in ip_manager.get_file_states().items()}
 
         changes_count = 0
@@ -1020,19 +1020,21 @@ def register_settings_routes(
 
             if desired_enabled:
                 affected_count = ip_manager.enable_file(ip_file)
-                action_name = "enable_file"
             else:
                 affected_count = ip_manager.disable_file(ip_file)
-                action_name = "disable_file"
+
+            _meta = all_ip_files_meta.get(ip_file, {})
+            _display = (_meta.get("name") if isinstance(_meta, dict) else None) \
+                       or ip_file.replace(".txt", "").replace("-ips", "").replace("-", " ").title()
 
             changes_count += 1
-            details.append(f"{ip_file}:{action_name}:{affected_count}")
+            details.append(ip_file)
 
             log_user_action_event(
                 "settings_ip_file_toggle",
                 target_type="ip_file",
                 target_name=ip_file,
-                details=f"{'вкл' if desired_enabled else 'выкл'}: {ip_file} ({affected_count} IP)",
+                details=f"{'вкл' if desired_enabled else 'выкл'}|{_display}|{affected_count} IP",
             )
 
         refreshed_states = {k: bool(v) for k, v in ip_manager.get_file_states().items()}
@@ -1329,11 +1331,12 @@ def register_settings_routes(
 
         _start_cidr_task(task_id, _runner)
 
+        _db_files_label = "все файлы" if not selected_files else ", ".join((selected_files or [])[:5]) + ("…" if len(selected_files or []) > 5 else "")
         log_user_action_event(
             "settings_cidr_db_refresh_queued",
             target_type="cidr_db",
             target_name="all" if not selected_files else ",".join((selected_files or [])[:10]),
-            details="mode=background",
+            details=f"файлы: {_db_files_label}",
             status="info",
         )
         return jsonify({
@@ -1452,11 +1455,15 @@ def register_settings_routes(
 
         _start_cidr_task(task_id, _runner)
 
+        _gen_files_label = "все файлы" if not selected_files else ", ".join((selected_files or [])[:5]) + ("…" if len(selected_files or []) > 5 else "")
         log_user_action_event(
             "settings_cidr_generate_from_db",
             target_type="cidr",
             target_name="all" if not selected_files else ",".join((selected_files or [])[:10]),
-            details=f"scopes={','.join(region_scopes)} fallback={1 if include_non_geo_fallback else 0} exclude_ru={1 if exclude_ru_cidrs else 0}",
+            details=(
+                f"файлы: {_gen_files_label}; регионы: {','.join(region_scopes)}"
+                + ("; без РУ" if exclude_ru_cidrs else "")
+            ),
             status="info",
         )
         return jsonify({
@@ -1574,7 +1581,7 @@ def register_settings_routes(
             )
 
         _start_cidr_task(task_id, _runner)
-        log_user_action_event("settings_antifilter_refresh", target_type="antifilter", target_name="antifilter.download", details="запущено обновление", status="info")
+        log_user_action_event("settings_antifilter_refresh", target_type="antifilter", target_name="antifilter.download", status="info")
         return jsonify({
             "success": True,
             "queued": True,
@@ -2008,7 +2015,7 @@ def register_settings_routes(
                     "settings_restart_service",
                     target_type="service",
                     target_name="admin-antizapret.service",
-                    details=f"task_id={task.id} via=tg-mini",
+                    details="via=tg-mini",
                 )
                 return jsonify(
                     {

@@ -991,6 +991,9 @@ def register_config_routes(
     @auth_manager.admin_required
     def run_doall():
         try:
+            _body = request.get_json(silent=True) or {}
+            _context = (_body.get("context") or "").strip()[:300] or None
+
             task = enqueue_background_task(
                 "run_doall",
                 task_run_doall,
@@ -998,19 +1001,18 @@ def register_config_routes(
                 queued_message="Запуск doall поставлен в очередь",
             )
             is_tg_mini_action = _has_telegram_mini_session()
-            details_text = f"task_id={task.id}"
             if is_tg_mini_action:
                 log_telegram_audit_event(
                     "mini_run_doall",
-                    details=details_text,
+                    details=_context or "via=tg-mini",
                 )
-                details_text += " via=tg-mini"
+                _context = (_context + "; via=tg-mini") if _context else "via=tg-mini"
 
             log_user_action_event(
                 "settings_run_doall",
                 target_type="maintenance",
                 target_name="doall",
-                details="запущен скрипт doall.sh",
+                details=_context,
             )
             return task_accepted_response(
                 task,

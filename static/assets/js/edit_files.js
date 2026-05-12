@@ -673,10 +673,10 @@ runDoAllBtn?.addEventListener('click', async () => {
         const res = await fetch('/run-doall', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken,
             },
-            body: `csrf_token=${encodeURIComponent(csrfToken)}`
+            body: JSON.stringify({ context: 'Применение изменений файлов конфигурации' })
         });
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
