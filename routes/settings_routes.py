@@ -27,6 +27,7 @@ from core.services.cidr_list_updater import (
     update_cidr_files_from_db,
 )
 from config.antizapret_params import IP_FILES as _IP_FILES_META
+from core.services.panel_publish_info import build_panel_publish_context
 from core.services.telegram_mini_session import has_telegram_mini_session
 from core.services.tg_notify import send_tg_message
 
@@ -988,9 +989,15 @@ def register_settings_routes(
         monitor_interval_seconds = int((get_env_value("MONITOR_CHECK_INTERVAL_SECONDS", "60") or "60").strip())
         monitor_cooldown_minutes = int((get_env_value("MONITOR_COOLDOWN_MINUTES", "30") or "30").strip())
 
+        panel_publish = build_panel_publish_context(
+            get_env_value=get_env_value,
+            url_root=getattr(request, "url_root", None),
+        )
+
         return render_template(
             "settings.html",
             port=current_port,
+            panel_publish=panel_publish,
             users=users,
             viewer_users=viewer_users,
             allowed_ips=allowed_ips,

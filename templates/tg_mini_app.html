@@ -10,14 +10,14 @@
     data-is-admin="{% if current_user and current_user.is_admin() %}1{% else %}0{% endif %}">
     <header class="tg-mini-header">
         <div class="tg-mini-headline">
-            <p class="tg-mini-kicker">Telegram Workspace</p>
-            <div class="tg-mini-brand">AdminAntizapret Mini</div>
+            <p class="tg-mini-kicker">AdminAntizapret</p>
+            <div class="tg-mini-brand">Панель в Telegram</div>
         </div>
-        <p class="tg-mini-subtitle">Быстрый доступ к Dashboard и настройкам в Telegram</p>
-        <div class="tg-mini-header-chips" role="list" aria-label="Ключевые зоны mini app">
-            <span class="tg-mini-header-chip" role="listitem">Clients</span>
-            <span class="tg-mini-header-chip" role="listitem">Analytics</span>
-            <span class="tg-mini-header-chip" role="listitem">Settings</span>
+        <p class="tg-mini-subtitle">Те же цвета и стиль, что и в веб-панели: клиенты, дашборд и настройки.</p>
+        <div class="tg-mini-header-chips" role="list" aria-label="Разделы mini app">
+            <span class="tg-mini-header-chip" role="listitem">Клиенты</span>
+            <span class="tg-mini-header-chip" role="listitem">Дашборд</span>
+            <span class="tg-mini-header-chip" role="listitem">Настройки</span>
         </div>
         <div class="tg-mini-identity" aria-live="polite">
             <span class="tg-mini-identity-item">Панель: <strong>{{ panel_username or '-' }}</strong></span>
@@ -34,8 +34,8 @@
     <nav class="tg-mini-tabs" role="tablist" aria-label="Mini app tabs">
         <button class="tg-mini-tab is-active" data-pane="main" type="button">Главная</button>
         {% if current_user and current_user.is_admin() %}
-        <button class="tg-mini-tab" data-pane="dashboard" type="button">Dashboard</button>
-        <button class="tg-mini-tab" data-pane="settings" type="button">Settings</button>
+        <button class="tg-mini-tab" data-pane="dashboard" type="button">Дашборд</button>
+        <button class="tg-mini-tab" data-pane="settings" type="button">Настройки</button>
         {% endif %}
     </nav>
 
@@ -110,7 +110,7 @@
 
     {% if current_user and current_user.is_admin() %}
     <section class="tg-mini-pane" data-pane="dashboard">
-        <div class="tg-mini-status" id="tgMiniDashboardStatus">Загрузка данных dashboard...</div>
+        <div class="tg-mini-status" id="tgMiniDashboardStatus">Загрузка дашборда...</div>
         <div class="tg-mini-legend tg-mini-legend-dashboard" aria-label="Цветовой код dashboard">
             <span class="tg-mini-chip tg-mini-chip-proto-openvpn">OpenVPN</span>
             <span class="tg-mini-chip tg-mini-chip-proto-wireguard">WireGuard</span>

@@ -18,7 +18,7 @@
 {% set endpoint = request.endpoint if request and request.endpoint else "" %}
 
 <body
-  class="{% if endpoint in ['index', 'edit_files', 'server_monitor', 'logs_dashboard', 'settings'] %}index-page-dark{% endif %}{% if endpoint == 'settings' %} settings-nav-merged{% endif %}">
+  class="{% if endpoint in ['index', 'edit_files', 'server_monitor', 'logs_dashboard', 'settings', 'tg_mini_app'] %}index-page-dark{% endif %}{% if endpoint == 'settings' %} settings-nav-merged{% endif %}{% if endpoint == 'tg_mini_app' %} tg-mini-app{% endif %}">
 
   <script id="base-flash-messages" type="application/json">
     {{ get_flashed_messages(with_categories=True) | tojson }}
@@ -89,7 +89,7 @@
 
             <div class="nav-settings-submenu" aria-label="Разделы настроек">
               <a href="{{ url_for('settings', _anchor='vpn-network') }}" class="nav-sublink"
-                data-settings-tab="vpn-network">Порт панели</a>
+                data-settings-tab="vpn-network">Порт, HTTPS и Nginx</a>
               <a href="{{ url_for('settings', _anchor='security') }}" class="nav-sublink"
                 data-settings-tab="security">Безопасность</a>
               <a href="{{ url_for('settings', _anchor='telegram-auth') }}" class="nav-sublink"

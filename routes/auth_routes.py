@@ -3,8 +3,7 @@ import time
 import hashlib
 import hmac
 import os
-import json
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import urlsplit
 from datetime import timedelta
 from typing import Any, Callable
 
@@ -18,6 +17,8 @@ from flask import (
     url_for,
     flash,
 )
+
+from core.services.telegram_webapp_init_data import verify_telegram_webapp_init_data
 
 
 def register_auth_routes(
@@ -128,86 +129,6 @@ def register_auth_routes(
             return False, "Проверка подписи Telegram не пройдена."
 
         return True, None
-
-    def _verify_telegram_webapp_init_data(
-        init_data_raw: str,
-    ) -> tuple[bool, str | None, dict[str, str] | None]:
-        bot_token = _get_telegram_bot_token()
-        if not bot_token:
-            return False, "Telegram авторизация не настроена (нет токена бота).", None
-
-        init_data = (init_data_raw or "").strip()
-        if not init_data:
-            return False, "Отсутствуют initData Telegram Mini App.", None
-
-        try:
-            payload = dict(parse_qsl(init_data, keep_blank_values=True))
-        except Exception:
-            return False, "Некорректный формат initData Telegram Mini App.", None
-
-        received_hash = (payload.get("hash") or "").strip().lower()
-        auth_date_raw = (payload.get("auth_date") or "").strip()
-        if not received_hash or not auth_date_raw:
-            return False, "Некорректные данные Telegram Mini App авторизации.", None
-
-        if not auth_date_raw.isdigit():
-            return False, "Некорректная дата Telegram Mini App авторизации.", None
-
-        auth_date = int(auth_date_raw)
-        max_age_seconds = _get_telegram_auth_max_age_seconds()
-        now_ts = int(time.time())
-        if abs(now_ts - auth_date) > max_age_seconds:
-            return False, "Время Telegram Mini App авторизации истекло. Повторите вход.", None
-
-        check_payload = {k: v for k, v in payload.items() if k != "hash"}
-        data_parts = []
-        for key in sorted(check_payload.keys()):
-            value = check_payload.get(key)
-            if value is None:
-                continue
-            data_parts.append(f"{key}={value}")
-
-        data_check_string = "\n".join(data_parts)
-        secret_key = hmac.new(
-            b"WebAppData",
-            bot_token.encode("utf-8"),
-            hashlib.sha256,
-        ).digest()
-        expected_hash = hmac.new(
-            secret_key,
-            data_check_string.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-
-        if not hmac.compare_digest(expected_hash, received_hash):
-            return False, "Проверка подписи Telegram Mini App не пройдена.", None
-
-        telegram_id = (payload.get("id") or "").strip()
-        telegram_username = ""
-        telegram_display_name = ""
-        user_raw = payload.get("user")
-        if user_raw:
-            try:
-                user_payload = json.loads(user_raw)
-                if not telegram_id:
-                    telegram_id = str(user_payload.get("id") or "").strip()
-                telegram_username = str(user_payload.get("username") or "").strip()
-                first_name = str(user_payload.get("first_name") or "").strip()
-                last_name = str(user_payload.get("last_name") or "").strip()
-                telegram_display_name = " ".join(
-                    part for part in (first_name, last_name) if part
-                ).strip()
-            except Exception:
-                telegram_username = ""
-                telegram_display_name = ""
-
-        if not telegram_id:
-            return False, "В initData отсутствует Telegram ID пользователя.", None
-
-        payload["id"] = telegram_id
-        payload["telegram_username"] = telegram_username
-        payload["telegram_display_name"] = telegram_display_name
-        return True, None, payload
 
     def _finish_telegram_login(
         user: Any,
@@ -387,7 +308,11 @@ def register_auth_routes(
             return redirect(url_for("login"))
 
         init_data = request.form.get("init_data", "")
-        verified, error_message, payload = _verify_telegram_webapp_init_data(init_data)
+        verified, error_message, payload = verify_telegram_webapp_init_data(
+            init_data,
+            bot_token=_get_telegram_bot_token(),
+            max_age_seconds=_get_telegram_auth_max_age_seconds(),
+        )
         if not verified:
             log_telegram_audit_event(
                 "telegram_mini_login_failed",

@@ -34,90 +34,16 @@ document.addEventListener("DOMContentLoaded", function () {
     const botDeliveryIndicatorEl = document.getElementById("tgMiniBotDeliveryIndicator");
     const botDeliveryTextEl = document.getElementById("tgMiniBotDeliveryText");
 
-    function setThemeClass(scheme) {
-        const isDark = String(scheme || "").toLowerCase() === "dark";
-        document.body.classList.toggle("tg-mini-theme-dark", isDark);
-        document.body.classList.toggle("tg-mini-theme-light", !isDark);
+    function setThemeClass(_scheme) {
+        /* Внешний вид совпадает с веб-панелью (theme.css); не переключаем палитру по Telegram. */
     }
 
-    function hexToRgba(hexColor, alpha) {
-        const value = String(hexColor || "").trim();
-        if (!value.startsWith("#")) {
-            return value;
-        }
-
-        const hex = value.slice(1);
-        if (hex.length === 3) {
-            const r = parseInt(hex[0] + hex[0], 16);
-            const g = parseInt(hex[1] + hex[1], 16);
-            const b = parseInt(hex[2] + hex[2], 16);
-            return "rgba(" + r + ", " + g + ", " + b + ", " + alpha + ")";
-        }
-
-        if (hex.length === 6) {
-            const r = parseInt(hex.slice(0, 2), 16);
-            const g = parseInt(hex.slice(2, 4), 16);
-            const b = parseInt(hex.slice(4, 6), 16);
-            return "rgba(" + r + ", " + g + ", " + b + ", " + alpha + ")";
-        }
-
-        return value;
-    }
-
-    function applyTelegramThemeParams(themeParams) {
-        if (!themeParams || typeof themeParams !== "object") {
-            return;
-        }
-
-        const rootStyle = document.documentElement.style;
-        const setVar = function (name, value) {
-            if (!value) {
-                return;
-            }
-            rootStyle.setProperty(name, value);
-        };
-
-        setVar("--tg-bg", themeParams.bg_color);
-        setVar("--tg-ink", themeParams.text_color);
-        setVar("--tg-ink-soft", themeParams.hint_color);
-        setVar("--tg-accent", themeParams.link_color);
-        setVar("--tg-accent-3", themeParams.button_color);
-        setVar("--tg-danger", themeParams.destructive_text_color);
-
-        if (themeParams.button_color) {
-            setVar("--tg-primary-start", themeParams.button_color);
-            setVar("--tg-secondary-end", themeParams.button_color);
-        }
-        if (themeParams.link_color) {
-            setVar("--tg-primary-end", themeParams.link_color);
-        }
-        if (themeParams.bg_color) {
-            setVar("--tg-secondary-start", hexToRgba(themeParams.bg_color, 0.85));
-        }
-
-        if (themeParams.secondary_bg_color) {
-            setVar("--tg-card", hexToRgba(themeParams.secondary_bg_color, 0.8));
-            setVar("--tg-card-strong", hexToRgba(themeParams.secondary_bg_color, 0.92));
-        }
-
-        if (themeParams.section_bg_color) {
-            setVar("--tg-surface-from", themeParams.section_bg_color);
-            setVar("--tg-surface-to", themeParams.section_bg_color);
-        }
+    function applyTelegramThemeParams(_themeParams) {
+        /* Не подменяем CSS-переменные панели цветами Telegram — дизайн как на сайте. */
     }
 
     function applySystemThemeFallback() {
-        const media = window.matchMedia("(prefers-color-scheme: dark)");
-        const sync = function () {
-            setThemeClass(media.matches ? "dark" : "light");
-        };
-
-        sync();
-        if (typeof media.addEventListener === "function") {
-            media.addEventListener("change", sync);
-        } else if (typeof media.addListener === "function") {
-            media.addListener(sync);
-        }
+        /* Браузер без Telegram WebApp: остаёмся на стилях панели из base.html. */
     }
 
     function initTelegramWebApp() {
@@ -127,12 +53,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 const tg = window.Telegram.WebApp;
                 tg.ready();
                 tg.expand();
-                setThemeClass(tg.colorScheme || "light");
-                applyTelegramThemeParams(tg.themeParams || {});
                 if (typeof tg.onEvent === "function") {
                     tg.onEvent("themeChanged", function () {
-                        setThemeClass(tg.colorScheme || "light");
-                        applyTelegramThemeParams(tg.themeParams || {});
+                        /* Зарезервировано: при необходимости можно подстроить только мелочи. */
                     });
                 }
                 return;
@@ -1191,7 +1114,7 @@ document.addEventListener("DOMContentLoaded", function () {
             renderDashboardTopTables(payload);
 
             const generatedAt = payload.generated_at ? " | Обновлено: " + payload.generated_at : "";
-            setStatus(dashboardStatusEl, "Dashboard готов" + generatedAt, "success");
+            setStatus(dashboardStatusEl, "Дашборд готов" + generatedAt, "success");
 
             await loadUserTrafficChart();
         } catch (error) {
