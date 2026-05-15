@@ -2382,79 +2382,424 @@ body {
   width: auto;
 }
 
+#security {
+  --sec-accent: var(--theme-primary, var(--set-accent, #3fa083));
+  --sec-accent-soft: var(--theme-primary-alpha-18, rgba(63, 160, 131, 0.18));
+  --sec-accent-border: var(--theme-primary-alpha-35, rgba(63, 160, 131, 0.35));
+  --sec-danger: var(--theme-danger, var(--set-danger, #d5675f));
+  --sec-danger-soft: var(--theme-danger-alpha-15, rgba(213, 103, 95, 0.15));
+  --sec-danger-border: var(--theme-danger-alpha-30, rgba(213, 103, 95, 0.3));
+  --sec-info: var(--theme-secondary, var(--set-info, #5a9dcb));
+  --sec-warn: var(--theme-warning, #e3a65b);
+  --sec-surface: rgba(23, 32, 38, 0.92);
+  --sec-surface-raised: rgba(32, 44, 52, 0.88);
+  --sec-border: var(--set-border, #314049);
+  --sec-text: var(--set-text, #eaf1f4);
+  --sec-muted: var(--set-text-muted, #9caeb8);
+}
+
 #security.content-tab.active {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+#security.content-tab.active > h2 {
+  display: none;
+}
+
+#security .security-page-head {
+  margin: 0;
+}
+
+#security .security-page-head__text h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--sec-text);
+  letter-spacing: -0.02em;
+}
+
+#security .security-page-lead {
+  margin: 0;
+  color: var(--sec-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  max-width: 52ch;
+}
+
+#security .security-kpi-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.72rem;
+}
+
+#security .security-kpi {
+  border: 1px solid var(--sec-border);
+  border-radius: 12px;
+  padding: 0.82rem 0.9rem;
+  background: linear-gradient(
+    165deg,
+    rgba(39, 52, 60, 0.82) 0%,
+    rgba(24, 33, 39, 0.94) 100%
+  );
+  box-shadow: var(--set-shadow-soft);
+  min-width: 0;
+}
+
+#security .security-kpi__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--sec-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+#security .security-kpi__value {
+  display: block;
+  font-size: 1.28rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--sec-accent);
+}
+
+#security .security-kpi__value--mono {
+  font-size: 0.98rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+}
+
+#security .security-kpi__hint {
+  display: block;
+  margin-top: 0.32rem;
+  color: var(--sec-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+#security .security-kpi--status.is-on .security-kpi__value {
+  color: var(--sec-accent);
+}
+
+#security .security-kpi--status.is-off .security-kpi__value {
+  color: var(--sec-danger);
+}
+
+#security .security-kpi--status.is-on {
+  border-color: var(--sec-accent-border);
+  box-shadow: inset 3px 0 0 var(--sec-accent), var(--set-shadow-soft);
+}
+
+#security .security-kpi--status.is-off {
+  border-color: var(--sec-danger-border);
+  box-shadow: inset 3px 0 0 var(--sec-danger), var(--set-shadow-soft);
+}
+
+#security .security-kpi--warn .security-kpi__value {
+  color: var(--sec-warn);
+}
+
+#security .security-kpi--muted .security-kpi__value {
+  color: var(--sec-muted);
+}
+
+#security .security-kpi--ip .security-kpi__value {
+  color: var(--sec-info);
+}
+
+#security .security-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(270px, 1fr);
+  gap: 1rem;
   align-items: start;
 }
 
-/* Заголовки и широкие карточки — на всю ширину */
-#security.content-tab.active > h2,
-#security.content-tab.active > .security-card-wide {
-  grid-column: 1 / -1;
-}
-
-/* Основной контент (2 из 3 колонок) */
-#security .security-card-main {
-  grid-column: span 2;
-}
-
-/* Боковая панель (1 из 3 колонок) */
-#security .security-card-sidebar {
-  grid-column: span 1;
-}
-
-/* Примеры — правая колонка, занимает 2 строки */
-#security .security-card-examples {
-  grid-column: span 1;
-  grid-row: span 2;
-  align-self: stretch;
+#security .security-layout__main,
+#security .security-layout__aside {
   display: flex;
-  padding: 0.82rem 0.92rem;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
 }
 
 #security .security-card-wide,
 #security .security-card-main,
 #security .security-card-sidebar,
 #security .security-card-examples,
-#security .status-card {
+#security .status-card,
+#security .card {
   margin: 0;
   min-width: 0;
 }
 
 #security .card,
 #security .status-card {
-  min-width: 0;
+  padding: 1rem 1.05rem;
 }
 
-#security .card h3,
-#security .status-card h3 {
-  max-width: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  line-height: 1.2;
+#security .security-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.72rem;
+  margin: 0 0 0.9rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(90, 112, 126, 0.35);
 }
 
-#security .status-card {
-  padding: 0.82rem 0.92rem;
-  display: grid;
-  gap: 0.45rem;
+#security .security-card-head--compact {
+  margin-bottom: 0.75rem;
 }
 
-#security .status-card h3 {
+#security .security-card-head__icon {
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--sec-accent-soft);
+  border: 1px solid var(--sec-accent-border);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+#security .security-card-head h3 {
+  margin: 0 0 0.2rem;
+  padding: 0;
+  border: 0;
+  font-size: 1.02rem;
+  line-height: 1.25;
+  color: var(--sec-text) !important;
+}
+
+#security .security-card-head__desc {
   margin: 0;
-  padding-bottom: 0.45rem;
-  border-bottom: 1px solid rgba(90, 112, 126, 0.4);
+  color: var(--sec-muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
-#security .security-current-ip {
-  margin: 0.1rem 0 0;
+#security .security-hero-card {
+  padding: 1rem 1.05rem;
+  border-radius: 12px;
+  display: grid;
+  gap: 0.85rem;
+  background: var(--sec-surface);
+}
+
+#security .security-hero-card.is-enabled {
+  border-color: var(--sec-accent-border) !important;
+  box-shadow: inset 4px 0 0 var(--sec-accent), var(--set-shadow-soft) !important;
+}
+
+#security .security-hero-card.is-disabled {
+  border-color: var(--sec-danger-border) !important;
+  box-shadow: inset 4px 0 0 var(--sec-danger), var(--set-shadow-soft) !important;
+}
+
+#security .status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.48rem 0.82rem;
+  border-radius: 999px;
   font-size: 0.88rem;
+  font-weight: 600;
+}
+
+#security .status-indicator__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px currentColor;
+  opacity: 0.35;
+}
+
+#security .status-enabled {
+  background: var(--sec-accent-soft);
+  color: var(--sec-accent);
+  border: 1px solid var(--sec-accent-border);
+}
+
+#security .status-disabled {
+  background: var(--sec-danger-soft);
+  color: var(--sec-danger);
+  border: 1px solid var(--sec-danger-border);
+}
+
+#security .security-master-toggle {
+  margin: 0;
+  border-color: rgba(114, 146, 162, 0.45);
+  background: var(--sec-surface-raised);
 }
 
 /* Примеры в details */
+#security .security-empty-state {
+  padding: 1.1rem 0.9rem;
+  border: 1px dashed rgba(114, 146, 162, 0.45);
+  border-radius: 10px;
+  background: rgba(28, 39, 46, 0.45);
+  text-align: center;
+}
+
+#security .security-empty-state .no-data {
+  margin: 0;
+}
+
+#security .security-ip-table-wrap {
+  border: 1px solid rgba(90, 112, 126, 0.35);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+#security .security-ip-table th {
+  background: rgba(28, 39, 46, 0.92);
+  border-bottom: 2px solid var(--sec-accent);
+  color: var(--sec-text);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#security .security-ip-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86rem;
+  color: var(--sec-info);
+  background: rgba(90, 157, 203, 0.1);
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+}
+
+#security .security-ip-table__actions-col {
+  width: 7.5rem;
+  text-align: right;
+}
+
+#security .security-info-callout {
+  margin: 0 0 0.9rem;
+  padding: 0.72rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(227, 166, 91, 0.45);
+  background: rgba(227, 166, 91, 0.1);
+  color: #f0d4a8;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+#security .security-scanner-blocks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.9rem;
+}
+
+#security .security-scanner-block {
+  padding: 0.72rem 0.8rem;
+  border: 1px solid rgba(90, 112, 126, 0.38);
+  border-radius: 10px;
+  background: var(--sec-surface-raised);
+}
+
+#security .security-scanner-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  margin: 0;
+  cursor: pointer;
+}
+
+#security .security-scanner-toggle__text {
+  display: grid;
+  gap: 0.18rem;
+}
+
+#security .security-scanner-toggle__text strong {
+  color: var(--sec-text);
+  font-size: 0.9rem;
+}
+
+#security .security-scanner-toggle__text small {
+  color: var(--sec-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+#security .security-scanner-params {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+#security .security-param label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--sec-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+#security .security-scanner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+#security .security-btn-muted {
+  background: rgba(48, 62, 72, 0.9) !important;
+  border-color: var(--sec-border) !important;
+  color: var(--sec-muted) !important;
+}
+
+#security .security-ban-panel {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(90, 112, 126, 0.35);
+}
+
+#security .security-ban-panel__title {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sec-danger);
+}
+
+#security .security-ban-table th {
+  border-bottom-color: var(--sec-danger) !important;
+}
+
+#security .security-ban-remaining {
+  color: var(--sec-warn);
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
+#security .badge.subnet {
+  background: rgba(90, 157, 203, 0.16);
+  color: var(--sec-info);
+  border-color: rgba(90, 157, 203, 0.35);
+}
+
+#security .badge.single {
+  background: var(--sec-accent-soft);
+  color: var(--sec-accent);
+  border-color: var(--sec-accent-border);
+}
+
+#security .security-card-examples {
+  display: flex;
+  padding: 0.9rem 1rem;
+}
+
 #security .security-examples-details {
   cursor: default;
   display: flex;
@@ -2492,7 +2837,7 @@ body {
   content: "▶";
   font-size: 0.7rem;
   transition: transform 0.2s;
-  color: var(--primary-color, #4caf93);
+  color: var(--sec-accent);
 }
 
 #security .security-examples-details[open] summary::before {
@@ -2503,21 +2848,6 @@ body {
   margin: 0.5rem 0 0;
   padding-top: 0.28rem;
   font-size: 0.8rem;
-}
-
-#security .status-card p {
-  margin: 0;
-}
-
-#security .status-indicator {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  margin: 0;
-}
-
-#security .security-master-toggle {
-  margin: 0.25rem 0 0;
 }
 
 #security .ip-list {
@@ -2566,6 +2896,16 @@ body {
   line-height: 1.3;
 }
 
+@media (max-width: 1100px) {
+  #security .security-kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #security .security-scanner-params {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 760px) {
   .security-master-toggle {
     flex-direction: column;
@@ -2586,15 +2926,17 @@ body {
     gap: 0.4rem;
   }
 
-  #security.content-tab.active {
+  #security .security-kpi-strip {
     grid-template-columns: 1fr;
   }
 
-  #security .security-card-main,
-  #security .security-card-sidebar,
-  #security .security-card-examples,
-  #security.content-tab.active > .security-card-half {
-    grid-column: 1 / -1;
+  #security .security-layout {
+    grid-template-columns: 1fr;
+  }
+
+  #security .security-scanner-blocks,
+  #security .security-scanner-params {
+    grid-template-columns: 1fr;
   }
 
   #security .examples {

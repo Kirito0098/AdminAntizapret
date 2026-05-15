@@ -524,11 +524,46 @@
                 });
             }
 
+            function startIpBlockedDwellTracking() {
+                const enabled = {{ 'true' if ip_blocked_dwell_tracking else 'false' }};
+                if (!enabled) return;
+
+                const pingUrl = {{ url_for('ip_blocked_ping') | tojson }};
+                const dwellSeconds = {{ ip_blocked_dwell_seconds | int }};
+                const pingIntervalMs = Math.min(30000, Math.max(10000, Math.floor(dwellSeconds * 1000 / 4)));
+
+                const ping = () => {
+                    fetch(pingUrl, {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        cache: 'no-store',
+                        headers: { 'Accept': 'application/json' },
+                    })
+                        .then((response) => {
+                            if (response.status === 403) {
+                                window.location.reload();
+                                return null;
+                            }
+                            return response.json();
+                        })
+                        .then((payload) => {
+                            if (!payload || payload.banned) {
+                                window.location.reload();
+                            }
+                        })
+                        .catch(() => {});
+                };
+
+                ping();
+                window.setInterval(ping, pingIntervalMs);
+            }
+
             // Инициализация
             document.addEventListener('DOMContentLoaded', () => {
                 createParticles();
                 animateIp();
                 showFlashes();
+                startIpBlockedDwellTracking();
             });
         </script>
 </body>

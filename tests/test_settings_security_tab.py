@@ -111,6 +111,17 @@ class FakeIpRestriction:
     def save_to_env(self):
         self.save_calls += 1
 
+    def get_scanner_settings(self):
+        return {
+            "enabled": False,
+            "max_attempts": 5,
+            "window_seconds": 60,
+            "ban_seconds": 3600,
+            "block_ip_blocked_dwell": True,
+            "ip_blocked_dwell_seconds": 120,
+            "active_bans": [],
+        }
+
 
 class FakeConfigFileHandler:
     def __init__(self):

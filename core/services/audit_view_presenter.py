@@ -242,6 +242,8 @@ def user_action_event_label(event_type: str | None) -> str:
         "settings_user_role_update": "Изменение роли пользователя",
         "settings_user_password_update": "Смена пароля пользователя",
         "settings_ip_add": "Добавление IP-ограничения",
+        "settings_ip_scanner_block": "Защита от сканеров (IP)",
+        "settings_ip_scanner_bans_clear": "Сброс банов сканеров",
         "settings_ip_remove": "Удаление IP-ограничения",
         "settings_ip_clear": "Сброс IP-ограничений",
         "settings_ip_bulk_enable": "Массовое включение IP-ограничений",

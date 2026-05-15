@@ -715,6 +715,62 @@ def register_settings_routes(
                     target_name="all",
                 )
 
+            elif ip_action == "save_scanner_block":
+                if not ip_restriction.is_enabled():
+                    flash("Сначала включите IP-ограничения", "error")
+                else:
+                    block_scanners = request.form.get("block_scanners") == "true"
+                    block_ip_blocked_dwell = request.form.get("block_ip_blocked_dwell") == "true"
+                    try:
+                        max_attempts = int(request.form.get("scanner_max_attempts", ip_restriction.scanner_max_attempts))
+                        window_seconds = int(request.form.get("scanner_window_seconds", ip_restriction.scanner_window_seconds))
+                        ban_seconds = int(request.form.get("scanner_ban_seconds", ip_restriction.scanner_ban_seconds))
+                        ip_blocked_dwell_seconds = int(
+                            request.form.get(
+                                "ip_blocked_dwell_seconds",
+                                ip_restriction.ip_blocked_dwell_seconds,
+                            )
+                        )
+                    except (TypeError, ValueError):
+                        flash("Некорректные параметры блокировки сканеров", "error")
+                    else:
+                        ip_restriction.set_scanner_protection(
+                            enabled=block_scanners,
+                            max_attempts=max_attempts,
+                            window_seconds=window_seconds,
+                            ban_seconds=ban_seconds,
+                            block_ip_blocked_dwell=block_ip_blocked_dwell,
+                            ip_blocked_dwell_seconds=ip_blocked_dwell_seconds,
+                        )
+                        state = "включена" if block_scanners else "выключена"
+                        dwell_state = "включён" if block_ip_blocked_dwell else "выключен"
+                        flash(
+                            f"Защита от сканеров {state}. Бан за пребывание на странице блокировки: {dwell_state}.",
+                            "success",
+                        )
+                        log_user_action_event(
+                            "settings_ip_scanner_block",
+                            target_type="ip_restriction",
+                            target_name="scanner_block",
+                            details=(
+                                f"enabled={1 if block_scanners else 0};"
+                                f"max={ip_restriction.scanner_max_attempts};"
+                                f"window={ip_restriction.scanner_window_seconds};"
+                                f"ban={ip_restriction.scanner_ban_seconds};"
+                                f"dwell={1 if block_ip_blocked_dwell else 0};"
+                                f"dwell_sec={ip_restriction.ip_blocked_dwell_seconds}"
+                            ),
+                        )
+
+            elif ip_action == "clear_scanner_bans":
+                ip_restriction.clear_scanner_bans()
+                flash("Временные баны сканеров сброшены", "success")
+                log_user_action_event(
+                    "settings_ip_scanner_bans_clear",
+                    target_type="ip_restriction",
+                    target_name="scanner_bans",
+                )
+
             elif ip_action == "enable_ips":
                 ips_text = request.form.get("ips_text", "").strip()
                 if ips_text:
@@ -880,6 +936,14 @@ def register_settings_routes(
         allowed_ips = ip_restriction.get_allowed_ips()
         ip_enabled = ip_restriction.is_enabled()
         current_ip = ip_restriction.get_client_ip()
+        scanner_settings = ip_restriction.get_scanner_settings()
+        ip_block_scanners = scanner_settings["enabled"]
+        ip_scanner_max_attempts = scanner_settings["max_attempts"]
+        ip_scanner_window_seconds = scanner_settings["window_seconds"]
+        ip_scanner_ban_seconds = scanner_settings["ban_seconds"]
+        ip_scanner_active_bans = scanner_settings["active_bans"]
+        ip_block_ip_blocked_dwell = scanner_settings["block_ip_blocked_dwell"]
+        ip_blocked_dwell_seconds = scanner_settings["ip_blocked_dwell_seconds"]
 
         ip_manager.sync_enabled()
         ip_files = ip_manager.list_ip_files()
@@ -901,6 +965,13 @@ def register_settings_routes(
             allowed_ips=allowed_ips,
             ip_enabled=ip_enabled,
             current_ip=current_ip,
+            ip_block_scanners=ip_block_scanners,
+            ip_scanner_max_attempts=ip_scanner_max_attempts,
+            ip_scanner_window_seconds=ip_scanner_window_seconds,
+            ip_scanner_ban_seconds=ip_scanner_ban_seconds,
+            ip_scanner_active_bans=ip_scanner_active_bans,
+            ip_block_ip_blocked_dwell=ip_block_ip_blocked_dwell,
+            ip_blocked_dwell_seconds=ip_blocked_dwell_seconds,
             ip_files=ip_files,
             ip_file_states=ip_file_states,
             cidr_regions=cidr_regions,

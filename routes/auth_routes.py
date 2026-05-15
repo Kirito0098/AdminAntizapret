@@ -495,19 +495,19 @@ def register_auth_routes(
         client_ip = ip_restriction.get_client_ip()
 
         if not ip_restriction.is_ip_allowed(client_ip):
-            if request.endpoint == "ip_blocked":
+            if request.endpoint != "ip_blocked_ping":
+                ip_restriction.record_denied_access(client_ip)
+
+            if ip_restriction.should_hard_deny(client_ip):
+                if request.is_json:
+                    return ip_restriction.build_denied_json_response(client_ip)
+                return ip_restriction.build_hard_deny_response()
+
+            if request.endpoint in ("ip_blocked", "ip_blocked_ping"):
                 return
 
             if request.is_json:
-                return (
-                    jsonify(
-                        {
-                            "success": False,
-                            "message": f"Доступ запрещен с вашего IP-адреса: {client_ip}",
-                        }
-                    ),
-                    403,
-                )
+                return ip_restriction.build_denied_json_response(client_ip)
 
             return redirect(url_for("ip_blocked"))
 
@@ -529,6 +529,11 @@ def register_auth_routes(
     @app.route("/ip-blocked")
     def ip_blocked():
         client_ip = ip_restriction.get_client_ip()
+        if ip_restriction.is_enabled() and not ip_restriction.is_ip_allowed(client_ip):
+            dwell_status = ip_restriction.touch_ip_blocked_presence(client_ip)
+            if dwell_status.get("banned"):
+                return ip_restriction.build_hard_deny_response()
+
         current_time = time.strftime("%Y-%m-%d %H:%M:%S")
         request_path = request.headers.get("Referer", request.path)
 
@@ -538,4 +543,18 @@ def register_auth_routes(
             current_time=current_time,
             request_path=request_path,
             app_name=app_name,
+            ip_blocked_dwell_tracking=ip_restriction.block_ip_blocked_dwell,
+            ip_blocked_dwell_seconds=ip_restriction.ip_blocked_dwell_seconds,
         )
+
+    @app.route("/ip-blocked/ping", methods=["GET", "POST"])
+    def ip_blocked_ping():
+        client_ip = ip_restriction.get_client_ip()
+        if not ip_restriction.is_enabled() or ip_restriction.is_ip_allowed(client_ip):
+            return jsonify({"banned": False, "tracking": False})
+
+        dwell_status = ip_restriction.touch_ip_blocked_presence(client_ip)
+        if dwell_status.get("banned"):
+            return ip_restriction.build_denied_json_response(client_ip)
+
+        return jsonify({"success": True, **dwell_status})
