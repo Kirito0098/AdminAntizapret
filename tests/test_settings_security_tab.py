@@ -88,6 +88,7 @@ class FakeIpRestriction:
         self.allowed_ips = {"10.0.0.1"}
         self.enabled = True
         self.save_calls = 0
+        self.clear_scanner_calls = 0
 
     def add_ip(self, _ip):
         return True
@@ -111,6 +112,9 @@ class FakeIpRestriction:
     def save_to_env(self):
         self.save_calls += 1
 
+    def clear_scanner_bans(self):
+        self.clear_scanner_calls += 1
+
     def get_scanner_settings(self):
         return {
             "enabled": False,
@@ -119,7 +123,13 @@ class FakeIpRestriction:
             "ban_seconds": 3600,
             "block_ip_blocked_dwell": True,
             "ip_blocked_dwell_seconds": 120,
-            "active_bans": [],
+            "strikes_for_year": 5,
+            "year_ban_seconds": 365 * 86400,
+            "unban_grace_seconds": 1800,
+            "firewall_enabled": True,
+            "active_bans": [{"ip": "1.2.3.4", "strikes": 1, "long_term": False, "remaining_seconds": 60}],
+            "grace_entries": [{"ip": "5.6.7.8", "strikes": 0, "grace_remaining_seconds": 900}],
+            "has_firewall_entries": True,
         }
 
 
@@ -260,6 +270,26 @@ class SettingsSecurityTabTests(unittest.TestCase):
                 flashes = session_state.get("_flashes", [])
 
             self.assertTrue(any(category == "success" and "IP ограничения включены" in message for category, message in flashes))
+
+    def test_clear_scanner_bans_action(self):
+        with self.app.test_client() as client:
+            response = client.post(
+                "/settings",
+                data={"ip_action": "clear_scanner_bans"},
+            )
+
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(self.ip_restriction.clear_scanner_calls, 1)
+
+            with client.session_transaction() as session_state:
+                flashes = session_state.get("_flashes", [])
+
+            self.assertTrue(
+                any(
+                    category == "success" and "баны сканеров сброшены" in message.lower()
+                    for category, message in flashes
+                )
+            )
 
 
 if __name__ == "__main__":

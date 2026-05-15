@@ -417,7 +417,11 @@
     <div class="container">
         <div class="lock-icon">🔒</div>
         <h1>Доступ ограничен</h1>
-        <p class="subtitle">Ваш IP-адрес не входит в список разрешенных для доступа к этой системе</p>
+        <p class="subtitle">Ваш IP-адрес не входит в список разрешённых для доступа к этой системе</p>
+        <p class="subtitle" style="margin-top: 0.75rem; font-size: 0.9rem; opacity: 0.85;">
+          Для доступа к панели нужен whitelist. Серверный бан сканера снимается кнопкой «Разблокировать» в настройках
+          (без добавления в whitelist). IP с телефона может меняться при смене Wi‑Fi / LTE.
+        </p>
 
         <div class="ip-address" id="ipDisplay">
             {{ client_ip }}

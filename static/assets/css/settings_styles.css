@@ -2752,6 +2752,12 @@ body {
   align-items: center;
 }
 
+#security .security-clear-bans-form {
+  margin: 0.65rem 0 0;
+  display: flex;
+  justify-content: flex-start;
+}
+
 #security .security-btn-muted {
   background: rgba(48, 62, 72, 0.9) !important;
   border-color: var(--sec-border) !important;
@@ -2793,6 +2799,23 @@ body {
   background: var(--sec-accent-soft);
   color: var(--sec-accent);
   border-color: var(--sec-accent-border);
+}
+
+#security .badge.grace {
+  background: rgba(120, 180, 140, 0.14);
+  color: #8fd4a8;
+  border-color: rgba(120, 180, 140, 0.35);
+}
+
+#security .security-ban-panel--grace {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed rgba(90, 112, 126, 0.35);
+}
+
+#security .security-ban-panel__lead {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
 }
 
 #security .security-card-examples {

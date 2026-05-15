@@ -9,6 +9,10 @@
       {% set quick_toggle_ip = current_ip or '127.0.0.1' %}
       {% set allowed_count = allowed_ips|length %}
       {% set bans_count = ip_scanner_active_bans|length %}
+      {% set grace_count = ip_scanner_grace_entries|length %}
+      {% set firewall_entries_count = bans_count + grace_count %}
+      {% set year_ban_days = (ip_scanner_year_ban_seconds // 86400) if ip_scanner_year_ban_seconds else 365 %}
+      {% set grace_pause_min = (ip_scanner_unban_grace_seconds // 60) if ip_scanner_unban_grace_seconds else 30 %}
 
       <div class="security-kpi-strip" role="list">
         <article class="security-kpi security-kpi--status {% if ip_enabled %}is-on{% else %}is-off{% endif %}" role="listitem">
@@ -21,10 +25,12 @@
           <strong class="security-kpi__value">{{ allowed_count }}</strong>
           <span class="security-kpi__hint">IP и подсети в списке</span>
         </article>
-        <article class="security-kpi security-kpi--{% if bans_count %}warn{% else %}muted{% endif %}" role="listitem">
-          <span class="security-kpi__label">Временные баны</span>
-          <strong class="security-kpi__value">{{ bans_count }}</strong>
-          <span class="security-kpi__hint">Активные блокировки сканеров</span>
+        <article class="security-kpi security-kpi--{% if firewall_entries_count %}warn{% else %}muted{% endif %}" role="listitem">
+          <span class="security-kpi__label">Баны / пауза</span>
+          <strong class="security-kpi__value">{{ firewall_entries_count }}</strong>
+          <span class="security-kpi__hint">
+            {% if grace_count and not bans_count %}Только тестовая пауза{% elif grace_count %}Банов: {{ bans_count }}, пауза: {{ grace_count }}{% else %}Активные блокировки сканеров{% endif %}
+          </span>
         </article>
         <article class="security-kpi security-kpi--ip" role="listitem">
           <span class="security-kpi__label">Ваш IP</span>
@@ -141,7 +147,10 @@
               <div>
                 <h3>Блокировка сканеров</h3>
                 <p class="security-card-head__desc">
-                  Жёсткий отказ для чужих IP, лимиты попыток и бан за долгое пребывание на странице блокировки
+                  Серверный бан (iptables/ipset{% if ip_scanner_firewall_enabled %}, включён{% else %}, выключен{% endif %}).
+                  Счётчик попыток — только при «Жёстко отклонять сканеры».
+                  После «Разблокировать» — пауза {{ grace_pause_min }}&nbsp;мин без повторного бана.
+                  {{ ip_scanner_strikes_for_year }} срабатываний → {{ year_ban_days }}&nbsp;дн.
                 </p>
               </div>
             </header>
@@ -154,19 +163,18 @@
 
             <form method="POST" class="settings-form security-scanner-form">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-              <input type="hidden" name="ip_action" value="save_scanner_block" />
 
               <div class="security-scanner-blocks">
                 <div class="security-scanner-block">
                   <label class="security-scanner-toggle">
                     <div class="toggle-switch">
-                      <input type="checkbox" name="block_scanners" value="true" class="toggle-input" {% if
-                        ip_block_scanners %}checked{% endif %} {% if not ip_enabled %}disabled{% endif %} />
+                      <input type="checkbox" name="block_scanners" value="true" class="toggle-input"
+                        {% if ip_block_scanners %}checked{% endif %}{% if not ip_enabled %} disabled{% endif %} />
                       <span class="toggle-slider"></span>
                     </div>
                     <span class="security-scanner-toggle__text">
-                      <strong>Жёстко отклонять сканеры</strong>
-                      <small>Короткий 403 вместо страницы «Доступ ограничен»</small>
+                      <strong>Банить сканеры на сервере</strong>
+                      <small>Считать попытки с чужих IP; после лимита — 403 и iptables</small>
                     </span>
                   </label>
                 </div>
@@ -174,8 +182,8 @@
                 <div class="security-scanner-block">
                   <label class="security-scanner-toggle">
                     <div class="toggle-switch">
-                      <input type="checkbox" name="block_ip_blocked_dwell" value="true" class="toggle-input" {% if
-                        ip_block_ip_blocked_dwell %}checked{% endif %} {% if not ip_enabled %}disabled{% endif %} />
+                      <input type="checkbox" name="block_ip_blocked_dwell" value="true" class="toggle-input"
+                        {% if ip_block_ip_blocked_dwell %}checked{% endif %}{% if not ip_enabled %} disabled{% endif %} />
                       <span class="toggle-slider"></span>
                     </div>
                     <span class="security-scanner-toggle__text">
@@ -210,35 +218,90 @@
               </div>
 
               <div class="security-scanner-actions">
-                <button type="submit" class="button save-button" {% if not ip_enabled %}disabled{% endif %}>
+                <button type="submit" name="ip_action" value="save_scanner_block" class="button save-button"
+                  {% if not ip_enabled %}disabled{% endif %}>
                   Сохранить настройки защиты
                 </button>
-                {% if ip_scanner_active_bans %}
-                <button type="submit" name="ip_action" value="clear_scanner_bans" class="button small security-btn-muted"
-                  formaction="{{ url_for('settings') }}" formmethod="post"
-                  onclick="return confirm('Снять все временные баны сканеров?');">
-                  Сбросить баны ({{ bans_count }})
-                </button>
-                {% endif %}
               </div>
             </form>
+            {% if ip_scanner_has_firewall_entries %}
+            <form method="POST" action="{{ url_for('settings') }}" class="security-clear-bans-form"
+              onsubmit="return confirm('Снять все баны и записи паузы (файл и iptables)?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <input type="hidden" name="ip_action" value="clear_scanner_bans" />
+              <button type="submit" class="button small security-btn-muted">
+                Сбросить всё ({{ firewall_entries_count }})
+              </button>
+            </form>
+            {% endif %}
 
-            {% if ip_scanner_active_bans %}
-            <div class="security-ban-panel">
-              <h4 class="security-ban-panel__title">Активные временные баны</h4>
+            {% if ip_scanner_grace_entries %}
+            <div class="security-ban-panel security-ban-panel--grace">
+              <h4 class="security-ban-panel__title">Пауза после разблокировки (тест)</h4>
+              <p class="help-text security-ban-panel__lead">
+                IP не в iptables, но повторный бан за отказы в доступе не начисляется до конца паузы.
+              </p>
               <div class="ip-list security-scanner-ban-list">
                 <table class="ip-table security-ban-table">
                   <thead>
                     <tr>
                       <th>IP</th>
+                      <th>Срабатывания</th>
+                      <th>Статус</th>
                       <th>Осталось</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for entry in ip_scanner_grace_entries %}
+                    <tr>
+                      <td><code class="security-ip-code">{{ entry.ip }}</code></td>
+                      <td>{{ entry.strikes }}</td>
+                      <td><span class="badge grace">Пауза теста</span></td>
+                      <td><span class="security-ban-remaining">{{ entry.grace_remaining_seconds }} сек</span></td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {% endif %}
+
+            {% if ip_scanner_active_bans %}
+            <div class="security-ban-panel">
+              <h4 class="security-ban-panel__title">Активные баны (iptables)</h4>
+              <div class="ip-list security-scanner-ban-list">
+                <table class="ip-table security-ban-table">
+                  <thead>
+                    <tr>
+                      <th>IP</th>
+                      <th>Срабатывания</th>
+                      <th>Тип</th>
+                      <th>Осталось</th>
+                      <th>Действие</th>
                     </tr>
                   </thead>
                   <tbody>
                     {% for ban in ip_scanner_active_bans %}
                     <tr>
                       <td><code class="security-ip-code">{{ ban.ip }}</code></td>
+                      <td>{{ ban.strikes }}</td>
+                      <td>
+                        {% if ban.long_term %}
+                        <span class="badge subnet">1 год</span>
+                        {% else %}
+                        <span class="badge single">Временный</span>
+                        {% endif %}
+                      </td>
                       <td><span class="security-ban-remaining">{{ ban.remaining_seconds }} сек</span></td>
+                      <td>
+                        <form method="POST" class="settings-inline-form-inline"
+                          onsubmit="return confirm('Разблокировать {{ ban.ip }} на сервере (iptables)?');">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                          <input type="hidden" name="ip_action" value="unban_scanner_ip" />
+                          <input type="hidden" name="ip_to_unban" value="{{ ban.ip }}" />
+                          <button type="submit" class="button small">Разблокировать</button>
+                        </form>
+                      </td>
                     </tr>
                     {% endfor %}
                   </tbody>

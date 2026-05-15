@@ -678,7 +678,13 @@ def register_settings_routes(
                     else:
                         flash(f"Пользователь '{change_password_username}' не найден!", "error")
 
-            ip_action = request.form.get("ip_action")
+            ip_action_values = request.form.getlist("ip_action")
+            if "clear_scanner_bans" in ip_action_values:
+                ip_action = "clear_scanner_bans"
+            elif "unban_scanner_ip" in ip_action_values:
+                ip_action = "unban_scanner_ip"
+            else:
+                ip_action = ip_action_values[0] if ip_action_values else request.form.get("ip_action")
 
             if ip_action == "add_ip":
                 new_ip = request.form.get("new_ip", "").strip()
@@ -764,12 +770,31 @@ def register_settings_routes(
 
             elif ip_action == "clear_scanner_bans":
                 ip_restriction.clear_scanner_bans()
-                flash("Временные баны сканеров сброшены", "success")
+                flash("Все баны сканеров сброшены (файл и iptables)", "success")
                 log_user_action_event(
                     "settings_ip_scanner_bans_clear",
                     target_type="ip_restriction",
                     target_name="scanner_bans",
                 )
+
+            elif ip_action == "unban_scanner_ip":
+                ip_to_unban = request.form.get("ip_to_unban", "").strip()
+                if ip_to_unban:
+                    if ip_restriction.unban_scanner_ip(ip_to_unban):
+                        flash(
+                            f"IP {ip_to_unban} разблокирован на сервере (iptables). "
+                            f"Повторный серверный бан отложен — можно тестировать без whitelist.",
+                            "success",
+                        )
+                        log_user_action_event(
+                            "settings_ip_scanner_unban",
+                            target_type="ip_restriction",
+                            target_name=ip_to_unban,
+                        )
+                    else:
+                        flash("Некорректный IP для разблокировки", "error")
+                else:
+                    flash("Укажите IP для разблокировки", "error")
 
             elif ip_action == "enable_ips":
                 ips_text = request.form.get("ips_text", "").strip()
@@ -942,8 +967,14 @@ def register_settings_routes(
         ip_scanner_window_seconds = scanner_settings["window_seconds"]
         ip_scanner_ban_seconds = scanner_settings["ban_seconds"]
         ip_scanner_active_bans = scanner_settings["active_bans"]
+        ip_scanner_grace_entries = scanner_settings["grace_entries"]
+        ip_scanner_has_firewall_entries = scanner_settings["has_firewall_entries"]
         ip_block_ip_blocked_dwell = scanner_settings["block_ip_blocked_dwell"]
         ip_blocked_dwell_seconds = scanner_settings["ip_blocked_dwell_seconds"]
+        ip_scanner_strikes_for_year = scanner_settings["strikes_for_year"]
+        ip_scanner_year_ban_seconds = scanner_settings["year_ban_seconds"]
+        ip_scanner_unban_grace_seconds = scanner_settings["unban_grace_seconds"]
+        ip_scanner_firewall_enabled = scanner_settings["firewall_enabled"]
 
         ip_manager.sync_enabled()
         ip_files = ip_manager.list_ip_files()
@@ -970,8 +1001,14 @@ def register_settings_routes(
             ip_scanner_window_seconds=ip_scanner_window_seconds,
             ip_scanner_ban_seconds=ip_scanner_ban_seconds,
             ip_scanner_active_bans=ip_scanner_active_bans,
+            ip_scanner_grace_entries=ip_scanner_grace_entries,
+            ip_scanner_has_firewall_entries=ip_scanner_has_firewall_entries,
             ip_block_ip_blocked_dwell=ip_block_ip_blocked_dwell,
             ip_blocked_dwell_seconds=ip_blocked_dwell_seconds,
+            ip_scanner_strikes_for_year=ip_scanner_strikes_for_year,
+            ip_scanner_year_ban_seconds=ip_scanner_year_ban_seconds,
+            ip_scanner_unban_grace_seconds=ip_scanner_unban_grace_seconds,
+            ip_scanner_firewall_enabled=ip_scanner_firewall_enabled,
             ip_files=ip_files,
             ip_file_states=ip_file_states,
             cidr_regions=cidr_regions,

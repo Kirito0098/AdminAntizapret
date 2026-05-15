@@ -59,6 +59,12 @@ ips/runtime_backups/
 # ----------------------------------------------------------------------------
 *.added
 
+# Scanner firewall bans (iptables + strike history)
+data/scanner_blocks.json
+data/scanner_blocks.json.*
+
+# ----------------------------------------------------------------------------
+
 # Working CIDR lists are generated/edited locally and should not be versioned.
 ips/list/*.txt
 

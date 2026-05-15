@@ -3,12 +3,13 @@ import ipaddress
 import os
 import tempfile
 import time
-from collections import defaultdict
 from threading import Lock
 from pathlib import Path
 
 from flask import jsonify, make_response, request
 from markupsafe import escape
+
+from utils.scanner_firewall_store import ScannerFirewallStore
 
 
 def _env_bool(name, default=False):
@@ -51,9 +52,7 @@ class IPRestriction:
         self.app = None
         self.env_file_path = Path(env_file_path) if env_file_path else None
         self._scanner_lock = Lock()
-        self._scanner_attempts = defaultdict(list)
-        self._scanner_bans = {}
-        self._ip_blocked_presence = {}
+        self._firewall_store = ScannerFirewallStore()
         self._load_from_env()
 
     def init_app(self, app):
@@ -62,6 +61,12 @@ class IPRestriction:
         if self.env_file_path is None:
             # Flask root_path already points to project root in this app layout.
             self.env_file_path = Path(app.root_path) / ".env"
+
+        try:
+            self._firewall_store.sync_firewall_from_store()
+            self._release_whitelist_from_firewall()
+        except Exception as exc:
+            app.logger.warning("Не удалось синхронизировать баны сканеров с firewall: %s", exc)
 
         # Регистрируем обработчик ошибок 403
         @app.errorhandler(403)
@@ -326,40 +331,49 @@ class IPRestriction:
         except ValueError:
             return None
 
-    def _prune_scanner_attempts(self, ip_key, now=None):
+    def _apply_ban_locked(self, ip_key, now=None, *, reason="scanner"):
+        if self.is_ip_allowed(ip_key):
+            return None
         now = now or time.time()
-        cutoff = now - self.scanner_window_seconds
-        attempts = self._scanner_attempts.get(ip_key, [])
-        self._scanner_attempts[ip_key] = [ts for ts in attempts if ts >= cutoff]
+        return self._firewall_store.register_ban(
+            ip_key,
+            reason=reason,
+            short_ban_seconds=self.scanner_ban_seconds,
+            now=now,
+        )
 
-    def _is_banned_locked(self, ip_key, now):
-        ban_until = self._scanner_bans.get(ip_key)
-        if ban_until is None:
-            return False
-        if ban_until <= now:
-            self._scanner_bans.pop(ip_key, None)
-            self._scanner_attempts.pop(ip_key, None)
-            self._ip_blocked_presence.pop(ip_key, None)
-            return False
-        return True
-
-    def _apply_ban_locked(self, ip_key, now=None):
-        now = now or time.time()
-        self._scanner_bans[ip_key] = now + self.scanner_ban_seconds
-        self._scanner_attempts.pop(ip_key, None)
-        self._ip_blocked_presence.pop(ip_key, None)
-
-    def is_scanner_banned(self, ip_str):
+    def release_firewall_for_ip(self, ip_str):
+        """Снимает серверный ipset-бан (iptables)."""
         ip_key = self._normalize_tracker_ip(ip_str)
         if not ip_key:
             return False
-
-        now = time.time()
         with self._scanner_lock:
-            return self._is_banned_locked(ip_key, now)
+            return self._firewall_store.release_firewall_only(ip_key)
+
+    def unban_scanner_ip(self, ip_str):
+        """Ручная разблокировка для тестов: ipset + пауза без повторного бана."""
+        ip_key = self._normalize_tracker_ip(ip_str)
+        if not ip_key:
+            return False
+        with self._scanner_lock:
+            return self._firewall_store.unban_ip(ip_key, clear_strikes=True)
+
+    def _release_whitelist_from_firewall(self):
+        for entry in self.allowed_ips:
+            if "/" in entry:
+                continue
+            self.release_firewall_for_ip(entry)
+
+    def is_scanner_banned(self, ip_str):
+        if self.is_ip_allowed(ip_str):
+            return False
+        ip_key = self._normalize_tracker_ip(ip_str)
+        if not ip_key:
+            return False
+        return self._firewall_store.is_banned(ip_key)
 
     def touch_ip_blocked_presence(self, ip_str):
-        """Отслеживает время на /ip-blocked; при превышении лимита — временный бан."""
+        """Отслеживает время на /ip-blocked; при превышении лимита — бан на сервере."""
         if not self.enabled or not self.block_ip_blocked_dwell:
             return {"banned": False, "tracking": False}
 
@@ -369,29 +383,39 @@ class IPRestriction:
 
         now = time.time()
         with self._scanner_lock:
-            if self._is_banned_locked(ip_key, now):
-                ban_until = self._scanner_bans[ip_key]
+            if self._firewall_store.is_banned(ip_key, now=now):
+                ban_until = self._firewall_store.get_ban_until(ip_key)
                 return {
                     "banned": True,
                     "tracking": True,
-                    "ban_remaining_seconds": int(ban_until - now),
+                    "ban_remaining_seconds": max(0, int(ban_until - now)),
+                    "server_block": True,
                 }
 
-            first_seen = self._ip_blocked_presence.get(ip_key)
+            first_seen = self._firewall_store.touch_ip_blocked(ip_key, now=now)
             if first_seen is None:
-                self._ip_blocked_presence[ip_key] = now
-                first_seen = now
+                return {"banned": False, "tracking": False}
+
+            if self._firewall_store.is_in_unban_grace(ip_key, now=now):
+                return {
+                    "banned": False,
+                    "tracking": True,
+                    "grace": True,
+                    "elapsed_seconds": int(now - first_seen),
+                    "dwell_seconds": self.ip_blocked_dwell_seconds,
+                }
 
             elapsed = now - first_seen
             limit = self.ip_blocked_dwell_seconds
             if elapsed >= limit:
-                self._apply_ban_locked(ip_key, now)
+                ban_info = self._apply_ban_locked(ip_key, now, reason="ip_blocked_dwell")
                 return {
                     "banned": True,
                     "tracking": True,
                     "dwell_exceeded": True,
                     "dwell_seconds": limit,
-                    "ban_seconds": self.scanner_ban_seconds,
+                    "server_block": True,
+                    "long_term": bool(ban_info and ban_info.get("long_term")),
                 }
 
             return {
@@ -402,32 +426,51 @@ class IPRestriction:
                 "remaining_seconds": max(0, int(limit - elapsed)),
             }
 
+    def should_count_denied_access(self, ip_str, endpoint: str | None) -> bool:
+        """Считать ли запрос для серверного бана (не для теста на /ip-blocked)."""
+        if not self.block_scanners:
+            return False
+        if endpoint in ("ip_blocked", "ip_blocked_ping", "static"):
+            return False
+        ip_key = self._normalize_tracker_ip(ip_str)
+        if not ip_key:
+            return False
+        if self._firewall_store.is_in_unban_grace(ip_key):
+            return False
+        return True
+
     def record_denied_access(self, ip_str):
-        """Учитывает отказ в доступе; при превышении порога — временный бан."""
+        """Учёт попыток при жёстком режиме; бан на сервере только если включён block_scanners."""
+        if not self.block_scanners:
+            return False
+
         ip_key = self._normalize_tracker_ip(ip_str)
         if not ip_key:
             return False
 
+        if self._firewall_store.is_in_unban_grace(ip_key):
+            return False
+
         now = time.time()
-        banned = False
         with self._scanner_lock:
-            if self._is_banned_locked(ip_key, now):
+            if self._firewall_store.is_banned(ip_key, now=now):
                 return True
 
-            self._prune_scanner_attempts(ip_key, now)
-            self._scanner_attempts[ip_key].append(now)
-            if len(self._scanner_attempts[ip_key]) >= self.scanner_max_attempts:
-                self._apply_ban_locked(ip_key, now)
-                banned = True
-        return banned
+            attempt_count = self._firewall_store.record_attempt(
+                ip_key, self.scanner_window_seconds, now=now
+            )
+            if attempt_count >= self.scanner_max_attempts:
+                ban_info = self._apply_ban_locked(ip_key, now, reason="rate_limit")
+                return ban_info is not None
+        return False
 
     def should_hard_deny(self, ip_str):
-        """Жёсткий отказ без страницы /ip-blocked."""
+        """Жёсткий отказ (403) только для IP с активным серверным баном."""
         if not self.enabled:
             return False
-        if self.is_scanner_banned(ip_str):
-            return True
-        return bool(self.block_scanners)
+        if self.is_ip_allowed(ip_str):
+            return False
+        return self.is_scanner_banned(ip_str)
 
     def build_hard_deny_response(self, *, message="Forbidden"):
         response = make_response(f"{message}\n", 403)
@@ -448,33 +491,11 @@ class IPRestriction:
         )
 
     def get_active_scanner_bans(self):
-        now = time.time()
-        active = []
-        with self._scanner_lock:
-            expired = []
-            for ip_key, ban_until in self._scanner_bans.items():
-                if ban_until <= now:
-                    expired.append(ip_key)
-                else:
-                    active.append(
-                        {
-                            "ip": ip_key,
-                            "ban_until": ban_until,
-                            "remaining_seconds": int(ban_until - now),
-                        }
-                    )
-            for ip_key in expired:
-                self._scanner_bans.pop(ip_key, None)
-                self._scanner_attempts.pop(ip_key, None)
-                self._ip_blocked_presence.pop(ip_key, None)
-        active.sort(key=lambda item: item["ban_until"])
-        return active
+        return self._firewall_store.get_active_bans()
 
     def clear_scanner_bans(self):
         with self._scanner_lock:
-            self._scanner_bans.clear()
-            self._scanner_attempts.clear()
-            self._ip_blocked_presence.clear()
+            self._firewall_store.clear_all()
 
     def add_ip(self, ip):
         """Добавляет IP"""
@@ -485,6 +506,8 @@ class IPRestriction:
         self.allowed_ips.add(normalized)
         self.enabled = True
         self.save_to_env()
+        if "/" not in normalized:
+            self.release_firewall_for_ip(normalized)
         return True
 
     def remove_ip(self, ip):
@@ -524,6 +547,8 @@ class IPRestriction:
         return bool(self.block_scanners)
 
     def get_scanner_settings(self):
+        firewall = self._firewall_store.get_settings_snapshot()
+        display = self._firewall_store.get_display_state()
         return {
             "enabled": self.block_scanners,
             "max_attempts": self.scanner_max_attempts,
@@ -531,7 +556,14 @@ class IPRestriction:
             "ban_seconds": self.scanner_ban_seconds,
             "block_ip_blocked_dwell": self.block_ip_blocked_dwell,
             "ip_blocked_dwell_seconds": self.ip_blocked_dwell_seconds,
-            "active_bans": self.get_active_scanner_bans(),
+            "strikes_for_year": firewall["strikes_for_year"],
+            "year_ban_seconds": firewall["year_ban_seconds"],
+            "unban_grace_seconds": firewall["unban_grace_seconds"],
+            "firewall_enabled": firewall["firewall_enabled"],
+            "firewall_data_path": firewall["data_path"],
+            "active_bans": display["active_bans"],
+            "grace_entries": display["grace_entries"],
+            "has_firewall_entries": display["has_firewall_entries"],
         }
 
 

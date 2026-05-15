@@ -494,8 +494,12 @@ def register_auth_routes(
 
         client_ip = ip_restriction.get_client_ip()
 
+        if ip_restriction.is_ip_allowed(client_ip):
+            ip_restriction.release_firewall_for_ip(client_ip)
+            return
+
         if not ip_restriction.is_ip_allowed(client_ip):
-            if request.endpoint != "ip_blocked_ping":
+            if ip_restriction.should_count_denied_access(client_ip, request.endpoint):
                 ip_restriction.record_denied_access(client_ip)
 
             if ip_restriction.should_hard_deny(client_ip):
@@ -528,11 +532,16 @@ def register_auth_routes(
 
     @app.route("/ip-blocked")
     def ip_blocked():
+        if not ip_restriction.is_enabled():
+            return redirect(url_for("login"))
+
         client_ip = ip_restriction.get_client_ip()
-        if ip_restriction.is_enabled() and not ip_restriction.is_ip_allowed(client_ip):
-            dwell_status = ip_restriction.touch_ip_blocked_presence(client_ip)
-            if dwell_status.get("banned"):
-                return ip_restriction.build_hard_deny_response()
+        if ip_restriction.is_ip_allowed(client_ip):
+            return redirect(url_for("login"))
+
+        dwell_status = ip_restriction.touch_ip_blocked_presence(client_ip)
+        if dwell_status.get("banned"):
+            return ip_restriction.build_hard_deny_response()
 
         current_time = time.strftime("%Y-%m-%d %H:%M:%S")
         request_path = request.headers.get("Referer", request.path)
@@ -549,8 +558,11 @@ def register_auth_routes(
 
     @app.route("/ip-blocked/ping", methods=["GET", "POST"])
     def ip_blocked_ping():
+        if not ip_restriction.is_enabled():
+            return jsonify({"success": False, "message": "IP-ограничения выключены"}), 404
+
         client_ip = ip_restriction.get_client_ip()
-        if not ip_restriction.is_enabled() or ip_restriction.is_ip_allowed(client_ip):
+        if ip_restriction.is_ip_allowed(client_ip):
             return jsonify({"banned": False, "tracking": False})
 
         dwell_status = ip_restriction.touch_ip_blocked_presence(client_ip)
