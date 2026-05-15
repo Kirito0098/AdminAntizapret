@@ -1728,11 +1728,24 @@ def register_settings_routes(
             )
             lines = (proc.stdout + proc.stderr).strip().splitlines()
             tests = []
+            seen = set()
             for line in lines:
                 stripped = line.strip()
-                if "::" in stripped and not stripped.startswith("="):
+                if "::" not in stripped or stripped.startswith("="):
+                    continue
+                if stripped not in seen:
+                    seen.add(stripped)
                     tests.append(stripped)
-            return jsonify({"success": True, "tests": tests, "count": len(tests)})
+            if proc.returncode != 0 and not tests:
+                err = (proc.stderr or proc.stdout or "").strip() or f"pytest exit {proc.returncode}"
+                return jsonify({"success": False, "message": err}), 500
+            tests.sort()
+            return jsonify({
+                "success": True,
+                "tests": tests,
+                "count": len(tests),
+                "collect_warnings": proc.returncode != 0,
+            })
         except Exception as exc:
             return jsonify({"success": False, "message": str(exc)}), 500
 
@@ -1762,7 +1775,13 @@ def register_settings_routes(
 
         def _runner(progress_callback):
             progress_callback(5, "Запуск pytest...")
-            cmd = [venv_pytest, "-v", "--tb=short", "--no-header"]
+            cmd = [
+                venv_pytest,
+                "-v",
+                "--tb=short",
+                "--no-header",
+                "--color=no",
+            ]
             if test_ids:
                 cmd.extend(test_ids)
             else:
@@ -1777,28 +1796,45 @@ def register_settings_routes(
                 progress_callback(90, "Разбор результатов...")
 
                 tests_result = []
-                passed = failed = errors = 0
+                passed = failed = errors = skipped = 0
                 for line in output.splitlines():
                     stripped = line.strip()
-                    if " PASSED" in stripped and "::" in stripped:
+                    if "::" not in stripped:
+                        continue
+                    if " PASSED" in stripped:
                         test_id = stripped.split(" PASSED")[0].strip()
                         tests_result.append({"id": test_id, "status": "passed"})
                         passed += 1
-                    elif " FAILED" in stripped and "::" in stripped:
+                    elif " FAILED" in stripped:
                         test_id = stripped.split(" FAILED")[0].strip()
                         tests_result.append({"id": test_id, "status": "failed"})
                         failed += 1
-                    elif " ERROR" in stripped and "::" in stripped:
+                    elif " ERROR" in stripped:
                         test_id = stripped.split(" ERROR")[0].strip()
                         tests_result.append({"id": test_id, "status": "error"})
                         errors += 1
+                    elif " SKIPPED" in stripped:
+                        test_id = stripped.split(" SKIPPED")[0].strip()
+                        tests_result.append({"id": test_id, "status": "skipped"})
+                        skipped += 1
 
-                total = passed + failed + errors
+                total = passed + failed + errors + skipped
                 success = proc.returncode == 0
+                problems = failed + errors
                 return {
                     "success": success,
-                    "message": f"Выполнено {total}: {passed} прошло, {failed} упало, {errors} ошибок",
-                    "summary": {"passed": passed, "failed": failed, "error": errors, "total": total},
+                    "message": (
+                        f"Выполнено {total}: {passed} прошло"
+                        + (f", {problems} с ошибками" if problems else "")
+                        + (f", {skipped} пропущено" if skipped else "")
+                    ),
+                    "summary": {
+                        "passed": passed,
+                        "failed": failed,
+                        "error": errors,
+                        "skipped": skipped,
+                        "total": total,
+                    },
                     "tests": tests_result,
                     "raw_output": output,
                 }

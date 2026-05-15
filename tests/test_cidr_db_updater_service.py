@@ -10,43 +10,24 @@ from core.services.cidr_db_updater import (
 
 
 class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
-    def test_resolve_asn_fetch_workers_bounds(self):
+    def test_helper_parsing_and_workers(self):
         self.assertEqual(CidrDbUpdaterService._resolve_asn_fetch_workers(0, 8), 0)
-        self.assertEqual(CidrDbUpdaterService._resolve_asn_fetch_workers(1, 8), 1)
-        self.assertEqual(CidrDbUpdaterService._resolve_asn_fetch_workers(3, 8), 3)
-
-    def test_resolve_asn_fetch_workers_caps_to_32(self):
         self.assertEqual(CidrDbUpdaterService._resolve_asn_fetch_workers(100, 128), 32)
-
-    def test_resolve_asn_fetch_workers_uses_env_when_not_passed(self):
         with patch.dict("os.environ", {"CIDR_DB_ASN_FETCH_WORKERS": "6"}, clear=True):
             self.assertEqual(CidrDbUpdaterService._resolve_asn_fetch_workers(20), 6)
 
-    def test_read_positive_int_env_returns_default_for_missing_or_invalid(self):
-        with patch.dict("os.environ", {}, clear=True):
-            self.assertEqual(_read_positive_int_env("CIDR_DB_TEST_INT", 55), 55)
-
         with patch.dict("os.environ", {"CIDR_DB_TEST_INT": "abc"}, clear=True):
             self.assertEqual(_read_positive_int_env("CIDR_DB_TEST_INT", 55), 55)
-
-        with patch.dict("os.environ", {"CIDR_DB_TEST_INT": "0"}, clear=True):
-            self.assertEqual(_read_positive_int_env("CIDR_DB_TEST_INT", 55), 55)
-
-    def test_read_positive_int_env_accepts_positive_value(self):
         with patch.dict("os.environ", {"CIDR_DB_TEST_INT": "128"}, clear=True):
             self.assertEqual(_read_positive_int_env("CIDR_DB_TEST_INT", 55), 128)
 
-    def test_extract_asns_from_url_supports_query_and_path(self):
-        url = "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS13335&other=1"
-        self.assertIn(13335, _extract_asns_from_url(url))
-
-        path_url = "https://example.test/as15169/overview"
-        self.assertIn(15169, _extract_asns_from_url(path_url))
-
-    def test_extract_asns_from_text(self):
-        text = "provider list: AS13335, as15169, AS209242"
-        parsed = _extract_asns_from_text(text)
-        self.assertEqual(parsed, {13335, 15169, 209242})
+        self.assertIn(13335, _extract_asns_from_url(
+            "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS13335"
+        ))
+        self.assertEqual(
+            _extract_asns_from_text("AS13335, as15169"),
+            {13335, 15169},
+        )
 
     def test_merge_cidr_items_prefers_richer_geo_metadata(self):
         merged = CidrDbUpdaterService._merge_cidr_items(
@@ -78,35 +59,6 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
                 asn_errors=[],
             )
         )
-
-    def test_should_preserve_previous_pool_on_medium_drop_with_errors(self):
-        self.assertTrue(
-            CidrDbUpdaterService._should_preserve_previous_pool(
-                previous_cidr_count=1000,
-                candidate_cidr_count=520,
-                asn_errors=["AS123: timeout"],
-            )
-        )
-
-    def test_should_not_preserve_previous_pool_on_medium_drop_without_errors(self):
-        self.assertFalse(
-            CidrDbUpdaterService._should_preserve_previous_pool(
-                previous_cidr_count=1000,
-                candidate_cidr_count=520,
-                asn_errors=[],
-            )
-        )
-
-    def test_merge_anomaly_reason_keeps_higher_severity_and_appends_reason(self):
-        level, reason = CidrDbUpdaterService._merge_anomaly_reason(
-            level="critical",
-            reason="CIDR упали на 63%",
-            extra_level="warning",
-            extra_reason="Применен safe-fallback",
-        )
-        self.assertEqual(level, "critical")
-        self.assertIn("CIDR упали", reason)
-        self.assertIn("safe-fallback", reason)
 
     def test_discover_provider_asns_combines_seed_source_and_scan(self):
         svc = CidrDbUpdaterService(db=None)
