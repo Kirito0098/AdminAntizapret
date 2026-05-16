@@ -560,6 +560,10 @@ server {
     ssl_session_tickets off;
 
     add_header Strict-Transport-Security "max-age=63072000" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
 
     location / {
         proxy_pass http://127.0.0.1:$APP_PORT;
@@ -610,15 +614,17 @@ change_protocol() {
 	1)
 		# Переход на HTTPS
 		echo "${YELLOW}Выберите тип HTTPS соединения:${NC}"
-		echo "  1) Использовать собственный домен и получить сертификаты Let's Encrypt"
-		echo "  2) Использовать собственный домен и собственные сертификаты"
-		echo "  3) Самоподписанный сертификат"
-		read -r -p "Ваш выбор [1-3]: " ssl_sub_choice
+		echo "  1) Let's Encrypt (TLS в Gunicorn, standalone certbot)"
+		echo "  2) Nginx reverse proxy + Let's Encrypt (рекомендуется)"
+		echo "  3) Собственные сертификаты"
+		echo "  4) Самоподписанный сертификат"
+		read -r -p "Ваш выбор [1-4]: " ssl_sub_choice
 
 		case $ssl_sub_choice in
 		1) setup_letsencrypt ;;
-		2) setup_custom_certs ;;
-		3) setup_selfsigned ;;
+		2) setup_nginx_letsencrypt ;;
+		3) setup_custom_certs ;;
+		4) setup_selfsigned ;;
 		*)
 			echo "${RED}Неверный выбор!${NC}"
 			return 1

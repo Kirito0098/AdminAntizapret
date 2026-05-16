@@ -96,6 +96,11 @@ from core.services import (
     register_current_user_context_processor,
 )
 from core.services.session_security import build_session_security_config
+from core.services.http_security import (
+    apply_security_headers,
+    build_robots_txt,
+    get_panel_branding,
+)
 
 
 # Абсолютный путь к корню приложения и .env (не зависит от рабочего каталога процесса).
@@ -626,6 +631,40 @@ except Exception as _e:
 
 
 register_current_user_context_processor(app, session, User)
+
+
+@app.context_processor
+def _inject_panel_branding():
+    return get_panel_branding(os.environ)
+
+
+@app.after_request
+def _apply_http_security_headers(response):
+    apply_security_headers(response, request.path or "")
+    return response
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    from flask import Response
+
+    return Response(build_robots_txt(), mimetype="text/plain")
+
+
+@app.route("/.well-known/security.txt")
+def security_txt():
+    from flask import Response
+
+    branding = get_panel_branding(os.environ)
+    panel_url = branding.get("panel_base_url") or "https://localhost"
+    body = (
+        f"Contact: {panel_url}\n"
+        "Preferred-Languages: ru, en\n"
+        f"Canonical: {panel_url}\n"
+        "Policy: Private VPN administration panel only. Not a bank or email login.\n"
+    )
+    return Response(body, mimetype="text/plain")
+
 
 runtime_settings_service = RuntimeSettingsService(
     get_env_value=_get_env_value,

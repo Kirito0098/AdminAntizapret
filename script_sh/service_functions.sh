@@ -96,6 +96,21 @@ check_and_set_permissions() {
     press_any_key
 }
 
+_update_nginx_proxy_port_if_present() {
+    local new_port="$1"
+    local domain nginx_conf
+    domain=$(grep "^DOMAIN=" "$INSTALL_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '" ')
+    [ -n "$domain" ] || return 0
+    nginx_conf="/etc/nginx/sites-available/${domain//./_}"
+    [ -f "$nginx_conf" ] || return 0
+    if grep -q "proxy_pass http://127.0.0.1:" "$nginx_conf"; then
+        sed -i -E "s|proxy_pass http://127.0.0.1:[0-9]+;|proxy_pass http://127.0.0.1:${new_port};|" "$nginx_conf"
+        nginx -t >/dev/null 2>&1 && systemctl reload nginx 2>/dev/null && \
+            ui_ok "Nginx proxy_pass обновлён на порт $new_port" || \
+            ui_warn "Порт в .env изменён, но Nginx не перезагружен — проверьте $nginx_conf"
+    fi
+}
+
 # Изменение порта сервиса
 change_port() {
     ui_info "Изменение порта сервиса..."
@@ -113,6 +128,7 @@ change_port() {
         sed -i "/^APP_PORT=/d" "$INSTALL_DIR/.env"
     fi
     printf 'APP_PORT=%s\n' "$APP_PORT" >> "$INSTALL_DIR/.env"
+    _update_nginx_proxy_port_if_present "$APP_PORT"
     ui_ok "Порт изменён на $APP_PORT. Перезапуск..."
     restart_service
 }

@@ -677,3 +677,37 @@ input:-webkit-autofill:active {
   }
 }
 
+.login-trust-notice {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-field);
+  border: 1px solid rgba(111, 169, 191, 0.35);
+  background: rgba(20, 32, 40, 0.72);
+  color: var(--ink-70);
+  font-size: var(--small-font-size);
+  line-height: 1.45;
+}
+
+.login-trust-notice a {
+  color: var(--brand-cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.login-trust-notice--error {
+  border-color: rgba(213, 103, 95, 0.55);
+  color: #ffb4ae;
+}
+
+.qr-download-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-download-pin {
+  width: min(480px, 94vw);
+  padding: 1.5rem;
+}
+

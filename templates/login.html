@@ -4,6 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <meta name="description"
+    content="Официальная панель администрирования VPN {{ panel_brand_name }}. Доступ только для авторизованных администраторов и viewer." />
 
   <!--=============== REMIXICONS ===============-->
   <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet" />
@@ -13,7 +16,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/login_styles.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles_mobile.css') }}" />
 
-  <title>Claymore Control Center</title>
+  <title>Вход — панель {{ panel_brand_name }}</title>
   <link rel="icon" href="/static/assets/img/favicon.ico" type="image/x-icon" />
 </head>
 
@@ -35,10 +38,18 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
           <div class="login__brand">
-            <span class="login__eyebrow">Secure Sign-in</span>
-            <h1 class="login__title">Вход в панель</h1>
-            <p class="login__subtitle">Используйте учётные данные администратора или viewer-профиля.</p>
+            <span class="login__eyebrow">{{ panel_brand_name }}</span>
+            <h1 class="login__title">Панель администрирования VPN</h1>
+            <p class="login__subtitle">
+              {% if panel_host %}Сервер: <strong>{{ panel_host }}</strong>. {% endif %}
+              Вход только для выданных учётных записей администратора или viewer.
+            </p>
           </div>
+
+          <p class="login-trust-notice" role="note">
+            Официальная админ-панель VPN{% if panel_host %} (<strong>{{ panel_host }}</strong>){% endif %}.
+            Это не страница банка, почты или Google — не вводите пароли от сторонних сервисов.
+          </p>
 
           <div class="login__content">
             <div class="login__box">
