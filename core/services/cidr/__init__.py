@@ -1,4 +1,4 @@
-"""Backward-compatible facade for CIDR list updater (tests patch this module)."""
+"""CIDR list update package."""
 from core.services.cidr import (
     antifilter,
     constants,

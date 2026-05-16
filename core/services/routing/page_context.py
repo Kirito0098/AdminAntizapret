@@ -1,10 +1,10 @@
 from core.services.antizapret_settings import read_antizapret_settings
-from core.services.cidr_list_updater import (
+from core.services.cidr import (
     get_available_game_filters,
     get_available_regions,
     get_saved_game_keys,
 )
-from core.services.openvpn_route_limits import resolve_openvpn_route_total_cidr_limit
+from core.services.cidr.route_limits import resolve_openvpn_route_total_cidr_limit
 
 
 def build_routing_page_context(*, ip_manager, get_env_value):
