@@ -564,7 +564,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const protocolSelectors = {
                 openvpn: '.config-table[data-protocol="openvpn"] .client-row',
                 amneziawg: '.config-table[data-protocol="amneziawg"] .client-row',
-                wireguard: '.config-table[data-protocol="wg"] .client-row',
+                wireguard: '.config-table[data-protocol="wireguard"] .client-row',
             };
 
             Object.keys(protocolSelectors).forEach(function (protocol) {

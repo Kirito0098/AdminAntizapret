@@ -254,7 +254,7 @@ function populateClientSelect(option) {
 
     const tableSelectors = option === '2'
         ? ['.config-table[data-protocol="openvpn"]']
-        : ['.config-table[data-protocol="amneziawg"]', '.config-table[data-protocol="wg"]'];
+        : ['.config-table[data-protocol="amneziawg"]', '.config-table[data-protocol="wireguard"]'];
 
     const uniqueNames = new Set();
     tableSelectors.forEach(selector => {
