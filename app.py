@@ -65,7 +65,7 @@ from core.models import (
     db,
 )
 from core.services.cidr_db_updater import CidrDbUpdaterService
-from core.services.logs_dashboard_collector import collect_logs_dashboard_data as collect_logs_dashboard_data_service
+from core.services.logs_dashboard.collector import collect_logs_dashboard_data as collect_logs_dashboard_data_service
 from core.services.request_user import get_user_by_username
 from core.services import (
     ActiveWebSessionService,
@@ -789,6 +789,7 @@ _services = build_services(
     read_event_source=lambda profile_key, fallback_path: _read_event_source(profile_key, fallback_path),
     normalize_openvpn_endpoint=lambda endpoint: _normalize_openvpn_endpoint(endpoint),
     normalize_traffic_protocol_type=lambda protocol_type, fallback="openvpn": _normalize_traffic_protocol_type(protocol_type, fallback=fallback),
+    normalize_traffic_client_identity=lambda name: client_protocol_catalog_service.normalize_traffic_client_identity(name),
     rebuild_user_traffic_stats_from_samples=lambda seed_users=None, now=None: _rebuild_user_traffic_stats_from_samples(seed_users=seed_users, now=now),
     human_seconds=lambda value: _human_seconds(value),
     format_dt=lambda dt_obj: _format_dt(dt_obj),
@@ -1018,6 +1019,16 @@ def _collect_persisted_traffic_data(active_names=None, active_protocol_identitie
 
 def _delete_client_traffic_stats(common_name):
     return traffic_persistence_service.delete_client_traffic_stats(common_name)
+
+
+def _normalize_traffic_client_identity(raw_name):
+    return client_protocol_catalog_service.normalize_traffic_client_identity(raw_name)
+
+
+def _queue_logs_dashboard_refresh_after_traffic_mutation(created_by_username=None):
+    logs_dashboard_cache_service.queue_logs_dashboard_refresh_if_needed(
+        created_by_username=created_by_username
+    )
 
 def _normalize_wireguard_allowed_ip(token):
     return network_status_collector_service.normalize_wireguard_allowed_ip(token)

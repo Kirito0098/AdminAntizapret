@@ -1,0 +1,24 @@
+{% if cleanup_notice %}
+<section class="logs-section">
+    <div
+        class="logs-alert {% if cleanup_notice_kind == 'success' %}logs-alert-success{% elif cleanup_notice_kind == 'error' %}logs-alert-error{% endif %}">
+        {{ cleanup_notice }}
+    </div>
+</section>
+{% endif %}
+
+{% if cache_meta and cache_meta.is_stale %}
+<section class="logs-section">
+    <div class="logs-alert">
+        Показаны данные из кэша (возраст: {{ cache_meta.age_seconds }} сек).
+        {% if cache_meta.refresh_in_progress %}
+        Фоновое обновление выполняется. Страница обновится автоматически после завершения.
+        {% else %}
+        Обновление кэша запущено в фоне.
+        {% endif %}
+        {% if cache_meta.last_error %}
+        <div class="logs-alert-note">Последняя ошибка обновления: {{ cache_meta.last_error }}</div>
+        {% endif %}
+    </div>
+</section>
+{% endif %}

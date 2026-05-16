@@ -4,6 +4,7 @@ from routes.auth_routes import register_auth_routes
 from routes.config_routes import register_config_routes
 from routes.edit_files import register_edit_files_routes
 from routes.index import register_index_routes
+from routes.logs_dashboard import register_logs_dashboard_routes
 from routes.monitoring_routes import register_monitoring_routes
 from routes.server_monitor import register_server_monitor_routes
 from routes.settings_routes import register_settings_routes
@@ -153,7 +154,7 @@ def register_all_routes(app, sock, deps):
         server_monitor_proc=g("server_monitor_proc"),
     )
 
-    register_monitoring_routes(
+    register_logs_dashboard_routes(
         app,
         sock,
         auth_manager=g("auth_manager"),
@@ -163,9 +164,22 @@ def register_all_routes(app, sock, deps):
         normalize_traffic_protocol_scope=g("_normalize_traffic_protocol_scope"),
         reset_persisted_traffic_data=g("_reset_persisted_traffic_data"),
         collect_existing_config_client_names=g("_collect_existing_config_client_names"),
+        normalize_traffic_client_identity=g("_normalize_traffic_client_identity"),
         delete_client_traffic_stats=g("_delete_client_traffic_stats"),
+        queue_logs_dashboard_refresh_after_traffic_mutation=g("_queue_logs_dashboard_refresh_after_traffic_mutation"),
         openvpn_log_tail_lines=g("OPENVPN_LOG_TAIL_LINES"),
+        db=g("db"),
+        background_task_model=g("BackgroundTask"),
         collect_config_protocols_by_client=g("_collect_config_protocols_by_client"),
+        user_traffic_sample_model=g("UserTrafficSample"),
+        human_bytes=g("_human_bytes"),
+    )
+
+    register_monitoring_routes(
+        app,
+        sock,
+        auth_manager=g("auth_manager"),
+        get_logs_dashboard_data_cached=g("_get_logs_dashboard_data_cached"),
         user_traffic_sample_model=g("UserTrafficSample"),
         human_bytes=g("_human_bytes"),
     )

@@ -1,0 +1,34 @@
+<section class="logs-summary-grid">
+    <article class="summary-card">
+        <h3>Подключенные сессии</h3>
+        <p class="summary-value">{{ summary.total_active_clients }}</p>
+    </article>
+    <article class="summary-card">
+        <h3>Уникальные клиенты</h3>
+        <p class="summary-value">{{ summary.unique_client_names }}</p>
+    </article>
+    <article class="summary-card">
+        <h3>Уникальные IP</h3>
+        <p class="summary-value">{{ summary.unique_ips }}</p>
+    </article>
+    <article class="summary-card">
+        <h3>OpenVPN Сессии</h3>
+        <p class="summary-value">{{ summary.total_openvpn_sessions }}</p>
+    </article>
+    <article class="summary-card">
+        <h3>WireGuard Сессии</h3>
+        <p class="summary-value">{{ summary.total_wireguard_sessions }}</p>
+    </article>
+    <article class="summary-card">
+        <h3>Текущий Rx (сессии)</h3>
+        <p class="summary-value">{{ summary.total_received_human }}</p>
+    </article>
+    <article class="summary-card">
+        <h3>Текущий Tx (сессии)</h3>
+        <p class="summary-value">{{ summary.total_sent_human }}</p>
+    </article>
+    <article class="summary-card">
+        <h3>Текущий трафик (сессии)</h3>
+        <p class="summary-value">{{ summary.total_traffic_human }}</p>
+    </article>
+</section>

@@ -1,0 +1,190 @@
+/* ===== Unified Redesign 2026 ===== */
+
+body {
+  background-color: #10161a;
+  background-image:
+    radial-gradient(circle at 13% 8%, rgba(82, 109, 120, 0.16) 0%, transparent 44%),
+    radial-gradient(circle at 86% 14%, rgba(54, 88, 98, 0.14) 0%, transparent 42%),
+    linear-gradient(180deg, #12191d 0%, #0e1418 100%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+.logs-page-wrapper {
+  width: min(1400px, 96%);
+  margin: 1.4rem auto 2rem;
+  display: grid;
+  gap: 0.95rem;
+}
+
+/* Grid-children must have min-width:0 so the grid column can constrain them.
+   Without this, a wide table (min-width:1280px) inside any child pushes the
+   whole grid container — and thus the page — to 1280px on mobile. */
+.logs-hero.logs-section,
+.logs-summary-grid,
+.logs-tabs-nav,
+.logs-tab-content {
+  min-width: 0;
+}
+
+.logs-hero.logs-section {
+  margin-bottom: 0;
+  border: 1px solid #314049;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(88, 178, 163, 0.14), transparent 41%),
+    linear-gradient(160deg, rgba(30, 39, 45, 0.92) 0%, rgba(24, 31, 36, 0.94) 100%);
+  box-shadow: 0 18px 36px rgba(5, 10, 13, 0.34);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+/* Hero inner grid-children need min-width:0 to stay inside their column */
+.logs-hero-main,
+.logs-hero-status {
+  min-width: 0;
+}
+
+.logs-hero-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #aac0ca;
+}
+
+.logs-hero-title {
+  margin: 0.34rem 0 0;
+  font-size: clamp(1.34rem, 1.08rem + 0.96vw, 1.98rem);
+  line-height: 1.2;
+  color: #eaf1f4;
+}
+
+.logs-hero-subtitle {
+  margin: 0.52rem 0 0;
+  color: #b7cad4;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.logs-hero-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.logs-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(126, 220, 184, 0.52);
+  background: rgba(63, 160, 131, 0.16);
+  color: #def6ec;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.22rem 0.58rem;
+}
+
+.logs-section {
+  margin-bottom: 0;
+  border-radius: 14px;
+  border: 1px solid #314049;
+  background: linear-gradient(
+    180deg,
+    rgba(29, 38, 45, 0.93) 0%,
+    rgba(22, 30, 36, 0.95) 100%
+  );
+  box-shadow: 0 12px 26px rgba(5, 10, 13, 0.28);
+}
+
+.logs-summary-grid {
+  margin-bottom: 0;
+  gap: 0.68rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.summary-card {
+  border: 1px solid #40535f;
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(31, 40, 46, 0.92), rgba(25, 33, 38, 0.94));
+  box-shadow: 0 10px 18px rgba(6, 12, 16, 0.24);
+  padding: 0.74rem 0.8rem;
+  min-height: 84px;
+}
+
+.summary-card h3 {
+  font-size: 0.8rem;
+  color: #c6d8e1;
+  letter-spacing: 0.01em;
+}
+
+.summary-value {
+  margin-top: 0.28rem;
+  font-size: 1.1rem;
+  color: #f0f7fa;
+}
+
+.charts-toggle-btn,
+.cleanup-btn,
+.bw-range-btn,
+.client-modal-range-btn,
+.table-sort-btn {
+  border: 1px solid #4b6170;
+  border-radius: 0.64rem;
+  background: rgba(35, 48, 56, 0.84);
+  color: #d3e3ea;
+  min-height: 36px;
+  padding: 0.42rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease;
+}
+
+.charts-toggle-btn:hover,
+.cleanup-btn:hover,
+.bw-range-btn:hover,
+.client-modal-range-btn:hover,
+.table-sort-btn:hover {
+  border-color: #79a2b3;
+  background: rgba(45, 62, 72, 0.92);
+  color: #eff7fb;
+}
+
+.bw-range-btn.active,
+.client-modal-range-btn.active {
+  border-color: rgba(126, 220, 184, 0.72);
+  background: linear-gradient(140deg, #3d7d98 0%, #2f6c85 100%);
+  color: #f7fffb;
+}
+
+.cleanup-btn-danger {
+  border-color: rgba(213, 103, 95, 0.66);
+  background: rgba(104, 43, 39, 0.9);
+  color: #ffe2df;
+}
+
+.cleanup-btn-danger:hover {
+  background: rgba(119, 47, 42, 0.94);
+  border-color: rgba(224, 124, 117, 0.76);
+}
+
+.section-title-wrap {
+  margin-bottom: 0.68rem;
+}
+
+.section-title-wrap h2,
+.section-title-wrap h3 {
+  color: #eaf1f4;
+}
+
+.logs-alert {
+  margin-bottom: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(217, 142, 4, 0.42);
+  background: rgba(73, 41, 10, 0.55);
+  color: #ffe7c4;

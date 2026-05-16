@@ -1,19 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Подключенные клиенты{% endblock %}
-
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/logs_dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/logs_dashboard/base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/logs_dashboard/hero.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/logs_dashboard/overview.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/logs_dashboard/clients.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/logs_dashboard/traffic.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/logs_dashboard/modal.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/charts.css') }}">
 {% endblock %}
-
 {% block content %}
-{% include "partials/logs_dashboard/_header.html" %}
-    <div class="logs-tab-content">
-{% include "partials/logs_dashboard/_pane_overview.html" %}
-{% include "partials/logs_dashboard/_pane_clients.html" %}
-{% include "partials/logs_dashboard/_pane_traffic.html" %}
+{% include "partials/logs_dashboard/_layout.html" %}
 {% endblock %}
-
 {% block scripts %}
 {% include "partials/logs_dashboard/_scripts.html" %}
 {% endblock %}

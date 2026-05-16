@@ -15,8 +15,10 @@ class TrafficPersistenceService:
         user_traffic_sample_model,
         openvpn_peer_info_cache_model,
         openvpn_peer_info_history_model,
+        wireguard_peer_cache_model=None,
         integrity_error_cls,
         normalize_traffic_protocol_type,
+        normalize_traffic_client_identity=None,
         rebuild_user_traffic_stats_from_samples,
         human_bytes,
         human_seconds,
@@ -31,8 +33,12 @@ class TrafficPersistenceService:
         self.user_traffic_sample_model = user_traffic_sample_model
         self.openvpn_peer_info_cache_model = openvpn_peer_info_cache_model
         self.openvpn_peer_info_history_model = openvpn_peer_info_history_model
+        self.wireguard_peer_cache_model = wireguard_peer_cache_model
         self.integrity_error_cls = integrity_error_cls
         self.normalize_traffic_protocol_type = normalize_traffic_protocol_type
+        self.normalize_traffic_client_identity = normalize_traffic_client_identity or (
+            lambda name: (name or "").strip().lower()
+        )
         self.rebuild_user_traffic_stats_from_samples = rebuild_user_traffic_stats_from_samples
         self.human_bytes = human_bytes
         self.human_seconds = human_seconds
@@ -444,36 +450,76 @@ class TrafficPersistenceService:
         }
         return rows, summary
 
+    def _resolve_traffic_common_names_for_identity(self, common_name):
+        target_name = (common_name or "").strip()
+        target_identity = self.normalize_traffic_client_identity(target_name)
+        if not target_identity:
+            return set()
+
+        names_to_delete = set()
+        if target_name:
+            names_to_delete.add(target_name)
+
+        name_sources = [
+            self.user_traffic_sample_model.common_name,
+            self.traffic_session_state_model.common_name,
+            self.user_traffic_stat_model.common_name,
+            self.user_traffic_stat_protocol_model.common_name,
+            self.openvpn_peer_info_cache_model.client_name,
+            self.openvpn_peer_info_history_model.client_name,
+        ]
+        if self.wireguard_peer_cache_model is not None:
+            name_sources.append(self.wireguard_peer_cache_model.client_name)
+
+        for column in name_sources:
+            for (stored_name,) in self.db.session.query(column).distinct().all():
+                candidate = (stored_name or "").strip()
+                if not candidate:
+                    continue
+                if self.normalize_traffic_client_identity(candidate) == target_identity:
+                    names_to_delete.add(candidate)
+
+        return names_to_delete
+
     def delete_client_traffic_stats(self, common_name):
-        """Удаляет накопленную статистику трафика для одного клиента."""
+        """Удаляет накопленную статистику трафика для одного клиента (VPN + Antizapret, все протоколы)."""
         target_name = (common_name or "").strip()
         if not target_name:
             return False, "Не указано имя клиента."
 
-        normalized_target_name = target_name.lower()
+        names_to_delete = self._resolve_traffic_common_names_for_identity(target_name)
+        if not names_to_delete:
+            return False, f"Для клиента '{target_name}' статистика не найдена."
 
-        def _normalized_equals(column):
-            return self.db.func.lower(self.db.func.trim(column)) == normalized_target_name
+        normalized_names = sorted({name.lower() for name in names_to_delete if name})
+
+        def _name_in_target_set(column):
+            return self.db.func.lower(self.db.func.trim(column)).in_(normalized_names)
 
         try:
             deleted_samples = self.user_traffic_sample_model.query.filter(
-                _normalized_equals(self.user_traffic_sample_model.common_name)
+                _name_in_target_set(self.user_traffic_sample_model.common_name)
             ).delete(synchronize_session=False)
             deleted_sessions = self.traffic_session_state_model.query.filter(
-                _normalized_equals(self.traffic_session_state_model.common_name)
+                _name_in_target_set(self.traffic_session_state_model.common_name)
             ).delete(synchronize_session=False)
             deleted_stats = self.user_traffic_stat_model.query.filter(
-                _normalized_equals(self.user_traffic_stat_model.common_name)
+                _name_in_target_set(self.user_traffic_stat_model.common_name)
             ).delete(synchronize_session=False)
             deleted_protocol_stats = self.user_traffic_stat_protocol_model.query.filter(
-                _normalized_equals(self.user_traffic_stat_protocol_model.common_name)
+                _name_in_target_set(self.user_traffic_stat_protocol_model.common_name)
             ).delete(synchronize_session=False)
             deleted_peer_cache = self.openvpn_peer_info_cache_model.query.filter(
-                _normalized_equals(self.openvpn_peer_info_cache_model.client_name)
+                _name_in_target_set(self.openvpn_peer_info_cache_model.client_name)
             ).delete(synchronize_session=False)
             deleted_peer_history = self.openvpn_peer_info_history_model.query.filter(
-                _normalized_equals(self.openvpn_peer_info_history_model.client_name)
+                _name_in_target_set(self.openvpn_peer_info_history_model.client_name)
             ).delete(synchronize_session=False)
+            deleted_wg_peer_cache = 0
+            if self.wireguard_peer_cache_model is not None:
+                deleted_wg_peer_cache = self.wireguard_peer_cache_model.query.filter(
+                    _name_in_target_set(self.wireguard_peer_cache_model.client_name)
+                ).delete(synchronize_session=False)
 
             self.db.session.commit()
 
@@ -483,11 +529,22 @@ class TrafficPersistenceService:
                 + int(deleted_stats or 0)
                 + int(deleted_protocol_stats or 0)
             )
-            if deleted_total == 0 and int(deleted_peer_cache or 0) == 0 and int(deleted_peer_history or 0) == 0:
+            if (
+                deleted_total == 0
+                and int(deleted_peer_cache or 0) == 0
+                and int(deleted_peer_history or 0) == 0
+                and int(deleted_wg_peer_cache or 0) == 0
+            ):
                 return False, f"Для клиента '{target_name}' статистика не найдена."
 
+            aliases_note = ""
+            alias_names = sorted(names_to_delete - {target_name}, key=str.lower)
+            if alias_names:
+                aliases_note = f" Также удалены связанные записи: {', '.join(alias_names)}."
+
             return True, (
-                f"Статистика клиента '{target_name}' удалена "
+                f"Статистика клиента '{target_name}' удалена (VPN и Antizapret, все протоколы)"
+                f"{aliases_note} "
                 f"(stat={int(deleted_stats or 0)}, stat_protocol={int(deleted_protocol_stats or 0)}, "
                 f"sessions={int(deleted_sessions or 0)}, samples={int(deleted_samples or 0)})."
             )
