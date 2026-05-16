@@ -42,7 +42,6 @@
     <div class="main-content page-unified-card">
       <!-- Панель поиска и фильтра -->
       <div class="search-and-filter page-unified-toolbar">
-        {% if current_user and current_user.is_admin() %}
         <div class="search-box">
           <input type="text" id="search-clients" placeholder="🔍 Поиск по имени клиента..." class="search-input">
           <button type="button" id="clear-search" class="clear-btn" title="Очистить поиск">✕</button>
@@ -53,7 +52,6 @@
           <button type="button" class="filter-btn" data-filter="expiring">⚠ Истекают скоро</button>
           <button type="button" class="filter-btn" data-filter="expired">✗ Истекшие</button>
         </div>
-        {% endif %}
       </div>
 
       <!-- Вкладки протоколов -->
@@ -244,7 +242,7 @@
         <!-- WireGuard Tab -->
         <div class="tab-pane" id="wireguard-tab" data-protocol="wireguard">
           <div class="table-wrapper">
-            <table class="config-table client-grid-table" data-protocol="wg">
+            <table class="config-table client-grid-table" data-protocol="wireguard">
               <thead>
                 <tr>
                   <th class="sortable" data-sort="name">Клиент</th>
@@ -263,7 +261,7 @@
                 wg_files_dict[client_name].update({'vpn': file}) %} {% endif %} {% endfor %} {% for client_name, files
                 in
                 wg_files_dict | dictsort %}
-                <tr class="client-row" data-client-name="{{ client_name }}" data-protocol="wg"
+                <tr class="client-row" data-client-name="{{ client_name }}" data-protocol="wireguard"
                   data-can-manage="{{ 1 if current_user and current_user.is_admin() else 0 }}" data-delete-option="5"
                   data-download-vpn-url="{% if files['vpn'] %}{{ url_for('download', file_type='wg', filename=files['vpn'].split('/')[-1]) }}{% endif %}"
                   data-download-az-url="{% if files['antizapret'] %}{{ url_for('download', file_type='wg', filename=files['antizapret'].split('/')[-1]) }}{% endif %}"
