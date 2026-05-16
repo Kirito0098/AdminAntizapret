@@ -3,17 +3,13 @@
  * Не переопределяем фон body: его задаёт base.css для .index-page-dark.
  */
 
-body.is-telegram-webview .navigation {
-  display: none;
+body.tg-mini-app {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--theme-bg-main, #12191d);
 }
 
-body.tg-mini-app.is-telegram-webview .app-shell {
-  max-width: 100%;
-}
-
-body.tg-mini-app.is-telegram-webview .app-main {
-  flex: 1;
-  min-width: 0;
+body.tg-mini-app .tg-mini-main {
   padding: 0.75rem clamp(10px, 2.5vw, 22px) 1.25rem;
 }
 

@@ -5,7 +5,7 @@ from routes.config_routes import register_config_routes
 from routes.edit_files import register_edit_files_routes
 from routes.index import register_index_routes
 from routes.logs_dashboard import register_logs_dashboard_routes
-from routes.monitoring_routes import register_monitoring_routes
+from tg_mini import register_tg_mini_routes
 from routes.server_monitor import register_server_monitor_routes
 from routes.settings import register_settings_routes
 
@@ -175,11 +175,28 @@ def register_all_routes(app, sock, deps):
         human_bytes=g("_human_bytes"),
     )
 
-    register_monitoring_routes(
+    register_tg_mini_routes(
         app,
         sock,
         auth_manager=g("auth_manager"),
         get_logs_dashboard_data_cached=g("_get_logs_dashboard_data_cached"),
         user_traffic_sample_model=g("UserTrafficSample"),
         human_bytes=g("_human_bytes"),
+        user_model=g("User"),
+        viewer_config_access_model=g("ViewerConfigAccess"),
+        resolve_config_file=g("_resolve_config_file"),
+        get_config_type=g("_get_config_type"),
+        io_executor=g("io_bound_executor"),
+        log_telegram_audit_event=g("_log_telegram_audit_event"),
+        log_user_action_event=g("_log_user_action_event"),
+        enqueue_background_task=g("_enqueue_background_task"),
+        task_restart_service=g("_task_restart_service"),
+        set_env_value=g("_set_env_value"),
+        get_env_value=g("_get_env_value"),
+        is_valid_cron_expression=g("_is_valid_cron_expression"),
+        ensure_nightly_idle_restart_cron=g("_ensure_nightly_idle_restart_cron"),
+        get_nightly_idle_restart_settings=g("_get_nightly_idle_restart_settings"),
+        set_nightly_idle_restart_settings=g("_set_nightly_idle_restart_settings"),
+        get_active_web_session_settings=g("_get_active_web_session_settings"),
+        set_active_web_session_settings=g("_set_active_web_session_settings"),
     )

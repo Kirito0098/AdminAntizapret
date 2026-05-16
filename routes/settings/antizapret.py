@@ -2,7 +2,7 @@ from flask import current_app, jsonify, request, session
 
 from config.antizapret_params import ANTIZAPRET_PARAMS
 from core.services.antizapret_settings import ANTIZAPRET_SETUP_FILE, read_antizapret_settings
-from core.services.telegram_mini_session import has_telegram_mini_session
+from tg_mini.session import has_telegram_mini_session
 
 FILE_PATH = ANTIZAPRET_SETUP_FILE
 

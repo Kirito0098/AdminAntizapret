@@ -2,7 +2,7 @@
 {% block title %}Telegram Mini App{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/tg_mini_app.css') }}" />
+<link rel="stylesheet" href="{{ url_for('tg_mini.static', filename='css/tg_mini_app.css') }}" />
 {% endblock %}
 
 {% block content %}
@@ -273,5 +273,5 @@
 {% block scripts %}
 <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js"></script>
-<script src="{{ url_for('static', filename='assets/js/tg_mini_app.js') }}"></script>
+<script src="{{ url_for('tg_mini.static', filename='js/tg_mini_app.js') }}"></script>
 {% endblock %}

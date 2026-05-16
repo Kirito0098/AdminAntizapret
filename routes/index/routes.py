@@ -9,7 +9,7 @@ from core.services.index import (
     resolve_openvpn_group_and_files,
 )
 from core.services.request_user import get_current_user
-from core.services.telegram_mini_session import has_telegram_mini_session
+from tg_mini.session import has_telegram_mini_session
 
 
 def register_index_routes(
