@@ -1,6 +1,4 @@
-# routes/settings_antizapret.py
-
-from flask import jsonify, request, current_app, session
+from flask import current_app, jsonify, request, session
 
 from config.antizapret_params import ANTIZAPRET_PARAMS
 from core.services.antizapret_settings import ANTIZAPRET_SETUP_FILE, read_antizapret_settings
@@ -16,11 +14,9 @@ def normalize_flag(v):
     return "y" if s in ("y", "yes", "true", "1", "on") else "n"
 
 
-def init_antizapret(app_or_bp):
-    """Регистрирует все antizapret-роуты на переданный app или blueprint"""
-
-    @app_or_bp.route("/get_antizapret_settings")
-    #@auth_manager.login_required  # если нужна авторизация
+def register_settings_antizapret_routes(app, *, auth_manager):
+    @app.route("/get_antizapret_settings")
+    @auth_manager.admin_required
     def get_antizapret_settings():
         try:
             return jsonify(read_antizapret_settings())
@@ -29,9 +25,8 @@ def init_antizapret(app_or_bp):
             current_app.logger.error(f"Ошибка чтения настроек antizapret: {e}", exc_info=True)
             return jsonify({"error": "Ошибка чтения настроек"}), 500
 
-
-    @app_or_bp.route("/update_antizapret_settings", methods=["POST"])
-    #@auth_manager.login_required
+    @app.route("/update_antizapret_settings", methods=["POST"])
+    @auth_manager.admin_required
     def update_antizapret_settings():
         try:
             new_settings = request.get_json(silent=True) or {}
@@ -71,7 +66,6 @@ def init_antizapret(app_or_bp):
                 else:
                     new_lines.append(line)
 
-            # Добавляем отсутствующие параметры в конец
             for env, val in desired.items():
                 if env not in found:
                     new_lines.append(f"{env}={val}\n")
@@ -125,9 +119,8 @@ def init_antizapret(app_or_bp):
             current_app.logger.error(f"Ошибка обновления antizapret: {e}", exc_info=True)
             return jsonify({"success": False, "message": "Ошибка сервера"}), 500
 
-
-    @app_or_bp.route("/antizapret_settings_schema")
-    #@auth_manager.login_required
+    @app.route("/antizapret_settings_schema")
+    @auth_manager.admin_required
     def antizapret_settings_schema():
         return jsonify([
             {

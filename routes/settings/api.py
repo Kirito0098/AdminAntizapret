@@ -1,19 +1,11 @@
 import os
 import platform
 import re
-import secrets
 import subprocess
-import threading
-import ipaddress
-from datetime import datetime, timedelta
 
-from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from flask import jsonify, request, session, url_for
 
-from core.services.audit_view_presenter import (
-    build_telegram_mini_audit_view,
-    build_user_action_audit_view,
-    build_user_action_sessions,
-)
+from config.antizapret_params import IP_FILES as _IP_FILES_META
 from core.services.cidr_list_updater import (
     analyze_dpi_log,
     estimate_cidr_matches,
@@ -29,109 +21,29 @@ from core.services.openvpn_route_limits import (
     OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS,
     clamp_openvpn_route_total_cidr_limit,
 )
-from config.antizapret_params import IP_FILES as _IP_FILES_META
-from core.services.panel_publish_info import build_panel_publish_context
+from core.services.settings.cidr_tasks import (
+    create_cidr_task,
+    find_active_cidr_task,
+    get_cidr_task,
+    make_start_cidr_task,
+    serialize_cidr_task,
+)
+from core.services.settings.telegram_normalize import (
+    normalize_telegram_bot_token,
+    normalize_telegram_bot_username,
+)
+from core.services.settings.tg_mini import build_tg_mini_settings_payload
 from core.services.telegram_mini_session import has_telegram_mini_session
 from core.services.tg_notify import send_tg_message
 
 
-CIDR_TASKS = {}
-CIDR_TASKS_LOCK = threading.Lock()
-CIDR_TASK_RETENTION = timedelta(hours=2)
-
-
-def _cidr_now_utc():
-    return datetime.utcnow()
-
-
-def _cleanup_cidr_tasks():
-    cutoff = _cidr_now_utc() - CIDR_TASK_RETENTION
-    with CIDR_TASKS_LOCK:
-        stale_task_ids = []
-        for task_id, task in CIDR_TASKS.items():
-            finished_at = task.get("finished_at")
-            if not finished_at:
-                continue
-            if finished_at < cutoff:
-                stale_task_ids.append(task_id)
-        for task_id in stale_task_ids:
-            CIDR_TASKS.pop(task_id, None)
-
-
-def _create_cidr_task(task_type, message):
-    _cleanup_cidr_tasks()
-    task_id = secrets.token_hex(16)
-    task = {
-        "task_id": task_id,
-        "task_type": task_type,
-        "status": "queued",
-        "message": str(message or "Задача поставлена в очередь"),
-        "progress_percent": 0,
-        "progress_stage": "Ожидание запуска...",
-        "error": None,
-        "result": None,
-        "created_at": _cidr_now_utc(),
-        "started_at": None,
-        "finished_at": None,
-        "updated_at": _cidr_now_utc(),
-    }
-    with CIDR_TASKS_LOCK:
-        CIDR_TASKS[task_id] = task
-    return task_id
-
-
-def _update_cidr_task(task_id, **fields):
-    with CIDR_TASKS_LOCK:
-        task = CIDR_TASKS.get(task_id)
-        if not task:
-            return
-        task.update(fields)
-        task["updated_at"] = _cidr_now_utc()
-
-
-def _get_cidr_task(task_id):
-    with CIDR_TASKS_LOCK:
-        task = CIDR_TASKS.get(task_id)
-        if not task:
-            return None
-        return dict(task)
-
-
-def _find_active_cidr_task(task_type):
-    with CIDR_TASKS_LOCK:
-        for task in CIDR_TASKS.values():
-            if str(task.get("task_type") or "") != str(task_type or ""):
-                continue
-            if str(task.get("status") or "") in {"queued", "running"}:
-                return dict(task)
-    return None
-
-
-def _serialize_cidr_task(task):
-    payload = dict(task)
-    for key in ("created_at", "started_at", "finished_at", "updated_at"):
-        value = payload.get(key)
-        payload[key] = value.isoformat() if isinstance(value, datetime) else None
-    return payload
-
-
-def register_settings_routes(
+def register_settings_api_routes(
     app,
     *,
     auth_manager,
     db,
     user_model,
-    active_web_session_model,
-    qr_download_audit_log_model,
-    telegram_mini_audit_log_model,
-    user_action_log_model,
-    ip_restriction,
     ip_manager,
-    collect_all_openvpn_files_for_access,
-    build_openvpn_access_groups,
-    config_file_handler,
-    group_folders,
-    build_conf_access_groups,
     enqueue_background_task,
     task_restart_service,
     set_env_value,
@@ -143,891 +55,20 @@ def register_settings_routes(
     set_nightly_idle_restart_settings,
     get_active_web_session_settings,
     set_active_web_session_settings,
-    get_public_download_enabled,
     log_telegram_audit_event,
     log_user_action_event,
     cidr_db_updater_service,
 ):
-    def _start_cidr_task(task_id, runner):
-        def _progress_callback(percent, stage):
-            _update_cidr_task(
-                task_id,
-                status="running",
-                progress_percent=max(0, min(99, int(percent))),
-                progress_stage=str(stage or "Выполняется операция"),
-                message=str(stage or "Выполняется операция"),
-            )
-
-        def _worker():
-            _update_cidr_task(
-                task_id,
-                status="running",
-                progress_percent=1,
-                progress_stage="Подготовка...",
-                started_at=_cidr_now_utc(),
-            )
-            try:
-                with app.app_context():
-                    result = runner(_progress_callback) or {}
-                if not bool(result.get("success")):
-                    _update_cidr_task(
-                        task_id,
-                        status="failed",
-                        progress_percent=100,
-                        progress_stage="Операция завершилась с ошибкой",
-                        message=str(result.get("message") or "Операция завершилась с ошибкой"),
-                        error=str(result.get("message") or "Операция завершилась с ошибкой"),
-                        result=result,
-                        finished_at=_cidr_now_utc(),
-                    )
-                    return
-
-                _update_cidr_task(
-                    task_id,
-                    status="completed",
-                    progress_percent=100,
-                    progress_stage="Операция завершена",
-                    message=str(result.get("message") or "Операция завершена"),
-                    result=result,
-                    error=None,
-                    finished_at=_cidr_now_utc(),
-                )
-            except Exception as exc:  # noqa: BLE001
-                _update_cidr_task(
-                    task_id,
-                    status="failed",
-                    progress_percent=100,
-                    progress_stage="Операция завершилась с ошибкой",
-                    message="Операция завершилась с ошибкой",
-                    error=str(exc),
-                    finished_at=_cidr_now_utc(),
-                )
-                app.logger.exception("CIDR background task failed (%s): %s", task_id, exc)
-
-        threading.Thread(target=_worker, daemon=True).start()
+    _start_cidr_task = make_start_cidr_task(app)
 
     def _has_telegram_mini_session() -> bool:
         return has_telegram_mini_session(session)
 
-    def _normalize_telegram_id(raw_value):
-        value = (raw_value or "").strip()
-        if not value:
-            return "", None
-        if not re.fullmatch(r"^[1-9][0-9]{4,20}$", value):
-            return None, "Telegram ID должен содержать только цифры (5..21 символ) и не начинаться с 0"
-        return value, None
-
-    def _normalize_telegram_bot_username(raw_value):
-        value = (raw_value or "").strip().lstrip("@")
-        if not value:
-            return "", None
-        if not re.fullmatch(r"^[A-Za-z0-9_]{5,64}$", value):
-            return None, "Username Telegram-бота должен содержать 5..64 символа: латиница, цифры, _"
-        return value, None
-
-    def _normalize_telegram_bot_token(raw_value):
-        value = (raw_value or "").strip()
-        if not value:
-            return "", None
-        if not re.fullmatch(r"^[0-9]{6,12}:[A-Za-z0-9_-]{20,}$", value):
-            return None, "Неверный формат токена Telegram-бота"
-        return value, None
-
-    def _normalize_ip_entry(raw_value):
-        value = (raw_value or "").strip()
-        if not value:
-            return None
-        try:
-            if "/" in value:
-                return str(ipaddress.ip_network(value, strict=False))
-            return str(ipaddress.ip_address(value))
-        except ValueError:
-            return None
-
-    def _nightly_time_from_cron(cron_expr):
-        value = (cron_expr or "").strip()
-        parts = value.split()
-        if len(parts) == 5 and parts[0].isdigit() and parts[1].isdigit():
-            minute_value = int(parts[0])
-            hour_value = int(parts[1])
-            if 0 <= minute_value <= 59 and 0 <= hour_value <= 23:
-                return f"{hour_value:02d}:{minute_value:02d}"
-        return "04:00"
-
-    def _build_telegram_mini_audit_view(rows):
-        return build_telegram_mini_audit_view(rows)
-
-    def _build_user_action_audit_view(rows):
-        return build_user_action_audit_view(rows)
-
     def _build_tg_mini_settings_payload():
-        nightly_idle_restart_enabled, nightly_idle_restart_cron = get_nightly_idle_restart_settings()
-        active_web_session_ttl_seconds, active_web_session_touch_interval_seconds = get_active_web_session_settings()
-
-        telegram_auth_bot_username = get_env_value("TELEGRAM_AUTH_BOT_USERNAME", "")
-        telegram_auth_max_age_seconds = get_env_value("TELEGRAM_AUTH_MAX_AGE_SECONDS", "300")
-        telegram_auth_bot_token_set = bool((get_env_value("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip())
-        telegram_auth_enabled = bool(telegram_auth_bot_username and telegram_auth_bot_token_set)
-
-        return {
-            "app_port": get_env_value("APP_PORT", os.getenv("APP_PORT", "5050")),
-            "nightly_idle_restart_enabled": bool(nightly_idle_restart_enabled),
-            "nightly_idle_restart_cron": nightly_idle_restart_cron,
-            "nightly_idle_restart_time": _nightly_time_from_cron(nightly_idle_restart_cron),
-            "active_web_session_ttl_seconds": int(active_web_session_ttl_seconds),
-            "active_web_session_touch_interval_seconds": int(active_web_session_touch_interval_seconds),
-            "telegram_auth_bot_username": telegram_auth_bot_username,
-            "telegram_auth_max_age_seconds": int(telegram_auth_max_age_seconds or 300),
-            "telegram_auth_bot_token_set": telegram_auth_bot_token_set,
-            "telegram_auth_enabled": telegram_auth_enabled,
-        }
-
-    @app.route("/settings", methods=["GET", "POST"])
-    @auth_manager.admin_required
-    def settings():
-        if request.method == "POST":
-            new_port_raw = (request.form.get("port") or "").strip()
-            if new_port_raw:
-                if new_port_raw.isdigit() and 1 <= int(new_port_raw) <= 65535:
-                    old_port = (get_env_value("APP_PORT", os.getenv("APP_PORT", "5050")) or "5050").strip()
-                    set_env_value("APP_PORT", new_port_raw)
-                    os.environ["APP_PORT"] = new_port_raw
-                    flash("Порт успешно изменён. Перезапуск службы...", "success")
-                    log_user_action_event(
-                        "settings_port_update",
-                        target_type="app",
-                        target_name="APP_PORT",
-                        details=f"{old_port} → {new_port_raw}",
-                    )
-
-                    try:
-                        if platform.system() == "Linux":
-                            subprocess.run(
-                                ["systemctl", "restart", "admin-antizapret.service"], check=True
-                            )
-                    except subprocess.CalledProcessError as e:
-                        flash(f"Ошибка при перезапуске службы: {e}", "error")
-                else:
-                    flash("Порт должен быть целым числом в диапазоне 1..65535", "error")
-
-            ttl_raw = request.form.get("qr_download_token_ttl_seconds", "").strip()
-            if ttl_raw:
-                if ttl_raw.isdigit():
-                    ttl_value = int(ttl_raw)
-                    if 60 <= ttl_value <= 3600:
-                        old_ttl = (get_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600") or "600").strip()
-                        set_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", str(ttl_value))
-                        os.environ["QR_DOWNLOAD_TOKEN_TTL_SECONDS"] = str(ttl_value)
-                        flash("TTL одноразовой QR-ссылки обновлен", "success")
-                        log_user_action_event(
-                            "settings_qr_ttl_update",
-                            target_type="qr",
-                            target_name="QR_DOWNLOAD_TOKEN_TTL_SECONDS",
-                            details=f"{old_ttl} → {ttl_value}с",
-                        )
-                    else:
-                        flash("TTL QR-ссылки должен быть в диапазоне 60..3600 секунд", "error")
-                else:
-                    flash("TTL QR-ссылки должен быть целым числом", "error")
-
-            max_downloads_raw = request.form.get("qr_download_token_max_downloads", "").strip()
-            if max_downloads_raw:
-                if max_downloads_raw.isdigit() and int(max_downloads_raw) in (1, 3, 5):
-                    old_max_dl = (get_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", "1") or "1").strip()
-                    set_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", max_downloads_raw)
-                    os.environ["QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS"] = max_downloads_raw
-                    flash("Лимит скачиваний одноразовой ссылки обновлен", "success")
-                    log_user_action_event(
-                        "settings_qr_max_downloads_update",
-                        target_type="qr",
-                        target_name="QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS",
-                        details=f"{old_max_dl} → {max_downloads_raw}",
-                    )
-                else:
-                    flash("Лимит скачиваний должен быть одним из значений: 1, 3 или 5", "error")
-
-            clear_pin = request.form.get("clear_qr_download_pin") == "on"
-            pin_raw = (request.form.get("qr_download_pin") or "").strip()
-            if clear_pin:
-                set_env_value("QR_DOWNLOAD_PIN", "")
-                os.environ["QR_DOWNLOAD_PIN"] = ""
-                flash("PIN для QR-ссылок очищен", "success")
-                log_user_action_event(
-                    "settings_qr_pin_clear",
-                    target_type="qr",
-                    target_name="QR_DOWNLOAD_PIN",
-                )
-            elif pin_raw:
-                if pin_raw.isdigit() and 4 <= len(pin_raw) <= 12:
-                    set_env_value("QR_DOWNLOAD_PIN", pin_raw)
-                    os.environ["QR_DOWNLOAD_PIN"] = pin_raw
-                    flash("PIN для QR-ссылок обновлен", "success")
-                    log_user_action_event(
-                        "settings_qr_pin_update",
-                        target_type="qr",
-                        target_name="QR_DOWNLOAD_PIN",
-                        details=f"length={len(pin_raw)}",
-                    )
-                else:
-                    flash("PIN должен содержать только цифры и иметь длину от 4 до 12", "error")
-
-            if request.form.get("nightly_settings_action") == "save":
-                nightly_enabled_raw = (request.form.get("nightly_idle_restart_enabled") or "true").strip().lower()
-                nightly_enabled = to_bool(nightly_enabled_raw, default=True)
-
-                ttl_raw = (request.form.get("active_web_session_ttl_seconds") or "").strip()
-                touch_raw = (request.form.get("active_web_session_touch_interval_seconds") or "").strip()
-                nightly_time_raw = (request.form.get("nightly_idle_restart_time") or "").strip()
-                cron_expr_raw = (request.form.get("nightly_idle_restart_cron") or "").strip()
-
-                has_error = False
-
-                cron_expr = ""
-                if nightly_time_raw:
-                    time_match = re.fullmatch(r"^([01]\d|2[0-3]):([0-5]\d)$", nightly_time_raw)
-                    if time_match:
-                        hour_value = int(time_match.group(1))
-                        minute_value = int(time_match.group(2))
-                        cron_expr = f"{minute_value} {hour_value} * * *"
-                    else:
-                        flash("Укажите время в формате ЧЧ:ММ (например, 04:00)", "error")
-                        has_error = True
-
-                if not cron_expr:
-                    cron_expr = cron_expr_raw or "0 4 * * *"
-
-                if not is_valid_cron_expression(cron_expr):
-                    flash("Cron-выражение должно состоять из 5 полей и содержать только цифры и символы */,-", "error")
-                    has_error = True
-
-                active_ttl_seconds, active_touch_interval_seconds = get_active_web_session_settings()
-                ttl_value = active_ttl_seconds
-                if ttl_raw:
-                    if ttl_raw.isdigit() and 30 <= int(ttl_raw) <= 86400:
-                        ttl_value = int(ttl_raw)
-                    else:
-                        flash("TTL активной сессии должен быть целым числом в диапазоне 30..86400 секунд", "error")
-                        has_error = True
-
-                touch_value = active_touch_interval_seconds
-                if touch_raw:
-                    if touch_raw.isdigit() and 1 <= int(touch_raw) <= 3600:
-                        touch_value = int(touch_raw)
-                    else:
-                        flash("Интервал heartbeat должен быть целым числом в диапазоне 1..3600 секунд", "error")
-                        has_error = True
-
-                if not has_error:
-                    set_nightly_idle_restart_settings(nightly_enabled, cron_expr)
-                    set_active_web_session_settings(ttl_value, touch_value)
-
-                    env_enabled = "true" if nightly_enabled else "false"
-                    set_env_value("NIGHTLY_IDLE_RESTART_ENABLED", env_enabled)
-                    set_env_value("NIGHTLY_IDLE_RESTART_CRON", cron_expr)
-                    set_env_value("ACTIVE_WEB_SESSION_TTL_SECONDS", str(ttl_value))
-                    set_env_value("ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS", str(touch_value))
-
-                    os.environ["NIGHTLY_IDLE_RESTART_ENABLED"] = env_enabled
-                    os.environ["NIGHTLY_IDLE_RESTART_CRON"] = cron_expr
-                    os.environ["ACTIVE_WEB_SESSION_TTL_SECONDS"] = str(ttl_value)
-                    os.environ["ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS"] = str(touch_value)
-
-                    cron_ok, cron_msg = ensure_nightly_idle_restart_cron()
-                    if cron_ok:
-                        flash("Настройки ночного рестарта сохранены", "success")
-                    else:
-                        flash(cron_msg, "error")
-                    log_user_action_event(
-                        "settings_nightly_update",
-                        target_type="maintenance",
-                        target_name="nightly_idle_restart",
-                        details=(
-                            f"enabled={'вкл' if nightly_enabled else 'выкл'} "
-                            f"cron={cron_expr} ttl={ttl_value}с touch={touch_value}с"
-                        ),
-                        status="success" if cron_ok else "warning",
-                    )
-
-            if request.form.get("telegram_auth_action") == "save":
-                tg_username_raw = request.form.get("telegram_auth_bot_username", "")
-                tg_token_raw = request.form.get("telegram_auth_bot_token", "")
-                tg_max_age_raw = request.form.get("telegram_auth_max_age_seconds", "").strip()
-
-                has_tg_error = False
-                tg_username, username_error = _normalize_telegram_bot_username(tg_username_raw)
-                if username_error:
-                    flash(username_error, "error")
-                    has_tg_error = True
-
-                tg_max_age_value = 300
-                if tg_max_age_raw:
-                    if tg_max_age_raw.isdigit() and 30 <= int(tg_max_age_raw) <= 86400:
-                        tg_max_age_value = int(tg_max_age_raw)
-                    else:
-                        flash("Срок действия Telegram авторизации должен быть в диапазоне 30..86400 секунд", "error")
-                        has_tg_error = True
-
-                existing_token = (get_env_value("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip()
-                token_to_apply = existing_token
-                token_updated = False
-                if (tg_token_raw or "").strip():
-                    tg_token, token_error = _normalize_telegram_bot_token(tg_token_raw)
-                    if token_error:
-                        flash(token_error, "error")
-                        has_tg_error = True
-                    else:
-                        token_to_apply = tg_token
-                        token_updated = True
-
-                if not has_tg_error:
-                    set_env_value("TELEGRAM_AUTH_BOT_USERNAME", tg_username)
-                    set_env_value("TELEGRAM_AUTH_MAX_AGE_SECONDS", str(tg_max_age_value))
-                    os.environ["TELEGRAM_AUTH_BOT_USERNAME"] = tg_username
-                    os.environ["TELEGRAM_AUTH_MAX_AGE_SECONDS"] = str(tg_max_age_value)
-
-                    if token_updated:
-                        set_env_value("TELEGRAM_AUTH_BOT_TOKEN", token_to_apply)
-                        os.environ["TELEGRAM_AUTH_BOT_TOKEN"] = token_to_apply
-
-                    if token_to_apply:
-                        if tg_username:
-                            flash("Настройки Telegram авторизации обновлены. Telegram логин включен.", "success")
-                        else:
-                            flash("Токен сохранен, но Telegram логин выключен: не заполнен username бота.", "info")
-                    else:
-                        flash("Telegram логин выключен (токен бота пустой).", "success")
-                    log_user_action_event(
-                        "settings_telegram_auth_update",
-                        target_type="telegram_auth",
-                        target_name=(tg_username or "—"),
-                        details=(
-                            f"bot=@{tg_username or '—'} "
-                            f"max_age={tg_max_age_value}с"
-                            + (" токен обновлён" if token_updated else "")
-                        ),
-                    )
-
-            username = request.form.get("username")
-            password = request.form.get("password")
-            if username and password:
-                if len(password) < 8:
-                    flash("Пароль должен содержать минимум 8 символов!", "error")
-                else:
-                    role = request.form.get("role", "admin")
-                    if role not in ("admin", "viewer"):
-                        role = "admin"
-                    telegram_id_raw = request.form.get("telegram_id", "")
-                    normalized_telegram_id, tg_error = _normalize_telegram_id(telegram_id_raw)
-
-                    if tg_error:
-                        flash(tg_error, "error")
-                    elif user_model.query.filter_by(username=username).first():
-                        flash(f"Пользователь '{username}' уже существует!", "error")
-                    elif normalized_telegram_id and user_model.query.filter_by(telegram_id=normalized_telegram_id).first():
-                        flash(f"Telegram ID {normalized_telegram_id} уже привязан к другому пользователю!", "error")
-                    else:
-                        user = user_model(
-                            username=username,
-                            role=role,
-                            telegram_id=normalized_telegram_id or None,
-                        )
-                        user.set_password(password)
-                        db.session.add(user)
-                        db.session.commit()
-                        flash(f"Пользователь '{username}' ({role}) успешно добавлен!", "success")
-                        log_user_action_event(
-                            "settings_user_create",
-                            target_type="user",
-                            target_name=username,
-                            details=f"роль={role}" + (f" TG={normalized_telegram_id}" if normalized_telegram_id else ""),
-                        )
-
-            change_tg_notify_username = request.form.get("change_tg_notify_username")
-            if change_tg_notify_username:
-                import json as _json
-                notify_user = user_model.query.filter_by(username=change_tg_notify_username).first()
-                if notify_user:
-                    _ev_keys = [
-                        "login_success", "login_failed", "tg_unlinked",
-                        "config_create", "config_delete",
-                        "user_create", "user_delete",
-                        "client_ban", "settings_change",
-                        "high_cpu", "high_ram",
-                    ]
-                    events = {k: (request.form.get(f"tg_e_{k}") == "1") for k in _ev_keys}
-                    notify_user.tg_notify_events = _json.dumps(events)
-                    db.session.commit()
-                    flash(f"Настройки уведомлений для '{change_tg_notify_username}' сохранены", "success")
-                    log_user_action_event(
-                        "settings_user_tg_notify_update",
-                        target_type="user",
-                        target_name=change_tg_notify_username,
-                        details=_json.dumps({k: v for k, v in events.items() if v}),
-                    )
-                else:
-                    flash(f"Пользователь '{change_tg_notify_username}' не найден!", "error")
-
-            change_telegram_username = request.form.get("change_telegram_username")
-            if change_telegram_username:
-                tg_user = user_model.query.filter_by(username=change_telegram_username).first()
-                if not tg_user:
-                    flash(f"Пользователь '{change_telegram_username}' не найден!", "error")
-                else:
-                    new_telegram_id_raw = request.form.get("new_telegram_id", "")
-                    normalized_telegram_id, tg_error = _normalize_telegram_id(new_telegram_id_raw)
-                    if tg_error:
-                        flash(tg_error, "error")
-                    else:
-                        if normalized_telegram_id:
-                            owner = user_model.query.filter(
-                                user_model.telegram_id == normalized_telegram_id,
-                                user_model.username != change_telegram_username,
-                            ).first()
-                            if owner:
-                                flash(
-                                    f"Telegram ID {normalized_telegram_id} уже привязан к пользователю '{owner.username}'",
-                                    "error",
-                                )
-                                return redirect(url_for("settings"))
-
-                        old_telegram_id = tg_user.telegram_id or "—"
-                        tg_user.telegram_id = normalized_telegram_id or None
-                        db.session.commit()
-                        if normalized_telegram_id:
-                            flash(
-                                f"Telegram ID пользователя '{change_telegram_username}' обновлён",
-                                "success",
-                            )
-                        else:
-                            flash(
-                                f"Telegram ID пользователя '{change_telegram_username}' очищен",
-                                "success",
-                            )
-                        log_user_action_event(
-                            "settings_user_telegram_update",
-                            target_type="user",
-                            target_name=change_telegram_username,
-                            details=f"{old_telegram_id} → {normalized_telegram_id or '—'}",
-                        )
-
-            delete_username = request.form.get("delete_username")
-            if delete_username:
-                if delete_username == session.get("username"):
-                    flash("Нельзя удалить собственный аккаунт!", "error")
-                else:
-                    user = user_model.query.filter_by(username=delete_username).first()
-                    if user:
-                        db.session.delete(user)
-                        db.session.commit()
-                        flash(f"Пользователь '{delete_username}' успешно удалён!", "success")
-                        log_user_action_event(
-                            "settings_user_delete",
-                            target_type="user",
-                            target_name=delete_username,
-                        )
-                    else:
-                        flash(f"Пользователь '{delete_username}' не найден!", "error")
-
-            change_role_username = request.form.get("change_role_username")
-            new_role = request.form.get("new_role")
-            if change_role_username and new_role:
-                if new_role not in ("admin", "viewer"):
-                    flash("Неверная роль!", "error")
-                elif change_role_username == session.get("username"):
-                    flash("Нельзя изменить собственную роль!", "error")
-                else:
-                    role_user = user_model.query.filter_by(username=change_role_username).first()
-                    if role_user:
-                        old_role = role_user.role
-                        role_user.role = new_role
-                        db.session.commit()
-                        flash(f"Роль пользователя '{change_role_username}' изменена на '{new_role}'!", "success")
-                        log_user_action_event(
-                            "settings_user_role_update",
-                            target_type="user",
-                            target_name=change_role_username,
-                            details=f"{old_role} → {new_role}",
-                        )
-                    else:
-                        flash(f"Пользователь '{change_role_username}' не найден!", "error")
-
-            change_password_username = request.form.get("change_password_username")
-            new_password = request.form.get("new_password")
-            if change_password_username and new_password:
-                if len(new_password) < 8:
-                    flash("Пароль должен содержать минимум 8 символов!", "error")
-                else:
-                    pw_user = user_model.query.filter_by(username=change_password_username).first()
-                    if pw_user:
-                        pw_user.set_password(new_password)
-                        db.session.commit()
-                        flash(f"Пароль пользователя '{change_password_username}' изменён!", "success")
-                        log_user_action_event(
-                            "settings_user_password_update",
-                            target_type="user",
-                            target_name=change_password_username,
-                            details="пароль изменён",
-                        )
-                    else:
-                        flash(f"Пользователь '{change_password_username}' не найден!", "error")
-
-            ip_action_values = request.form.getlist("ip_action")
-            if "clear_scanner_bans" in ip_action_values:
-                ip_action = "clear_scanner_bans"
-            elif "unban_scanner_ip" in ip_action_values:
-                ip_action = "unban_scanner_ip"
-            else:
-                ip_action = ip_action_values[0] if ip_action_values else request.form.get("ip_action")
-
-            if ip_action == "add_ip":
-                new_ip = request.form.get("new_ip", "").strip()
-                if new_ip:
-                    if ip_restriction.add_ip(new_ip):
-                        flash(f"IP {new_ip} добавлен", "success")
-                        log_user_action_event(
-                            "settings_ip_add",
-                            target_type="ip_restriction",
-                            target_name=new_ip,
-                        )
-                    else:
-                        flash("Неверный формат IP", "error")
-
-            elif ip_action == "remove_ip":
-                ip_to_remove = request.form.get("ip_to_remove", "").strip()
-                if ip_to_remove:
-                    if ip_restriction.remove_ip(ip_to_remove):
-                        flash(f"IP {ip_to_remove} удален", "success")
-                        log_user_action_event(
-                            "settings_ip_remove",
-                            target_type="ip_restriction",
-                            target_name=ip_to_remove,
-                        )
-                    else:
-                        flash("IP не найден", "error")
-
-            elif ip_action == "clear_all_ips":
-                ip_restriction.clear_all()
-                flash("Все IP ограничения сброшены (доступ разрешен всем)", "success")
-                log_user_action_event(
-                    "settings_ip_clear",
-                    target_type="ip_restriction",
-                    target_name="all",
-                )
-
-            elif ip_action == "save_scanner_block":
-                if not ip_restriction.is_enabled():
-                    flash("Сначала включите IP-ограничения", "error")
-                else:
-                    block_scanners = request.form.get("block_scanners") == "true"
-                    block_ip_blocked_dwell = request.form.get("block_ip_blocked_dwell") == "true"
-                    try:
-                        max_attempts = int(request.form.get("scanner_max_attempts", ip_restriction.scanner_max_attempts))
-                        window_seconds = int(request.form.get("scanner_window_seconds", ip_restriction.scanner_window_seconds))
-                        ban_seconds = int(request.form.get("scanner_ban_seconds", ip_restriction.scanner_ban_seconds))
-                        ip_blocked_dwell_seconds = int(
-                            request.form.get(
-                                "ip_blocked_dwell_seconds",
-                                ip_restriction.ip_blocked_dwell_seconds,
-                            )
-                        )
-                    except (TypeError, ValueError):
-                        flash("Некорректные параметры блокировки сканеров", "error")
-                    else:
-                        ip_restriction.set_scanner_protection(
-                            enabled=block_scanners,
-                            max_attempts=max_attempts,
-                            window_seconds=window_seconds,
-                            ban_seconds=ban_seconds,
-                            block_ip_blocked_dwell=block_ip_blocked_dwell,
-                            ip_blocked_dwell_seconds=ip_blocked_dwell_seconds,
-                        )
-                        state = "включена" if block_scanners else "выключена"
-                        dwell_state = "включён" if block_ip_blocked_dwell else "выключен"
-                        flash(
-                            f"Защита от сканеров {state}. Бан за пребывание на странице блокировки: {dwell_state}.",
-                            "success",
-                        )
-                        log_user_action_event(
-                            "settings_ip_scanner_block",
-                            target_type="ip_restriction",
-                            target_name="scanner_block",
-                            details=(
-                                f"enabled={1 if block_scanners else 0};"
-                                f"max={ip_restriction.scanner_max_attempts};"
-                                f"window={ip_restriction.scanner_window_seconds};"
-                                f"ban={ip_restriction.scanner_ban_seconds};"
-                                f"dwell={1 if block_ip_blocked_dwell else 0};"
-                                f"dwell_sec={ip_restriction.ip_blocked_dwell_seconds}"
-                            ),
-                        )
-
-            elif ip_action == "clear_scanner_bans":
-                ip_restriction.clear_scanner_bans()
-                flash("Все баны сканеров сброшены (файл и iptables)", "success")
-                log_user_action_event(
-                    "settings_ip_scanner_bans_clear",
-                    target_type="ip_restriction",
-                    target_name="scanner_bans",
-                )
-
-            elif ip_action == "unban_scanner_ip":
-                ip_to_unban = request.form.get("ip_to_unban", "").strip()
-                if ip_to_unban:
-                    if ip_restriction.unban_scanner_ip(ip_to_unban):
-                        flash(
-                            f"IP {ip_to_unban} разблокирован на сервере (iptables). "
-                            f"Повторный серверный бан отложен — можно тестировать без whitelist.",
-                            "success",
-                        )
-                        log_user_action_event(
-                            "settings_ip_scanner_unban",
-                            target_type="ip_restriction",
-                            target_name=ip_to_unban,
-                        )
-                    else:
-                        flash("Некорректный IP для разблокировки", "error")
-                else:
-                    flash("Укажите IP для разблокировки", "error")
-
-            elif ip_action == "enable_ips":
-                ips_text = request.form.get("ips_text", "").strip()
-                if ips_text:
-                    raw_entries = [ip.strip() for ip in ips_text.split(",") if ip.strip()]
-                    normalized_entries = []
-                    invalid_entries = []
-
-                    for raw_entry in raw_entries:
-                        normalized_entry = _normalize_ip_entry(raw_entry)
-                        if normalized_entry is None:
-                            invalid_entries.append(raw_entry)
-                        else:
-                            normalized_entries.append(normalized_entry)
-
-                    if invalid_entries:
-                        invalid_preview = ", ".join(invalid_entries[:5])
-                        if len(invalid_entries) > 5:
-                            invalid_preview += ", ..."
-                        flash(
-                            f"Обнаружены некорректные IP/подсети: {invalid_preview}. Исправьте список и повторите.",
-                            "error",
-                        )
-                    elif not normalized_entries:
-                        flash("Укажите хотя бы один корректный IP-адрес", "error")
-                    else:
-                        unique_entries = sorted(set(normalized_entries))
-                        ip_restriction.allowed_ips = set(unique_entries)
-                        ip_restriction.enabled = True
-                        ip_restriction.save_to_env()
-                        flash("IP ограничения включены", "success")
-                        log_user_action_event(
-                            "settings_ip_bulk_enable",
-                            target_type="ip_restriction",
-                            target_name="bulk",
-                            details=f"entries={len(unique_entries)}",
-                        )
-                else:
-                    flash("Укажите хотя бы один IP-адрес", "error")
-
-            file_action = request.form.get("file_action")
-
-            if file_action == "add_from_file":
-                ip_file = request.form.get("ip_file", "").strip()
-                if ip_file:
-                    try:
-                        added_count = ip_manager.add_from_file(ip_file)
-                        flash(f"Добавлено {added_count} IP из файла {ip_file}", "success")
-                        log_user_action_event(
-                            "settings_ip_add_from_file",
-                            target_type="ip_file",
-                            target_name=ip_file,
-                            details=f"count={added_count}",
-                        )
-                    except FileNotFoundError:
-                        flash("Файл не найден", "error")
-                    except Exception as e:
-                        flash(f"Ошибка при добавлении IP: {e}", "error")
-                else:
-                    flash("Выберите файл", "error")
-
-            elif file_action in ("enable_file", "disable_file"):
-                ip_file = request.form.get("ip_file", "").strip()
-                if ip_file:
-                    try:
-                        if file_action == "enable_file":
-                            cnt = ip_manager.enable_file(ip_file)
-                            flash(f"Добавлено {cnt} IP из файла {ip_file}", "success")
-                        else:
-                            cnt = ip_manager.disable_file(ip_file)
-                            flash(f"Удалено {cnt} IP из файла {ip_file}", "success")
-                        log_user_action_event(
-                            "settings_ip_file_toggle",
-                            target_type="ip_file",
-                            target_name=ip_file,
-                            details=f"action={file_action} count={cnt}",
-                        )
-                    except FileNotFoundError:
-                        flash("Файл не найден", "error")
-                    except Exception as e:
-                        flash(f"Ошибка при обработке файла: {e}", "error")
-                else:
-                    flash("Не указан файл", "error")
-
-            restart_action = request.form.get("restart_action")
-
-            if restart_action == "restart_service":
-                try:
-                    task = enqueue_background_task(
-                        "restart_service",
-                        task_restart_service,
-                        created_by_username=session.get("username"),
-                        queued_message="Перезапуск службы поставлен в очередь",
-                    )
-                    flash(
-                        f"Перезапуск службы запущен в фоне (task: {task.id[:8]}). Обновите страницу через 10-20 секунд.",
-                        "info",
-                    )
-                    log_user_action_event(
-                        "settings_restart_service",
-                        target_type="service",
-                        target_name="admin-antizapret.service",
-                    )
-                except Exception as e:
-                    flash(f"Ошибка запуска фонового перезапуска: {str(e)}", "error")
-
-            return redirect(url_for("settings"))
-
-        current_port = os.getenv("APP_PORT", "5050")
-        qr_download_token_ttl_seconds = get_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600")
-        qr_download_token_max_downloads = get_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", "1")
-        qr_download_pin_set = bool((get_env_value("QR_DOWNLOAD_PIN", "") or "").strip())
-        telegram_auth_bot_username = get_env_value("TELEGRAM_AUTH_BOT_USERNAME", "")
-        telegram_auth_max_age_seconds = get_env_value("TELEGRAM_AUTH_MAX_AGE_SECONDS", "300")
-        telegram_auth_bot_token_set = bool((get_env_value("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip())
-        telegram_auth_enabled = bool(telegram_auth_bot_username and telegram_auth_bot_token_set)
-
-        nightly_idle_restart_enabled, nightly_idle_restart_cron = get_nightly_idle_restart_settings()
-        nightly_idle_restart_time = "04:00"
-        cron_parts = (nightly_idle_restart_cron or "").split()
-        if len(cron_parts) == 5 and cron_parts[0].isdigit() and cron_parts[1].isdigit():
-            minute_value = int(cron_parts[0])
-            hour_value = int(cron_parts[1])
-            if 0 <= minute_value <= 59 and 0 <= hour_value <= 23:
-                nightly_idle_restart_time = f"{hour_value:02d}:{minute_value:02d}"
-
-        active_web_session_ttl_seconds, active_web_session_touch_interval_seconds = get_active_web_session_settings()
-        active_web_sessions_count = active_web_session_model.query.filter(
-            active_web_session_model.last_seen_at >= datetime.utcnow() - timedelta(seconds=active_web_session_ttl_seconds)
-        ).count()
-
-        qr_download_audit_logs = qr_download_audit_log_model.query.order_by(
-            qr_download_audit_log_model.created_at.desc()
-        ).limit(100).all()
-        telegram_mini_audit_logs = telegram_mini_audit_log_model.query.order_by(
-            telegram_mini_audit_log_model.created_at.desc()
-        ).limit(200).all()
-        telegram_mini_audit_view = _build_telegram_mini_audit_view(telegram_mini_audit_logs)
-        user_action_logs = user_action_log_model.query.order_by(
-            user_action_log_model.created_at.desc()
-        ).limit(300).all()
-        user_action_audit_view = _build_user_action_audit_view(user_action_logs)
-        user_action_sessions = build_user_action_sessions(user_action_logs)
-        users = user_model.query.all()
-        viewer_users = user_model.query.filter_by(role="viewer").all()
-
-        all_openvpn = collect_all_openvpn_files_for_access()
-        openvpn_access_groups = build_openvpn_access_groups(all_openvpn)
-
-        orig_paths = config_file_handler.config_paths["openvpn"]
-        try:
-            config_file_handler.config_paths["openvpn"] = [d for g in group_folders.values() for d in g]
-            _, all_wg, all_amneziawg = config_file_handler.get_config_files()
-        finally:
-            config_file_handler.config_paths["openvpn"] = orig_paths
-
-        wg_access_groups = build_conf_access_groups(all_wg, "wg")
-        amneziawg_access_groups = build_conf_access_groups(all_amneziawg, "amneziawg")
-
-        viewer_access = {vu.id: {acc.config_name for acc in vu.allowed_configs} for vu in viewer_users}
-
-        allowed_ips = ip_restriction.get_allowed_ips()
-        ip_enabled = ip_restriction.is_enabled()
-        current_ip = ip_restriction.get_client_ip()
-        scanner_settings = ip_restriction.get_scanner_settings()
-        ip_block_scanners = scanner_settings["enabled"]
-        ip_scanner_max_attempts = scanner_settings["max_attempts"]
-        ip_scanner_window_seconds = scanner_settings["window_seconds"]
-        ip_scanner_ban_seconds = scanner_settings["ban_seconds"]
-        ip_scanner_active_bans = scanner_settings["active_bans"]
-        ip_scanner_grace_entries = scanner_settings["grace_entries"]
-        ip_scanner_has_firewall_entries = scanner_settings["has_firewall_entries"]
-        ip_block_ip_blocked_dwell = scanner_settings["block_ip_blocked_dwell"]
-        ip_blocked_dwell_seconds = scanner_settings["ip_blocked_dwell_seconds"]
-        ip_scanner_strikes_for_year = scanner_settings["strikes_for_year"]
-        ip_scanner_year_ban_seconds = scanner_settings["year_ban_seconds"]
-        ip_scanner_unban_grace_seconds = scanner_settings["unban_grace_seconds"]
-        ip_scanner_firewall_enabled = scanner_settings["firewall_enabled"]
-
-        monitor_cpu_threshold = int((get_env_value("MONITOR_CPU_THRESHOLD", "90") or "90").strip())
-        monitor_ram_threshold = int((get_env_value("MONITOR_RAM_THRESHOLD", "90") or "90").strip())
-        monitor_interval_seconds = int((get_env_value("MONITOR_CHECK_INTERVAL_SECONDS", "60") or "60").strip())
-        monitor_cooldown_minutes = int((get_env_value("MONITOR_COOLDOWN_MINUTES", "30") or "30").strip())
-
-        panel_publish = build_panel_publish_context(
+        return build_tg_mini_settings_payload(
             get_env_value=get_env_value,
-            url_root=getattr(request, "url_root", None),
-        )
-
-        return render_template(
-            "settings.html",
-            port=current_port,
-            panel_publish=panel_publish,
-            users=users,
-            viewer_users=viewer_users,
-            allowed_ips=allowed_ips,
-            ip_enabled=ip_enabled,
-            current_ip=current_ip,
-            ip_block_scanners=ip_block_scanners,
-            ip_scanner_max_attempts=ip_scanner_max_attempts,
-            ip_scanner_window_seconds=ip_scanner_window_seconds,
-            ip_scanner_ban_seconds=ip_scanner_ban_seconds,
-            ip_scanner_active_bans=ip_scanner_active_bans,
-            ip_scanner_grace_entries=ip_scanner_grace_entries,
-            ip_scanner_has_firewall_entries=ip_scanner_has_firewall_entries,
-            ip_block_ip_blocked_dwell=ip_block_ip_blocked_dwell,
-            ip_blocked_dwell_seconds=ip_blocked_dwell_seconds,
-            ip_scanner_strikes_for_year=ip_scanner_strikes_for_year,
-            ip_scanner_year_ban_seconds=ip_scanner_year_ban_seconds,
-            ip_scanner_unban_grace_seconds=ip_scanner_unban_grace_seconds,
-            ip_scanner_firewall_enabled=ip_scanner_firewall_enabled,
-            all_openvpn=all_openvpn,
-            openvpn_access_groups=openvpn_access_groups,
-            all_wg=all_wg,
-            all_amneziawg=all_amneziawg,
-            wg_access_groups=wg_access_groups,
-            amneziawg_access_groups=amneziawg_access_groups,
-            viewer_access=viewer_access,
-            public_download_enabled=get_public_download_enabled(),
-            qr_download_token_ttl_seconds=qr_download_token_ttl_seconds,
-            qr_download_token_max_downloads=qr_download_token_max_downloads,
-            qr_download_pin_set=qr_download_pin_set,
-            telegram_auth_bot_username=telegram_auth_bot_username,
-            telegram_auth_max_age_seconds=telegram_auth_max_age_seconds,
-            telegram_auth_bot_token_set=telegram_auth_bot_token_set,
-            telegram_auth_enabled=telegram_auth_enabled,
-            nightly_idle_restart_enabled=nightly_idle_restart_enabled,
-            nightly_idle_restart_cron=nightly_idle_restart_cron,
-            nightly_idle_restart_time=nightly_idle_restart_time,
-            active_web_session_ttl_seconds=active_web_session_ttl_seconds,
-            active_web_session_touch_interval_seconds=active_web_session_touch_interval_seconds,
-            active_web_sessions_count=active_web_sessions_count,
-            qr_download_audit_logs=qr_download_audit_logs,
-            telegram_mini_audit_logs=telegram_mini_audit_view,
-            user_action_audit_logs=user_action_audit_view,
-            user_action_sessions=user_action_sessions,
-            monitor_cpu_threshold=monitor_cpu_threshold,
-            monitor_ram_threshold=monitor_ram_threshold,
-            monitor_interval_seconds=monitor_interval_seconds,
-            monitor_cooldown_minutes=monitor_cooldown_minutes,
+            get_nightly_idle_restart_settings=get_nightly_idle_restart_settings,
+            get_active_web_session_settings=get_active_web_session_settings,
         )
 
     @app.route("/api/antizapret/ip-files", methods=["GET", "POST"])
@@ -1256,7 +297,7 @@ def register_settings_routes(
         if action == "update":
             scopes_text = ",".join(region_scopes or ["all"])
 
-            task_id = _create_cidr_task(
+            task_id = create_cidr_task(
                 "cidr_update",
                 "Обновление CIDR-файлов поставлено в очередь",
             )
@@ -1326,7 +367,7 @@ def register_settings_routes(
             return jsonify(result), (200 if result.get("success") else 400)
 
         if action == "rollback":
-            task_id = _create_cidr_task(
+            task_id = create_cidr_task(
                 "cidr_rollback",
                 "Откат CIDR-файлов поставлен в очередь",
             )
@@ -1362,11 +403,11 @@ def register_settings_routes(
     @app.route("/api/cidr-lists/task/<task_id>", methods=["GET"])
     @auth_manager.admin_required
     def api_cidr_task_status(task_id):
-        task = _get_cidr_task(task_id)
+        task = get_cidr_task(task_id)
         if not task:
             return jsonify({"success": False, "message": "Задача CIDR не найдена"}), 404
 
-        payload = _serialize_cidr_task(task)
+        payload = serialize_cidr_task(task)
         payload["success"] = True
         return jsonify(payload)
 
@@ -1412,7 +453,7 @@ def register_settings_routes(
 
         triggered_by = f"manual:{session.get('username', 'unknown')}"
 
-        task_id = _create_cidr_task("cidr_db_refresh", "Обновление CIDR БД запущено в фоне")
+        task_id = create_cidr_task("cidr_db_refresh", "Обновление CIDR БД запущено в фоне")
 
         def _runner(progress_callback):
             return cidr_db_updater_service.refresh_all_providers(
@@ -1481,7 +522,7 @@ def register_settings_routes(
         route_limit = None
 
         if action == "estimate":
-            active_task = _find_active_cidr_task("cidr_estimate_from_db")
+            active_task = find_active_cidr_task("cidr_estimate_from_db")
             if active_task:
                 return jsonify({
                     "success": True,
@@ -1491,7 +532,7 @@ def register_settings_routes(
                     "status_url": url_for("api_cidr_task_status", task_id=active_task.get("task_id")),
                 }), 202
 
-            task_id = _create_cidr_task("cidr_estimate_from_db", "Оценка CIDR из БД запущена")
+            task_id = create_cidr_task("cidr_estimate_from_db", "Оценка CIDR из БД запущена")
 
             def _estimate_runner(progress_callback):
                 return estimate_cidr_matches_from_db(
@@ -1520,7 +561,7 @@ def register_settings_routes(
                 "status_url": url_for("api_cidr_task_status", task_id=task_id),
             }), 202
 
-        task_id = _create_cidr_task("cidr_generate_from_db", "Генерация CIDR-файлов из БД запущена")
+        task_id = create_cidr_task("cidr_generate_from_db", "Генерация CIDR-файлов из БД запущена")
 
         def _runner(progress_callback):
             result = update_cidr_files_from_db(
@@ -1663,7 +704,7 @@ def register_settings_routes(
     @app.route("/api/antifilter/refresh", methods=["POST"])
     @auth_manager.admin_required
     def api_antifilter_refresh():
-        task_id = _create_cidr_task("antifilter_refresh", "Обновление антифильтра запущено в фоне")
+        task_id = create_cidr_task("antifilter_refresh", "Обновление антифильтра запущено в фоне")
         _triggered_by = f"manual:{session.get('username', 'unknown')}"
 
         def _runner(progress_callback):
@@ -1699,7 +740,7 @@ def register_settings_routes(
     @app.route("/api/tests/collect", methods=["GET"])
     @auth_manager.admin_required
     def api_tests_collect():
-        app_root_dir = os.path.dirname(os.path.dirname(__file__))
+        app_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         venv_pytest = os.path.join(app_root_dir, "venv", "bin", "pytest")
         if not os.path.isfile(venv_pytest):
             venv_pytest = "pytest"
@@ -1739,13 +780,13 @@ def register_settings_routes(
         payload = request.get_json(silent=True) or {}
         test_ids = [str(t) for t in (payload.get("test_ids") or []) if t]
 
-        app_root_dir = os.path.dirname(os.path.dirname(__file__))
+        app_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         venv_pytest = os.path.join(app_root_dir, "venv", "bin", "pytest")
         if not os.path.isfile(venv_pytest):
             venv_pytest = "pytest"
         tests_dir = os.path.join(app_root_dir, "tests")
 
-        active = _find_active_cidr_task("pytest_run")
+        active = find_active_cidr_task("pytest_run")
         if active:
             return jsonify({
                 "success": True,
@@ -1755,7 +796,7 @@ def register_settings_routes(
                 "status_url": url_for("api_cidr_task_status", task_id=active.get("task_id")),
             }), 202
 
-        task_id = _create_cidr_task("pytest_run", "Запуск тестов...")
+        task_id = create_cidr_task("pytest_run", "Запуск тестов...")
 
         def _runner(progress_callback):
             progress_callback(5, "Запуск pytest...")
@@ -2077,7 +1118,7 @@ def register_settings_routes(
                 tg_token_raw = data.get("telegram_auth_bot_token", None)
                 tg_max_age_raw = str(data.get("telegram_auth_max_age_seconds") or "").strip()
 
-                tg_username, username_error = _normalize_telegram_bot_username(tg_username_raw)
+                tg_username, username_error = normalize_telegram_bot_username(tg_username_raw)
                 if username_error:
                     return jsonify({"success": False, "message": username_error}), 400
 
@@ -2097,7 +1138,7 @@ def register_settings_routes(
                 os.environ["TELEGRAM_AUTH_MAX_AGE_SECONDS"] = str(tg_max_age_value)
 
                 if tg_token_raw is not None:
-                    tg_token, token_error = _normalize_telegram_bot_token(tg_token_raw)
+                    tg_token, token_error = normalize_telegram_bot_token(tg_token_raw)
                     if token_error:
                         return jsonify({"success": False, "message": token_error}), 400
                     set_env_value("TELEGRAM_AUTH_BOT_TOKEN", tg_token)

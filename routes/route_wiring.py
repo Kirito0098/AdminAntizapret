@@ -7,7 +7,7 @@ from routes.index import register_index_routes
 from routes.logs_dashboard import register_logs_dashboard_routes
 from routes.monitoring_routes import register_monitoring_routes
 from routes.server_monitor import register_server_monitor_routes
-from routes.settings_routes import register_settings_routes
+from routes.settings import register_settings_routes
 
 
 def register_all_routes(app, sock, deps):

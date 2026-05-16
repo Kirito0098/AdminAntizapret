@@ -38,7 +38,6 @@ from utils.ip_restriction import ip_restriction
 from config.antizapret_params import ANTIZAPRET_PARAMS
 from ips import ip_manager
 from routes.route_wiring import register_all_routes
-from routes.settings_antizapret import init_antizapret
 from core.models import (
     ActiveWebSession,
     AntifilterCidr,
@@ -122,9 +121,6 @@ app.config.update(build_session_security_config(os.environ))
 csrf = CSRFProtect(app)
 sock = Sock(app)
 ip_restriction.init_app(app)
-init_antizapret(app)
-
-
 def _rate_limit_key_func():
     forwarded_for = (request.headers.get("X-Forwarded-For", "") or "").split(",", 1)[0].strip()
     if forwarded_for:
@@ -368,18 +364,6 @@ database_migration_service = DatabaseMigrationService(
     app=app,
     db=db,
 )
-
-# Защита antizapret-роутов после полной инициализации
-app.view_functions['get_antizapret_settings'] = auth_manager.admin_required(
-    app.view_functions['get_antizapret_settings']
-)
-app.view_functions['update_antizapret_settings'] = auth_manager.admin_required(
-    app.view_functions['update_antizapret_settings']
-)
-app.view_functions['antizapret_settings_schema'] = auth_manager.admin_required(
-    app.view_functions['antizapret_settings_schema']
-)
-
 
 def _get_config_type(file_path):
     """Define config type by directory path."""
