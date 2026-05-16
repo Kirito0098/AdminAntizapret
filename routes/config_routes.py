@@ -50,7 +50,6 @@ def register_config_routes(
     create_one_time_download_url,
     log_qr_event,
     qr_generator,
-    file_editor,
     enqueue_background_task,
     task_run_doall,
     task_accepted_response,
@@ -187,14 +186,6 @@ def register_config_routes(
             return "wireguard"
 
         return "openvpn"
-
-    def _validate_editor_content(content):
-        value = content or ""
-        if "\x00" in value:
-            return False, "Содержимое файла содержит недопустимый нулевой байт"
-        if len(value.encode("utf-8")) > 1024 * 1024:
-            return False, "Содержимое файла превышает допустимый размер 1 MiB"
-        return True, ""
 
     def _build_platform_instruction_caption(file_name, device_platform, config_kind):
         name = file_name or "config.ovpn"
@@ -917,42 +908,6 @@ def register_config_routes(
             raise
         except ValueError as e:
             return jsonify({"success": False, "message": str(e)}), 400
-
-    @app.route("/edit-files", methods=["GET", "POST"])
-    @auth_manager.admin_required
-    def edit_files():
-        if request.method == "POST":
-            file_type = request.form.get("file_type")
-            content = request.form.get("content", "")
-            content_ok, content_error = _validate_editor_content(content)
-            if not content_ok:
-                return jsonify({"success": False, "message": content_error}), 400
-
-            if file_editor.update_file_content(file_type, content):
-                try:
-                    task = enqueue_background_task(
-                        "run_doall",
-                        task_run_doall,
-                        created_by_username=session.get("username"),
-                        queued_message="Применение изменений запущено в фоне",
-                    )
-                    return task_accepted_response(
-                        task,
-                        "Файл сохранен. Применение изменений выполняется в фоне.",
-                    )
-                except (RuntimeError, ValueError, OSError) as e:
-                    return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
-
-            return jsonify({"success": False, "message": "Неверный тип файла."}), 400
-
-        file_contents = file_editor.get_file_contents()
-        file_display_titles = file_editor.get_file_display_titles()
-        return render_template(
-            "edit_files.html",
-            file_contents=file_contents,
-            file_display_titles=file_display_titles,
-            public_download_enabled=get_public_download_enabled(),
-        )
 
     @app.route("/run-doall", methods=["POST"])
     @auth_manager.admin_required

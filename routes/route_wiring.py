@@ -2,6 +2,7 @@ from routes.admin_routes import register_admin_routes
 from routes.routing_routes import register_routing_routes
 from routes.auth_routes import register_auth_routes
 from routes.config_routes import register_config_routes
+from routes.edit_files import register_edit_files_routes
 from routes.index import register_index_routes
 from routes.monitoring_routes import register_monitoring_routes
 from routes.settings_routes import register_settings_routes
@@ -44,7 +45,6 @@ def register_all_routes(app, sock, deps):
         create_one_time_download_url=g("_create_one_time_download_url"),
         log_qr_event=g("_log_qr_event"),
         qr_generator=g("qr_generator"),
-        file_editor=g("file_editor"),
         enqueue_background_task=g("_enqueue_background_task"),
         task_run_doall=g("_task_run_doall"),
         task_accepted_response=g("_task_accepted_response"),
@@ -54,6 +54,16 @@ def register_all_routes(app, sock, deps):
         set_public_download_enabled=g("_set_public_download_enabled"),
         log_telegram_audit_event=g("_log_telegram_audit_event"),
         log_user_action_event=g("_log_user_action_event"),
+    )
+
+    register_edit_files_routes(
+        app,
+        auth_manager=g("auth_manager"),
+        file_editor=g("file_editor"),
+        enqueue_background_task=g("_enqueue_background_task"),
+        task_run_doall=g("_task_run_doall"),
+        task_accepted_response=g("_task_accepted_response"),
+        get_public_download_enabled=g("_get_public_download_enabled"),
     )
 
     register_admin_routes(

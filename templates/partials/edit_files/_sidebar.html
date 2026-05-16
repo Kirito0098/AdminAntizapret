@@ -1,0 +1,42 @@
+{% from "partials/edit_files/_macros.html" import edit_file_nav_item %}
+
+<aside id="editfiles-sidebar" class="left-sidebar page-unified-card editfiles-sidebar"
+  aria-label="Панель управления файлами">
+  <div class="editfiles-sidebar-head">
+    <p class="editfiles-sidebar-kicker">Operations</p>
+    <h2 class="editfiles-sidebar-title">Редактор списков</h2>
+    <p class="editfiles-sidebar-text">Управление файлами маршрутизации, исключениями и публичной раздачей маршрутов.
+    </p>
+  </div>
+
+  <div class="sidebar-header">
+    <div class="toggle-buttons page-unified-tabs" role="tablist" aria-label="Режимы редактирования">
+      <button id="btn-lists" class="page-unified-tab-btn active" type="button" aria-selected="true">Списки</button>
+      <button id="btn-routes" class="page-unified-tab-btn" type="button" aria-selected="false">Маршруты</button>
+    </div>
+    <div id="lists-panel" class="editfiles-panel">
+      <div class="file-filter-wrap">
+        <label class="file-filter-label" for="file-filter">Быстрый поиск списка</label>
+        <input id="file-filter" class="file-filter-input" type="search" placeholder="Введите часть названия списка..."
+          autocomplete="off">
+      </div>
+      <nav class="file-nav" aria-label="Списки файлов">
+        {% for row in file_nav_items %}
+        {{ edit_file_nav_item(row) }}
+        {% endfor %}
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button id="run-doall" class="btn btn-update" type="button">
+          Обновить списки
+        </button>
+      </div>
+    </div>
+
+    {% include "partials/edit_files/_routes_panel.html" %}
+  </div>
+
+  <div class="editfiles-sidebar-note" role="note">
+    Выберите список слева, внесите изменения и сохраните. Массовое обновление применяет все изменения одной задачей.
+  </div>
+</aside>

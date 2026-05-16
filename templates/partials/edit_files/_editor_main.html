@@ -1,0 +1,9 @@
+{% from "partials/edit_files/_macros.html" import edit_file_form %}
+
+<main class="right-content editfiles-main">
+  <div class="editor-card page-unified-card">
+    {% for row in editor_forms %}
+    {{ edit_file_form(row) }}
+    {% endfor %}
+  </div>
+</main>
