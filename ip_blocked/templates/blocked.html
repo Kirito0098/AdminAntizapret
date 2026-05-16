@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Доступ ограничен</title>
+    <link rel="stylesheet" href="{{ url_for('ip_blocked.static', filename='css/ip_blocked.css') }}">
+</head>
+
+<body>
+    <script id="blocked-flash-messages" type="application/json">
+        {{ get_flashed_messages(with_categories=True) | tojson }}
+    </script>
+
+    <div class="particles" id="particles"></div>
+
+    <div class="container">
+        <div class="lock-icon">🔒</div>
+        <h1>Доступ ограничен</h1>
+        <p class="subtitle">Ваш IP-адрес не входит в список разрешённых для доступа к этой системе</p>
+
+        <div class="ip-address" id="ipDisplay">{{ client_ip }}</div>
+
+        <div class="info-box">
+            <div class="info-row">
+                <span class="info-label">IP-адрес:</span>
+                <span class="info-value">{{ client_ip }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Время:</span>
+                <span class="info-value">{{ current_time }}</span>
+            </div>
+        </div>
+    </div>
+
+    <script id="ip-blocked-config" type="application/json">
+        {{ {
+            "dwellEnabled": ip_blocked_dwell_tracking,
+            "pingUrl": ping_url,
+            "dwellSeconds": ip_blocked_dwell_seconds,
+        } | tojson }}
+    </script>
+    <script src="{{ url_for('ip_blocked.static', filename='js/ip_blocked.js') }}"></script>
+</body>
+
+</html>

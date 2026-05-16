@@ -19,6 +19,7 @@ from flask import (
 )
 
 from core.services.telegram_webapp_init_data import verify_telegram_webapp_init_data
+from ip_blocked.constants import IP_BLOCKED_ACCESS_ENDPOINTS
 
 
 def register_auth_routes(
@@ -432,7 +433,7 @@ def register_auth_routes(
                     return ip_restriction.build_denied_json_response(client_ip)
                 return ip_restriction.build_hard_deny_response()
 
-            if request.endpoint in ("ip_blocked", "ip_blocked_ping"):
+            if request.endpoint in IP_BLOCKED_ACCESS_ENDPOINTS:
                 return
 
             if request.is_json:
@@ -454,44 +455,3 @@ def register_auth_routes(
         except Exception as e:
             db.session.rollback()
             app.logger.warning("Не удалось обновить активную сессию: %s", e)
-
-    @app.route("/ip-blocked")
-    def ip_blocked():
-        if not ip_restriction.is_enabled():
-            return redirect(url_for("login"))
-
-        client_ip = ip_restriction.get_client_ip()
-        if ip_restriction.is_ip_allowed(client_ip):
-            return redirect(url_for("login"))
-
-        dwell_status = ip_restriction.touch_ip_blocked_presence(client_ip)
-        if dwell_status.get("banned"):
-            return ip_restriction.build_hard_deny_response()
-
-        current_time = time.strftime("%Y-%m-%d %H:%M:%S")
-        request_path = request.headers.get("Referer", request.path)
-
-        return render_template(
-            "ip_blocked.html",
-            client_ip=client_ip,
-            current_time=current_time,
-            request_path=request_path,
-            app_name=app_name,
-            ip_blocked_dwell_tracking=ip_restriction.block_ip_blocked_dwell,
-            ip_blocked_dwell_seconds=ip_restriction.ip_blocked_dwell_seconds,
-        )
-
-    @app.route("/ip-blocked/ping", methods=["GET", "POST"])
-    def ip_blocked_ping():
-        if not ip_restriction.is_enabled():
-            return jsonify({"success": False, "message": "IP-ограничения выключены"}), 404
-
-        client_ip = ip_restriction.get_client_ip()
-        if ip_restriction.is_ip_allowed(client_ip):
-            return jsonify({"banned": False, "tracking": False})
-
-        dwell_status = ip_restriction.touch_ip_blocked_presence(client_ip)
-        if dwell_status.get("banned"):
-            return ip_restriction.build_denied_json_response(client_ip)
-
-        return jsonify({"success": True, **dwell_status})

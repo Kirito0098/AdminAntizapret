@@ -9,6 +9,7 @@ from pathlib import Path
 from flask import jsonify, make_response, request
 from markupsafe import escape
 
+from ip_blocked.constants import IP_BLOCKED_ACCESS_ENDPOINTS
 from utils.scanner_firewall_store import ScannerFirewallStore
 
 
@@ -430,7 +431,7 @@ class IPRestriction:
         """Считать ли запрос для серверного бана (не для теста на /ip-blocked)."""
         if not self.block_scanners:
             return False
-        if endpoint in ("ip_blocked", "ip_blocked_ping", "static"):
+        if endpoint in IP_BLOCKED_ACCESS_ENDPOINTS or endpoint == "static":
             return False
         ip_key = self._normalize_tracker_ip(ip_str)
         if not ip_key:

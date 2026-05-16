@@ -5,6 +5,7 @@ from routes.config_routes import register_config_routes
 from routes.edit_files import register_edit_files_routes
 from routes.index import register_index_routes
 from routes.logs_dashboard import register_logs_dashboard_routes
+from ip_blocked import register_ip_blocked_routes
 from tg_mini import register_tg_mini_routes
 from routes.server_monitor import register_server_monitor_routes
 from routes.settings import register_settings_routes
@@ -27,6 +28,8 @@ def register_all_routes(app, sock, deps):
         log_user_action_event=g("_log_user_action_event"),
         send_tg_admin_notification=g("_send_tg_admin_notification"),
     )
+
+    register_ip_blocked_routes(app, ip_restriction=g("ip_restriction"))
 
     register_config_routes(
         app,

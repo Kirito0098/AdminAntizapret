@@ -40,7 +40,7 @@ def test_build_robots_txt_blocks_download_paths():
     assert "Disallow: /login" in body
     assert "Disallow: /qr_download/" in body
     assert "Disallow: /download/" in body
-    assert "Disallow: /ip_blocked" in body
+    assert "Disallow: /ip-blocked" in body
 
 
 def test_build_security_txt_has_no_vpn_wording():

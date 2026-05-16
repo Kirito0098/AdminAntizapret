@@ -7,6 +7,7 @@ from pathlib import Path
 
 from flask import Flask
 
+from ip_blocked import register_ip_blocked_routes
 from routes.auth_routes import register_auth_routes
 from utils.ip_restriction import IPRestriction
 from utils.scanner_firewall_store import ScannerFirewallStore
@@ -33,6 +34,7 @@ def _register_test_auth_app(restriction: IPRestriction) -> Flask:
         remove_active_web_session=lambda: None,
         log_telegram_audit_event=lambda *args, **kwargs: None,
     )
+    register_ip_blocked_routes(app, ip_restriction=restriction)
     return app
 
 
@@ -89,14 +91,15 @@ class IPRestrictionScannerBlockTests(unittest.TestCase):
             self.assertEqual(ping.status_code, 404)
 
     def test_denied_ip_redirects_until_banned(self) -> None:
-        restriction = self._build_restriction()
-        restriction.block_scanners = True
-        app = _register_test_auth_app(restriction)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            restriction = self._build_restriction(Path(tmp_dir))
+            restriction.block_scanners = True
+            app = _register_test_auth_app(restriction)
 
-        with app.test_client() as client:
-            response = client.get("/", environ_base={"REMOTE_ADDR": "203.0.113.9"})
-            self.assertEqual(response.status_code, 302)
-            self.assertIn("/ip-blocked", response.location or "")
+            with app.test_client() as client:
+                response = client.get("/", environ_base={"REMOTE_ADDR": "203.0.113.9"})
+                self.assertEqual(response.status_code, 302)
+                self.assertIn("/ip-blocked", response.location or "")
 
 
 if __name__ == "__main__":
