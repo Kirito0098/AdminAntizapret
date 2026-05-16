@@ -329,10 +329,6 @@ def _set_sqlite_wal(dbapi_conn, _conn_record):
         cursor.close()
 
 
-def _collect_bw_interface_groups():
-    return config_access_service.collect_bw_interface_groups()
-
-
 # Инициализация классов
 script_executor = ScriptExecutor(
     min_cert_expire=MIN_CERT_EXPIRE,

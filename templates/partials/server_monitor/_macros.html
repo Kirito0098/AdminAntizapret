@@ -1,0 +1,6 @@
+{% macro iface_btn(key, label, ifaces, fallback) %}
+<button class="iface-btn" data-iface="{{ key }}" type="button">
+  <span class="iface-btn-label">{{ label }}</span>
+  <span class="iface-btn-meta">({{ (ifaces or fallback) | join(', ') }})</span>
+</button>
+{% endmacro %}

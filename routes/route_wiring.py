@@ -5,6 +5,7 @@ from routes.config_routes import register_config_routes
 from routes.edit_files import register_edit_files_routes
 from routes.index import register_index_routes
 from routes.monitoring_routes import register_monitoring_routes
+from routes.server_monitor import register_server_monitor_routes
 from routes.settings_routes import register_settings_routes
 
 
@@ -145,12 +146,17 @@ def register_all_routes(app, sock, deps):
         send_tg_admin_notification=g("_send_tg_admin_notification"),
     )
 
-    register_monitoring_routes(
+    register_server_monitor_routes(
         app,
         sock,
         auth_manager=g("auth_manager"),
         server_monitor_proc=g("server_monitor_proc"),
-        collect_bw_interface_groups=g("_collect_bw_interface_groups"),
+    )
+
+    register_monitoring_routes(
+        app,
+        sock,
+        auth_manager=g("auth_manager"),
         get_logs_dashboard_data_cached=g("_get_logs_dashboard_data_cached"),
         cleanup_status_logs_now=g("_cleanup_status_logs_now"),
         set_status_cleanup_schedule=g("_set_status_cleanup_schedule"),

@@ -41,6 +41,20 @@
   padding: 0.56rem;
 }
 
+.server-monitor-wrapper .bw-chart-wrap {
+  border: 1px solid var(--theme-glass-border, var(--chart-border));
+  border-radius: var(--chart-radius);
+  background: var(--theme-bg-darker, var(--chart-surface));
+  box-shadow:
+    inset 0 0 0 1px var(--theme-primary-alpha-08, rgba(63, 160, 131, 0.08)),
+    0 10px 24px var(--theme-glass-shadow, rgba(6, 12, 16, 0.28));
+  padding: clamp(0.35rem, 1.2vw, 0.56rem);
+}
+
+.server-monitor-wrapper .bw-chart {
+  height: clamp(190px, 42vw, 330px) !important;
+}
+
 .chart-canvas-wrap canvas,
 .traffic-chart-wrap canvas,
 .client-modal-chart-wrap canvas {

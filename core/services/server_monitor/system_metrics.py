@@ -2,6 +2,7 @@ import logging
 import os
 import platform
 import time
+from datetime import datetime, timezone
 
 import psutil
 
@@ -11,7 +12,19 @@ logger = logging.getLogger(__name__)
 
 class ServerMonitor:
     def __init__(self):
-        pass
+        self._cpu_percent_ready = False
+
+    def _ensure_cpu_percent_ready(self):
+        if not self._cpu_percent_ready:
+            psutil.cpu_percent(interval=None)
+            self._cpu_percent_ready = True
+
+    def get_cpu_usage_snapshot(self):
+        self._ensure_cpu_percent_ready()
+        return psutil.cpu_percent(interval=None)
+
+    def get_cpu_usage_nonblocking(self):
+        return self.get_cpu_usage_snapshot()
 
     def get_cpu_usage(self):
         return psutil.cpu_percent(interval=1)
@@ -30,7 +43,6 @@ class ServerMonitor:
         return f"{int(days)}д {int(hours)}ч {int(minutes)}м"
 
     def get_system_info(self):
-        """Получить системную информацию."""
         try:
             return {
                 "os": platform.system(),
@@ -45,7 +57,6 @@ class ServerMonitor:
             return {}
 
     def get_disk_usage(self):
-        """Получить использование диска."""
         try:
             disk = psutil.disk_usage("/")
             return {
@@ -59,7 +70,6 @@ class ServerMonitor:
             return {}
 
     def get_load_average(self):
-        """Получить load average."""
         try:
             load = os.getloadavg() if hasattr(os, "getloadavg") else psutil.getloadavg()
             cpu_count = psutil.cpu_count()
@@ -82,3 +92,37 @@ class ServerMonitor:
         if value >= thresholds.get("yellow", 70):
             return "yellow"
         return "green"
+
+
+def build_system_info_response(server_monitor_proc, *, accurate_cpu=False):
+    if accurate_cpu:
+        cpu_usage = server_monitor_proc.get_cpu_usage()
+    else:
+        cpu_usage = server_monitor_proc.get_cpu_usage_nonblocking()
+
+    memory_usage = server_monitor_proc.get_memory_usage()
+    disk_usage = server_monitor_proc.get_disk_usage()
+    load_avg = server_monitor_proc.get_load_average()
+    system_info = server_monitor_proc.get_system_info()
+    uptime = server_monitor_proc.get_uptime()
+
+    return {
+        "cpu": {
+            "usage": cpu_usage,
+            "color": server_monitor_proc.get_status_color(cpu_usage),
+        },
+        "memory": {
+            "usage": memory_usage,
+            "color": server_monitor_proc.get_status_color(memory_usage),
+        },
+        "disk": {
+            "usage_percent": disk_usage.get("percent", 0),
+            "used_gb": round(disk_usage.get("used", 0) / (1024**3), 2),
+            "total_gb": round(disk_usage.get("total", 0) / (1024**3), 2),
+            "color": server_monitor_proc.get_status_color(disk_usage.get("percent", 0)),
+        },
+        "load_average": load_avg,
+        "system_info": system_info,
+        "uptime": uptime,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
