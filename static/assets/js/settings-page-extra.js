@@ -23,25 +23,18 @@ document.querySelectorAll('.viewer-access-cb').forEach(function (cb) {
     })
       .then(r => r.json())
       .then(data => {
-        const statusEl = document.getElementById('viewer-access-status');
         if (data.success) {
-          statusEl.textContent = (action === 'grant' ? '✅ Доступ выдан: ' : '🚫 Доступ отозван: ') + configLabel;
-          statusEl.className = 'notification notification-success viewer-access-notice';
+          window.showNotification?.(
+            (action === 'grant' ? 'Доступ выдан: ' : 'Доступ отозван: ') + configLabel,
+            'success'
+          );
         } else {
-          statusEl.textContent = '❌ Ошибка: ' + (data.message || 'unknown');
-          statusEl.className = 'notification notification-error viewer-access-notice';
+          window.showNotification?.('Ошибка: ' + (data.message || 'unknown'), 'error');
           this.checked = !this.checked; // откат
         }
-        statusEl.style.display = 'block';
-        setTimeout(() => {
-          statusEl.classList.add('notification-exit');
-          setTimeout(() => {
-            statusEl.classList.remove('notification-exit');
-            statusEl.style.display = 'none';
-          }, 180);
-        }, 3000);
       })
       .catch(() => {
+        window.showNotification?.('Ошибка сети', 'error');
         this.checked = !this.checked; // откат при сетевой ошибке
       });
   });

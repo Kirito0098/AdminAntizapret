@@ -519,8 +519,10 @@
         body: JSON.stringify({ username: username }),
       })
         .then(function (r) { return r.json(); })
-        .then(function (d) { alert(d.message || (d.success ? 'Отправлено' : 'Ошибка')); })
-        .catch(function () { alert('Ошибка сети'); })
+        .then(function (d) {
+          window.showNotification(d.message || (d.success ? 'Отправлено' : 'Ошибка'), d.success ? 'success' : 'error');
+        })
+        .catch(function () { window.showNotification('Ошибка сети', 'error'); })
         .finally(function () { btn.disabled = false; btn.textContent = origText; });
       return;
     }
@@ -546,8 +548,10 @@
         }),
       })
         .then(function (r) { return r.json(); })
-        .then(function (d) { alert(d.message || (d.success ? 'Сохранено' : 'Ошибка')); })
-        .catch(function () { alert('Ошибка сети'); })
+        .then(function (d) {
+          window.showNotification(d.message || (d.success ? 'Сохранено' : 'Ошибка'), d.success ? 'success' : 'error');
+        })
+        .catch(function () { window.showNotification('Ошибка сети', 'error'); })
         .finally(function () { mbtn.disabled = false; mbtn.textContent = origText2; });
       return;
     }

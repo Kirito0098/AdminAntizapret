@@ -1,8 +1,3 @@
-// === Уведомления ===
-const notifyEl = document.getElementById('notification');
-let notifyTimeout;
-let notifyExitTimeout;
-
 function safeTrim(value) {
     return (value || '').trim();
 }
@@ -91,28 +86,6 @@ async function pollBackgroundTask(taskId, options = {}) {
     }
 
     throw new Error('Превышено время ожидания фоновой задачи');
-}
-
-function showNotify(msg, type = 'success') {
-    if (!notifyEl) {
-        return;
-    }
-
-    notifyEl.textContent = msg;
-    notifyEl.className = `notification notification-${type}`;
-    notifyEl.classList.remove('notification-exit');
-    notifyEl.hidden = false;
-
-    clearTimeout(notifyTimeout);
-    clearTimeout(notifyExitTimeout);
-
-    notifyTimeout = setTimeout(() => {
-        notifyEl.classList.add('notification-exit');
-        notifyExitTimeout = setTimeout(() => {
-            notifyEl.classList.remove('notification-exit');
-            notifyEl.hidden = true;
-        }, 180);
-    }, 4700);
 }
 
 // === Навигация форм ===
@@ -398,7 +371,7 @@ editForms.forEach((form) => {
         meta.textarea.value = meta.initialValue;
         refreshFormState(form);
         updateDiffView();
-        showNotify('Изменения в форме сброшены', 'success');
+        window.showNotification('Изменения в форме сброшены', 'success');
     });
 
     diffToggleBtn.addEventListener('click', () => {
@@ -491,11 +464,11 @@ editForms.forEach(form => {
             }
 
             if (data.queued && data.task_id) {
-                showNotify(data.message || 'Изменения сохранены. Применение запущено в фоне.', 'success');
+                window.showNotification(data.message || 'Изменения сохранены. Применение запущено в фоне.', 'success');
                 const task = await pollBackgroundTask(data.task_id);
-                showNotify(task.message || 'Изменения успешно применены', 'success');
+                window.showNotification(task.message || 'Изменения успешно применены', 'success');
             } else {
-                showNotify(data.message || 'Изменения сохранены', data.success ? 'success' : 'error');
+                window.showNotification(data.message || 'Изменения сохранены', data.success ? 'success' : 'error');
             }
 
             const meta = formMeta.get(form);
@@ -515,7 +488,7 @@ editForms.forEach(form => {
                 }
             }
         } catch (err) {
-            showNotify('Ошибка при сохранении', 'error');
+            window.showNotification('Ошибка при сохранении', 'error');
             console.error('Ошибка сохранения:', err);
         } finally {
             submitBtn.disabled = false;
@@ -561,14 +534,14 @@ runDoAllBtn?.addEventListener('click', async () => {
         }
 
         if (data.queued && data.task_id) {
-            showNotify(data.message || 'Обновление списка запущено в фоне', 'success');
+            window.showNotification(data.message || 'Обновление списка запущено в фоне', 'success');
             const task = await pollBackgroundTask(data.task_id);
-            showNotify(task.message || 'Список успешно обновлён', 'success');
+            window.showNotification(task.message || 'Список успешно обновлён', 'success');
         } else {
-            showNotify(data.message || 'Список успешно обновлён', data.success ? 'success' : 'error');
+            window.showNotification(data.message || 'Список успешно обновлён', data.success ? 'success' : 'error');
         }
     } catch (err) {
-        showNotify('Не удалось обновить список', 'error');
+        window.showNotification('Не удалось обновить список', 'error');
         console.error('Ошибка обновления:', err);
     } finally {
         runDoAllBtn.disabled = false;

@@ -1,18 +1,7 @@
 /**
- * Shared tab navigation, notifications, and background task polling for
- * /settings and /routing pages.
+ * Shared tab navigation and background task polling for /settings and /routing.
+ * Toast API: notifications.js (window.showNotification, window.hideNotificationWithFx).
  */
-function hideNotificationWithFx(element, delayMs = 0) {
-  if (!element) return;
-  setTimeout(() => {
-    element.classList.add("notification-exit");
-    setTimeout(() => {
-      element.classList.remove("notification-exit");
-      element.style.display = "none";
-    }, 180);
-  }, delayMs);
-}
-
 async function pollBackgroundTask(taskId, options = {}) {
   const intervalMs = options.intervalMs || 3000;
   const timeoutMs = options.timeoutMs || 600000;

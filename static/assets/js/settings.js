@@ -412,7 +412,12 @@ document.addEventListener("DOMContentLoaded", function () {
       els.checkBtn.disabled = true;
       els.progress.hidden = false;
       if (els.progressFill) els.progressFill.style.width = "0%";
-      els.resultMsg.className = "notification settings-inline-hidden";
+      if (els.resultMsg) {
+        els.resultMsg.textContent = "Выполняется обновление…";
+        els.resultMsg.className = "notification notification-info notification-inline-progress";
+        els.resultMsg.hidden = false;
+        els.resultMsg.style.display = "block";
+      }
       animateProgress();
 
       try {
@@ -427,9 +432,10 @@ document.addEventListener("DOMContentLoaded", function () {
           const task = await pollBackgroundTask(data.task_id, { timeoutMs: 1200000 });
           const ok = task.status === "done";
           if (els.progressFill) els.progressFill.style.width = "100%";
-          els.resultMsg.textContent   = task.message || (ok ? "Обновление завершено!" : "Ошибка обновления");
-          els.resultMsg.className     = `notification ${ok ? "notification-success" : "notification-error"}`;
-          els.resultMsg.style.display = "block";
+          window.showNotification?.(
+            task.message || (ok ? "Обновление завершено!" : "Ошибка обновления"),
+            ok ? "success" : "error"
+          );
           if (ok) {
             setHeroState("ok");
             els.heroLabel.textContent = "Обновление установлено";
@@ -438,18 +444,18 @@ document.addEventListener("DOMContentLoaded", function () {
             els.menuItem?.classList.remove("upd-menu-badge");
           }
         } else {
-          els.resultMsg.textContent   = data.message || "Ошибка обновления";
-          els.resultMsg.className     = "notification notification-error";
-          els.resultMsg.style.display = "block";
+          window.showNotification?.(data.message || "Ошибка обновления", "error");
         }
       } catch {
-        els.resultMsg.textContent   = "Ошибка соединения";
-        els.resultMsg.className     = "notification notification-error";
-        els.resultMsg.style.display = "block";
+        window.showNotification?.("Ошибка соединения", "error");
       } finally {
         els.progress.hidden = true;
         els.checkBtn.disabled = false;
-        hideNotificationWithFx(els.resultMsg, 15000);
+        if (els.resultMsg) {
+          els.resultMsg.hidden = true;
+          els.resultMsg.textContent = "";
+          els.resultMsg.style.display = "none";
+        }
       }
     };
 

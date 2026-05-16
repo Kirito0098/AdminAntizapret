@@ -270,6 +270,7 @@
     } catch (e) {
       console.error("Ошибка загрузки /api/bw:", e);
       if (elLoad) elLoad.textContent = "Ошибка загрузки данных vnStat.";
+      window.showNotification?.("Ошибка загрузки данных vnStat", "error");
     }
   }
 

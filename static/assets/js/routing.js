@@ -351,10 +351,19 @@ document.addEventListener("DOMContentLoaded", function () {
   const setCidrStatus = (message, level = "info") => {
     const statusElement = getCidrStatusElement();
     if (!statusElement) return;
+
+    if (level === "success" || level === "error") {
+      window.showNotification?.(message, level);
+      statusElement.hidden = true;
+      statusElement.textContent = "";
+      statusElement.style.display = "none";
+      return;
+    }
+
     statusElement.textContent = message;
-    statusElement.className = `notification notification-${level}`;
+    statusElement.className = `notification notification-${level} notification-inline-progress`;
+    statusElement.hidden = false;
     statusElement.style.display = "block";
-    hideNotificationWithFx(statusElement, 9000);
   };
 
   const CIDR_BUSY_SELECTOR = [
@@ -1830,7 +1839,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const statusElement = document.getElementById("config-status");
     statusElement.textContent = "Сохранение настроек...";
-    statusElement.className = "notification notification-info";
+    statusElement.className = "notification notification-info notification-inline-progress";
+    statusElement.hidden = false;
     statusElement.style.display = "block";
 
     try {
@@ -1864,35 +1874,43 @@ document.addEventListener("DOMContentLoaded", function () {
 
       refreshDirtySnapshot();
 
+      let toastMessage = "";
+
       if (!applyChanges) {
         if (hasAntizapretChanges) {
           antizapretNeedsApply = true;
           setSectionStatus("pending");
-          statusElement.textContent = "Настройки сохранены. Нажмите «Применить» для запуска изменений.";
+          toastMessage = "Настройки сохранены. Нажмите «Применить» для запуска изменений.";
         } else {
           setSectionStatus("applied");
-          statusElement.textContent = ipFilesResult.message || "Изменения сохранены.";
+          toastMessage = ipFilesResult.message || "Изменения сохранены.";
         }
-        statusElement.className = "notification notification-success";
+      } else if (hasAntizapretChanges || antizapretNeedsApply) {
+        const applied = await applyAntizapretChanges(statusElement);
+        antizapretNeedsApply = !applied;
+        setSectionStatus(applied ? "applied" : "pending");
+        if (applied) {
+          toastMessage = statusElement.textContent || "Изменения применены.";
+        }
       } else {
-        if (hasAntizapretChanges || antizapretNeedsApply) {
-          const applied = await applyAntizapretChanges(statusElement);
-          antizapretNeedsApply = !applied;
-          setSectionStatus(applied ? "applied" : "pending");
-        } else {
-          antizapretNeedsApply = false;
-          setSectionStatus("applied");
-          statusElement.textContent = ipFilesResult.message || "Изменения сохранены.";
-          statusElement.className = "notification notification-success";
-        }
+        antizapretNeedsApply = false;
+        setSectionStatus("applied");
+        toastMessage = ipFilesResult.message || "Изменения сохранены.";
+      }
+
+      if (toastMessage) {
+        window.showNotification?.(toastMessage, "success");
       }
     } catch (error) {
-      statusElement.textContent = `Ошибка: ${error.message}`;
-      statusElement.className = "notification notification-error";
+      window.showNotification?.(`Ошибка: ${error.message}`, "error");
       console.error("Error:", error);
     } finally {
+      if (statusElement) {
+        statusElement.hidden = true;
+        statusElement.textContent = "";
+        statusElement.style.display = "none";
+      }
       updateActionSurface();
-      hideNotificationWithFx(statusElement, 5000);
     }
   };
 
@@ -1911,36 +1929,25 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!statusElement) return;
 
     statusElement.textContent = "Применение изменений...";
-    statusElement.className = "notification notification-info";
+    statusElement.className = "notification notification-info notification-inline-progress";
+    statusElement.hidden = false;
     statusElement.style.display = "block";
 
     try {
       const applied = await applyAntizapretChanges(statusElement);
       antizapretNeedsApply = !applied;
       setSectionStatus(applied ? "applied" : "pending");
+      if (applied) {
+        window.showNotification?.(statusElement.textContent || "Изменения применены.", "success");
+      }
     } catch (error) {
-      statusElement.textContent = `Ошибка: ${error.message}`;
-      statusElement.className = "notification notification-error";
+      window.showNotification?.(`Ошибка: ${error.message}`, "error");
     } finally {
+      statusElement.hidden = true;
+      statusElement.textContent = "";
+      statusElement.style.display = "none";
       updateActionSurface();
-      hideNotificationWithFx(statusElement, 5000);
     }
-  };
-
-  // Показать уведомление
-  const showNotification = (message, type) => {
-    const notification = document.createElement("div");
-    notification.className = `notification notification-${type}`;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-      notification.classList.add("notification-exit");
-    }, 2800);
-
-    setTimeout(() => {
-      notification.remove();
-    }, 3000);
   };
 
   // Обработчик изменения размера экрана
@@ -2001,29 +2008,27 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!statusElement) return;
 
     statusElement.textContent = "Сверка IP-файлов...";
-    statusElement.className = "notification notification-info";
+    statusElement.className = "notification notification-info notification-inline-progress";
+    statusElement.hidden = false;
     statusElement.style.display = "block";
 
     try {
       const result = await syncIpFilesFromList();
-      statusElement.textContent = result.message || "Сверка IP-файлов завершена.";
-
-      if ((result.missing_sources || []).length > 0) {
-        statusElement.className = "notification notification-warning";
-      } else {
-        statusElement.className = "notification notification-success";
-      }
+      const message = result.message || "Сверка IP-файлов завершена.";
+      const level = (result.missing_sources || []).length > 0 ? "warning" : "success";
 
       if (!antizapretHasUnsavedChanges) {
         setSectionStatus(antizapretNeedsApply ? "pending" : "applied", "routing");
       }
+      window.showNotification?.(message, level);
     } catch (error) {
-      statusElement.textContent = `Ошибка: ${error.message}`;
-      statusElement.className = "notification notification-error";
+      window.showNotification?.(`Ошибка: ${error.message}`, "error");
       console.error("IP files sync error:", error);
     } finally {
+      statusElement.hidden = true;
+      statusElement.textContent = "";
+      statusElement.style.display = "none";
       updateActionSurface();
-      hideNotificationWithFx(statusElement, 7000);
     }
   });
 

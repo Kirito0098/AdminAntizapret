@@ -901,26 +901,6 @@ async function copyTextToClipboard(text) {
     }
 }
 
-// ============ NOTIFICATIONS ============
-function showNotification(message, type = 'success') {
-    const notification = document.getElementById('notification');
-
-    if (notification) {
-        notification.textContent = message;
-        notification.className = `notification notification-${type}`;
-        notification.classList.remove('notification-exit');
-        notification.style.display = 'block';
-
-        setTimeout(() => {
-            notification.classList.add('notification-exit');
-            setTimeout(() => {
-                notification.classList.remove('notification-exit');
-                notification.style.display = 'none';
-            }, 180);
-        }, 2800);
-    }
-}
-
 // ============ FORM SUBMISSION ============
 document.addEventListener('submit', function (e) {
     const form = e.target;

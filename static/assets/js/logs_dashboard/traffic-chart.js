@@ -379,6 +379,7 @@
                 `Итого: ${data.total_human || humanBytes(data.total)}`;
         } catch (err) {
             chartMeta.textContent = `Не удалось загрузить график: ${err.message}`;
+            window.showNotification?.(`Не удалось загрузить график: ${err.message}`, 'error');
         }
     }
 

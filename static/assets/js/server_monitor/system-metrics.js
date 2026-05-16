@@ -172,6 +172,7 @@
       }
     } catch (e) {
       console.error("Ошибка загрузки /api/system-info:", e);
+      window.showNotification?.("Не удалось загрузить метрики сервера", "error");
     }
   }
 

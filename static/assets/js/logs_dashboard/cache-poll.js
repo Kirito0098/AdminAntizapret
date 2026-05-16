@@ -36,7 +36,7 @@
                 return;
             }
         } catch (err) {
-            // Оставляем штатный периодический reload как fallback.
+            window.showNotification?.('Не удалось проверить статус обновления логов', 'error');
         }
 
         window.setTimeout(pollRefreshStatus, pollIntervalMs);

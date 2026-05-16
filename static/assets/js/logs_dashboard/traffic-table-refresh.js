@@ -42,7 +42,7 @@
                 window.dispatchEvent(new CustomEvent('logsDashboardTrafficTablesUpdated'));
             }
         } catch (err) {
-            // Keep silent to avoid noisy UI if network hiccups occur.
+            window.showNotification?.('Не удалось обновить таблицы трафика', 'error');
         }
     }
 
