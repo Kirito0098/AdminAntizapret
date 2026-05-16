@@ -1,6 +1,7 @@
 from core.services.http_security import (
     apply_security_headers,
     build_robots_txt,
+    build_security_txt,
     get_panel_branding,
     should_noindex_path,
 )
@@ -36,17 +37,27 @@ def test_apply_security_headers_sets_csp_and_noindex_for_login():
 
 def test_build_robots_txt_blocks_download_paths():
     body = build_robots_txt()
+    assert "Disallow: /login" in body
     assert "Disallow: /qr_download/" in body
     assert "Disallow: /download/" in body
+    assert "Disallow: /ip_blocked" in body
+
+
+def test_build_security_txt_has_no_vpn_wording():
+    body = build_security_txt({"panel_base_url": "https://panel.example.com"})
+    assert "VPN" not in body
+    assert "vpn" not in body
+    assert "Private administration panel" in body
+    assert "https://panel.example.com" in body
 
 
 def test_get_panel_branding_uses_domain_only():
     branding = get_panel_branding(
         {
-            "DOMAIN": "admin.vpn.example.com",
+            "DOMAIN": "admin.example.com",
             "PANEL_BRAND_NAME": "",
         }
     )
-    assert branding["panel_brand_name"] == "Claymore VPN"
-    assert branding["panel_host"] == "admin.vpn.example.com"
-    assert branding["panel_base_url"] == "https://admin.vpn.example.com"
+    assert branding["panel_brand_name"] == "Admin Panel"
+    assert branding["panel_host"] == "admin.example.com"
+    assert branding["panel_base_url"] == "https://admin.example.com"

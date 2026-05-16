@@ -52,13 +52,27 @@ def apply_security_headers(response, path: str) -> None:
 
 def build_robots_txt() -> str:
     return """User-agent: *
+Disallow: /login
 Disallow: /qr_download/
 Disallow: /public_download/
 Disallow: /generate_one_time_download/
 Disallow: /download/
 Disallow: /captcha.png
 Disallow: /auth/
+Disallow: /ip_blocked
 """
+
+
+def build_security_txt(branding: Mapping[str, Any] | None = None) -> str:
+    """RFC 9116 contact file — neutral wording (no service type hints for crawlers)."""
+    info = dict(branding or get_panel_branding())
+    panel_url = info.get("panel_base_url") or "https://localhost"
+    return (
+        f"Contact: {panel_url}\n"
+        "Preferred-Languages: ru, en\n"
+        f"Canonical: {panel_url}\n"
+        "Policy: Private administration panel. Authorized access only. Not a bank or email login.\n"
+    )
 
 
 def get_panel_branding(environ: Mapping[str, str] | None = None) -> dict[str, Any]:
@@ -67,7 +81,7 @@ def get_panel_branding(environ: Mapping[str, str] | None = None) -> dict[str, An
 
     getter = environ if environ is not None else os.environ
     domain = (getter.get("DOMAIN", "") or "").strip()
-    brand = (getter.get("PANEL_BRAND_NAME", "") or "").strip() or "Claymore VPN"
+    brand = (getter.get("PANEL_BRAND_NAME", "") or "").strip() or "Admin Panel"
     panel_base_url = None
     if domain:
         host = domain.split(":")[0]

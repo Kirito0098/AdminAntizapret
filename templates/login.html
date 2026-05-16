@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow, noarchive" />
   <meta name="description"
-    content="Официальная панель администрирования VPN {{ panel_brand_name }}. Доступ только для авторизованных администраторов и viewer." />
+    content="Панель администрирования {{ panel_brand_name }}. Доступ только для авторизованных пользователей." />
 
   <!--=============== REMIXICONS ===============-->
   <link href="https://cdn.jsdelivr.net/npm/remixicon@2.5.0/fonts/remixicon.css" rel="stylesheet" />
@@ -39,7 +39,7 @@
 
           <div class="login__brand">
             <span class="login__eyebrow">{{ panel_brand_name }}</span>
-            <h1 class="login__title">Панель администрирования VPN</h1>
+            <h1 class="login__title">Панель администрирования</h1>
             <p class="login__subtitle">
               {% if panel_host %}Сервер: <strong>{{ panel_host }}</strong>. {% endif %}
               Вход только для выданных учётных записей администратора или viewer.
@@ -47,7 +47,7 @@
           </div>
 
           <p class="login-trust-notice" role="note">
-            Официальная админ-панель VPN{% if panel_host %} (<strong>{{ panel_host }}</strong>){% endif %}.
+            Официальная панель управления{% if panel_host %} (<strong>{{ panel_host }}</strong>){% endif %}.
             Это не страница банка, почты или Google — не вводите пароли от сторонних сервисов.
           </p>
 

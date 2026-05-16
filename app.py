@@ -99,6 +99,7 @@ from core.services.session_security import build_session_security_config
 from core.services.http_security import (
     apply_security_headers,
     build_robots_txt,
+    build_security_txt,
     get_panel_branding,
 )
 
@@ -655,15 +656,7 @@ def robots_txt():
 def security_txt():
     from flask import Response
 
-    branding = get_panel_branding(os.environ)
-    panel_url = branding.get("panel_base_url") or "https://localhost"
-    body = (
-        f"Contact: {panel_url}\n"
-        "Preferred-Languages: ru, en\n"
-        f"Canonical: {panel_url}\n"
-        "Policy: Private VPN administration panel only. Not a bank or email login.\n"
-    )
-    return Response(body, mimetype="text/plain")
+    return Response(build_security_txt(get_panel_branding(os.environ)), mimetype="text/plain")
 
 
 runtime_settings_service = RuntimeSettingsService(
