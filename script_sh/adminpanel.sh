@@ -104,7 +104,9 @@ check_dependencies() {
     check_error "Не удалось обновить индексы пакетов"
     apt-get install -y --quiet --quiet apt-utils >/dev/null
     check_error "Не удалось установить apt-utils"
-    apt-get install -y --quiet --quiet python3 python3-pip git wget openssl python3-venv cron vnstat >/dev/null
+    apt-get install -y --quiet --quiet python3 python3-pip python3-venv python3-dev \
+        git wget openssl cron vnstat dnsutils \
+        libjpeg-dev zlib1g-dev >/dev/null
     check_error "Не удалось установить зависимости"
     ui_ok "Зависимости установлены"
 }
@@ -114,7 +116,7 @@ verify_project_environment() {
     local failed=0 warned=0 passed=0
     local req_file="$INSTALL_DIR/requirements.txt"
     local missing_system_packages=()
-    local required_system_packages=(python3 python3-pip python3-venv git wget openssl cron vnstat)
+    local required_system_packages=(python3 python3-pip python3-venv python3-dev git wget openssl cron vnstat dnsutils libjpeg-dev zlib1g-dev)
 
     _vpe_ok()   { ui_ok "$1";   passed=$((passed + 1)); }
     _vpe_warn() { ui_warn "$1"; warned=$((warned + 1)); }
@@ -125,7 +127,7 @@ verify_project_environment() {
     }
 
     ui_section "1) Системные команды"
-    local required_commands=(python3 pip3 git wget openssl systemctl awk sed grep)
+    local required_commands=(python3 pip3 git wget openssl systemctl awk sed grep ss dig)
     for cmd in "${required_commands[@]}"; do
         if command -v "$cmd" >/dev/null 2>&1; then
             _vpe_ok "$cmd"
@@ -241,6 +243,23 @@ verify_project_environment() {
         _vpe_ok "Сервис запущен"
     else
         _vpe_warn "Сервис не запущен"
+    fi
+
+    ui_section "6) AntiZapret-VPN"
+    if [ -d "$ANTIZAPRET_INSTALL_DIR" ]; then
+        _vpe_ok "Каталог $ANTIZAPRET_INSTALL_DIR"
+    else
+        _vpe_fail "Каталог $ANTIZAPRET_INSTALL_DIR не найден"
+    fi
+    if [ -x "$ANTIZAPRET_INSTALL_DIR/doall.sh" ]; then
+        _vpe_ok "doall.sh доступен"
+    else
+        _vpe_fail "doall.sh не найден или не исполняемый"
+    fi
+    if systemctl is-active --quiet antizapret.service 2>/dev/null; then
+        _vpe_ok "antizapret.service активен"
+    else
+        _vpe_warn "antizapret.service не активен (панель частично ограничена)"
     fi
 
     printf "\n"
@@ -488,10 +507,14 @@ install() {
     check_dependencies
 
     # Виртуальное окружение
-    ui_info "Создание виртуального окружения..."
-    python3 -m venv "$VENV_PATH"
-    check_error "Не удалось создать виртуальное окружение"
-    ui_ok "Виртуальное окружение создано"
+    if [ -x "$VENV_PATH/bin/python3" ]; then
+        ui_ok "Виртуальное окружение уже есть: $VENV_PATH"
+    else
+        ui_info "Создание виртуального окружения..."
+        python3 -m venv "$VENV_PATH"
+        check_error "Не удалось создать виртуальное окружение"
+        ui_ok "Виртуальное окружение создано"
+    fi
 
     # Обновление pip
     ui_info "Обновление pip/setuptools/wheel..."
@@ -666,16 +689,23 @@ EOL
 
     # Итог установки
     if systemctl is-active --quiet "$SERVICE_NAME"; then
-        local DOMAIN="" address
+        local DOMAIN="" BIND_VAL="" address
         grep -q "^DOMAIN=" "$INSTALL_DIR/.env" 2>/dev/null && \
-            DOMAIN=$(grep "^DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '"')
+            DOMAIN=$(grep "^DOMAIN=" "$INSTALL_DIR/.env" | cut -d'=' -f2 | tr -d '" ')
+        BIND_VAL=$(grep "^BIND=" "$INSTALL_DIR/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '" ')
 
-        if grep -q "USE_HTTPS=true" "$INSTALL_DIR/.env"; then
-            address="${DOMAIN:+https://$DOMAIN:$APP_PORT}"
-            address="${address:-https://$(hostname -I | awk '{print $1}'):$APP_PORT}"
+        if grep -q "^USE_HTTPS=true" "$INSTALL_DIR/.env" 2>/dev/null; then
+            if [ -n "$DOMAIN" ]; then
+                address="https://${DOMAIN}:${APP_PORT}"
+            else
+                address="https://$(hostname -I | awk '{print $1}'):${APP_PORT}"
+            fi
+        elif [ -n "$DOMAIN" ] && [ "$BIND_VAL" = "127.0.0.1" ]; then
+            address="https://${DOMAIN}"
+        elif [ -n "$DOMAIN" ]; then
+            address="http://${DOMAIN}:${APP_PORT}"
         else
-            address="${DOMAIN:+https://$DOMAIN}"
-            address="${address:-http://$(hostname -I | awk '{print $1}'):$APP_PORT}"
+            address="http://$(hostname -I | awk '{print $1}'):${APP_PORT}"
         fi
 
         printf "\n"

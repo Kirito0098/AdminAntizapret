@@ -56,16 +56,16 @@ function groupNavItems() {
     nav.innerHTML = '';
     sortedGroupNames.forEach((groupName) => {
         const section = document.createElement('section');
-        section.className = 'nav-group';
+        section.className = 'ef-nav-group';
         section.dataset.group = groupName;
 
         const title = document.createElement('h3');
-        title.className = 'nav-group-title';
+        title.className = 'ef-nav-group-title';
         title.textContent = groupName;
         section.appendChild(title);
 
         const itemsWrap = document.createElement('div');
-        itemsWrap.className = 'nav-group-items';
+        itemsWrap.className = 'ef-nav-group-items';
         groups.get(groupName).forEach((btn) => itemsWrap.appendChild(btn));
         section.appendChild(itemsWrap);
 
@@ -387,7 +387,7 @@ function applyFileFilter(rawQuery) {
         }
     });
 
-    const groupSections = Array.from(document.querySelectorAll('.file-nav .nav-group'));
+    const groupSections = Array.from(document.querySelectorAll('.file-nav .ef-nav-group'));
     groupSections.forEach((section) => {
         const hasVisible = Array.from(section.querySelectorAll('.nav-item')).some((btn) => !btn.hidden);
         section.hidden = !hasVisible;
@@ -673,10 +673,10 @@ runDoAllBtn?.addEventListener('click', async () => {
         const res = await fetch('/run-doall', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken,
             },
-            body: `csrf_token=${encodeURIComponent(csrfToken)}`
+            body: JSON.stringify({ context: 'Применение изменений файлов конфигурации' })
         });
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

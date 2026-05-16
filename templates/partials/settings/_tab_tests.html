@@ -22,7 +22,8 @@
         <div class="tests-action-panel__info">
           <p class="tests-action-panel__title">Запуск тестов</p>
           <p class="tests-action-panel__desc">
-            Выполняет все unit-тесты через pytest. Занимает 10–60 секунд.
+            Запускает pytest по каталогу <code>tests/</code> (сейчас unit-тесты ядра, CIDR, IP-защиты, авторизации).
+            Обычно занимает несколько секунд.
           </p>
         </div>
         <button id="tests-run-btn" type="button" class="button save-button tests-run-btn">
@@ -98,7 +99,8 @@
         if (!el) return;
         el.hidden = false;
         document.getElementById('tests-stat-passed').textContent = summary.passed || 0;
-        document.getElementById('tests-stat-failed').textContent = summary.failed || 0;
+        document.getElementById('tests-stat-failed').textContent =
+          (summary.failed || 0) + (summary.error || 0);
         document.getElementById('tests-stat-total').textContent = summary.total || 0;
       }
 
@@ -106,6 +108,7 @@
         var map = { passed: ['tests-item__badge--passed', '✓ OK'],
                     failed: ['tests-item__badge--failed', '✗ FAIL'],
                     error:  ['tests-item__badge--error',  '! ERR'],
+                    skipped:['tests-item__badge--idle', '⊘ SKIP'],
                     running:['tests-item__badge--running', '…'],
                     idle:   ['tests-item__badge--idle', '—'] };
         var info = map[status] || map.idle;
@@ -187,8 +190,14 @@
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data.success) {
+          if (data.success && data.tests && data.tests.length) {
             renderList(data.tests);
+          } else if (data.success && (!data.tests || !data.tests.length)) {
+            var empty = document.getElementById('tests-list-placeholder');
+            if (empty) {
+              empty.textContent = 'Тесты не найдены. Проверьте venv и каталог tests/.';
+              empty.hidden = false;
+            }
           } else {
             var ph = document.getElementById('tests-list-placeholder');
             if (ph) ph.textContent = 'Ошибка загрузки: ' + (data.message || '');
@@ -237,6 +246,9 @@
         if (!btn) return;
         btn.addEventListener('click', runTests);
         fetchCollect();
+        window.addEventListener('settings:tab-changed', function (e) {
+          if (e.detail && e.detail.tabId === 'tests') fetchCollect();
+        });
       }
 
       if (document.readyState === 'loading') {

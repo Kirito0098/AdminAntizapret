@@ -1,0 +1,145 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Action Logs — mobile styles (settings page, #action-logs)
+   All selectors scoped to #action-logs to avoid leaking into other pages.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Filter bar: stack vertically */
+@media (max-width: 768px) {
+  #action-logs .audit-log-filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 10px;
+    display: block;
+  }
+
+  #action-logs .audit-log-filters__search  { order: 1; }
+  #action-logs .audit-log-filters__sources { order: 2; }
+  #action-logs .audit-log-filters__alerts  { order: 3; }
+  #action-logs .audit-log-filters__user    { order: 4; }
+  #action-logs .audit-log-filters__meta    { order: 5; margin-left: 0; justify-content: space-between; }
+
+  /* Source pills: horizontal scroll row, no wrapping */
+  #action-logs .audit-log-filters__sources {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    gap: 5px;
+  }
+  #action-logs .audit-log-filters__sources::-webkit-scrollbar { display: none; }
+
+  #action-logs .audit-user-select { width: 100%; }
+}
+
+/* Table: card layout on phones */
+@media (max-width: 760px) {
+  /* ── Structural reset ──
+     IMPORTANT: use :not([hidden]) on tbody/tr so JS-hidden elements
+     (collapsed sessions, day-hidden rows) keep display:none from the
+     browser's hidden attribute — otherwise collapse stops working. */
+  #action-logs .action-audit-log-table thead { display: none; }
+
+  #action-logs .action-audit-log-table { display: block; width: 100%; }
+
+  #action-logs .action-audit-log-table tbody:not([hidden]),
+  #action-logs .action-audit-log-table tr:not([hidden]) {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  #action-logs .action-audit-log-table td {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    white-space: normal !important;
+    box-sizing: border-box;
+  }
+
+  /* CSS-collapsed rows must stay hidden (prevents flash before JS runs) */
+  #action-logs .audit-session-tbody.is-collapsed .audit-action-row {
+    display: none !important;
+  }
+
+  /* ── Day header bar ── */
+  #action-logs .audit-day-hdr-cell   { padding: 0 !important; }
+  #action-logs .audit-day-hdr-inner  { padding: 5px 10px !important; }
+
+  /* ── Session header bar ── */
+  #action-logs .audit-session-hdr-cell  { padding: 0 !important; }
+  #action-logs .audit-session-hdr-inner { padding: 7px 10px !important; gap: 5px !important; }
+  #action-logs .audit-session-username  { font-size: 0.82rem; }
+
+  /* ── Action rows: card ── */
+  #action-logs .audit-action-row {
+    border: 1px solid rgba(121, 184, 163, 0.15);
+    border-radius: 8px;
+    margin: 3px 8px 6px !important;
+    overflow: hidden;
+  }
+
+  /* Shared cell base */
+  #action-logs .audit-action-row td {
+    padding: 0.42rem 0.65rem !important;
+    border-bottom: 1px solid rgba(121, 184, 163, 0.08);
+    font-size: 0.84rem;
+    vertical-align: top !important;
+  }
+  #action-logs .audit-action-row td:last-child { border-bottom: 0; }
+  #action-logs .audit-action-row td:first-child { padding-left: 0.65rem !important; }
+
+  /* Simple cells (single value): 2-column label | value grid */
+  #action-logs .audit-action-row .audit-td-time,
+  #action-logs .audit-action-row .audit-td-user,
+  #action-logs .audit-action-row .audit-td-status {
+    display: grid !important;
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 0.4rem;
+    align-items: center !important;
+  }
+
+  /* Labels for simple cells */
+  #action-logs .audit-action-row .audit-td-time::before,
+  #action-logs .audit-action-row .audit-td-user::before,
+  #action-logs .audit-action-row .audit-td-status::before {
+    font-size: 0.68rem !important;
+    font-weight: 600;
+    color: rgba(223, 235, 255, 0.42);
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+  #action-logs .audit-action-row .audit-td-time::before   { content: "Время"; }
+  #action-logs .audit-action-row .audit-td-user::before   { content: "Польз."; }
+  #action-logs .audit-action-row .audit-td-status::before { content: "Статус"; }
+
+  /* Force-show status */
+  #action-logs .audit-action-row .audit-td-status { display: grid !important; }
+
+  /* Action cell has div+span children — use block with label above content
+     to avoid grid misalignment with 3 items in 2 columns */
+  #action-logs .audit-action-row .action-with-source {
+    display: block !important;
+  }
+  #action-logs .audit-action-row .action-with-source::before {
+    content: "Действие";
+    display: block;
+    font-size: 0.68rem !important;
+    font-weight: 600;
+    color: rgba(223, 235, 255, 0.42);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+
+  /* Hide IP — already shown in session header */
+  #action-logs .audit-action-row .audit-td-ip { display: none !important; }
+
+  /* Time: inline date + clock on one line */
+  #action-logs .audit-td-time .audit-time-date,
+  #action-logs .audit-td-time .audit-time-clock { display: inline !important; font-size: 0.82rem; }
+  #action-logs .audit-td-time .audit-time-date::after { content: " "; }
+}

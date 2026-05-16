@@ -343,9 +343,17 @@
     steps.push({
       label: "Применение изменений (doall.sh)",
       start: async () => {
+        const ctxParts = [];
+        if (regionScopes && regionScopes.length) ctxParts.push("регионы: " + regionScopes.join(", "));
+        if (gameKeys && gameKeys.length) ctxParts.push("игры: " + gameKeys.length + " шт.");
+        if (excludeRu) ctxParts.push("без РУ");
+        if (strictGeo) ctxParts.push("строгий гео");
+        if (filterByAntifilter) ctxParts.push("AntiFilter");
+        const ctx = "Генерация маршрутов из БД" + (ctxParts.length ? "; " + ctxParts.join("; ") : "");
         const r = await fetch("/run-doall", {
           method: "POST",
-          headers: { "X-CSRFToken": csrf() },
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+          body: JSON.stringify({ context: ctx }),
         });
         const d = await r.json();
         if (!r.ok || !d.success) throw new Error(d.message || "Ошибка запуска doall");
@@ -419,13 +427,14 @@
     });
 
     // Load on tab activation
-    const cidrTabMenuItem = document.querySelector('[data-tab="cidr-update"]');
-    if (cidrTabMenuItem) {
-      cidrTabMenuItem.addEventListener("click", loadStatus);
-    }
-    if (document.getElementById("cidr-update")?.classList.contains("active")) {
-      loadStatus();
-    }
+    window.addEventListener("settings:tab-changed", (event) => {
+      if (event?.detail?.tabId === "cidr-update") loadStatus();
+    });
+    document.addEventListener("DOMContentLoaded", () => {
+      if (document.getElementById("cidr-update")?.classList.contains("active")) {
+        loadStatus();
+      }
+    });
   })();
 
   // ── Presets ────────────────────────────────────────────────────────
@@ -688,15 +697,16 @@
     if (!_presetsLoaded) { _presetsLoaded = true; loadPresets(); }
   }
 
-  // Watch for tab activation via the existing menu system
-  const cidrTabMenuItem = document.querySelector('[data-tab="cidr-update"]');
-  if (cidrTabMenuItem) {
-    cidrTabMenuItem.addEventListener("click", onCidrTabActive);
-  }
-  // Also load if already active
-  if (document.getElementById("cidr-update")?.classList.contains("active")) {
-    onCidrTabActive();
-  }
+  // Watch for tab activation via the settings:tab-changed event (fired by settings.js)
+  window.addEventListener("settings:tab-changed", (event) => {
+    if (event?.detail?.tabId === "cidr-update") onCidrTabActive();
+  });
+  // Also load if already active (check after initMenu() has run via DOMContentLoaded)
+  document.addEventListener("DOMContentLoaded", () => {
+    if (document.getElementById("cidr-update")?.classList.contains("active")) {
+      onCidrTabActive();
+    }
+  });
 })();
 
 // ── Card collapse buttons ────────────────────────────────────────────

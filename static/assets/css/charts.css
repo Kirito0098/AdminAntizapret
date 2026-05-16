@@ -69,7 +69,11 @@
 
 @media (max-width: 760px) {
   .bw-chart {
-    height: 250px !important;
+    height: 240px !important;
+  }
+
+  .bw-chart-wrap {
+    padding: 0.3rem;
   }
 
   .traffic-chart-wrap {
@@ -78,6 +82,16 @@
 
   .client-modal-chart-wrap {
     height: 240px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bw-chart {
+    height: 210px !important;
+  }
+
+  .bw-chart-wrap {
+    padding: 0.2rem;
   }
 }
 
@@ -92,5 +106,9 @@
 
   .traffic-chart-wrap {
     height: 230px;
+  }
+
+  .bw-chart {
+    height: 200px !important;
   }
 }

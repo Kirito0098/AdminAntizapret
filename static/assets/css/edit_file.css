@@ -4,12 +4,12 @@
   --ef-surface-soft: #222b31;
   --ef-border: #314049;
   --ef-border-strong: #4f6775;
-  --ef-text: #eaf1f4;
-  --ef-text-muted: #9caeb8;
-  --ef-accent: #3fa083;
-  --ef-accent-soft: #58b2a3;
-  --ef-danger: #d5675f;
-  --ef-warn: #e7a63b;
+  --ef-text: var(--theme-text-main);
+  --ef-text-muted: var(--theme-text-muted);
+  --ef-accent: var(--theme-primary);
+  --ef-accent-soft: var(--theme-primary-hover);
+  --ef-danger: var(--theme-danger);
+  --ef-warn: var(--theme-warning);
   --ef-shadow-soft: 0 12px 28px rgba(5, 10, 13, 0.28);
   --ef-shadow-hard: 0 16px 36px rgba(5, 10, 13, 0.34);
   --ef-radius-card: 0.88rem;
@@ -17,24 +17,17 @@
   --ef-space-edge-right: max(0.62rem, env(safe-area-inset-right));
 }
 
-*,
-*::before,
-*::after {
+.editfiles-mobile-toggle,
+.main-layout.editfiles-layout,
+.main-layout.editfiles-layout *,
+.main-layout.editfiles-layout *::before,
+.main-layout.editfiles-layout *::after {
   box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  min-height: 100vh;
   color: var(--ef-text);
   overflow-x: clip;
-  background-color: #10161a;
-  background-image:
-    radial-gradient(circle at 14% 10%, rgba(82, 109, 120, 0.16) 0%, transparent 44%),
-    radial-gradient(circle at 82% 16%, rgba(54, 88, 98, 0.14) 0%, transparent 42%),
-    linear-gradient(180deg, #12191d 0%, #0e1418 100%);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
 }
 
 .editfiles-mobile-toggle {
@@ -193,32 +186,12 @@ body {
   gap: 0.45rem;
 }
 
-.toggle-btn {
+.toggle-buttons .page-unified-tab-btn {
   min-height: 44px;
-  border: 1px solid var(--ef-border-strong);
-  border-radius: 0.68rem;
-  background: rgba(35, 48, 56, 0.84);
-  color: #d1e2e9;
+  width: 100%;
+  justify-content: center;
   font-size: clamp(0.86rem, 0.82rem + 0.2vw, 0.92rem);
-  font-weight: 600;
   letter-spacing: 0.01em;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.toggle-btn:hover {
-  border-color: #7ca6b9;
-  background: rgba(45, 62, 72, 0.92);
-  color: #f0f8fb;
-}
-
-.toggle-btn.active {
-  border-color: rgba(126, 220, 184, 0.72);
-  background: linear-gradient(140deg, #3d7d98 0%, #2f6c85 100%);
-  color: #f7fffb;
-  box-shadow:
-    0 8px 16px rgba(7, 16, 21, 0.35),
-    0 0 0 1px rgba(130, 186, 168, 0.24);
 }
 
 .file-nav {
@@ -232,13 +205,14 @@ body {
   scrollbar-width: thin;
 }
 
-.file-nav .nav-group {
+.ef-nav-group {
   display: grid;
   gap: 0.34rem;
   margin-bottom: 0.28rem;
+  width: 100%;
 }
 
-.file-nav .nav-group-title {
+.ef-nav-group-title {
   margin: 0;
   padding: 0.18rem 0.2rem;
   font-size: 0.69rem;
@@ -247,9 +221,10 @@ body {
   color: #9bb3be;
 }
 
-.file-nav .nav-group-items {
+.ef-nav-group-items {
   display: grid;
   gap: 0.35rem;
+  width: 100%;
 }
 
 .nav-item {
@@ -665,62 +640,6 @@ body {
   transform: none;
 }
 
-.notification {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1200;
-  min-width: 260px;
-  max-width: min(92vw, 460px);
-  padding: 0.78rem 1rem;
-  border-radius: 0.75rem;
-  color: #f8fbfe;
-  background: rgba(35, 48, 56, 0.92);
-  border: 1px solid rgba(111, 169, 191, 0.54);
-  box-shadow: 0 10px 20px rgba(5, 10, 14, 0.38);
-  backdrop-filter: blur(8px);
-  font-size: 0.9rem;
-  line-height: 1.35;
-  animation: ef-notif-in 0.2s ease;
-}
-
-.notification-success {
-  border-color: rgba(126, 220, 184, 0.64);
-  background: rgba(35, 93, 78, 0.92);
-}
-
-.notification-error {
-  border-color: rgba(213, 103, 95, 0.7);
-  background: rgba(104, 43, 39, 0.94);
-}
-
-.notification-exit {
-  animation: ef-notif-out 0.2s ease forwards;
-}
-
-@keyframes ef-notif-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes ef-notif-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-}
 
 @media (max-width: 768px) {
   .main-layout.editfiles-layout.is-mobile-collapsible .editfiles-sidebar {
@@ -760,15 +679,24 @@ body {
     padding-right: 0;
   }
 
-  .diff-list {
-    max-height: 190px;
+  .ef-nav-group-title {
+    display: none;
   }
 
-  .notification {
-    left: 0.6rem;
-    right: 0.6rem;
-    min-width: auto;
-    top: 0.6rem;
+  .ef-nav-group {
+    margin-bottom: 0;
+  }
+
+  .nav-item-status {
+    display: none;
+  }
+
+  .nav-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .diff-list {
+    max-height: 190px;
   }
 }
 
@@ -850,7 +778,7 @@ body {
     font-size: 0.8rem;
   }
 
-  .toggle-btn {
+  .toggle-buttons .page-unified-tab-btn {
     min-height: 40px;
     font-size: 0.83rem;
   }

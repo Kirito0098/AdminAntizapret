@@ -22,7 +22,6 @@ let sortOrder = 'asc';
 let clientExpiry = {};
 let indexClientDetailsCache = null;
 let indexClientDetailsFetchPromise = null;
-const INDEX_CONTRAST_STORAGE_KEY = 'index_night_contrast_mode';
 
 function getThemeColor(token, fallback) {
     const bodyValue = document.body
@@ -78,8 +77,6 @@ function initializeUI() {
         document.body.classList.add('index-page-dark');
     }
 
-    initializeIndexContrastMode();
-
     extractCertExpiryData();
 
     // Set first tab active
@@ -93,51 +90,6 @@ function initializeUI() {
     }
 
     initializeIndexTrafficMiniSummary();
-}
-
-function initializeIndexContrastMode() {
-    if (!document.body) {
-        return;
-    }
-
-    const toggleButton = document.getElementById('indexContrastToggle');
-    const labelNode = document.getElementById('indexContrastModeLabel');
-    const storedMode = localStorage.getItem(INDEX_CONTRAST_STORAGE_KEY);
-
-    let contrastMode = storedMode === 'normal' ? 'normal' : 'high';
-
-    const applyMode = () => {
-        const isHigh = contrastMode === 'high';
-
-        document.body.classList.toggle('index-night-contrast', isHigh);
-        document.body.classList.toggle('index-night-soft', !isHigh);
-
-        if (labelNode) {
-            labelNode.textContent = isHigh
-                ? 'Высокий контраст для ночной эксплуатации'
-                : 'Мягкий контраст для длительной работы';
-        }
-
-        if (toggleButton) {
-            toggleButton.textContent = isHigh ? 'Контраст: High' : 'Контраст: Soft';
-            toggleButton.setAttribute('aria-pressed', isHigh ? 'true' : 'false');
-            toggleButton.classList.toggle('is-high', isHigh);
-            toggleButton.classList.toggle('is-soft', !isHigh);
-        }
-    };
-
-    applyMode();
-
-    if (!toggleButton || toggleButton.dataset.bound === '1') {
-        return;
-    }
-
-    toggleButton.dataset.bound = '1';
-    toggleButton.addEventListener('click', () => {
-        contrastMode = contrastMode === 'high' ? 'normal' : 'high';
-        localStorage.setItem(INDEX_CONTRAST_STORAGE_KEY, contrastMode);
-        applyMode();
-    });
 }
 
 // ============ FORM LOGIC ============

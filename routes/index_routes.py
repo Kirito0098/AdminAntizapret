@@ -25,6 +25,7 @@ def register_index_routes(
     sync_wireguard_peer_cache_from_configs,
     log_telegram_audit_event,
     log_user_action_event,
+    send_tg_admin_notification=None,
 ):
     def _has_telegram_mini_session() -> bool:
         return has_telegram_mini_session(session)
@@ -510,6 +511,12 @@ def register_index_routes(
                 target_name=client_name,
                 details=details_text,
             )
+            if event_type in ("config_create", "config_recreate") and callable(send_tg_admin_notification):
+                send_tg_admin_notification(
+                    event_type,
+                    actor_username=session.get("username"),
+                    target_name=client_name,
+                )
 
             return jsonify(
                 {

@@ -1,16 +1,91 @@
     <div id="vpn-network" class="content-tab active">
-      <h2>Порт панели администрирования</h2>
+      <header class="panel-publish-page-head">
+        <p class="panel-publish-page-head__kicker">Сеть и публикация</p>
+        <h2>Порт, HTTPS и Nginx</h2>
+        <p class="panel-publish-page-head__lead">
+          Как устроен доступ к панели: прямой HTTP/HTTPS на порту приложения или TLS на Nginx (reverse proxy).
+        </p>
+      </header>
 
-      <div class="card settings-inline-card-mb">
-        <h3>Порт панели администрирования</h3>
-        <form method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <div class="form-group">
-            <label for="port">Текущий порт: {{ port }}</label>
-            <input type="text" id="port" name="port" placeholder="Введите новый порт" />
+      <div class="panel-publish-layout">
+        <article class="card settings-inline-card-mb panel-publish-hero-card">
+          <div class="panel-publish-hero-card__body">
+            <div class="panel-publish-hero-main">
+              <div class="panel-publish-hero-main__badges">
+                <span class="panel-publish-mode-pill panel-publish-mode-pill--{{ panel_publish.mode_key }}">
+                  {% if panel_publish.mode_key == "reverse_proxy" %}
+                  Nginx / прокси
+                  {% elif panel_publish.mode_key == "app_https" %}
+                  HTTPS · Gunicorn
+                  {% elif panel_publish.mode_key == "app_https_incomplete" %}
+                  HTTPS · проверьте .env
+                  {% elif panel_publish.mode_key == "direct_http" %}
+                  Прямой HTTP
+                  {% else %}
+                  {{ panel_publish.mode_title }}
+                  {% endif %}
+                </span>
+              </div>
+              <h3 class="panel-publish-hero-main__title">{{ panel_publish.mode_title }}</h3>
+              <ul class="panel-publish-bullets">
+                {% for point in panel_publish.bullet_points %}
+                <li>{{ point|safe }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+
+            <aside class="panel-publish-hero-aside" aria-label="Адреса и listen">
+              <div class="panel-publish-stat">
+                <span class="panel-publish-stat__label">Процесс панели (listen)</span>
+                <code class="panel-publish-stat__value">{{ panel_publish.internal_url }}</code>
+              </div>
+              {% if panel_publish.primary_urls %}
+              <div class="panel-publish-url-stack">
+                <span class="panel-publish-url-stack__label">Вход в панель</span>
+                {% for row in panel_publish.primary_urls %}
+                <a class="panel-publish-url-chip" href="{{ row.url }}" title="{{ row.label }}">
+                  <span class="panel-publish-url-chip__meta">{{ row.label }}</span>
+                  <span class="panel-publish-url-chip__url">{{ row.url }}</span>
+                </a>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </aside>
           </div>
-          <button type="submit" class="button save-button">Сохранить порт</button>
-        </form>
+        </article>
+
+        <article class="card settings-inline-card-mb panel-publish-env-card">
+          <h3 class="panel-publish-env-card__title">Параметры из .env</h3>
+          <p class="help-text panel-publish-env-card__intro">
+            Справочно: прямой HTTP или HTTPS на любом порту, либо схема с Nginx — отражается этими переменными.
+          </p>
+          <div class="panel-publish-env-table" role="list">
+            {% for row in panel_publish.env_rows %}
+            <div class="panel-publish-env-row" role="listitem">
+              <span class="panel-publish-env-row__label">{{ row.label }}</span>
+              <span class="panel-publish-env-row__value">
+                {% if row.mono %}<code>{{ row.value }}</code>{% else %}{{ row.value }}{% endif %}
+              </span>
+            </div>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="card settings-inline-card-mb panel-publish-port-card">
+          <div class="panel-publish-port-card__inner">
+            <div class="panel-publish-port-card__intro">
+              <h3 class="panel-publish-port-card__title">Порт процесса (APP_PORT)</h3>
+              <p class="help-text">Текущий порт процесса: <strong>{{ port }}</strong>. При Nginx это внутренний upstream (часто 5050), а не 443.</p>
+            </div>
+            <form method="POST" class="settings-form panel-publish-port-card__form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <div class="form-group panel-publish-port-card__field">
+                <label for="port">Новый порт</label>
+                <input type="text" id="port" name="port" placeholder="1–65535" autocomplete="off" />
+              </div>
+              <button type="submit" class="button save-button panel-publish-port-card__submit">Сохранить порт</button>
+            </form>
+          </div>
+        </article>
       </div>
     </div>
-

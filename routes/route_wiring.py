@@ -21,6 +21,8 @@ def register_all_routes(app, sock, deps):
         touch_active_web_session=g("_touch_active_web_session"),
         remove_active_web_session=g("_remove_active_web_session"),
         log_telegram_audit_event=g("_log_telegram_audit_event"),
+        log_user_action_event=g("_log_user_action_event"),
+        send_tg_admin_notification=g("_send_tg_admin_notification"),
     )
 
     register_config_routes(
@@ -130,6 +132,7 @@ def register_all_routes(app, sock, deps):
         sync_wireguard_peer_cache_from_configs=g("_sync_wireguard_peer_cache_from_configs"),
         log_telegram_audit_event=g("_log_telegram_audit_event"),
         log_user_action_event=g("_log_user_action_event"),
+        send_tg_admin_notification=g("_send_tg_admin_notification"),
     )
 
     register_monitoring_routes(

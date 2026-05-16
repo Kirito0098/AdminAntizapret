@@ -17,7 +17,6 @@ from flask import (
     make_response,
     redirect,
     render_template,
-    render_template_string,
     request,
     send_file,
     send_from_directory,
@@ -486,41 +485,9 @@ def register_config_routes(
 
         now = datetime.utcnow()
         token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
-        pin_page_tpl = """
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Введите PIN</title>
-  <style>
-    body { font-family: sans-serif; background: #101722; color: #e6edf3; margin: 0; }
-    .wrap { max-width: 420px; margin: 60px auto; padding: 24px; border-radius: 12px; background: #162133; }
-        h2 { margin-top: 0; }
-    input { width: 100%; box-sizing: border-box; padding: 12px; border-radius: 8px; border: 1px solid #2d3d56; background: #0f1725; color: #fff; }
-    button { margin-top: 12px; width: 100%; padding: 12px; border: none; border-radius: 8px; background: #2c84ff; color: #fff; cursor: pointer; }
-    .hint { color: #9fb3c8; font-size: 0.92rem; margin-top: 8px; }
-    .error { color: #ff8b8b; margin-top: 10px; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-        <h2>PIN для скачивания</h2>
-                <form method="POST" autocomplete="off">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-      <input type="password" name="pin" inputmode="numeric" pattern="[0-9]*" placeholder="Введите PIN" autofocus required />
-      <button type="submit">Скачать файл</button>
-    </form>
-    {% if error %}<div class="error">{{ error }}</div>{% endif %}
-    <div class="hint">Осталось скачиваний: {{ remaining }}</div>
-  </div>
-</body>
-</html>
-        """
-
         def _render_pin_page(error=None, remaining=0, status_code=200):
             response = make_response(
-                render_template_string(pin_page_tpl, error=error, remaining=remaining),
+                render_template("qr_download_pin.html", error=error, remaining=remaining),
                 status_code,
             )
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -866,7 +833,7 @@ def register_config_routes(
             "settings_public_download_toggle",
             target_type="public_download",
             target_name="PUBLIC_DOWNLOAD_ENABLED",
-            details=f"enabled={1 if next_state else 0}",
+            details=f"{'вкл' if current_state else 'выкл'} → {'вкл' if next_state else 'выкл'}",
         )
 
         flash(
@@ -991,6 +958,9 @@ def register_config_routes(
     @auth_manager.admin_required
     def run_doall():
         try:
+            _body = request.get_json(silent=True) or {}
+            _context = (_body.get("context") or "").strip()[:300] or None
+
             task = enqueue_background_task(
                 "run_doall",
                 task_run_doall,
@@ -998,19 +968,18 @@ def register_config_routes(
                 queued_message="Запуск doall поставлен в очередь",
             )
             is_tg_mini_action = _has_telegram_mini_session()
-            details_text = f"task_id={task.id}"
             if is_tg_mini_action:
                 log_telegram_audit_event(
                     "mini_run_doall",
-                    details=details_text,
+                    details=_context or "via=tg-mini",
                 )
-                details_text += " via=tg-mini"
+                _context = (_context + "; via=tg-mini") if _context else "via=tg-mini"
 
             log_user_action_event(
                 "settings_run_doall",
                 target_type="maintenance",
                 target_name="doall",
-                details=details_text,
+                details=_context,
             )
             return task_accepted_response(
                 task,

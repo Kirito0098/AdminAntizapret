@@ -1,3 +1,4 @@
+import json
 import logging
 
 from sqlalchemy import inspect as sa_inspect
@@ -34,6 +35,34 @@ class DatabaseMigrationService:
                             text(
                                 "ALTER TABLE \"user\" ADD COLUMN telegram_id VARCHAR(32)"
                             )
+                        )
+                        conn.commit()
+
+                if "tg_notify" not in cols:
+                    with self.db.engine.connect() as conn:
+                        conn.execute(
+                            text(
+                                "ALTER TABLE \"user\" ADD COLUMN tg_notify BOOLEAN NOT NULL DEFAULT 0"
+                            )
+                        )
+                        conn.commit()
+
+                if "tg_notify_events" not in cols:
+                    with self.db.engine.connect() as conn:
+                        conn.execute(
+                            text('ALTER TABLE "user" ADD COLUMN tg_notify_events TEXT')
+                        )
+                        conn.commit()
+                    # Migrate old tg_notify=True users: enable all events for them
+                    _all_events_json = json.dumps({
+                        "login_success": True, "login_failed": True, "tg_unlinked": True,
+                        "config_create": True, "config_delete": True, "user_create": True,
+                        "user_delete": True, "client_ban": True, "settings_change": True,
+                    })
+                    with self.db.engine.connect() as conn:
+                        conn.execute(
+                            text('UPDATE "user" SET tg_notify_events = :ev WHERE tg_notify = 1'),
+                            {"ev": _all_events_json},
                         )
                         conn.commit()
 

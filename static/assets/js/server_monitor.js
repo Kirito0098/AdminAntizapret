@@ -293,6 +293,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const unitLabel = currentUnit === "MB" ? "МБ/с" : "Мбит/с";
     const yTitle = isRateMode ? unitLabel : `Трафик за день (${currentUnit === "MB" ? "МБ/ГБ/ТБ" : "Мбит/Гбит/Тбит"})`;
 
+    const vw = window.innerWidth;
+    const isMobile = vw < 480;
+    const isNarrow = vw < 768;
+    const tickFontSize = isMobile
+      ? Math.max(chartTypography.size - 2, 10)
+      : Math.max(chartTypography.size - 1, 11);
+    const xMaxTicks = isMobile ? 5 : isNarrow ? 8 : (currentRange === "1d" ? 14 : 10);
+
     const config = {
       type: "line",
       data: {
@@ -312,12 +320,12 @@ document.addEventListener("DOMContentLoaded", () => {
             position: "bottom",
             labels: {
               color: chartColors.legend,
-              boxWidth: 16,
-              boxHeight: 10,
-              padding: 14,
+              boxWidth: isMobile ? 12 : 16,
+              boxHeight: isMobile ? 8 : 10,
+              padding: isMobile ? 8 : 14,
               font: {
                 family: chartTypography.family,
-                size: Math.max(chartTypography.size - 1, 11),
+                size: tickFontSize,
                 weight: "600",
               },
             },
@@ -335,7 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
         scales: {
           y: {
             title: {
-              display: true,
+              display: !isMobile,
               text: yTitle,
               color: chartColors.axisY,
               font: {
@@ -347,10 +355,10 @@ document.addEventListener("DOMContentLoaded", () => {
             ticks: {
               color: chartColors.axisY,
               callback: isRateMode ? undefined : (v) => fmtVolume(v, currentUnit),
-              maxTicksLimit: 8,
+              maxTicksLimit: isMobile ? 5 : 8,
               font: {
                 family: chartTypography.family,
-                size: Math.max(chartTypography.size - 1, 11),
+                size: tickFontSize,
               },
             },
             grid: { color: chartColors.gridStrong },
@@ -359,13 +367,13 @@ document.addEventListener("DOMContentLoaded", () => {
             ticks: {
               color: chartColors.axisX,
               autoSkip: true,
-              maxTicksLimit: currentRange === "1d" ? 14 : 10,
+              maxTicksLimit: xMaxTicks,
               maxRotation: 0,
               minRotation: 0,
-              padding: 8,
+              padding: isMobile ? 4 : 8,
               font: {
                 family: chartTypography.family,
-                size: Math.max(chartTypography.size - 1, 11),
+                size: tickFontSize,
                 weight: "500",
               },
             },
@@ -382,6 +390,15 @@ document.addEventListener("DOMContentLoaded", () => {
       bwChart.options = config.options;
       bwChart.update();
     }
+  }
+
+  function rebuildBwChartOnResize() {
+    if (!bwChart) return;
+    if (bwChart) {
+      bwChart.destroy();
+      bwChart = null;
+    }
+    loadBandwidth();
   }
 
   function sumInterfaceData(datasets) {
@@ -610,4 +627,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!pollInterval) {
     pollInterval = setInterval(loadSystemInfo, 15000);
   }
+
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(rebuildBwChartOnResize, 250);
+  });
 });

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow, noarchive" />
+  <title>Скачивание конфигурации — {{ panel_brand_name }}</title>
+  <link rel="icon" href="{{ url_for('static', filename='assets/img/favicon.ico') }}" type="image/x-icon" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/theme.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/login_styles.css') }}" />
+</head>
+
+<body class="auth-index-bridge">
+  <div class="login-shell qr-download-shell">
+    <section class="login login--embedded qr-download-pin" aria-label="Одноразовое скачивание конфигурации">
+      <div class="login__brand">
+        <span class="login__eyebrow">{{ panel_brand_name }}</span>
+        <h1 class="login__title">Одноразовое скачивание</h1>
+        <p class="login__subtitle">Введите PIN, выданный администратором. Будет скачан файл конфигурации подключения.</p>
+      </div>
+
+      <p class="login-trust-notice" role="note">
+        Официальная выдача конфигурации{% if panel_host %} на <strong>{{ panel_host }}</strong>{% endif %}.
+        Не вводите банковские или почтовые пароли — только PIN для этого файла.
+      </p>
+
+      <form method="POST" class="login__form" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div class="login__box">
+          <div class="login__box-input">
+            <input type="password" class="login__input" name="pin" id="qr-pin" inputmode="numeric" pattern="[0-9]*"
+              placeholder=" " autofocus required />
+            <label for="qr-pin" class="login__label">PIN администратора</label>
+          </div>
+        </div>
+        {% if error %}
+        <p class="login-trust-notice login-trust-notice--error" role="alert">{{ error }}</p>
+        {% endif %}
+        <button type="submit" class="login__button">Скачать конфигурацию</button>
+        <p class="login__check-hint">Осталось скачиваний по ссылке: {{ remaining }}</p>
+      </form>
+    </section>
+  </div>
+</body>
+
+</html>

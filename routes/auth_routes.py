@@ -3,8 +3,7 @@ import time
 import hashlib
 import hmac
 import os
-import json
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import urlsplit
 from datetime import timedelta
 from typing import Any, Callable
 
@@ -19,6 +18,8 @@ from flask import (
     flash,
 )
 
+from core.services.telegram_webapp_init_data import verify_telegram_webapp_init_data
+
 
 def register_auth_routes(
     app,
@@ -32,6 +33,8 @@ def register_auth_routes(
     touch_active_web_session,
     remove_active_web_session,
     log_telegram_audit_event,
+    log_user_action_event=None,
+    send_tg_admin_notification=None,
     app_name: str = "AdminAntizapret",
 ) -> None:
     def _limit(rule: str) -> Callable:
@@ -127,86 +130,6 @@ def register_auth_routes(
 
         return True, None
 
-    def _verify_telegram_webapp_init_data(
-        init_data_raw: str,
-    ) -> tuple[bool, str | None, dict[str, str] | None]:
-        bot_token = _get_telegram_bot_token()
-        if not bot_token:
-            return False, "Telegram авторизация не настроена (нет токена бота).", None
-
-        init_data = (init_data_raw or "").strip()
-        if not init_data:
-            return False, "Отсутствуют initData Telegram Mini App.", None
-
-        try:
-            payload = dict(parse_qsl(init_data, keep_blank_values=True))
-        except Exception:
-            return False, "Некорректный формат initData Telegram Mini App.", None
-
-        received_hash = (payload.get("hash") or "").strip().lower()
-        auth_date_raw = (payload.get("auth_date") or "").strip()
-        if not received_hash or not auth_date_raw:
-            return False, "Некорректные данные Telegram Mini App авторизации.", None
-
-        if not auth_date_raw.isdigit():
-            return False, "Некорректная дата Telegram Mini App авторизации.", None
-
-        auth_date = int(auth_date_raw)
-        max_age_seconds = _get_telegram_auth_max_age_seconds()
-        now_ts = int(time.time())
-        if abs(now_ts - auth_date) > max_age_seconds:
-            return False, "Время Telegram Mini App авторизации истекло. Повторите вход.", None
-
-        check_payload = {k: v for k, v in payload.items() if k != "hash"}
-        data_parts = []
-        for key in sorted(check_payload.keys()):
-            value = check_payload.get(key)
-            if value is None:
-                continue
-            data_parts.append(f"{key}={value}")
-
-        data_check_string = "\n".join(data_parts)
-        secret_key = hmac.new(
-            b"WebAppData",
-            bot_token.encode("utf-8"),
-            hashlib.sha256,
-        ).digest()
-        expected_hash = hmac.new(
-            secret_key,
-            data_check_string.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-
-        if not hmac.compare_digest(expected_hash, received_hash):
-            return False, "Проверка подписи Telegram Mini App не пройдена.", None
-
-        telegram_id = (payload.get("id") or "").strip()
-        telegram_username = ""
-        telegram_display_name = ""
-        user_raw = payload.get("user")
-        if user_raw:
-            try:
-                user_payload = json.loads(user_raw)
-                if not telegram_id:
-                    telegram_id = str(user_payload.get("id") or "").strip()
-                telegram_username = str(user_payload.get("username") or "").strip()
-                first_name = str(user_payload.get("first_name") or "").strip()
-                last_name = str(user_payload.get("last_name") or "").strip()
-                telegram_display_name = " ".join(
-                    part for part in (first_name, last_name) if part
-                ).strip()
-            except Exception:
-                telegram_username = ""
-                telegram_display_name = ""
-
-        if not telegram_id:
-            return False, "В initData отсутствует Telegram ID пользователя.", None
-
-        payload["id"] = telegram_id
-        payload["telegram_username"] = telegram_username
-        payload["telegram_display_name"] = telegram_display_name
-        return True, None, payload
-
     def _finish_telegram_login(
         user: Any,
         *,
@@ -285,7 +208,27 @@ def register_auth_routes(
                     session.permanent = False
 
                 _finish_telegram_login(user, mini=False)
+                if callable(send_tg_admin_notification):
+                    _lip = (request.headers.get("X-Forwarded-For", "") or request.remote_addr or "").split(",", 1)[0].strip()
+                    send_tg_admin_notification("login_success", actor_username=username, remote_addr=_lip)
                 return redirect(url_for("index"))
+            if callable(log_user_action_event):
+                log_user_action_event(
+                    "login_failed",
+                    target_type="user",
+                    target_name=username[:255] if username else None,
+                    status="error",
+                    details="invalid_credentials",
+                )
+            if callable(send_tg_admin_notification):
+                client_ip = (
+                    request.headers.get("X-Forwarded-For", "") or request.remote_addr or ""
+                ).split(",", 1)[0].strip()
+                send_tg_admin_notification(
+                    "login_failed",
+                    actor_username=username[:64] if username else None,
+                    remote_addr=client_ip,
+                )
             flash("Неверные учетные данные. Попробуйте снова.", "error")
             return redirect(url_for("login"))
         return render_template(
@@ -327,6 +270,15 @@ def register_auth_routes(
                 details="telegram_id_not_bound",
                 telegram_id=telegram_id,
             )
+            if callable(send_tg_admin_notification):
+                client_ip = (
+                    request.headers.get("X-Forwarded-For", "") or request.remote_addr or ""
+                ).split(",", 1)[0].strip()
+                send_tg_admin_notification(
+                    "tg_login_unlinked",
+                    target_name=telegram_id,
+                    remote_addr=client_ip,
+                )
             flash("Этот Telegram аккаунт не привязан ни к одному пользователю панели.", "error")
             return redirect(url_for("login"))
 
@@ -337,6 +289,9 @@ def register_auth_routes(
             actor_username=user.username,
             telegram_id=telegram_id,
         )
+        if callable(send_tg_admin_notification):
+            _lip = (request.headers.get("X-Forwarded-For", "") or request.remote_addr or "").split(",", 1)[0].strip()
+            send_tg_admin_notification("login_success", actor_username=user.username, remote_addr=_lip)
 
         return redirect(url_for("index"))
 
@@ -353,7 +308,11 @@ def register_auth_routes(
             return redirect(url_for("login"))
 
         init_data = request.form.get("init_data", "")
-        verified, error_message, payload = _verify_telegram_webapp_init_data(init_data)
+        verified, error_message, payload = verify_telegram_webapp_init_data(
+            init_data,
+            bot_token=_get_telegram_bot_token(),
+            max_age_seconds=_get_telegram_auth_max_age_seconds(),
+        )
         if not verified:
             log_telegram_audit_event(
                 "telegram_mini_login_failed",
@@ -372,6 +331,15 @@ def register_auth_routes(
                 details="telegram_id_not_bound",
                 telegram_id=telegram_id,
             )
+            if callable(send_tg_admin_notification):
+                client_ip = (
+                    request.headers.get("X-Forwarded-For", "") or request.remote_addr or ""
+                ).split(",", 1)[0].strip()
+                send_tg_admin_notification(
+                    "tg_mini_login_unlinked",
+                    target_name=telegram_id,
+                    remote_addr=client_ip,
+                )
             flash("Этот Telegram аккаунт не привязан ни к одному пользователю панели.", "error")
             return redirect(url_for("login"))
 
@@ -388,6 +356,9 @@ def register_auth_routes(
             actor_username=user.username,
             telegram_id=telegram_id,
         )
+        if callable(send_tg_admin_notification):
+            _lip = (request.headers.get("X-Forwarded-For", "") or request.remote_addr or "").split(",", 1)[0].strip()
+            send_tg_admin_notification("login_success", actor_username=user.username, remote_addr=_lip)
 
         next_url = _safe_internal_next_url(request.form.get("next", ""))
         return redirect(next_url)
@@ -448,20 +419,24 @@ def register_auth_routes(
 
         client_ip = ip_restriction.get_client_ip()
 
+        if ip_restriction.is_ip_allowed(client_ip):
+            ip_restriction.release_firewall_for_ip(client_ip)
+            return
+
         if not ip_restriction.is_ip_allowed(client_ip):
-            if request.endpoint == "ip_blocked":
+            if ip_restriction.should_count_denied_access(client_ip, request.endpoint):
+                ip_restriction.record_denied_access(client_ip)
+
+            if ip_restriction.should_hard_deny(client_ip):
+                if request.is_json:
+                    return ip_restriction.build_denied_json_response(client_ip)
+                return ip_restriction.build_hard_deny_response()
+
+            if request.endpoint in ("ip_blocked", "ip_blocked_ping"):
                 return
 
             if request.is_json:
-                return (
-                    jsonify(
-                        {
-                            "success": False,
-                            "message": f"Доступ запрещен с вашего IP-адреса: {client_ip}",
-                        }
-                    ),
-                    403,
-                )
+                return ip_restriction.build_denied_json_response(client_ip)
 
             return redirect(url_for("ip_blocked"))
 
@@ -482,7 +457,17 @@ def register_auth_routes(
 
     @app.route("/ip-blocked")
     def ip_blocked():
+        if not ip_restriction.is_enabled():
+            return redirect(url_for("login"))
+
         client_ip = ip_restriction.get_client_ip()
+        if ip_restriction.is_ip_allowed(client_ip):
+            return redirect(url_for("login"))
+
+        dwell_status = ip_restriction.touch_ip_blocked_presence(client_ip)
+        if dwell_status.get("banned"):
+            return ip_restriction.build_hard_deny_response()
+
         current_time = time.strftime("%Y-%m-%d %H:%M:%S")
         request_path = request.headers.get("Referer", request.path)
 
@@ -492,4 +477,21 @@ def register_auth_routes(
             current_time=current_time,
             request_path=request_path,
             app_name=app_name,
+            ip_blocked_dwell_tracking=ip_restriction.block_ip_blocked_dwell,
+            ip_blocked_dwell_seconds=ip_restriction.ip_blocked_dwell_seconds,
         )
+
+    @app.route("/ip-blocked/ping", methods=["GET", "POST"])
+    def ip_blocked_ping():
+        if not ip_restriction.is_enabled():
+            return jsonify({"success": False, "message": "IP-ограничения выключены"}), 404
+
+        client_ip = ip_restriction.get_client_ip()
+        if ip_restriction.is_ip_allowed(client_ip):
+            return jsonify({"banned": False, "tracking": False})
+
+        dwell_status = ip_restriction.touch_ip_blocked_presence(client_ip)
+        if dwell_status.get("banned"):
+            return ip_restriction.build_denied_json_response(client_ip)
+
+        return jsonify({"success": True, **dwell_status})

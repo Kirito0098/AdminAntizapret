@@ -37,25 +37,17 @@ document.addEventListener("DOMContentLoaded", function () {
     throw new Error("Превышено время ожидания фоновой задачи");
   };
 
-  // Инициализация меню
+  // Инициализация меню (tab switching via base-nav [data-settings-tab] links + URL hash)
   const initMenu = () => {
-    const menuItems = document.querySelectorAll(".menu-item");
+    const navLinks = document.querySelectorAll(".nav-sublink[data-settings-tab]");
     const contentTabs = document.querySelectorAll(".content-tab");
 
-    const syncMainNavSettingsLinks = (tabId) => {
-      const links = document.querySelectorAll(".nav-sublink[data-settings-tab]");
-      if (!links.length) return;
+    if (!contentTabs.length) return;
 
-      let hasActive = false;
-      links.forEach((link) => {
-        const isActive = link.getAttribute("data-settings-tab") === tabId;
-        link.classList.toggle("is-active", isActive);
-        if (isActive) hasActive = true;
+    const syncNavLinks = (tabId) => {
+      navLinks.forEach((link) => {
+        link.classList.toggle("is-active", link.getAttribute("data-settings-tab") === tabId);
       });
-
-      if (!hasActive && links.length) {
-        links[0].classList.add("is-active");
-      }
     };
 
     const activateTab = (tabId) => {
@@ -63,48 +55,28 @@ document.addEventListener("DOMContentLoaded", function () {
         tab.classList.remove("active");
         if (tab.id === tabId) tab.classList.add("active");
       });
-      syncMainNavSettingsLinks(tabId);
+      syncNavLinks(tabId);
       document.body.setAttribute("data-active-settings-tab", tabId);
       window.dispatchEvent(new CustomEvent("settings:tab-changed", { detail: { tabId } }));
     };
 
-    menuItems.forEach((item) => {
-      item.addEventListener("click", function () {
-        menuItems.forEach((i) => i.classList.remove("active"));
-        this.classList.add("active");
-        const tabId = this.getAttribute("data-tab");
-
-        if (tabId) {
-          activateTab(tabId);
-        }
-
-        if (tabId === "antizapret-config") {
-          loadAntizapretSettings();
-        }
-      });
-
-      if (window.location.hash === `#${item.getAttribute("data-tab")}`) {
-        item.click();
-      }
-    });
-
-    if (menuItems.length > 0 && !window.location.hash) {
-      const activeMenuItem = document.querySelector(".menu-item.active");
-      (activeMenuItem || menuItems[0]).click();
-    }
+    const resolveTabFromHash = () => {
+      const tabId = (window.location.hash || "").replace(/^#/, "").trim();
+      return tabId && document.getElementById(tabId)?.classList.contains("content-tab") ? tabId : "";
+    };
 
     window.addEventListener("hashchange", () => {
-      const tabId = (window.location.hash || "").replace(/^#/, "").trim();
+      const tabId = resolveTabFromHash();
       if (!tabId) return;
-
-      const hashMenuItem = document.querySelector(`.menu-item[data-tab='${tabId}']`);
-      if (hashMenuItem) {
-        hashMenuItem.click();
-        return;
-      }
-
-      syncMainNavSettingsLinks(tabId);
+      activateTab(tabId);
+      if (tabId === "antizapret-config") loadAntizapretSettings();
     });
+
+    const initialTabId = resolveTabFromHash() || contentTabs[0]?.id || "";
+    if (initialTabId) {
+      activateTab(initialTabId);
+      if (initialTabId === "antizapret-config") loadAntizapretSettings();
+    }
   };
 
   const createUserActionConfirm = () => {
@@ -272,7 +244,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const topApplyBtn = document.getElementById("workbench-primary-apply");
 
     if (sticky) {
-      sticky.hidden = !isAntizapretTab;
+      sticky.hidden = !isAntizapretTab || (!antizapretHasUnsavedChanges && !antizapretNeedsApply);
     }
 
     if (saveBtn) {
@@ -301,26 +273,70 @@ document.addEventListener("DOMContentLoaded", function () {
     setWorkbenchState("applied");
   };
 
-  const markAntizapretDirty = (element) => {
-    antizapretHasUnsavedChanges = true;
-    const groupSection = element?.closest("[data-antizapret-group]");
+  // Snapshot-based dirty tracking: panel appears only when values differ from baseline.
+  let _dirtySnapshot = new Map();
+  let _pendingDoallContext = null;
+
+  const _getControlValue = (control) =>
+    control.type === "checkbox" ? control.checked : control.value;
+
+  const _rebuildDirtySnapshot = () => {
+    const root = document.getElementById("antizapret-config");
+    if (!root) return;
+    _dirtySnapshot = new Map();
+    root.querySelectorAll("input, select, textarea").forEach((control) => {
+      if (control.type === "hidden") return;
+      _dirtySnapshot.set(control, _getControlValue(control));
+    });
+  };
+
+  const _checkAntizapretDirty = (changedElement) => {
+    let isDirty = false;
+    _dirtySnapshot.forEach((initial, control) => {
+      if (_getControlValue(control) !== initial) isDirty = true;
+    });
+
+    antizapretHasUnsavedChanges = isDirty;
+
+    const groupSection = changedElement?.closest("[data-antizapret-group]");
     const sectionName = groupSection?.getAttribute("data-antizapret-group");
     if (sectionName) {
-      setSectionStatus("unsaved", sectionName);
+      setSectionStatus(isDirty ? "unsaved" : "applied", sectionName);
     }
     updateActionSurface();
+  };
+
+  // Call after save or cancel to make current values the new baseline.
+  const refreshDirtySnapshot = () => {
+    _rebuildDirtySnapshot();
+    antizapretHasUnsavedChanges = false;
+    updateActionSurface();
+  };
+
+  // Returns list of human-readable change strings for IP file toggles (e.g. ["вкл: Amazon", "выкл: Google"])
+  const _collectIpFileChanges = () => {
+    const changes = [];
+    _dirtySnapshot.forEach((initialValue, control) => {
+      if (!control.classList.contains("ip-file-toggle")) return;
+      const currentValue = _getControlValue(control);
+      if (currentValue === initialValue) return;
+      const name = control.dataset.ipFileName || control.dataset.ipFile || "";
+      if (!name) return;
+      changes.push((currentValue ? "вкл" : "выкл") + ": " + name);
+    });
+    return changes;
   };
 
   const initAntizapretDirtyTracking = () => {
     const root = document.getElementById("antizapret-config");
     if (!root) return;
 
-    const controls = root.querySelectorAll("input, select, textarea");
-    controls.forEach((control) => {
+    _rebuildDirtySnapshot();
+
+    root.querySelectorAll("input, select, textarea").forEach((control) => {
       if (control.type === "hidden") return;
-      const markDirty = () => markAntizapretDirty(control);
-      control.addEventListener("input", markDirty);
-      control.addEventListener("change", markDirty);
+      control.addEventListener("input", () => _checkAntizapretDirty(control));
+      control.addEventListener("change", () => _checkAntizapretDirty(control));
     });
   };
 
@@ -355,13 +371,24 @@ document.addEventListener("DOMContentLoaded", function () {
     return states;
   };
 
-  const applyIpFileStates = (states) => {
+  const applyIpFileStates = (states, sourceStates) => {
     if (!states || typeof states !== "object") return;
     document.querySelectorAll(".ip-file-toggle[data-ip-file]").forEach((input) => {
       const fileName = input.getAttribute("data-ip-file");
       if (!fileName) return;
       if (Object.prototype.hasOwnProperty.call(states, fileName)) {
         input.checked = Boolean(states[fileName]);
+      }
+      if (sourceStates && Object.prototype.hasOwnProperty.call(sourceStates, fileName)) {
+        const hasSource = Boolean(sourceStates[fileName]);
+        input.disabled = !hasSource;
+        input.setAttribute("data-source-exists", hasSource ? "true" : "false");
+        const item = input.closest(".config-item");
+        if (item) item.classList.toggle("ip-file-item--no-source", !hasSource);
+        const badge = item?.querySelector(".ip-file-no-source-badge");
+        const hint = item?.querySelector(".ip-file-no-source-hint");
+        if (badge) badge.hidden = hasSource;
+        if (hint) hint.hidden = hasSource;
       }
     });
   };
@@ -487,7 +514,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!response.ok || !payload.success) {
       throw new Error(payload.message || "Ошибка загрузки состояний IP-файлов");
     }
-    applyIpFileStates(payload.states || {});
+    applyIpFileStates(payload.states || {}, payload.source_states);
   };
 
   const syncIpFilesFromList = async () => {
@@ -1940,8 +1967,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!antizapretNeedsApply) {
       setSectionStatus("idle");
     }
-    antizapretHasUnsavedChanges = false;
-    updateActionSurface();
+    refreshDirtySnapshot();
   }
 
   async function applyAntizapretChanges(statusElement) {
@@ -1952,11 +1978,15 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelector('meta[name="csrf-token"]')?.content ||
         "";
     };
+    const _ctx = _pendingDoallContext || "Применение настроек Antizapret";
+    _pendingDoallContext = null;
     const applyResponse = await fetch("/run-doall", {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         "X-CSRFToken": getCsrfToken(),
       },
+      body: JSON.stringify({ context: _ctx }),
     });
 
     const applyData = await applyResponse.json();
@@ -2019,11 +2049,15 @@ document.addEventListener("DOMContentLoaded", function () {
         throw new Error(saveData.message || "Ошибка сохранения настроек");
       }
 
+      const _ipChanges = _collectIpFileChanges();
+      if (_ipChanges.length) {
+        _pendingDoallContext = "Изменения: " + _ipChanges.slice(0, 6).join(", ") + (_ipChanges.length > 6 ? "…" : "");
+      }
       const ipFilesResult = await saveIpFileStates();
       const antizapretChanges = Number(saveData.changes || 0);
       const hasAntizapretChanges = antizapretChanges > 0;
 
-      antizapretHasUnsavedChanges = false;
+      refreshDirtySnapshot();
 
       if (!applyChanges) {
         if (hasAntizapretChanges) {
@@ -2059,13 +2093,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const cancelAntizapretChanges = async () => {
     await loadAntizapretSettings();
-    antizapretHasUnsavedChanges = false;
     if (antizapretNeedsApply) {
       setSectionStatus("pending");
     } else {
       setSectionStatus("idle");
     }
-    updateActionSurface();
+    refreshDirtySnapshot();
   };
 
   const applyPendingAntizapretChanges = async () => {
@@ -2309,7 +2342,7 @@ document.addEventListener("DOMContentLoaded", function () {
       progressFill:   document.getElementById("upd-progress-fill"),
       progressLabel:  document.getElementById("upd-progress-label"),
       resultMsg:      document.getElementById("upd-result-msg"),
-      menuItem:       document.getElementById("menu-system-updates"),
+      menuItem:       document.querySelector(".nav-sublink[data-settings-tab='system-updates']"),
     };
 
     if (!els.checkBtn) return;
@@ -2491,8 +2524,8 @@ document.addEventListener("DOMContentLoaded", function () {
     els.checkBtn.addEventListener("click", checkForUpdates);
     els.applyBtn.addEventListener("click", applyUpdate);
 
-    document.querySelectorAll(".menu-item[data-tab='system-updates']").forEach(item => {
-      item.addEventListener("click", checkForUpdates);
+    window.addEventListener("settings:tab-changed", (e) => {
+      if (e.detail?.tabId === "system-updates") checkForUpdates();
     });
 
     loadReleaseNotes();
@@ -2582,13 +2615,50 @@ document.addEventListener("DOMContentLoaded", function () {
   initMiniAppLinkCopy();
   initSettingsRangeControls();
 
-  if (history.pushState) {
-    document.querySelectorAll(".menu-item[data-tab]").forEach((link) => {
-      link.addEventListener("click", () => {
-        history.pushState(null, null, "#" + link.getAttribute("data-tab"));
-      });
+  // ── Reverse sync: IP-file toggle → CIDR checkbox ──────────────────────
+  // When user enables/disables a provider in "Фильтры и сервисы",
+  // reflect that in the CIDR providers grid so both sections stay in sync.
+  document.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!target?.matches(".ip-file-toggle[data-ip-file]")) return;
+    const fileName = target.getAttribute("data-ip-file");
+    if (!fileName) return;
+    const cidrCheckbox = document.querySelector(`.cidr-region-checkbox[value="${CSS.escape(fileName)}"]`);
+    if (cidrCheckbox && cidrCheckbox.checked !== target.checked) {
+      cidrCheckbox.checked = target.checked;
+      renderCidrMeta();
+    }
+  });
+
+  // Initial sync: mark CIDR checkboxes that already have IP-file toggles enabled.
+  // Runs once after DOMContentLoaded so the CIDR grid reflects the saved state.
+  (function syncCidrFromIpTogglesOnLoad() {
+    document.querySelectorAll(".ip-file-toggle[data-ip-file]").forEach((toggle) => {
+      if (!toggle.checked) return;
+      const fileName = toggle.getAttribute("data-ip-file");
+      const cidrCheckbox = document.querySelector(`.cidr-region-checkbox[value="${CSS.escape(fileName)}"]`);
+      if (cidrCheckbox && !cidrCheckbox.checked) {
+        cidrCheckbox.checked = true;
+      }
     });
-  }
+    renderCidrMeta();
+  })();
+
+  // ── Navigation: data-go-tab links ─────────────────────────────────────
+  // Clicking <a data-go-tab="cidr-update"> switches to that tab.
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-go-tab]");
+    if (!link) return;
+    event.preventDefault();
+    const tabId = link.getAttribute("data-go-tab");
+    if (!tabId) return;
+    const newHash = "#" + tabId;
+    if (window.location.hash === newHash) {
+      window.dispatchEvent(new Event("hashchange"));
+    } else {
+      window.location.hash = newHash;
+    }
+  });
 
   // Expose helpers for inline scripts (settings.html DB/preset blocks)
   window._cidrRenderMeta = renderCidrMeta;
@@ -2713,8 +2783,6 @@ document.addEventListener("DOMContentLoaded", function () {
     setCidrBusy(false);
   };
 
-  // Проверяем обновления при загрузке
-  checkForUpdates();
   updateActionSurface();
 });
 // Обработка перезапуска службы

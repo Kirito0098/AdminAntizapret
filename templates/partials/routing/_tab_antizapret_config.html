@@ -138,16 +138,32 @@
         {% if ip_files %}
         <div class="config-grid">
           {% for filename, file_info in ip_files.items() %}
-          <div class="config-item az-item">
+          {% set has_source = ip_source_states.get(filename, false) %}
+          <div class="config-item az-item{% if not has_source %} ip-file-item--no-source{% endif %}">
             <div class="settings-form" data-ip-file-row="{{ filename }}">
               <label class="toggle-wrapper">
-                <span class="toggle-label"><span class="config-item-title">{{ file_info.name }}</span></span>
+                <span class="toggle-label">
+                  <span class="config-item-title">{{ file_info.name }}</span>
+                  {% if not has_source %}
+                  <span class="ip-file-no-source-badge">Не сформирован</span>
+                  {% endif %}
+                </span>
                 <div class="toggle-switch">
-                  <input type="checkbox" class="toggle-input ip-file-toggle" data-ip-file="{{ filename }}" {% if
-                    ip_file_states[filename] %}checked{% endif %} />
+                  <input type="checkbox" class="toggle-input ip-file-toggle" data-ip-file="{{ filename }}"
+                    data-ip-file-name="{{ file_info.name }}"
+                    data-source-exists="{{ 'true' if has_source else 'false' }}"
+                    {% if ip_file_states[filename] %}checked{% endif %}
+                    {% if not has_source %}disabled{% endif %} />
                   <span class="toggle-slider"></span>
                 </div>
               </label>
+              {% if not has_source %}
+              <div class="ip-file-no-source-hint">
+                Данные не загружены в CIDR БД. Выберите провайдера во вкладке
+                <a href="#cidr-update" class="ip-file-go-cidr-link" data-go-tab="cidr-update">Обновление IP-списков</a>
+                и нажмите «Обновить из интернета».
+              </div>
+              {% endif %}
             </div>
             <div class="config-item-tooltip">
               <span class="config-param">({{ filename }})</span> {{ file_info.description }}

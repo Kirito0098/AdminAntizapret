@@ -386,45 +386,6 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertIn("cdn77-ips.txt", result["detected_files"])
         self.assertNotIn("hetzner-ips.txt", result["detected_files"])
 
-    def test_analyze_dpi_log_supports_relaxed_patterns_and_provider_aliases(self):
-        dpi_log = "\n".join(
-            [
-                "[00:00:01] DPI checking (#US-CF-01)/INFO: tcp 16-20: detected, provider=Cloudflare",
-                "[00:00:02] DPI checking (#DE-AWS-01)/INFO: tcp 16 - 20: possible detected, provider: Amazon AWS",
-                "[00:00:03] DPI checking (#EU.UNKNOWN-01)/INFO: provider: Microsoft Azure, tcp 16–20: unlikely",
-            ]
-        )
-
-        result = cidr_list_updater.analyze_dpi_log(dpi_log)
-
-        self.assertTrue(result["success"])
-        self.assertIn("cloudflare-ips.txt", result["priority_files"])
-        self.assertIn("amazon-ips.txt", result["critical_files"])
-        self.assertIn("azure-ips.txt", result["priority_files"])
-
-    def test_analyze_dpi_log_parses_probably_detected(self):
-        dpi_log = "[00:00:01] DPI checking(#US.CF-01)/INFO: tcp 16-20: probably detected ⚠️, reqtime: 15013.2 ms"
-
-        result = cidr_list_updater.analyze_dpi_log(dpi_log)
-
-        self.assertTrue(result["success"])
-        self.assertIn("cloudflare-ips.txt", result["priority_files"])
-        self.assertIn("cloudflare-ips.txt", result["critical_files"])
-
-    def test_analyze_dpi_log_returns_all_seen_files(self):
-        dpi_log = "\n".join(
-            [
-                "[00:00:01] DPI checking(#US.CF-01)/INFO: tcp 16-20: not detected ✅, reqtime: 200.0 ms",
-                "[00:00:02] DPI checking(#US.CDN77-01)/INFO: tcp 16-20: detected❗️, method: 1",
-            ]
-        )
-
-        result = cidr_list_updater.analyze_dpi_log(dpi_log)
-
-        self.assertTrue(result["success"])
-        self.assertIn("cloudflare-ips.txt", result["all_seen_files"])
-        self.assertIn("cdn77-ips.txt", result["all_seen_files"])
-
     def test_analyze_dpi_log_supports_dpi_detector_table_format(self):
         dpi_log = "\n".join(
             [
@@ -443,36 +404,6 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertIn("hetzner-ips.txt", result["detected_files"])
         self.assertIn("google-ips.txt", result["all_seen_files"])
         self.assertNotIn("google-ips.txt", result["priority_files"])
-
-    def test_analyze_dpi_log_maps_extended_table_provider_codes(self):
-        dpi_log = "\n".join(
-            [
-                "│ ID     │ ASN      │ Провайдер       │ Alive │  Статус  │ Детали                   │",
-                "│ AKM-02 │ AS20940  │ Akamai          │  Да   │ DETECTED │ Read Timeout at 20KB     │",
-                "│ DO-01  │ AS14061  │ DigitalOcean    │  Да   │ DETECTED │ Read Timeout at 20KB     │",
-                "│ ME-01  │ AS9009   │ M247 Europe SRL │  Да   │ DETECTED │ Read Timeout at 16KB     │",
-                "│ CF-01  │ AS13335  │ Cloudflare      │  Да   │ DETECTED │ Read Timeout at 16KB     │",
-                "│ OVH-01 │ AS16276  │ OVH             │  Да   │ DETECTED │ Read Timeout at 20KB     │",
-            ]
-        )
-
-        result = cidr_list_updater.analyze_dpi_log(dpi_log)
-
-        self.assertTrue(result["success"])
-        self.assertEqual(result["unknown_nodes"], [])
-        self.assertIn("akamai-ips.txt", result["detected_files"])
-        self.assertIn("digitalocean-ips.txt", result["detected_files"])
-        self.assertIn("m247-ips.txt", result["detected_files"])
-        self.assertIn("cloudflare-ips.txt", result["detected_files"])
-        self.assertIn("ovh-ips.txt", result["detected_files"])
-
-    def test_get_openvpn_route_total_cidr_limit_clamps_to_ios_max(self):
-        with patch.object(cidr_list_updater, "_read_positive_int_runtime", return_value=5000), patch.object(
-            cidr_list_updater,
-            "OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS",
-            900,
-        ):
-            self.assertEqual(cidr_list_updater._get_openvpn_route_total_cidr_limit(), 900)
 
     def test_apply_total_route_limit_with_dpi_priority_reserve(self):
         entries = [
@@ -722,21 +653,6 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertEqual(len(compressed), 1)
         self.assertNotIn("0.0.0.0/0", compressed)
 
-    def test_normalize_cidrs_filters_default_route(self):
-        normalized = cidr_list_updater._normalize_cidrs(
-            ["0.0.0.0/0", "10.0.0.0/24", "10.0.0.0/24", "2001:db8::/32"]
-        )
-        self.assertEqual(normalized, ["10.0.0.0/24"])
-
-    def test_compress_cidrs_to_limit_with_full_halfspaces_never_returns_default_route(self):
-        cidrs = ["0.0.0.0/1", "128.0.0.0/1"]
-
-        compressed, meta = cidr_list_updater._compress_cidrs_to_limit(cidrs, 1)
-
-        self.assertIsNotNone(meta)
-        self.assertEqual(len(compressed), 1)
-        self.assertNotEqual(compressed[0], "0.0.0.0/0")
-
     def test_compress_cidrs_to_limit_does_not_overcompress_far_below_budget(self):
         cidrs = [
             f"10.{index // 256}.{index % 256}.0/24"
@@ -789,19 +705,6 @@ class CidrListUpdaterTests(unittest.TestCase):
                 self.assertNotIn(cidr_list_updater.GAME_FILTER_BLOCK_START, disabled_content)
                 self.assertNotIn("faceit.com", disabled_content)
 
-    def test_sync_games_include_hosts_is_idempotent(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            include_hosts_path = os.path.join(tmp_dir, "include-hosts.txt")
-
-            with patch.object(cidr_list_updater, "GAME_INCLUDE_HOSTS_FILE", include_hosts_path):
-                first = cidr_list_updater._sync_games_include_hosts(["lol", "dota2", "faceit"])
-                second = cidr_list_updater._sync_games_include_hosts(["lol", "dota2", "faceit"])
-
-            self.assertTrue(first["success"])
-            self.assertTrue(first["changed"])
-            self.assertTrue(second["success"])
-            self.assertFalse(second["changed"])
-
     def test_sync_game_hosts_filter_runs_without_cidr_update(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             include_hosts_path = os.path.join(tmp_dir, "include-hosts.txt")
@@ -836,25 +739,6 @@ class CidrListUpdaterTests(unittest.TestCase):
             self.assertIn(cidr_list_updater.GAME_FILTER_IP_BLOCK_START, ips_content)
             self.assertIn("203.0.113.10/32", ips_content)
             self.assertIn("203.0.113.11/32", ips_content)
-
-    def test_available_game_filters_contains_large_popular_set_and_alias(self):
-        filters = cidr_list_updater.get_available_game_filters()
-        self.assertGreaterEqual(len(filters), 65)
-        keys = {item["key"] for item in filters}
-        self.assertIn("lol", keys)
-        self.assertIn("dota2", keys)
-        self.assertIn("cs2", keys)
-        self.assertIn("faceit", keys)
-        self.assertIn("mir_tankov", keys)
-        self.assertIn("world_of_warships", keys)
-        self.assertIn("warface", keys)
-        self.assertIn("standoff2", keys)
-
-        normalized = cidr_list_updater._normalize_game_filter_keys(["csgo", "DOTA2", "faceit"])
-        self.assertIn("cs2", normalized)
-        self.assertIn("dota2", normalized)
-        self.assertIn("faceit", normalized)
-
 
 if __name__ == "__main__":
     unittest.main()

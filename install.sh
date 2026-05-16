@@ -18,8 +18,22 @@ REQUIRED_COMMANDS=(apt-get dpkg-query systemctl find)
 
 REQUIRED_PACKAGES=(
     apt-utils whiptail iproute2 dnsutils net-tools git
-    vnstat openssl python3 python3-pip python3-venv
+    vnstat openssl python3 python3-pip python3-venv python3-dev
+    libjpeg-dev zlib1g-dev
     wget cron ca-certificates
+)
+
+# Опционально: свой форк — export ADMINANTIZAPRET_REPO_URL="https://github.com/you/AdminAntizapret.git"
+if [ -n "${ADMINANTIZAPRET_REPO_URL:-}" ]; then
+    REPO_URL="$ADMINANTIZAPRET_REPO_URL"
+fi
+
+REPO_LAYOUT_FILES=(
+    "app.py"
+    "requirements.txt"
+    "gunicorn.conf.py"
+    "script_sh/adminpanel.sh"
+    "utils/init_db.py"
 )
 
 # ─── Цвета (только в интерактивном терминале) ─────
@@ -89,9 +103,10 @@ _ui_info() { printf "  %b·%b  %s\n"  "$CYAN"   "$NC" "$1"; }
 
 _ui_header() {
     printf '\n'
-    printf "  %bAdminAntizapret%b — Установщик\n" "$BOLD" "$NC"
+    printf "  %bAdminAntizapret%b — Установщик (bootstrap)\n" "$BOLD" "$NC"
     printf "  %bЛог: %s%b\n" "$DIM" "$LOG_FILE" "$NC"
-    printf "  %bПервая установка может занять 5–10 минут%b\n" "$DIM" "$NC"
+    printf "  %bПервая установка может занять 5–15 минут%b\n" "$DIM" "$NC"
+    printf "  %bТребуется: Ubuntu ≥24.04 или Debian ≥13, root, AntiZapret-VPN на сервере%b\n" "$DIM" "$NC"
     printf '\n'
 }
 
@@ -232,6 +247,24 @@ _do_write_env() {
         || printf 'OPENVPN_ROUTE_TOTAL_CIDR_LIMIT=1500\n' >> "$INSTALL_DIR/.env"
 }
 
+_check_antizapret_prereq() {
+    systemctl is-active --quiet antizapret.service 2>/dev/null && return 0
+    [ -d /root/antizapret ] && return 0
+    return 1
+}
+
+_verify_repo_layout() {
+    local f missing=()
+    for f in "${REPO_LAYOUT_FILES[@]}"; do
+        [ -f "$INSTALL_DIR/$f" ] || missing+=("$f")
+    done
+    if [ "${#missing[@]}" -gt 0 ]; then
+        printf 'В репозитории отсутствуют файлы: %s\n' "${missing[*]}"
+        return 1
+    fi
+    return 0
+}
+
 # ─── Режим --check ────────────────────────────────
 _run_check() {
     printf '\n  %bAdminAntizapret%b — Проверка окружения\n\n' "$BOLD" "$NC"
@@ -283,8 +316,17 @@ _run_check() {
     fi
 
     printf '\n'
+    if _check_antizapret_prereq; then
+        _ui_ok "AntiZapret-VPN (/root/antizapret или antizapret.service)"
+    else
+        _ui_warn "AntiZapret-VPN не установлен (нужен до полной настройки панели)"
+        _ui_info "Установите: bash <(wget -qO- https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/main/setup.sh)"
+    fi
+
+    printf '\n'
     if [ "$fail" -eq 0 ]; then
-        printf "  %bСистема готова к установке.%b\n\n" "$GREEN" "$NC"
+        printf "  %bСистема готова к bootstrap-установке.%b\n" "$GREEN" "$NC"
+        printf "  %bДалее adminpanel.sh создаст venv, systemd и спросит HTTP/HTTPS.%b\n\n" "$DIM" "$NC"
     else
         printf "  %bЕсть проблемы. Исправьте их и повторите запуск.%b\n\n" "$RED" "$NC"
     fi
@@ -415,6 +457,17 @@ if [ ! -f "$MAIN_SCRIPT" ]; then
     _log "ОШИБКА: файл не существует: $MAIN_SCRIPT"
     _ui_err "Установка не завершена — репозиторий повреждён."
     exit 1
+fi
+
+run_step "Проверка структуры репозитория" \
+    _verify_repo_layout \
+    || { _ui_err "Репозиторий неполный. Проверьте REPO_URL / ветку."; exit 1; }
+
+if ! _check_antizapret_prereq; then
+    _ui_warn "AntiZapret-VPN не обнаружен"
+    _ui_info "Сначала: bash <(wget -qO- https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/main/setup.sh)"
+    _ui_info "Без /root/antizapret панель не сможет управлять VPN-клиентами и маршрутами."
+    _log "ПРЕДУПРЕЖДЕНИЕ: AntiZapret-VPN не установлен"
 fi
 
 # ─── Шаг 4: Права и конфигурация ─────────────────
