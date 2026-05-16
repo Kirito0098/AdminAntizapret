@@ -1,0 +1,37 @@
+<div class="client-details-modal" id="clientDetailsModalMain" hidden>
+  <div class="client-details-backdrop" data-client-details-close></div>
+  <div class="client-details-dialog" role="dialog" aria-modal="true" aria-labelledby="clientDetailsTitleMain">
+    <button type="button" class="client-details-close" data-client-details-close aria-label="Закрыть">×</button>
+
+    <div class="client-details-header">
+      <h3 id="clientDetailsTitleMain">Клиент</h3>
+      <p id="clientDetailsSummaryMain" class="client-details-summary">Загрузка...</p>
+    </div>
+
+    <section class="client-details-section client-details-actions-section">
+      <div class="client-details-section-title">Действия</div>
+      <div id="clientDetailsActionsMain" class="client-details-actions"></div>
+    </section>
+
+    <section class="client-details-section">
+      <div class="client-details-section-title">Трафик клиента (БД)</div>
+      <div id="clientDetailsTrafficQuickMain" class="client-details-quick">Загрузка...</div>
+      <div class="client-details-range" role="tablist" aria-label="Диапазон графика клиента">
+        <button type="button" class="client-details-range-btn" data-range="1h">1 час</button>
+        <button type="button" class="client-details-range-btn" data-range="24h">24 часа</button>
+        <button type="button" class="client-details-range-btn" data-range="7d">7 дней</button>
+        <button type="button" class="client-details-range-btn" data-range="30d">30 дней</button>
+        <button type="button" class="client-details-range-btn" data-range="all">За все время</button>
+      </div>
+      <div id="clientDetailsTrafficMetaMain" class="client-details-meta">Загрузка...</div>
+      <div class="client-details-chart-wrap">
+        <canvas id="clientDetailsTrafficChartMain"></canvas>
+      </div>
+    </section>
+
+    <section class="client-details-section">
+      <div class="client-details-section-title">Подключения (IP, устройство, версия)</div>
+      <div id="clientDetailsConnectionsMain" class="client-details-connections"></div>
+    </section>
+  </div>
+</div>

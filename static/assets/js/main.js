@@ -32,11 +32,6 @@ const showHiddenPass = (loginPass, loginEye) => {
 showHiddenPass('login-pass', 'login-eye');
 
 document.addEventListener('DOMContentLoaded', function () {
-  const notification = document.getElementById('notification');
-  const flashContainer = document.getElementById('flash-container'); // Контейнер для flash-сообщений
-  let notificationTimeout = null;
-  let notificationExitTimeout = null;
-
   // Включение капчи после 2 неудачных авторизаций
   const loginForm = document.querySelector('.login__form');
   const captchaContainer = document.querySelector('.captcha-container');
@@ -61,59 +56,35 @@ document.addEventListener('DOMContentLoaded', function () {
   if (refreshButton && captchaImg) {
     refreshButton.addEventListener('click', function () {
       captchaImg.src = '/captcha.png?' + new Date().getTime();
-      // Делаем запрос на сервер для генерации новой капчи
       fetch('/refresh_captcha').catch((error) => {
         console.error('Ошибка обновления капчи:', error);
       });
     });
   }
 
-  // Функция для отображения уведомлений
-  function showNotification(message, type = 'info') {
-    if (!notification) {
-      return;
-    }
-
-    const isError = type === 'error';
-    notification.setAttribute('role', isError ? 'alert' : 'status');
-    notification.setAttribute('aria-live', isError ? 'assertive' : 'polite');
-    notification.setAttribute('aria-atomic', 'true');
-    notification.textContent = message;
-    notification.className = `notification notification-${type}`;
-    notification.classList.remove('notification-exit');
-    if (notificationExitTimeout) {
-      clearTimeout(notificationExitTimeout);
-      notificationExitTimeout = null;
-    }
-    if (notificationTimeout) {
-      clearTimeout(notificationTimeout);
-      notificationTimeout = null;
-    }
-    notification.style.display = 'block';
-
-    notificationTimeout = setTimeout(() => {
-      notification.classList.add('notification-exit');
-      notificationExitTimeout = setTimeout(() => {
-        notification.classList.remove('notification-exit');
-        notification.style.display = 'none';
-      }, 180);
-    }, 2800);
-
-  }
-
-  // Проверяем наличие сообщений flash
   const flashNode = document.getElementById('flash-messages');
-  const flashMessages = JSON.parse(
-    (flashNode && flashNode.textContent) || '[]',
-  );
-  flashMessages.forEach(([category, message]) => {
-    showNotification(message, category);
+  const normalizeType = window.normalizeNotificationType || ((category) => {
+    const c = String(category || 'info').toLowerCase();
+    if (['error', 'danger'].includes(c)) return 'error';
+    if (['success', 'ok'].includes(c)) return 'success';
+    if (['warning', 'warn'].includes(c)) return 'warning';
+    return 'info';
   });
 
-  // Автоматическое скрытие flash-сообщений
-  if (flashContainer) {
-    setTimeout(() => {
-      flashContainer.style.display = 'none';
-    }, 3000); // Скрыть через 3 секунды
+  let flashMessages = [];
+  try {
+    flashMessages = JSON.parse((flashNode && flashNode.textContent) || '[]');
+  } catch (_e) {
+    flashMessages = [];
+  }
+
+  if (typeof window.showNotification === 'function') {
+    flashMessages.forEach(([category, message], index) => {
+      if (!message) return;
+      setTimeout(
+        () => window.showNotification(message, normalizeType(category)),
+        index * 150
+      );
+    });
   }
 });

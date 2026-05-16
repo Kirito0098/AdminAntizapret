@@ -170,24 +170,6 @@ def register_admin_routes(
         payload["success"] = True
         return jsonify(payload)
 
-    @app.route("/api/logs_dashboard_refresh_status/<task_id>", methods=["GET"])
-    @auth_manager.login_required
-    def api_logs_dashboard_refresh_status(task_id: str):
-        task = db.session.get(background_task_model, task_id)
-        if not task or task.task_type != "logs_dashboard_refresh":
-            return _error_response("Задача обновления dashboard не найдена", 404)
-
-        return jsonify(
-            {
-                "success": True,
-                "task_id": task.id,
-                "status": task.status,
-                "message": task.message,
-                "error": task.error,
-                "finished_at": task.finished_at.isoformat() if task.finished_at else None,
-            }
-        )
-
     @app.route("/api/restart-service", methods=["POST"])
     @auth_manager.admin_required
     def api_restart_service():

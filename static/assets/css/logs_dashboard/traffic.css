@@ -1,0 +1,310 @@
+
+.cleanup-tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.cleanup-form-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.cleanup-label {
+  color: var(--theme-text-primary, rgba(208, 231, 223, 0.95));
+  font-size: 0.9rem;
+}
+
+.cleanup-select {
+  background: var(--theme-logs-surface, rgba(14, 36, 30, 0.8));
+  border: 1px solid var(--theme-logs-border-strong, rgba(121, 184, 163, 0.45));
+  color: var(--theme-text-main, #e8fff5);
+  border-radius: 7px;
+  padding: 0.35rem 0.5rem;
+}
+
+.cleanup-btn {
+  border: 1px solid var(--theme-logs-border-strong, rgba(121, 184, 163, 0.45));
+  background: var(--theme-logs-surface, rgba(14, 36, 30, 0.75));
+  color: var(--theme-text-primary, #d8fff2);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.84rem;
+}
+
+.cleanup-btn:hover {
+  background: var(--theme-logs-surface-hover, rgba(19, 58, 48, 0.85));
+}
+
+.cleanup-btn-danger {
+  border-color: var(--theme-danger-border-strong, rgba(236, 125, 125, 0.6));
+  background: var(--theme-danger-surface-strong, rgba(86, 23, 23, 0.65));
+  color: var(--theme-settings-text-danger, #ffdede);
+}
+
+.cleanup-btn-danger:hover {
+  background: var(--theme-danger-surface-hover, rgba(105, 29, 29, 0.72));
+}
+
+.cleanup-btn:disabled,
+.cleanup-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cleanup-state {
+  margin-top: 0.55rem;
+  color: var(--theme-text-primary, rgba(214, 240, 231, 0.92));
+  font-size: 0.88rem;
+}
+
+.traffic-chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+
+.traffic-client-select {
+  min-width: 240px;
+  max-width: 360px;
+  width: 100%;
+  margin-right: 6px;
+  padding: 6px 10px;
+  background: var(--theme-control-bg, #2b2b2b);
+  color: var(--theme-control-text, #ddd);
+  border: 1px solid var(--theme-control-border, #555);
+  border-radius: 6px;
+}
+
+.traffic-client-combobox {
+  position: relative;
+  min-width: 220px;
+  max-width: 300px;
+  width: 300px;
+  flex: 0 0 300px;
+}
+
+.traffic-client-combobox .traffic-client-select {
+  min-width: 0;
+  margin-right: 0;
+  padding-right: 58px;
+}
+
+.traffic-client-clear {
+  position: absolute;
+  top: 50%;
+  right: 30px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--theme-text-muted, #bcbcbc);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 1px 3px;
+}
+
+.traffic-client-clear:hover {
+  color: var(--theme-text-main, #fff);
+}
+
+.traffic-client-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  color: var(--theme-text-secondary, #d6d6d6);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px;
+}
+
+.traffic-client-combobox.is-open .traffic-client-toggle {
+  color: var(--theme-text-main, #fff);
+}
+
+.traffic-client-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--theme-control-border, #555);
+  border-radius: 8px;
+  background: var(--theme-control-bg-deep, #1b1b1b);
+  box-shadow: 0 10px 24px var(--theme-black-alpha-45, rgba(0, 0, 0, 0.45));
+  z-index: 40;
+}
+
+.traffic-client-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--theme-text-primary, #e2e2e2);
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.traffic-client-option:hover {
+  background: var(--theme-secondary-alpha-20, rgba(79, 140, 255, 0.18));
+}
+
+.traffic-client-option-empty {
+  color: var(--theme-text-muted, #a0a0a0);
+  padding: 8px 10px;
+  font-size: 0.88rem;
+}
+
+.bw-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bw-range-btn {
+  margin-right: 6px;
+  padding: 6px 10px;
+  background: var(--theme-control-bg, #2b2b2b);
+  color: var(--theme-control-text, #ddd);
+  border: 1px solid var(--theme-control-border, #555);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.bw-range-btn.active {
+  background: var(--theme-primary, #4caf50);
+  color: var(--theme-text-main, #fff);
+  border-color: var(--theme-primary, #4caf50);
+}
+
+.bw-range-btn:disabled {
+  opacity: 0.9;
+  cursor: default;
+}
+
+.traffic-chart-meta {
+  color: var(--theme-accent-soft, #b2ffb2);
+  font-size: 0.9rem;
+  margin-bottom: 0.6rem;
+}
+
+.traffic-table-hint {
+  margin: 0 0 0.7rem;
+  color: var(--theme-text-primary, rgba(207, 234, 224, 0.92));
+  font-size: 0.9rem;
+}
+
+.traffic-table-hint-muted {
+  margin-top: 0.25rem;
+  opacity: 0.9;
+}
+
+.traffic-client-select--compact {
+  width: auto;
+  min-width: 180px;
+  max-width: 220px;
+}
+
+.traffic-user-cell {
+  font-weight: 600;
+}
+
+.traffic-total-cell {
+  font-weight: 700;
+  color: var(--theme-text-main, #eafff5);
+}
+
+.traffic-status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.traffic-status-badge.is-online {
+  background: var(--theme-primary-alpha-20, rgba(76, 175, 80, 0.2));
+  color: var(--theme-accent-soft, #a9f5ab);
+  border: 1px solid var(--theme-primary-alpha-55, rgba(76, 175, 80, 0.55));
+}
+
+.traffic-status-badge.is-offline {
+  background: var(--theme-warning-alpha-16, rgba(255, 193, 7, 0.16));
+  color: var(--theme-warning-bright, #ffe08a);
+  border: 1px solid var(--theme-warning-alpha-50, rgba(255, 193, 7, 0.5));
+}
+
+.traffic-usage-table {
+  min-width: 960px;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.traffic-usage-table th,
+.traffic-usage-table td {
+  line-height: 1.3;
+  font-size: 0.9rem;
+  padding: 0.52rem 0.56rem;
+  vertical-align: middle;
+}
+
+.traffic-usage-table .table-sort-btn {
+  display: block;
+  margin-left: 0;
+  margin-top: 0.3rem;
+}
+
+.traffic-user-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.traffic-user-name {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.traffic-total-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+#persistedTrafficTable .traffic-status-badge {
+  font-size: 0.82rem;
+  padding: 0.24rem 0.58rem;
+}
+.traffic-chart-controls,
+.traffic-chart-controls.server-monitor-look,
+.traffic-table-hint,
+.traffic-chart-meta,
+.traffic-client-select,
+.traffic-client-dropdown {
+.traffic-client-option:hover {
+.traffic-total-cell {
+.traffic-status-badge.is-online {
+.traffic-status-badge.is-offline {
+  .traffic-chart-controls,
+  .traffic-chart-controls.server-monitor-look {
+  .traffic-client-combobox {
+  .logs-inline-control .traffic-client-select--compact {

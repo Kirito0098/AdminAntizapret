@@ -11,7 +11,7 @@ NOINDEX_PATH_PREFIXES = (
     "/public_download/",
     "/captcha.png",
     "/auth/",
-    "/ip_blocked",
+    "/ip-blocked",
 )
 
 CONTENT_SECURITY_POLICY = (
@@ -59,7 +59,7 @@ Disallow: /generate_one_time_download/
 Disallow: /download/
 Disallow: /captcha.png
 Disallow: /auth/
-Disallow: /ip_blocked
+Disallow: /ip-blocked
 """
 
 

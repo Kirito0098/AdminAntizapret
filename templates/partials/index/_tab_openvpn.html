@@ -1,0 +1,47 @@
+{% from 'partials/index/_macros.html' import index_client_row %}
+<div class="tab-pane active" id="openvpn-tab" data-protocol="openvpn">
+  <div class="protocol-controls">
+    <div class="folder-group-buttons">
+      <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display: inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="group" value="GROUP_UDP\TCP" />
+        <button type="submit"
+          class="folder-btn {% if current_openvpn_group == 'GROUP_UDP\\TCP' or not current_openvpn_group %}active{% endif %}">UDP
+          & TCP</button>
+      </form>
+      <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display: inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="group" value="GROUP_UDP" />
+        <button type="submit"
+          class="folder-btn {% if current_openvpn_group == 'GROUP_UDP' %}active{% endif %}">UDP</button>
+      </form>
+      <form action="{{ url_for('set_openvpn_group') }}" method="post" style="display: inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <input type="hidden" name="group" value="GROUP_TCP" />
+        <button type="submit"
+          class="folder-btn {% if current_openvpn_group == 'GROUP_TCP' %}active{% endif %}">TCP</button>
+      </form>
+    </div>
+    {% if current_openvpn_group %}
+    <div class="current-group-display">
+      <span class="group-label">Текущая:</span>
+      <span class="group-value">{{ current_openvpn_group }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="table-wrapper">
+    <table class="config-table client-grid-table" data-protocol="openvpn">
+      <thead>
+        <tr>
+          <th class="sortable" data-sort="name">Клиент</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in openvpn_client_rows %}
+        {{ index_client_row(row) }}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

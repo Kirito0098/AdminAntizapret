@@ -135,40 +135,7 @@
                 <div class="client-card-empty">Нет подключенных клиентов</div>
                 {% endif %}
 
-                <div class="client-modal" id="clientDetailsModal" hidden>
-                    <div class="client-modal-backdrop" data-client-modal-close></div>
-                    <div class="client-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="clientModalTitle">
-                        <button type="button" class="client-modal-close" data-client-modal-close aria-label="Закрыть">
-                            ×
-                        </button>
-
-                        <div class="client-modal-header">
-                            <h3 id="clientModalTitle">Клиент</h3>
-                            <p id="clientModalSummary" class="client-modal-summary">Загрузка...</p>
-                        </div>
-
-                        <section class="client-modal-section">
-                            <div class="client-modal-section-title">Трафик клиента (БД)</div>
-                            <div class="client-modal-range" role="tablist" aria-label="Диапазон графика клиента">
-                                <button type="button" class="client-modal-range-btn" data-range="1h">1 час</button>
-                                <button type="button" class="client-modal-range-btn" data-range="24h">24 часа</button>
-                                <button type="button" class="client-modal-range-btn" data-range="7d">7 дней</button>
-                                <button type="button" class="client-modal-range-btn" data-range="30d">30 дней</button>
-                                <button type="button" class="client-modal-range-btn" data-range="all">За все
-                                    время</button>
-                            </div>
-                            <div id="clientModalTrafficMeta" class="traffic-chart-meta">Загрузка...</div>
-                            <div class="client-modal-chart-wrap">
-                                <canvas id="clientModalTrafficChart"></canvas>
-                            </div>
-                        </section>
-
-                        <section class="client-modal-section">
-                            <div class="client-modal-section-title">Подключения (IP, устройство, версия)</div>
-                            <div id="clientModalConnections" class="client-modal-connections"></div>
-                        </section>
-                    </div>
-                </div>
+                {% include "partials/logs_dashboard/_modal_client.html" %}
             </section>
 
         </div>

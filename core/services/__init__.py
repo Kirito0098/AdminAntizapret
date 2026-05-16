@@ -11,7 +11,7 @@ from .env_file import EnvFileService
 from .file_editor import FileEditor
 from .file_validator import FileValidator
 from .maintenance_scheduler import MaintenanceSchedulerService
-from .logs_dashboard_cache import LogsDashboardCacheService
+from .logs_dashboard import LogsDashboardCacheService
 from .network_status_collector import NetworkStatusCollectorService
 from .openvpn_banlist import OpenVPNBanlistService
 from .openvpn_socket_reader import OpenVPNSocketReaderService

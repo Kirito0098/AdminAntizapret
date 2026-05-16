@@ -1,0 +1,10 @@
+<script>
+  window.__bwIfaceGroups = {{ bw_iface_groups | tojson }};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='assets/js/server_monitor/format.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/server_monitor/chart-theme.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/server_monitor/iface-groups.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/server_monitor/system-metrics.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/server_monitor/bandwidth.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/server_monitor/page-core.js') }}"></script>

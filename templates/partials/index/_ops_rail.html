@@ -1,0 +1,78 @@
+<aside class="index-ops-rail page-unified-card" aria-label="Операционные индикаторы">
+
+  <section class="index-rail-section index-rail-section--traffic" id="indexTrafficMiniSummary" data-state="loading">
+    <h3 class="index-rail-title">Трафик (live)</h3>
+    <p id="indexTrafficMiniNote" class="index-traffic-mini-note">Загрузка данных из payload...</p>
+    <div class="index-traffic-mini-grid">
+      <article class="index-traffic-mini-card">
+        <span>Клиенты с трафиком</span>
+        <strong id="indexTrafficClientsTotal">-</strong>
+      </article>
+      <article class="index-traffic-mini-card">
+        <span>Онлайн сейчас</span>
+        <strong id="indexTrafficClientsOnline">-</strong>
+      </article>
+    </div>
+    <ul class="index-traffic-mini-list" role="list">
+      <li><span>За 24 часа</span><strong id="indexTrafficTotal1d">-</strong></li>
+      <li><span>За 7 дней</span><strong id="indexTrafficTotal7d">-</strong></li>
+      <li><span>За 30 дней</span><strong id="indexTrafficTotal30d">-</strong></li>
+      <li><span>Всего VPN</span><strong id="indexTrafficTotalVpn">-</strong></li>
+      <li><span>Всего Antizapret</span><strong id="indexTrafficTotalAz">-</strong></li>
+      <li><span>Суммарно</span><strong id="indexTrafficTotalAll">-</strong></li>
+    </ul>
+  </section>
+
+  <section class="index-rail-section">
+    <h3 class="index-rail-title">Алерты</h3>
+    <div class="index-alert-stack">
+      {% if expired_cert_count > 0 %}
+      <article class="index-alert-card index-alert-card--danger">
+        <h4>Сертификаты истекли</h4>
+        <p>{{ expired_cert_count }} клиент(ов) требуют продления немедленно.</p>
+      </article>
+      {% endif %}
+      {% if expiring_cert_count > 0 %}
+      <article class="index-alert-card index-alert-card--warn">
+        <h4>Срок истекает скоро</h4>
+        <p>{{ expiring_cert_count }} клиент(ов) нужно продлить в ближайшие 30 дней.</p>
+      </article>
+      {% endif %}
+      {% if banned_clients_count > 0 %}
+      <article class="index-alert-card index-alert-card--neutral">
+        <h4>Активны блокировки</h4>
+        <p>{{ banned_clients_count }} клиент(ов) находятся в списке блокировки.</p>
+      </article>
+      {% endif %}
+      {% if expired_cert_count == 0 and expiring_cert_count == 0 and banned_clients_count == 0 %}
+      <article class="index-alert-card index-alert-card--ok">
+        <h4>Стабильное состояние</h4>
+        <p>Критических алертов не обнаружено.</p>
+      </article>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="index-rail-section index-rail-section--services" aria-label="Статус служб">
+    <h3 class="index-rail-title">Статус служб</h3>
+    <ul class="index-service-status-list" role="list">
+      {% for project_group in service_statuses %}
+      <li class="index-service-project-item">
+        <div class="index-service-project-name">{{ project_group.project_label }}</div>
+        <ul class="index-service-project-services" role="list">
+          {% for service in project_group.services %}
+          <li class="index-service-status-item">
+            <div class="index-service-meta">
+              <span class="index-service-name">{{ service.label }}</span>
+              <span class="index-service-desc">{{ service.description }}</span>
+            </div>
+            <span class="index-service-state index-service-state--{{ service.state_class }}">{{ service.state_label }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+</aside>

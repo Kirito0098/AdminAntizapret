@@ -1,7 +1,7 @@
 import sys
 
 from .active_web_session import ActiveWebSessionService
-from .logs_dashboard_cache import LogsDashboardCacheService
+from .logs_dashboard.cache import LogsDashboardCacheService
 from .maintenance_scheduler import MaintenanceSchedulerService
 from .network_status_collector import NetworkStatusCollectorService
 from .openvpn_socket_reader import OpenVPNSocketReaderService
@@ -63,6 +63,7 @@ def build_services(
     read_event_source,
     normalize_openvpn_endpoint,
     normalize_traffic_protocol_type,
+    normalize_traffic_client_identity,
     rebuild_user_traffic_stats_from_samples,
     human_seconds,
     format_dt,
@@ -136,8 +137,10 @@ def build_services(
         user_traffic_sample_model=user_traffic_sample_model,
         openvpn_peer_info_cache_model=openvpn_peer_info_cache_model,
         openvpn_peer_info_history_model=openvpn_peer_info_history_model,
+        wireguard_peer_cache_model=wireguard_peer_cache_model,
         integrity_error_cls=integrity_error_cls,
         normalize_traffic_protocol_type=normalize_traffic_protocol_type,
+        normalize_traffic_client_identity=normalize_traffic_client_identity,
         rebuild_user_traffic_stats_from_samples=rebuild_user_traffic_stats_from_samples,
         human_bytes=human_bytes,
         human_seconds=human_seconds,

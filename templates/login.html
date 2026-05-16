@@ -15,14 +15,13 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/theme.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/login_styles.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/styles_mobile.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/notifications.css') }}" />
 
   <title>Вход — панель {{ panel_brand_name }}</title>
   <link rel="icon" href="/static/assets/img/favicon.ico" type="image/x-icon" />
 </head>
 
 <body class="auth-index-bridge">
-  <div id="notification" class="notification" style="display: none" role="status" aria-live="polite" aria-atomic="true">
-  </div>
   <div class="login-shell">
     <section class="login-stage" aria-label="Страница авторизации">
       <img src="{{ url_for('static', filename='assets/img/login-bg.png') }}" alt="Фоновое изображение входа"
@@ -172,6 +171,7 @@
   {% endif %}
 
   <!--=============== MAIN JS ===============-->
+  <script src="{{ url_for('static', filename='assets/js/notifications.js') }}"></script>
   <script src="{{ url_for('static', filename='assets/js/main.js') }}"></script>
 </body>
 

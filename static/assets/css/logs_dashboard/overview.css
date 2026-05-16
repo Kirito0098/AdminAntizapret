@@ -1,0 +1,104 @@
+
+.charts-toggle-btn {
+  border: 1px solid var(--theme-logs-border-strong, rgba(121, 184, 163, 0.45));
+  background: var(--theme-logs-surface, rgba(14, 36, 30, 0.75));
+  color: var(--theme-text-primary, #d8fff2);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.84rem;
+}
+
+.charts-toggle-btn:hover {
+  background: var(--theme-logs-surface-hover, rgba(19, 58, 48, 0.85));
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0.9rem;
+}
+
+.charts-grid.is-collapsed {
+  display: none;
+}
+
+.event-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.event-card {
+  background: var(--theme-logs-surface, rgba(13, 22, 20, 0.86));
+  border: 1px solid var(--theme-primary-alpha-20, rgba(121, 184, 163, 0.2));
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+
+.event-card header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.event-card header p {
+  margin: 0.2rem 0 0;
+  color: var(--theme-text-secondary, rgba(198, 216, 210, 0.76));
+  font-size: 0.82rem;
+}
+
+.event-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(110px, 1fr));
+  gap: 0.55rem;
+  margin: 0.8rem 0;
+}
+
+.event-metric {
+  background: var(--theme-logs-surface, rgba(17, 28, 26, 0.95));
+  border: 1px solid var(--theme-primary-alpha-22, rgba(104, 151, 136, 0.22));
+  border-radius: 8px;
+  padding: 0.45rem;
+}
+
+.event-metric span {
+  display: block;
+  color: var(--theme-text-primary, rgba(193, 219, 211, 0.84));
+  font-size: 0.75rem;
+}
+
+.event-metric strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1rem;
+}
+
+.event-subsection {
+  margin-top: 0.6rem;
+}
+
+.event-subsection h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.92rem;
+}
+
+.log-snippet {
+  border: 1px solid var(--theme-primary-alpha-30, rgba(91, 131, 119, 0.3));
+  border-radius: 8px;
+  padding: 0.45rem;
+  background: var(--theme-black-alpha-85, rgba(8, 10, 11, 0.85));
+  max-height: 180px;
+  overflow-y: auto;
+  font-family: "Courier New", monospace;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.log-snippet div {
+  color: var(--theme-text-primary, rgba(221, 239, 233, 0.9));
+  margin-bottom: 0.25rem;
+  word-break: break-word;
+}
+.charts-toggle-btn,
+.charts-toggle-btn:hover,
+  .charts-toggle-btn {

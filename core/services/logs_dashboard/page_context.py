@@ -1,0 +1,26 @@
+def build_logs_dashboard_page_context(
+    dashboard_data,
+    *,
+    cleanup_notice,
+    cleanup_notice_kind,
+    openvpn_log_tail_lines,
+):
+    return {
+        "status_rows": dashboard_data["status_rows"],
+        "event_rows": dashboard_data["event_rows"],
+        "grouped_status_rows": dashboard_data["grouped_status_rows"],
+        "grouped_event_rows": dashboard_data["grouped_event_rows"],
+        "openvpn_logging_enabled": dashboard_data["openvpn_logging_enabled"],
+        "missing_event_log_files": dashboard_data["missing_event_log_files"],
+        "summary": dashboard_data["summary"],
+        "connected_clients": dashboard_data["connected_clients"],
+        "persisted_traffic_rows": dashboard_data["persisted_traffic_rows"],
+        "deleted_persisted_traffic_rows": dashboard_data["deleted_persisted_traffic_rows"],
+        "persisted_traffic_summary": dashboard_data["persisted_traffic_summary"],
+        "deleted_persisted_traffic_summary": dashboard_data["deleted_persisted_traffic_summary"],
+        "generated_at": dashboard_data["generated_at"],
+        "cache_meta": dashboard_data.get("cache_meta", {}),
+        "openvpn_log_tail_lines": openvpn_log_tail_lines,
+        "cleanup_notice": cleanup_notice,
+        "cleanup_notice_kind": cleanup_notice_kind,
+    }

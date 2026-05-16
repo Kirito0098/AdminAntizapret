@@ -1,5 +1,24 @@
 /*=============== NOTIFICATIONS ===============*/
-/* Canonical notification toast — used on all pages via base.html */
+/* Canonical notification toast — used on all pages via notifications.js */
+
+.notification-stack {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(92vw, 460px);
+  pointer-events: none;
+}
+
+.notification-stack .notification {
+  position: relative;
+  top: auto;
+  right: auto;
+  pointer-events: auto;
+}
 
 .notification {
   position: fixed;
@@ -18,6 +37,16 @@
   font-size: 0.9rem;
   line-height: 1.35;
   animation: notif-in 0.2s ease;
+}
+
+.notification-inline-progress {
+  position: relative;
+  top: auto;
+  right: auto;
+  z-index: auto;
+  max-width: 100%;
+  min-width: 0;
+  animation: none;
 }
 
 .notification-success {
@@ -67,7 +96,14 @@
 }
 
 @media (max-width: 768px) {
-  .notification {
+  .notification-stack {
+    left: 0.6rem;
+    right: 0.6rem;
+    top: 0.6rem;
+    max-width: none;
+  }
+
+  .notification:not(.notification-stack .notification) {
     left: 0.6rem;
     right: 0.6rem;
     min-width: auto;

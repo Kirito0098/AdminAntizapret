@@ -8,4 +8,13 @@
     refreshTaskId: {{ (cache_meta.refresh_task_id if cache_meta and cache_meta.is_stale and cache_meta.refresh_in_progress and cache_meta.refresh_task_id else none) | tojson }}
   };
 </script>
-<script src="{{ url_for('static', filename='assets/js/logs_dashboard-page-extra.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard/format.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard/chart-theme.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard/tabs.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard/overview-charts.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard/traffic-table-refresh.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard/cache-poll.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard/clients-filters.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard/traffic-chart.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard/client-modal.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/logs_dashboard/table-sort.js') }}"></script>

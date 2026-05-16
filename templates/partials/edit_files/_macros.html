@@ -1,0 +1,51 @@
+{% macro edit_file_nav_item(row) %}
+<button class="nav-item{% if row.is_active %} active{% endif %}" data-file="{{ row.file_type }}" type="button"
+  title="{{ row.file_type }}" data-group="{{ row.group }}">
+  <span class="label">{{ row.title }}</span>
+  <span class="nav-item-status" aria-hidden="true"></span>
+</button>
+{% endmacro %}
+
+{% macro edit_file_form(row) %}
+<form class="edit-form" id="{{ row.form_id | e }}" method="post" action="/edit-files"{% if not row.is_active %}
+  hidden{% endif %}>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() | e }}">
+  <input type="hidden" name="file_type" value="{{ row.file_type | e }}">
+
+  <div class="editor-header">
+    <h1>{{ row.title }}</h1>
+    <p class="editor-subtitle">{{ row.subtitle }}</p>
+  </div>
+
+  <div class="editor-toolbar" aria-hidden="true">
+    <span class="editor-chip">{{ row.file_type | replace('_', ' ') | replace('-', ' ') | upper }}</span>
+    <span class="editor-hint">Сохранение запускает фоновую задачу применения.</span>
+    <span class="editor-state" data-editor-state>Без изменений</span>
+  </div>
+
+  <textarea name="content" class="code-area" spellcheck="false" rows="22"
+    placeholder="# Один адрес / IP на строку&#10;# Примеры:&#10;example.com&#10;*.blocked.ru&#10;192.168.1.1&#10;# комментарии начинаются с #">{{ row.content | e if row.content else '' }}</textarea>
+
+  <div class="editor-meta" aria-live="polite">
+    <span class="editor-meta-item">Строк: <strong data-lines-count>0</strong></span>
+    <span class="editor-meta-item">Непустых: <strong data-nonempty-count>0</strong></span>
+    <span class="editor-meta-item">Символов: <strong data-chars-count>0</strong></span>
+  </div>
+
+  <div class="diff-toolbar" aria-live="polite">
+    <button type="button" class="btn btn-secondary btn-diff-toggle" data-toggle-diff aria-expanded="false">
+      Показать diff
+    </button>
+    <span class="diff-summary" data-diff-summary>Нет отличий от сохраненной версии</span>
+  </div>
+
+  <div class="diff-panel" data-diff-panel hidden>
+    <div class="diff-list" data-diff-list></div>
+  </div>
+
+  <div class="actions-bar">
+    <button type="button" class="btn btn-secondary" data-reset-content>Сбросить</button>
+    <button type="submit" class="btn btn-save">Сохранить</button>
+  </div>
+</form>
+{% endmacro %}

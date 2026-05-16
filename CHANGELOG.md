@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## [1.7.7] – 17.05.2026
+
+### Рефакторинг и модульная структура
+
+Крупное разбиение страниц и сервисов на отдельные пакеты — поведение для пользователя сохранено, код проще сопровождать и тестировать.
+
+#### Страницы панели
+
+- **Главная** (`/`): логика в `core/services/index/`, маршруты в `routes/index/`, шаблон разбит на `templates/partials/index/`, фронтенд — `page-core.js` и `client-details.js`.
+- **Редактор файлов**: сервисы в `core/services/edit_files/`, маршруты в `routes/edit_files/`, partials для боковой панели и редактора, отдельный модуль сравнения `diff.js`.
+- **Монитор сервера**: `core/services/server_monitor/` (метрики системы и трафик по интерфейсам), `routes/server_monitor/`, JS-модули `bandwidth.js`, `system-metrics.js`, `chart-theme.js`.
+- **Журнал / дашборд логов**: пакет `core/services/logs_dashboard/` с подмодулем `collector/` (события, сводка, трафик), API и страница в `routes/logs_dashboard/`, стили разнесены по `static/assets/css/logs_dashboard/`.
+- **Маршрутизация**: контекст страницы в `core/services/routing/`, маршруты в `routes/routing/`; стили и скрипты маршрутизации отделены от настроек (`routing_styles.css`, `routing.js`, `routing-page-extra.js`).
+- **Настройки**: `core/services/settings/` с обработчиками POST по вкладкам (пользователи, безопасность, Telegram, QR, VPN/сеть, обслуживание); маршруты в `routes/settings/` (`routes.py`, `api.py`, `antizapret.py`); убрана устаревшая страница `ip_settings.html`.
+
+#### Telegram Mini App и блокировка IP
+
+- Mini App вынесен в отдельный пакет **`tg_mini/`** (Blueprint, `routes/`, `services/`, статика и шаблоны); код убран из общих `config_routes` и `monitoring_routes`.
+- Страница **«IP заблокирован»** — пакет **`ip_blocked/`** со своими шаблоном, CSS и JS; монолитный `templates/ip_blocked.html` удалён.
+
+#### Сервис CIDR и уведомления
+
+- Обновление IP-списков разбито на модули **`core/services/cidr/`**: база и пайплайны (`db_service`, `db_pipeline`, `file_pipeline`), провайдеры, гео, игры, DPI, antifilter, лимиты маршрутов; совместимость через `facade_compat`.
+- Единый модуль всплывающих уведомлений **`notifications.js`** и обновлённые стили; страницы панели и входа подключены к общему механизму.
+
+
+---
+
 ## [1.7.6] – 16.05.2026
 
 ### Защита от IP-сканеров

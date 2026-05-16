@@ -1,0 +1,21 @@
+<div class="protocol-tabs page-unified-tabs">
+  <button type="button" class="tab-btn page-unified-tab-btn active" data-protocol="openvpn">
+    <span class="protocol-icon">🔒</span>
+    <span>OpenVPN</span>
+  </button>
+  <button type="button" class="tab-btn page-unified-tab-btn" data-protocol="amneziawg">
+    <span class="protocol-icon">🔐</span>
+    <span>AmneziaWG</span>
+  </button>
+  <button type="button" class="tab-btn page-unified-tab-btn" data-protocol="wireguard">
+    <span class="protocol-icon">🛡️</span>
+    <span>WireGuard</span>
+  </button>
+  {% if current_user and current_user.is_admin() %}
+  <button type="button" id="openAddClientModalBtn" class="add-client-launch-btn page-unified-tab-btn"
+    aria-haspopup="dialog" aria-controls="addClientModal">
+    <span class="protocol-icon">➕</span>
+    <span>Добавить конфигурацию</span>
+  </button>
+  {% endif %}
+</div>

@@ -38,7 +38,6 @@ from utils.ip_restriction import ip_restriction
 from config.antizapret_params import ANTIZAPRET_PARAMS
 from ips import ip_manager
 from routes.route_wiring import register_all_routes
-from routes.settings_antizapret import init_antizapret
 from core.models import (
     ActiveWebSession,
     AntifilterCidr,
@@ -65,7 +64,7 @@ from core.models import (
     db,
 )
 from core.services.cidr_db_updater import CidrDbUpdaterService
-from core.services.logs_dashboard_collector import collect_logs_dashboard_data as collect_logs_dashboard_data_service
+from core.services.logs_dashboard.collector import collect_logs_dashboard_data as collect_logs_dashboard_data_service
 from core.services.request_user import get_user_by_username
 from core.services import (
     ActiveWebSessionService,
@@ -122,9 +121,6 @@ app.config.update(build_session_security_config(os.environ))
 csrf = CSRFProtect(app)
 sock = Sock(app)
 ip_restriction.init_app(app)
-init_antizapret(app)
-
-
 def _rate_limit_key_func():
     forwarded_for = (request.headers.get("X-Forwarded-For", "") or "").split(",", 1)[0].strip()
     if forwarded_for:
@@ -329,10 +325,6 @@ def _set_sqlite_wal(dbapi_conn, _conn_record):
         cursor.close()
 
 
-def _collect_bw_interface_groups():
-    return config_access_service.collect_bw_interface_groups()
-
-
 # Инициализация классов
 script_executor = ScriptExecutor(
     min_cert_expire=MIN_CERT_EXPIRE,
@@ -372,18 +364,6 @@ database_migration_service = DatabaseMigrationService(
     app=app,
     db=db,
 )
-
-# Защита antizapret-роутов после полной инициализации
-app.view_functions['get_antizapret_settings'] = auth_manager.admin_required(
-    app.view_functions['get_antizapret_settings']
-)
-app.view_functions['update_antizapret_settings'] = auth_manager.admin_required(
-    app.view_functions['update_antizapret_settings']
-)
-app.view_functions['antizapret_settings_schema'] = auth_manager.admin_required(
-    app.view_functions['antizapret_settings_schema']
-)
-
 
 def _get_config_type(file_path):
     """Define config type by directory path."""
@@ -793,6 +773,7 @@ _services = build_services(
     read_event_source=lambda profile_key, fallback_path: _read_event_source(profile_key, fallback_path),
     normalize_openvpn_endpoint=lambda endpoint: _normalize_openvpn_endpoint(endpoint),
     normalize_traffic_protocol_type=lambda protocol_type, fallback="openvpn": _normalize_traffic_protocol_type(protocol_type, fallback=fallback),
+    normalize_traffic_client_identity=lambda name: client_protocol_catalog_service.normalize_traffic_client_identity(name),
     rebuild_user_traffic_stats_from_samples=lambda seed_users=None, now=None: _rebuild_user_traffic_stats_from_samples(seed_users=seed_users, now=now),
     human_seconds=lambda value: _human_seconds(value),
     format_dt=lambda dt_obj: _format_dt(dt_obj),
@@ -1022,6 +1003,16 @@ def _collect_persisted_traffic_data(active_names=None, active_protocol_identitie
 
 def _delete_client_traffic_stats(common_name):
     return traffic_persistence_service.delete_client_traffic_stats(common_name)
+
+
+def _normalize_traffic_client_identity(raw_name):
+    return client_protocol_catalog_service.normalize_traffic_client_identity(raw_name)
+
+
+def _queue_logs_dashboard_refresh_after_traffic_mutation(created_by_username=None):
+    logs_dashboard_cache_service.queue_logs_dashboard_refresh_if_needed(
+        created_by_username=created_by_username
+    )
 
 def _normalize_wireguard_allowed_ip(token):
     return network_status_collector_service.normalize_wireguard_allowed_ip(token)

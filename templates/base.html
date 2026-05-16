@@ -18,7 +18,7 @@
 {% set endpoint = request.endpoint if request and request.endpoint else "" %}
 
 <body
-  class="{% if endpoint in ['index', 'edit_files', 'server_monitor', 'logs_dashboard', 'settings', 'tg_mini_app'] %}index-page-dark{% endif %}{% if endpoint == 'settings' %} settings-nav-merged{% endif %}{% if endpoint == 'tg_mini_app' %} tg-mini-app{% endif %}">
+  class="{% if endpoint in ['index', 'edit_files', 'server_monitor', 'logs_dashboard', 'settings'] %}index-page-dark{% endif %}{% if endpoint == 'server_monitor' %} server-monitor-page{% endif %}{% if endpoint == 'settings' %} settings-nav-merged{% endif %}">
 
   <script id="base-flash-messages" type="application/json">
     {{ get_flashed_messages(with_categories=True) | tojson }}
@@ -130,6 +130,7 @@
     </main>
   </div>
 
+  <script src="{{ url_for('static', filename='assets/js/notifications.js') }}"></script>
   {% block scripts %}{% endblock %}
 
   <script>
@@ -213,32 +214,17 @@
         return;
       }
 
-      const normalizeType = (rawCategory) => {
+      if (typeof window.showNotification !== "function") {
+        return;
+      }
+
+      const normalizeType = window.normalizeNotificationType || ((rawCategory) => {
         const category = String(rawCategory || "info").toLowerCase();
         if (["error", "danger"].includes(category)) return "error";
         if (["success", "ok"].includes(category)) return "success";
         if (["warning", "warn"].includes(category)) return "warning";
         return "info";
-      };
-
-      const showToast = (message, type, delayMs) => {
-        setTimeout(() => {
-          const toast = document.createElement("div");
-          toast.className = `notification notification-${type}`;
-          toast.textContent = message;
-          toast.setAttribute("role", type === "error" ? "alert" : "status");
-          toast.setAttribute("aria-live", type === "error" ? "assertive" : "polite");
-          toast.setAttribute("aria-atomic", "true");
-          document.body.appendChild(toast);
-
-          setTimeout(() => {
-            toast.classList.add("notification-exit");
-            setTimeout(() => {
-              toast.remove();
-            }, 200);
-          }, 4200);
-        }, delayMs);
-      };
+      });
 
       flashed.forEach((entry, index) => {
         const category = Array.isArray(entry) ? entry[0] : "info";
@@ -246,7 +232,7 @@
         if (!message) {
           return;
         }
-        showToast(message, normalizeType(category), index * 600);
+        setTimeout(() => window.showNotification(message, normalizeType(category)), index * 150);
       });
     })();
   </script>

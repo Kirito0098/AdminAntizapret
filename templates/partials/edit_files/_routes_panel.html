@@ -1,0 +1,24 @@
+<div id="routes-panel" class="editfiles-panel" style="display:none;">
+  <div class="routes-buttons">
+    <form action="{{ url_for('toggle_public_download') }}" method="post" class="route-public-toggle-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() | e }}">
+      <input type="hidden" name="enabled" value="{{ 'false' if public_download_enabled else 'true' }}">
+      <input type="hidden" name="return_to" value="edit_files">
+      <button type="submit" class="route-btn">
+        {% if public_download_enabled %}
+        Выключить публичный доступ
+        {% else %}
+        Включить публичный доступ
+        {% endif %}
+      </button>
+    </form>
+
+    {% for action in route_actions %}
+    <button class="route-btn" type="button"{% if action.open_in_new_tab %}
+      onclick="window.open('{{ action.href }}', '_blank', 'noopener')"{% else %}
+      onclick="window.location.href='{{ action.href }}'"{% endif %}>
+      {{ action.label }}
+    </button>
+    {% endfor %}
+  </div>
+</div>

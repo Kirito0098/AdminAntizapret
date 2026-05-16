@@ -1,0 +1,63 @@
+<section class="server-info metrics-grid" aria-label="Ключевые метрики">
+  <article class="info-item page-unified-card">
+    <h3>Использование CPU</h3>
+    <div class="metric-status">
+      <div id="cpu-ring" class="metric-ring">
+        <span class="metric-ring__track" aria-hidden="true"></span>
+        <p id="cpu-usage" class="metric-ring__value metric-value">{% if cpu_usage is not none %}{{ cpu_usage }}%{% else %}—%{% endif %}</p>
+      </div>
+      <div id="cpu-indicator" class="status-indicator green"></div>
+    </div>
+    <canvas id="cpuChart" class="metric-mini-chart"></canvas>
+  </article>
+
+  <article class="info-item page-unified-card">
+    <h3>Использование памяти</h3>
+    <div class="metric-status">
+      <div id="memory-ring" class="metric-ring">
+        <span class="metric-ring__track" aria-hidden="true"></span>
+        <p id="memory-usage" class="metric-ring__value metric-value">{% if memory_usage is not none %}{{ memory_usage }}%{% else %}—%{% endif %}</p>
+      </div>
+      <div id="memory-indicator" class="status-indicator green"></div>
+    </div>
+    <canvas id="memoryChart" class="metric-mini-chart"></canvas>
+  </article>
+
+  <article class="info-item page-unified-card">
+    <h3>Использование диска</h3>
+    <div class="metric-status">
+      <div id="disk-ring" class="metric-ring">
+        <span class="metric-ring__track" aria-hidden="true"></span>
+        <p id="disk-usage" class="metric-ring__value metric-value">—%</p>
+      </div>
+      <div id="disk-indicator" class="status-indicator green"></div>
+    </div>
+    <div class="disk-info">
+      <p id="disk-details">—</p>
+    </div>
+  </article>
+
+  <article class="info-item page-unified-card metric-card--load">
+    <h3>Load Average</h3>
+    <div class="load-info">
+      <div class="load-item">
+        <span>1m</span>
+        <span id="load-1m">—</span>
+      </div>
+      <div class="load-item">
+        <span>5m</span>
+        <span id="load-5m">—</span>
+      </div>
+      <div class="load-item">
+        <span>15m</span>
+        <span id="load-15m">—</span>
+      </div>
+    </div>
+    <div class="uptime-icon" aria-hidden="true">
+      <svg width="40" height="40" viewBox="0 0 40 40">
+        <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="3" fill="none" />
+        <path d="M20 10 v10 l7 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" />
+      </svg>
+    </div>
+  </article>
+</section>

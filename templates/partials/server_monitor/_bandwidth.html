@@ -1,0 +1,91 @@
+{% from "partials/server_monitor/_macros.html" import iface_btn %}
+
+<section class="bw-section page-unified-card" aria-label="Пропускная способность сети">
+  <div class="bw-header">
+    <h3 class="card-title">Загрузка канала</h3>
+    <p>Агрегация через vnStat по группам интерфейсов.</p>
+  </div>
+
+  <button id="monitorFiltersToggle" class="monitor-filters-toggle" type="button" aria-expanded="false"
+    aria-controls="bwControls" aria-label="Открыть меню фильтров графика">
+    <span class="monitor-filters-toggle-icon" aria-hidden="true">☰</span>
+    <span>Фильтры графика</span>
+  </button>
+
+  <div id="bwControls" class="bw-controls" aria-label="Настройки графика">
+    <div class="bw-controls__group">
+      <span class="bw-controls__label">Интерфейс</span>
+      <div class="iface-buttons page-unified-tabs" role="group" aria-label="Выбор интерфейса">
+        <button class="iface-btn" data-iface="{{ iface }}" type="button">{{ iface }}</button>
+        {{ iface_btn("vpn", "VPN", bw_iface_groups.vpn, ["vpn"]) }}
+        {{ iface_btn("antizapret", "Antizapret", bw_iface_groups.antizapret, ["antizapret"]) }}
+        {{ iface_btn("openvpn", "OpenVPN", bw_iface_groups.openvpn, ["vpn-udp", "vpn-tcp", "antizapret-udp", "antizapret-tcp"]) }}
+        {{ iface_btn("wireguard", "WG/AWG", bw_iface_groups.wireguard, ["vpn", "antizapret"]) }}
+      </div>
+    </div>
+
+    <div class="bw-controls__group">
+      <span class="bw-controls__label">Период</span>
+      <div class="bw-range page-unified-tabs" role="tablist" aria-label="Диапазон">
+        <button class="bw-range-btn" data-range="1d" type="button">1 день</button>
+        <button class="bw-range-btn" data-range="7d" type="button">7 дней</button>
+        <button class="bw-range-btn" data-range="30d" type="button">30 дней</button>
+      </div>
+    </div>
+
+    <div class="bw-controls__group">
+      <span class="bw-controls__label">Единицы</span>
+      <div class="unit-buttons page-unified-tabs" role="group" aria-label="Единицы измерения">
+        <button class="unit-btn" data-unit="MB" type="button">Мегабайты</button>
+        <button class="unit-btn" data-unit="Mbit" type="button">Мегабиты</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bw-chart-wrap">
+    <canvas id="bwChart" class="bw-chart"></canvas>
+  </div>
+
+  <div class="bw-source">
+    Источник: vnStat на интерфейсе <code id="bwIface">—</code>
+  </div>
+  <div id="network_load" class="bw-load">Загрузка...</div>
+
+  <div class="bw-stats">
+    <article class="bw-stat">
+      <h5>Интерфейс</h5>
+      <p id="network_interface">—</p>
+    </article>
+    <article class="bw-stat">
+      <h5>Текущий Rx</h5>
+      <p id="rx_bytes">—</p>
+    </article>
+    <article class="bw-stat">
+      <h5>Текущий Tx</h5>
+      <p id="tx_bytes">—</p>
+    </article>
+  </div>
+
+  <div class="bw-aggregate">
+    <section class="bw-agg">
+      <h6>Входящий трафик (Rx)</h6>
+      <p id="bw-rx-1d">— за 1 день</p>
+      <p id="bw-rx-7d">— за 7 дней</p>
+      <p id="bw-rx-30d">— за 30 дней</p>
+    </section>
+
+    <section class="bw-agg">
+      <h6>Исходящий трафик (Tx)</h6>
+      <p id="bw-tx-1d">— за 1 день</p>
+      <p id="bw-tx-7d">— за 7 дней</p>
+      <p id="bw-tx-30d">— за 30 дней</p>
+    </section>
+
+    <section class="bw-agg">
+      <h6>Общий трафик (Rx + Tx)</h6>
+      <p id="bw-total-1d">— за 1 день</p>
+      <p id="bw-total-7d">— за 7 дней</p>
+      <p id="bw-total-30d">— за 30 дней</p>
+    </section>
+  </div>
+</section>

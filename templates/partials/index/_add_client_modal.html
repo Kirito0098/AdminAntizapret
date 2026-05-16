@@ -1,0 +1,42 @@
+{% if current_user and current_user.is_admin() %}
+<div class="add-client-modal" id="addClientModal" hidden>
+  <div class="add-client-backdrop" data-add-client-close></div>
+  <div class="add-client-dialog" role="dialog" aria-modal="true" aria-labelledby="addClientModalTitle">
+    <button type="button" class="add-client-close" data-add-client-close aria-label="Закрыть">×</button>
+    <div class="add-client-header">
+      <h3 id="addClientModalTitle">Добавить конфигурацию</h3>
+      <p>Создание нового профиля OpenVPN или WireGuard/AmneziaWG.</p>
+    </div>
+
+    <form method="post" id="client-form" class="add-client-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+      <div class="form-group add-client-option-group">
+        <label>Выберите действие:</label>
+        <input type="hidden" id="option" name="option" value="" />
+        <div class="add-client-option-buttons" role="group" aria-label="Тип новой конфигурации">
+          <button type="button" class="add-client-option-btn" data-option="1">➕ Добавить клиента OpenVPN</button>
+          <button type="button" class="add-client-option-btn" data-option="4">➕ Добавить WireGuard/AmneziaWG</button>
+        </div>
+      </div>
+
+      <div class="form-group" id="client-name-container" style="display: none">
+        <label for="client-name">Имя клиента:</label>
+        <input type="text" id="client-name" name="client-name" placeholder="client_name"
+          oninput="this.value = this.value.replace(/[^a-zA-Z0-9\_-]/g, '').slice(0, 15);" />
+      </div>
+
+      <div class="form-group" id="work-term-container" style="display: none">
+        <label for="work-term" id="cert_expire_label">Срок работы (дни):</label>
+        <input type="number" id="work-term" name="work-term" min="1" max="3650" placeholder="365"
+          oninput="this.value = this.value.replace(/[^0-9]/g, ''); if (this.value.length > 4) this.value = this.value.slice(0, 4);" />
+      </div>
+
+      <div class="add-client-actions">
+        <button type="button" class="download-button" data-add-client-close>Отмена</button>
+        <button type="submit" class="btn-primary">Создать</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}

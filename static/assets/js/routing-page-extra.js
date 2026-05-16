@@ -140,8 +140,14 @@
 
   function setDbMsg(text, level) {
     if (!dbMsg) return;
+    if (level === "success" || level === "error") {
+      if (text) window.showNotification?.(text, level);
+      dbMsg.hidden = true;
+      dbMsg.textContent = "";
+      return;
+    }
     dbMsg.textContent = text;
-    dbMsg.className = "notification " + (level === "error" ? "notification--error" : level === "success" ? "notification--success" : "notification--info");
+    dbMsg.className = `notification notification-${level || "info"} notification-inline-progress`;
     dbMsg.hidden = !text;
   }
 
@@ -172,7 +178,7 @@
           return `• ${provider}${alert.message || "Обнаружена деградация"}`;
         });
         dbAlerts.textContent = lines.join("\n");
-        dbAlerts.className = "notification " + (alerts.some(a => a.level === "critical") ? "notification--error" : "notification--warning");
+        dbAlerts.className = "notification " + (alerts.some(a => a.level === "critical") ? "notification-error" : "notification-warning");
         dbAlerts.hidden = false;
       }
     }
@@ -308,7 +314,9 @@
     const statusEl = document.getElementById("cidr-update-status");
 
     if (typeof window._pollCidrTaskExternal !== "function") {
-      if (statusEl) { statusEl.textContent = "Ошибка: интерфейс не готов, обновите страницу"; statusEl.className = "notification notification--error"; statusEl.hidden = false; }
+      if (statusEl) {
+        window.showNotification?.("Ошибка: интерфейс не готов, обновите страницу", "error");
+      }
       return;
     }
 
@@ -381,8 +389,14 @@
     }
     function setMsg(text, level) {
       if (!msg) return;
+      if (level === "success" || level === "error") {
+        if (text) window.showNotification?.(text, level);
+        msg.hidden = true;
+        msg.textContent = "";
+        return;
+      }
       msg.textContent = text;
-      msg.className = "notification " + (level === "error" ? "notification--error" : level === "success" ? "notification--success" : "notification--info");
+      msg.className = `notification notification-${level || "info"} notification-inline-progress`;
       msg.hidden = !text;
     }
 
@@ -602,14 +616,8 @@
       window._scheduleCidrToIpFileSync(40, { persist: true });
     }
 
-    const statusEl = document.getElementById("cidr-update-status");
-    if (statusEl) {
-      const modeLabel = mode === "replace" ? "заменён" : mode === "add" ? "добавлен" : "убран";
-      statusEl.textContent = `Пресет(ы) ${modeLabel}: активно ${selectedProviders.size} провайдеров.`;
-      statusEl.className = "notification notification--success";
-      statusEl.hidden = false;
-      setTimeout(() => { statusEl.hidden = true; }, 4500);
-    }
+    const modeLabel = mode === "replace" ? "заменён" : mode === "add" ? "добавлен" : "убран";
+    window.showNotification?.(`Пресет(ы) ${modeLabel}: активно ${selectedProviders.size} провайдеров.`, "success");
   }
 
   function openPresetForm(preset) {
@@ -628,7 +636,10 @@
     const name = document.getElementById("cidr-preset-name-input").value.trim();
     const desc = document.getElementById("cidr-preset-desc-input").value.trim();
     const formMsg = document.getElementById("cidr-preset-form-msg");
-    if (!name) { if (formMsg) { formMsg.textContent = "Введите название"; formMsg.className = "notification notification--error"; formMsg.hidden = false; } return; }
+    if (!name) {
+      window.showNotification?.("Введите название", "error");
+      return;
+    }
 
     const providers = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
     const regionScopes = Array.from(document.querySelectorAll(".cidr-scope-checkbox:checked")).map(el => el.value);
@@ -646,8 +657,9 @@
       if (!d.success) throw new Error(d.message || "Ошибка сохранения");
       document.getElementById("cidr-preset-form-wrap").hidden = true;
       await loadPresets();
+      window.showNotification?.(id ? "Пресет обновлён" : "Пресет создан", "success");
     } catch (e) {
-      if (formMsg) { formMsg.textContent = "Ошибка: " + (e.message || e); formMsg.className = "notification notification--error"; formMsg.hidden = false; }
+      window.showNotification?.("Ошибка: " + (e.message || e), "error");
     }
   }
 

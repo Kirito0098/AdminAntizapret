@@ -2,7 +2,8 @@
 {% block title %}Маршрутизация{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings_styles.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings_page_shared.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/routing_styles.css') }}" />
 {% endblock %}
 
 {% block content %}
@@ -15,6 +16,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='assets/js/settings.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/settings_page_common.js') }}"></script>
+<script src="{{ url_for('static', filename='assets/js/routing.js') }}"></script>
 {% include "partials/routing/_scripts.html" %}
 {% endblock %}
