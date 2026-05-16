@@ -1,12 +1,12 @@
 # routes/settings_antizapret.py
 
-import re
 from flask import jsonify, request, current_app, session
 
 from config.antizapret_params import ANTIZAPRET_PARAMS
+from core.services.antizapret_settings import ANTIZAPRET_SETUP_FILE, read_antizapret_settings
 from core.services.telegram_mini_session import has_telegram_mini_session
 
-FILE_PATH = "/root/antizapret/setup"
+FILE_PATH = ANTIZAPRET_SETUP_FILE
 
 
 def normalize_flag(v):
@@ -23,20 +23,7 @@ def init_antizapret(app_or_bp):
     #@auth_manager.login_required  # если нужна авторизация
     def get_antizapret_settings():
         try:
-            with open(FILE_PATH, "r", encoding="utf-8") as f:
-                content = f.read()
-
-            settings = {}
-            for p in ANTIZAPRET_PARAMS:
-                key, env, typ, default = p["key"], p["env"], p["type"], p["default"]
-                if typ == "string":
-                    m = re.search(rf"^{re.escape(env)}=(.+)$", content, re.M | re.I)
-                    settings[key] = m.group(1).strip() if m else default
-                else:
-                    m = re.search(rf"^{re.escape(env)}=([yn])$", content, re.M | re.I)
-                    settings[key] = m.group(1).lower() if m else default
-
-            return jsonify(settings)
+            return jsonify(read_antizapret_settings())
 
         except Exception as e:
             current_app.logger.error(f"Ошибка чтения настроек antizapret: {e}", exc_info=True)

@@ -2,6 +2,7 @@
 {% block title %}Настройки{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings_page_shared.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings_styles.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/audit_log_mobile.css') }}" />
 {% endblock %}

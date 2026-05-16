@@ -1,5 +1,5 @@
 from routes.admin_routes import register_admin_routes
-from routes.routing_routes import register_routing_routes
+from routes.routing import register_routing_routes
 from routes.auth_routes import register_auth_routes
 from routes.config_routes import register_config_routes
 from routes.edit_files import register_edit_files_routes

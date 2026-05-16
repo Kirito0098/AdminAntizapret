@@ -20,11 +20,14 @@ from core.services.cidr_list_updater import (
     estimate_cidr_matches_from_db,
     get_available_game_filters,
     get_available_regions,
-    get_saved_game_keys,
     rollback_to_baseline,
     sync_game_hosts_filter,
     update_cidr_files,
     update_cidr_files_from_db,
+)
+from core.services.openvpn_route_limits import (
+    OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS,
+    clamp_openvpn_route_total_cidr_limit,
 )
 from config.antizapret_params import IP_FILES as _IP_FILES_META
 from core.services.panel_publish_info import build_panel_publish_context
@@ -35,17 +38,6 @@ from core.services.tg_notify import send_tg_message
 CIDR_TASKS = {}
 CIDR_TASKS_LOCK = threading.Lock()
 CIDR_TASK_RETENTION = timedelta(hours=2)
-OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS = 900
-
-
-def _clamp_total_cidr_limit_for_ios(value, default=OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS):
-    try:
-        parsed = int(str(value).strip())
-    except (TypeError, ValueError, AttributeError):
-        return int(default)
-    if parsed <= 0:
-        return int(default)
-    return min(parsed, OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)
 
 
 def _cidr_now_utc():
@@ -905,8 +897,6 @@ def register_settings_routes(
             return redirect(url_for("settings"))
 
         current_port = os.getenv("APP_PORT", "5050")
-        cidr_total_limit_raw = str(get_env_value("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT", str(OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)) or str(OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)).strip()
-        cidr_total_limit_raw = str(_clamp_total_cidr_limit_for_ios(cidr_total_limit_raw))
         qr_download_token_ttl_seconds = get_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600")
         qr_download_token_max_downloads = get_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", "1")
         qr_download_pin_set = bool((get_env_value("QR_DOWNLOAD_PIN", "") or "").strip())
@@ -977,13 +967,6 @@ def register_settings_routes(
         ip_scanner_unban_grace_seconds = scanner_settings["unban_grace_seconds"]
         ip_scanner_firewall_enabled = scanner_settings["firewall_enabled"]
 
-        ip_manager.sync_enabled()
-        ip_files = ip_manager.list_ip_files()
-        ip_file_states = ip_manager.get_file_states()
-        cidr_regions = get_available_regions()
-        cidr_game_filters = get_available_game_filters()
-        saved_game_keys = get_saved_game_keys()
-
         monitor_cpu_threshold = int((get_env_value("MONITOR_CPU_THRESHOLD", "90") or "90").strip())
         monitor_ram_threshold = int((get_env_value("MONITOR_RAM_THRESHOLD", "90") or "90").strip())
         monitor_interval_seconds = int((get_env_value("MONITOR_CHECK_INTERVAL_SECONDS", "60") or "60").strip())
@@ -1016,12 +999,6 @@ def register_settings_routes(
             ip_scanner_year_ban_seconds=ip_scanner_year_ban_seconds,
             ip_scanner_unban_grace_seconds=ip_scanner_unban_grace_seconds,
             ip_scanner_firewall_enabled=ip_scanner_firewall_enabled,
-            ip_files=ip_files,
-            ip_file_states=ip_file_states,
-            cidr_regions=cidr_regions,
-            cidr_game_filters=cidr_game_filters,
-            saved_game_keys=saved_game_keys,
-            cidr_total_limit=cidr_total_limit_raw,
             all_openvpn=all_openvpn,
             openvpn_access_groups=openvpn_access_groups,
             all_wg=all_wg,
@@ -1169,7 +1146,7 @@ def register_settings_routes(
     def api_cidr_lists():
         if request.method == "GET":
             current_total_limit = str(get_env_value("OPENVPN_ROUTE_TOTAL_CIDR_LIMIT", str(OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)) or str(OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS)).strip()
-            current_total_limit = str(_clamp_total_cidr_limit_for_ios(current_total_limit))
+            current_total_limit = str(clamp_openvpn_route_total_cidr_limit(current_total_limit))
             return jsonify(
                 {
                     "success": True,
