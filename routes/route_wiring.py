@@ -2,7 +2,7 @@ from routes.admin_routes import register_admin_routes
 from routes.routing_routes import register_routing_routes
 from routes.auth_routes import register_auth_routes
 from routes.config_routes import register_config_routes
-from routes.index_routes import register_index_routes
+from routes.index import register_index_routes
 from routes.monitoring_routes import register_monitoring_routes
 from routes.settings_routes import register_settings_routes
 

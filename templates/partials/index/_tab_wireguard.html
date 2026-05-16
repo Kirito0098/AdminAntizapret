@@ -1,0 +1,17 @@
+{% from 'partials/index/_macros.html' import index_client_row %}
+<div class="tab-pane" id="wireguard-tab" data-protocol="wireguard">
+  <div class="table-wrapper">
+    <table class="config-table client-grid-table" data-protocol="wireguard">
+      <thead>
+        <tr>
+          <th class="sortable" data-sort="name">Клиент</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in wireguard_client_rows %}
+        {{ index_client_row(row) }}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

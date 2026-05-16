@@ -1,0 +1,23 @@
+<section class="index-ops-header-card page-unified-card">
+  <div class="index-ops-header-main">
+    <h1 class="index-ops-subtitle">Управление клиентами, сертификатами и трафиком в одном рабочем пространстве.</h1>
+  </div>
+  <div class="index-ops-kpi-strip">
+    <article class="index-kpi-card">
+      <span class="index-kpi-label">OpenVPN пользователи</span>
+      <strong class="index-kpi-value">{{ openvpn_clients_count }}</strong>
+    </article>
+    <article class="index-kpi-card">
+      <span class="index-kpi-label">WG + AWG пользователи</span>
+      <strong class="index-kpi-value">{{ wg_awg_clients_count }}</strong>
+    </article>
+    <article class="index-kpi-card">
+      <span class="index-kpi-label">Истекают ≤ 30 дн.</span>
+      <strong class="index-kpi-value index-kpi-value--warn">{{ expiring_cert_count }}</strong>
+    </article>
+    <article class="index-kpi-card">
+      <span class="index-kpi-label">Заблокированные CN</span>
+      <strong class="index-kpi-value index-kpi-value--danger">{{ banned_clients_count }}</strong>
+    </article>
+  </div>
+</section>
