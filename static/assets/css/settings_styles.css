@@ -3665,6 +3665,33 @@
 }
 .tests-item:last-child { border-bottom: none; }
 .tests-item:hover { background: rgba(30, 48, 62, 0.45); }
+.tests-list-group {
+  padding: 0.65rem 1rem 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6a8ea0;
+  border-top: 1px solid rgba(40, 60, 75, 0.35);
+  background: rgba(18, 30, 40, 0.55);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.tests-list-group:first-child { border-top: none; }
+.tests-item__text {
+  flex: 1;
+  min-width: 0;
+}
+.tests-item__title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #c8e4f0;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
 .tests-item__id {
   flex: 1;
   min-width: 0;

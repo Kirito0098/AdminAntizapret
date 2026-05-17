@@ -22,8 +22,8 @@
         <div class="tests-action-panel__info">
           <p class="tests-action-panel__title">Запуск тестов</p>
           <p class="tests-action-panel__desc">
-            Запускает pytest по каталогу <code>tests/</code> (сейчас unit-тесты ядра, CIDR, IP-защиты, авторизации).
-            Обычно занимает несколько секунд.
+            Запускает pytest по каталогу <code>tests/</code> (ядро, CIDR, IP-защита, авторизация и др.).
+            Названия сгруппированы по разделам; технический ID pytest — во всплывающей подсказке при наведении.
           </p>
         </div>
         <button id="tests-run-btn" type="button" class="button save-button tests-run-btn">
@@ -156,6 +156,17 @@
         .catch(function () { /* keep polling on network hiccup */ });
       }
 
+      function normalizeTestEntry(entry) {
+        if (typeof entry === 'string') {
+          return { id: entry, title: entry, group: '' };
+        }
+        return {
+          id: entry.id || '',
+          title: entry.title || entry.id || '',
+          group: entry.group || '',
+        };
+      }
+
       function renderList(tests) {
         var list = document.getElementById('tests-list');
         var countEl = document.getElementById('tests-list-count');
@@ -163,23 +174,38 @@
         if (countEl) countEl.textContent = tests.length;
         list.innerHTML = '';
         testsMap = {};
-        tests.forEach(function (id) {
-          var item  = document.createElement('div');
+        var lastGroup = null;
+        tests.forEach(function (raw) {
+          var test = normalizeTestEntry(raw);
+          if (test.group && test.group !== lastGroup) {
+            lastGroup = test.group;
+            var heading = document.createElement('div');
+            heading.className = 'tests-list-group';
+            heading.textContent = test.group;
+            list.appendChild(heading);
+          }
+
+          var item = document.createElement('div');
           item.className = 'tests-item';
 
-          var idEl  = document.createElement('span');
-          idEl.className = 'tests-item__id';
-          idEl.title = id;
-          idEl.textContent = id;
+          var textWrap = document.createElement('div');
+          textWrap.className = 'tests-item__text';
+
+          var titleEl = document.createElement('span');
+          titleEl.className = 'tests-item__title';
+          titleEl.textContent = test.title;
+          titleEl.title = test.id;
+
+          textWrap.appendChild(titleEl);
+          item.appendChild(textWrap);
 
           var badge = document.createElement('span');
           badge.className = 'tests-item__badge tests-item__badge--idle';
           badge.textContent = '—';
 
-          item.appendChild(idEl);
           item.appendChild(badge);
           list.appendChild(item);
-          testsMap[id] = badge;
+          testsMap[test.id] = badge;
         });
       }
 

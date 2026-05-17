@@ -29,6 +29,14 @@ from core.services.settings.cidr_tasks import (
     serialize_cidr_task,
 )
 from core.services.tg_notify import send_tg_message
+from tests.user_labels import enrich_test_nodeids, short_title_for_nodeid
+
+
+def _tests_subprocess_env(app_root_dir):
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = app_root_dir + (":" + existing if existing else "")
+    return env
 
 
 def register_settings_api_routes(
@@ -737,7 +745,7 @@ def register_settings_api_routes(
             tests.sort()
             return jsonify({
                 "success": True,
-                "tests": tests,
+                "tests": enrich_test_nodeids(tests),
                 "count": len(tests),
                 "collect_warnings": proc.returncode != 0,
             })
@@ -798,19 +806,35 @@ def register_settings_api_routes(
                         continue
                     if " PASSED" in stripped:
                         test_id = stripped.split(" PASSED")[0].strip()
-                        tests_result.append({"id": test_id, "status": "passed"})
+                        tests_result.append({
+                            "id": test_id,
+                            "title": short_title_for_nodeid(test_id),
+                            "status": "passed",
+                        })
                         passed += 1
                     elif " FAILED" in stripped:
                         test_id = stripped.split(" FAILED")[0].strip()
-                        tests_result.append({"id": test_id, "status": "failed"})
+                        tests_result.append({
+                            "id": test_id,
+                            "title": short_title_for_nodeid(test_id),
+                            "status": "failed",
+                        })
                         failed += 1
                     elif " ERROR" in stripped:
                         test_id = stripped.split(" ERROR")[0].strip()
-                        tests_result.append({"id": test_id, "status": "error"})
+                        tests_result.append({
+                            "id": test_id,
+                            "title": short_title_for_nodeid(test_id),
+                            "status": "error",
+                        })
                         errors += 1
                     elif " SKIPPED" in stripped:
                         test_id = stripped.split(" SKIPPED")[0].strip()
-                        tests_result.append({"id": test_id, "status": "skipped"})
+                        tests_result.append({
+                            "id": test_id,
+                            "title": short_title_for_nodeid(test_id),
+                            "status": "skipped",
+                        })
                         skipped += 1
 
                 total = passed + failed + errors + skipped

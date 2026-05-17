@@ -41,6 +41,9 @@ modules=(
     "service_functions"
     "uninstall"
     "user_management"
+    "unit_tests"
+    "site_diagnostics"
+    "panel_menus"
 )
 
 for module in "${modules[@]}"; do
@@ -97,15 +100,30 @@ check_port() {
     return 1
 }
 
+# Debian ≥13: пакет dnsutils заменён на bind9-dnsutils (dig/host/nslookup)
+_is_dnsutils_pkg_installed() {
+    dpkg -s dnsutils >/dev/null 2>&1 || dpkg -s bind9-dnsutils >/dev/null 2>&1
+}
+
+_dnsutils_apt_pkg_name() {
+    if apt-cache show dnsutils >/dev/null 2>&1; then
+        printf '%s\n' dnsutils
+    else
+        printf '%s\n' bind9-dnsutils
+    fi
+}
+
 # ─── Установка зависимостей ───────────────────────
 check_dependencies() {
+    local dns_pkg
+    dns_pkg=$(_dnsutils_apt_pkg_name)
     ui_info "Установка зависимостей..."
     apt-get update --quiet --quiet >/dev/null
     check_error "Не удалось обновить индексы пакетов"
     apt-get install -y --quiet --quiet apt-utils >/dev/null
     check_error "Не удалось установить apt-utils"
     apt-get install -y --quiet --quiet python3 python3-pip python3-venv python3-dev \
-        git wget openssl cron vnstat dnsutils \
+        git wget openssl cron vnstat "$dns_pkg" \
         libjpeg-dev zlib1g-dev >/dev/null
     check_error "Не удалось установить зависимости"
     ui_ok "Зависимости установлены"
@@ -138,7 +156,18 @@ verify_project_environment() {
 
     ui_section "2) Системные пакеты"
     for pkg in "${required_system_packages[@]}"; do
-        if dpkg -s "$pkg" >/dev/null 2>&1; then
+        if [ "$pkg" = "dnsutils" ]; then
+            if _is_dnsutils_pkg_installed; then
+                if dpkg -s dnsutils >/dev/null 2>&1; then
+                    _vpe_ok "dnsutils"
+                else
+                    _vpe_ok "dnsutils (bind9-dnsutils)"
+                fi
+            else
+                _vpe_fail "dnsutils — не установлен"
+                missing_system_packages+=("dnsutils")
+            fi
+        elif dpkg -s "$pkg" >/dev/null 2>&1; then
             _vpe_ok "$pkg"
         else
             _vpe_fail "$pkg — не установлен"
@@ -150,8 +179,18 @@ verify_project_environment() {
         ui_warn "Отсутствуют пакеты: ${missing_system_packages[*]}"
         if ui_confirm "Установить недостающие пакеты?"; then
             ui_info "Устанавливаем недостающие пакеты..."
+            local apt_install_packages=()
+            local mpkg resolved_dns
+            for mpkg in "${missing_system_packages[@]}"; do
+                if [ "$mpkg" = "dnsutils" ]; then
+                    resolved_dns=$(_dnsutils_apt_pkg_name)
+                    apt_install_packages+=("$resolved_dns")
+                else
+                    apt_install_packages+=("$mpkg")
+                fi
+            done
             if apt-get update --quiet --quiet >/dev/null && \
-               apt-get install -y --quiet --quiet "${missing_system_packages[@]}" >/dev/null; then
+               apt-get install -y --quiet --quiet "${apt_install_packages[@]}" >/dev/null; then
                 _vpe_ok "Пакеты установлены"
             else
                 _vpe_fail "Не удалось установить часть пакетов"
@@ -402,56 +441,34 @@ main_menu() {
         _m_top
         _m_title "AdminAntizapret — Управление"
         _m_sep
-        _m_item "1.  Добавить администратора"
-        _m_item "2.  Удалить администратора"
-        _m_item "3.  Перезапустить сервис"
-        _m_item "4.  Статус сервиса"
-        _m_item "5.  Журнал сервиса"
-        _m_item "6.  Проверить обновления"
-        _m_item "7.  Создать резервную копию"
-        _m_item "8.  Восстановить из резервной копии"
-        _m_item "9.  Удалить AdminAntizapret"
-        _m_item "10. Проверить и установить права"
-        _m_item "11. Изменить порт сервиса"
-        _m_item "12. Мониторинг системы"
-        _m_item "13. Проверить конфигурацию"
-        _m_item "14. Проверить конфликт портов 80/443"
-        _m_item "15. Изменить протокол (HTTP/HTTPS)"
-        _m_item "16. Проверить окружение проекта"
+        _m_item "1. Сервис панели"
+        _m_item "2. Администраторы"
+        _m_item "3. Сеть и HTTPS"
+        _m_item "4. Резервные копии и обновления"
+        _m_item "5. Диагностика и тесты"
+        _m_item "6. Удалить AdminAntizapret"
         _m_sep
-        _m_item "0.  Выход"
+        _m_item "7. Диагностика запуска сайта"
+        _m_item "8. Общий тест системы (окружение + pytest)"
+        _m_sep
+        _m_item "0. Выход"
         _m_bot
         printf "\n"
 
-        read -r -p "  Выберите действие [0-16]: " choice
+        read -r -p "  Выберите действие [0-8]: " choice
         case $choice in
-        1) add_admin ;;
-        2) delete_admin ;;
-        3) restart_service ;;
-        4) check_status ;;
-        5) show_logs ;;
-        6) check_updates ;;
-        7) create_backup ;;
+        1) menu_service_panel ;;
+        2) menu_administrators ;;
+        3) menu_network_https ;;
+        4) menu_backups_updates ;;
+        5) menu_diagnostics_tests ;;
+        6) uninstall ;;
+        7)
+            diagnose_site_startup
+            press_any_key
+            ;;
         8)
-            read -r -p "  Путь к файлу резервной копии: " backup_file
-            restore_backup "$backup_file"
-            press_any_key
-            ;;
-        9) uninstall ;;
-        10) check_and_set_permissions ;;
-        11) change_port ;;
-        12) show_monitor ;;
-        13)
-            validate_config
-            press_any_key
-            ;;
-        14)
-            check_openvpn_tcp_setting
-            press_any_key
-            ;;
-        15) change_protocol ;;
-        16)
-            verify_project_environment
+            run_unit_tests_summary
             press_any_key
             ;;
         0) exit 0 ;;
@@ -756,6 +773,14 @@ main() {
             exit 1
         fi
         restore_backup "$2"
+        ;;
+    "--tests")
+        run_unit_tests_summary
+        exit $?
+        ;;
+    "--diagnose")
+        run_site_diagnostics_cli
+        exit $?
         ;;
     *)
         if [ ! -f "/etc/systemd/system/$SERVICE_NAME.service" ]; then

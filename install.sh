@@ -23,6 +23,43 @@ REQUIRED_PACKAGES=(
     wget cron ca-certificates
 )
 
+# Debian ≥13: dnsutils → bind9-dnsutils (dig/host/nslookup)
+_pkg_installed() {
+    local st
+    st=$(dpkg-query -W -f='${Status}' "$1" 2>/dev/null || true)
+    [[ "$st" == *"ok installed"* ]]
+}
+
+_dnsutils_installed() {
+    _pkg_installed dnsutils || _pkg_installed bind9-dnsutils
+}
+
+_dnsutils_apt_pkg_name() {
+    if apt-cache show dnsutils >/dev/null 2>&1; then
+        printf '%s\n' dnsutils
+    else
+        printf '%s\n' bind9-dnsutils
+    fi
+}
+
+_required_pkg_installed() {
+    local pkg=$1
+    if [ "$pkg" = "dnsutils" ]; then
+        _dnsutils_installed
+    else
+        _pkg_installed "$pkg"
+    fi
+}
+
+_resolve_apt_pkg_name() {
+    local pkg=$1
+    if [ "$pkg" = "dnsutils" ]; then
+        _dnsutils_apt_pkg_name
+    else
+        printf '%s\n' "$pkg"
+    fi
+}
+
 # Опционально: свой форк — export ADMINANTIZAPRET_REPO_URL="https://github.com/you/AdminAntizapret.git"
 if [ -n "${ADMINANTIZAPRET_REPO_URL:-}" ]; then
     REPO_URL="$ADMINANTIZAPRET_REPO_URL"
@@ -301,8 +338,7 @@ _run_check() {
     if command -v dpkg-query >/dev/null 2>&1; then
         local miss=() pkg st
         for pkg in "${REQUIRED_PACKAGES[@]}"; do
-            st=$(dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null || true)
-            [[ "$st" == *"ok installed"* ]] || miss+=("$pkg")
+            _required_pkg_installed "$pkg" || miss+=("$pkg")
         done
         if [ "${#miss[@]}" -eq 0 ]; then
             _ui_ok "Все пакеты установлены"
@@ -414,21 +450,26 @@ _ui_header
 _log "Проверка установленных пакетов..."
 _miss=()
 for _pkg in "${REQUIRED_PACKAGES[@]}"; do
-    _st=$(dpkg-query -W -f='${Status}' "$_pkg" 2>/dev/null || true)
-    [[ "$_st" == *"ok installed"* ]] || _miss+=("$_pkg")
+    _required_pkg_installed "$_pkg" || _miss+=("$_pkg")
 done
-unset _pkg _st
+unset _pkg
 
 if [ "${#_miss[@]}" -gt 0 ]; then
     _log "Отсутствуют пакеты: ${_miss[*]}"
+    _apt_install=()
+    for _pkg in "${_miss[@]}"; do
+        _apt_install+=("$(_resolve_apt_pkg_name "$_pkg")")
+    done
+    unset _pkg
 
     run_step "Обновление индексов пакетов" \
         _do_apt_update \
         || { _ui_err "Не удалось обновить apt. Проверьте сеть."; exit 1; }
 
-    run_step "Установка пакетов (${#_miss[@]} шт.)" \
-        apt-get -o DPkg::Lock::Timeout=60 install -y "${_miss[@]}" \
+    run_step "Установка пакетов (${#_apt_install[@]} шт.)" \
+        apt-get -o DPkg::Lock::Timeout=60 install -y "${_apt_install[@]}" \
         || { _ui_err "Не удалось установить пакеты."; exit 1; }
+    unset _apt_install
 else
     _log "Все пакеты уже установлены"
     _ui_ok "Все пакеты уже установлены"

@@ -1,5 +1,22 @@
 import os
+import re
 from collections import OrderedDict
+
+_CLIENT_NAME_SUFFIX_RE = re.compile(r"-(?:udp|tcp|wg|am)$", re.IGNORECASE)
+_CLIENT_NAME_EXTRA_RE = re.compile(r"-\([^)]+\)$")
+
+
+def _client_name_from_config_stem(stem):
+    stem_lc = stem.lower()
+    if stem_lc.startswith("antizapret-"):
+        after_prefix = stem[11:]
+    elif stem_lc.startswith("vpn-"):
+        after_prefix = stem[4:]
+    else:
+        after_prefix = stem
+    name = _CLIENT_NAME_SUFFIX_RE.sub("", after_prefix)
+    name = _CLIENT_NAME_EXTRA_RE.sub("", name)
+    return name.strip()
 
 _PROTOCOL_TABLE_CONFIG = {
     "openvpn": {
@@ -89,15 +106,12 @@ def group_config_files_by_client(file_paths):
 
         if stem_lc.startswith("antizapret-"):
             kind = "antizapret"
-            after_prefix = stem[11:]
         elif stem_lc.startswith("vpn-"):
             kind = "vpn"
-            after_prefix = stem[4:]
         else:
             kind = "vpn"
-            after_prefix = stem
 
-        client_name = after_prefix.split("-(")[0]
+        client_name = _client_name_from_config_stem(stem)
         if client_name not in grouped:
             grouped[client_name] = {"antizapret": None, "vpn": None}
         grouped[client_name][kind] = file_path

@@ -85,10 +85,12 @@ class IndexPageContextTests(unittest.TestCase):
 
     def test_resolve_openvpn_group_and_files_filters_viewer_configs(self):
         class FakeHandler:
-            config_paths = {"openvpn": [], "wg": ["/wg"], "amneziawg": ["/awg"]}
-
-            def __init__(self, paths):
-                self.config_paths = paths
+            def __init__(self, openvpn_folders):
+                self.config_paths = {
+                    "openvpn": list(openvpn_folders),
+                    "wg": ["/wg"],
+                    "amneziawg": ["/awg"],
+                }
 
             def get_config_files(self):
                 return (
