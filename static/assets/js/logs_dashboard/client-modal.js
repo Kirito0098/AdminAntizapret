@@ -10,8 +10,8 @@
     const modalTrafficMeta = document.getElementById('clientModalTrafficMeta');
     const modalChartCanvas = document.getElementById('clientModalTrafficChart');
     const modalRangeButtons = Array.from(document.querySelectorAll('.client-modal-range-btn[data-range]'));
-    const cardButtons = Array.from(document.querySelectorAll('[data-client-card] [data-client-toggle]'));
     const hideStaleToggle = document.getElementById('hideStaleSessionsToggle');
+    const clientsProtocolFilter = document.getElementById('clientsProtocolFilter');
 
     const modalRangeStorageKey = 'logs_dashboard_modal_selected_range';
     let currentClientName = '';
@@ -202,6 +202,20 @@
         loadClientModalChart();
     }
 
+    function toggleClientCardExpand(toggleBtn) {
+        const card = toggleBtn.closest('[data-client-card]');
+        if (!card) {
+            return;
+        }
+        const body = card.querySelector('[data-client-body]');
+        if (!body) {
+            return;
+        }
+        const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+        toggleBtn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        body.hidden = expanded;
+    }
+
     modalRangeButtons.forEach(btn => {
         btn.addEventListener('click', function () {
             currentModalRange = btn.dataset.range || '7d';
@@ -211,24 +225,40 @@
         });
     });
 
-    cardButtons.forEach(btn => {
-        btn.addEventListener('click', function () {
-            const card = btn.closest('[data-client-card]');
+    document.addEventListener('click', function (event) {
+        const openBtn = event.target.closest('[data-client-open-modal]');
+        if (openBtn) {
+            event.preventDefault();
+            event.stopPropagation();
+            const card = openBtn.closest('[data-client-card]');
             openClientModal(card);
-        });
+            return;
+        }
+
+        const toggleBtn = event.target.closest('[data-client-toggle]');
+        if (toggleBtn) {
+            event.preventDefault();
+            toggleClientCardExpand(toggleBtn);
+        }
     });
 
     modal.querySelectorAll('[data-client-modal-close]').forEach(node => {
         node.addEventListener('click', closeModal);
     });
 
+    function refreshModalConnectionsIfOpen() {
+        if (modal.hidden) {
+            return;
+        }
+        window.setTimeout(syncModalConnectionsFromCurrentCard, 0);
+    }
+
     if (hideStaleToggle) {
-        hideStaleToggle.addEventListener('change', function () {
-            if (modal.hidden) {
-                return;
-            }
-            window.setTimeout(syncModalConnectionsFromCurrentCard, 0);
-        });
+        hideStaleToggle.addEventListener('change', refreshModalConnectionsIfOpen);
+    }
+
+    if (clientsProtocolFilter) {
+        clientsProtocolFilter.addEventListener('change', refreshModalConnectionsIfOpen);
     }
 
     document.addEventListener('keydown', function (event) {

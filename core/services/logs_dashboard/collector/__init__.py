@@ -9,6 +9,31 @@ from .events import (
 )
 
 
+def _wireguard_session_display_ip(client):
+    """Fallback when WG endpoint is missing: allowed IP or truncated peer key."""
+    virtual = (client.get("virtual_address") or "").strip()
+    if virtual and virtual != "-":
+        return virtual
+    peer_key = (client.get("peer_public_key") or "").strip()
+    if peer_key:
+        if len(peer_key) <= 24:
+            return peer_key
+        return f"{peer_key[:10]}…{peer_key[-8:]}"
+    return ""
+
+
+def _session_connection_ip(client, protocol_label):
+    real_ip = (client.get("real_ip") or "").strip()
+    if real_ip:
+        return real_ip, False
+    if protocol_label != "WireGuard":
+        return "", False
+    fallback_ip = _wireguard_session_display_ip(client)
+    if fallback_ip:
+        return fallback_ip, True
+    return "", False
+
+
 def collect_logs_dashboard_data(
     *,
     app,
@@ -79,33 +104,43 @@ def collect_logs_dashboard_data(
     )
 
     for item in status_rows:
+        protocol_label = (item.get("protocol") or "OpenVPN").strip() or "OpenVPN"
         for client in item["clients"]:
             name = client["common_name"]
             unique_client_names.add(name)
+            display_ip, endpoint_unknown = _session_connection_ip(client, protocol_label)
             if client.get("real_ip"):
                 unique_ips.add(client["real_ip"])
+            elif display_ip and not endpoint_unknown:
+                unique_ips.add(display_ip)
 
             client_aggregate[name]["bytes_received"] += client["bytes_received"]
             client_aggregate[name]["bytes_sent"] += client["bytes_sent"]
             client_aggregate[name]["sessions"] += 1
             client_aggregate[name]["profiles"].add(item["label"])
-            client_aggregate[name]["protocols"].add((item.get("protocol") or "OpenVPN").strip() or "OpenVPN")
-            if client.get("real_ip"):
-                client_aggregate[name]["ips"].add(client["real_ip"])
-                client_aggregate[name]["ip_profiles"].setdefault(client["real_ip"], set()).add(item["profile"])
-                normalized_real_address = _normalize_openvpn_endpoint(client.get("real_address") or "")
+            client_aggregate[name]["protocols"].add(protocol_label)
+            if display_ip:
+                client_aggregate[name]["ips"].add(display_ip)
+                client_aggregate[name]["ip_profiles"].setdefault(display_ip, set()).add(item["profile"])
+                if protocol_label == "OpenVPN":
+                    normalized_real_address = _normalize_openvpn_endpoint(client.get("real_address") or "")
+                    real_address = normalized_real_address or display_ip
+                else:
+                    wg_endpoint = (client.get("real_address") or "").strip()
+                    real_address = wg_endpoint if wg_endpoint and wg_endpoint != "-" else display_ip
                 client_aggregate[name]["session_connections"].append(
                     {
-                        "ip": client["real_ip"],
-                        "real_address": (normalized_real_address or client["real_ip"]),
+                        "ip": display_ip,
+                        "real_address": real_address,
+                        "endpoint_unknown": endpoint_unknown,
                         "connected_since_ts": int(client.get("connected_since_ts") or 0),
                         "profile_key": (item.get("profile") or "").strip(),
                         "profile_label": (item.get("label") or "-").strip() or "-",
-                        "protocol": (item.get("protocol") or "OpenVPN").strip() or "OpenVPN",
+                        "protocol": protocol_label,
                     }
                 )
-                if client["real_ip"] not in client_aggregate[name]["ip_details"]:
-                    client_aggregate[name]["ip_details"][client["real_ip"]] = {
+                if display_ip not in client_aggregate[name]["ip_details"]:
+                    client_aggregate[name]["ip_details"][display_ip] = {
                         "version": None,
                         "platform": None,
                         "rank": -1,
@@ -189,6 +224,7 @@ def collect_logs_dashboard_data(
                         "ip": ip,
                         "real_address": real_address,
                         "show_real_address": real_address != ip,
+                        "endpoint_unknown": bool(conn.get("endpoint_unknown")),
                         "profile_label": profile_label,
                         "protocol": protocol_label,
                         "platform": platform_str,

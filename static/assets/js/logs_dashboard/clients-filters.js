@@ -23,7 +23,9 @@
 
             items.forEach(function (item) {
                 const isStale = item.getAttribute('data-stale-candidate') === '1';
-                const shouldHide = hideStale && isStale;
+                const itemProtocol = item.getAttribute('data-protocol') || '';
+                const protocolVisible = protocolMatches(itemProtocol, selectedProtocol);
+                const shouldHide = (hideStale && isStale) || !protocolVisible;
                 item.style.display = shouldHide ? 'none' : '';
                 if (!shouldHide) {
                     visibleCount += 1;
@@ -32,18 +34,23 @@
 
             const emptyState = list.querySelector('.ip-device-empty-state');
             if (emptyState) {
-                emptyState.style.display = visibleCount === 0 ? '' : 'none';
+                emptyState.style.display = visibleCount === 0 && items.length > 0 ? '' : 'none';
             }
 
             const clientCard = list.closest('[data-client-card]');
             if (clientCard) {
                 const cardProtocols = clientCard.getAttribute('data-client-protocols') || '';
-                const protocolVisible = protocolMatches(cardProtocols, selectedProtocol);
-                const staleVisible = !(hideStale && visibleCount === 0);
+                const protocolVisible = visibleCount > 0
+                    || (items.length === 0 && protocolMatches(cardProtocols, selectedProtocol));
+                const staleVisible = !(hideStale && visibleCount === 0 && items.length > 0);
                 clientCard.classList.toggle('is-filtered-out', !(protocolVisible && staleVisible));
             }
         });
     }
+
+    window.LogsDashboardClientsFilters = {
+        apply: applyClientCardsFilters,
+    };
 
     if (hideStaleToggle) {
         hideStaleToggle.checked = localStorage.getItem(hideStaleStorageKey) === '1';
@@ -63,4 +70,8 @@
     if (fmt.formatLocalDateTimeCells) {
         fmt.formatLocalDateTimeCells();
     }
+
+    window.addEventListener('logsDashboardClientCardsUpdated', function () {
+        applyClientCardsFilters();
+    });
 })();

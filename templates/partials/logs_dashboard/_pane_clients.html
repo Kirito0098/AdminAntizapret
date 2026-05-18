@@ -47,7 +47,8 @@
                         data-client-tx="{{ client.bytes_sent_human }}"
                         data-client-total="{{ client.total_bytes_human }}">
                         <button type="button" class="client-card-toggle" data-client-toggle
-                            aria-label="Открыть подробности клиента {{ client.common_name }}">
+                            aria-expanded="false"
+                            aria-label="Развернуть подключения клиента {{ client.common_name }}">
                             <div class="client-card-main">
                                 <div class="client-card-name">{{ client.common_name }}</div>
                                 <div class="client-card-subline">Сессий: {{ client.sessions }} | Профили: {{
@@ -95,7 +96,8 @@
                             <div class="ip-device-list">
                                 {% for item in client.ip_device_map %}
                                 <div class="ip-device-item"
-                                    data-stale-candidate="{% if item.stale_candidate %}1{% else %}0{% endif %}">
+                                    data-stale-candidate="{% if item.stale_candidate %}1{% else %}0{% endif %}"
+                                    data-protocol="{{ (item.protocol or '-') | lower }}">
                                     <div>
                                         <span class="ip-device-key">Протокол:</span>
                                         <span
@@ -104,6 +106,9 @@
                                         </span>
                                     </div>
                                     <div><span class="ip-device-key">IP:</span> {{ item.ip }}</div>
+                                    {% if item.endpoint_unknown %}
+                                    <div><span class="ip-device-key">Endpoint:</span> неизвестен (allowed IP / peer key)</div>
+                                    {% endif %}
                                     <div><span class="ip-device-key">Профиль:</span> {{ item.profile_label or '-' }}
                                     </div>
                                     {% if item.show_real_address %}
@@ -127,6 +132,11 @@
                             {% else %}
                             <div class="client-card-empty">Нет данных по подключениям</div>
                             {% endif %}
+                            <div class="client-card-actions">
+                                <button type="button" class="client-card-open-modal-link" data-client-open-modal>
+                                    График и подробности
+                                </button>
+                            </div>
                         </div>
                     </article>
                     {% endfor %}

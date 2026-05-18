@@ -1,15 +1,28 @@
 (function () {
     const refreshIntervalMs = 60000;
     const trafficPaneSelector = '.logs-tab-pane[data-tab-pane="traffic"]';
+    const clientsPaneSelector = '.logs-tab-pane[data-tab-pane="clients"]';
     const trafficTableSelectors = ['#persistedTrafficTable', '#deletedPersistedTrafficTable'];
+    const clientCardsListSelector = '#clientCardsList';
+
+    function isPaneActive(selector) {
+        const pane = document.querySelector(selector);
+        return pane && pane.classList.contains('is-active');
+    }
 
     function isTrafficPaneActive() {
         const trafficPane = document.querySelector(trafficPaneSelector);
         return !trafficPane || trafficPane.classList.contains('is-active');
     }
 
-    async function refreshTrafficTables() {
-        if (document.visibilityState !== 'visible' || !isTrafficPaneActive()) {
+    async function refreshDashboardFragments() {
+        if (document.visibilityState !== 'visible') {
+            return;
+        }
+
+        const refreshTraffic = isTrafficPaneActive();
+        const refreshClients = isPaneActive(clientsPaneSelector);
+        if (!refreshTraffic && !refreshClients) {
             return;
         }
 
@@ -26,27 +39,44 @@
             const html = await response.text();
             const parser = new DOMParser();
             const nextDocument = parser.parseFromString(html, 'text/html');
-            let hasUpdates = false;
+            let trafficUpdated = false;
+            let clientsUpdated = false;
 
-            trafficTableSelectors.forEach(function (selector) {
-                const currentTbody = document.querySelector(`${selector} tbody`);
-                const nextTbody = nextDocument.querySelector(`${selector} tbody`);
-                if (!currentTbody || !nextTbody) {
-                    return;
+            if (refreshTraffic) {
+                trafficTableSelectors.forEach(function (selector) {
+                    const currentTbody = document.querySelector(`${selector} tbody`);
+                    const nextTbody = nextDocument.querySelector(`${selector} tbody`);
+                    if (!currentTbody || !nextTbody) {
+                        return;
+                    }
+                    currentTbody.innerHTML = nextTbody.innerHTML;
+                    trafficUpdated = true;
+                });
+            }
+
+            if (refreshClients) {
+                const currentList = document.querySelector(clientCardsListSelector);
+                const nextList = nextDocument.querySelector(clientCardsListSelector);
+                if (currentList && nextList) {
+                    currentList.innerHTML = nextList.innerHTML;
+                    clientsUpdated = true;
                 }
-                currentTbody.innerHTML = nextTbody.innerHTML;
-                hasUpdates = true;
-            });
+            }
 
-            if (hasUpdates) {
+            if (trafficUpdated) {
                 window.dispatchEvent(new CustomEvent('logsDashboardTrafficTablesUpdated'));
             }
+            if (clientsUpdated) {
+                window.dispatchEvent(new CustomEvent('logsDashboardClientCardsUpdated'));
+            }
         } catch (err) {
-            window.showNotification?.('Не удалось обновить таблицы трафика', 'error');
+            if (refreshTraffic) {
+                window.showNotification?.('Не удалось обновить таблицы трафика', 'error');
+            } else if (refreshClients) {
+                window.showNotification?.('Не удалось обновить список клиентов', 'error');
+            }
         }
     }
 
-    setInterval(function () {
-        refreshTrafficTables();
-    }, refreshIntervalMs);
+    setInterval(refreshDashboardFragments, refreshIntervalMs);
 })();

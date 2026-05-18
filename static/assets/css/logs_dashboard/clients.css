@@ -282,9 +282,36 @@
   font-weight: 600;
   margin-right: 0.3rem;
 }
-.client-card,
-.client-card-subline,
-.client-card-toggle:hover {
-.ip-device-item,
-  .client-card-toggle {
-  .client-card-stats {
+
+.client-card-open-modal {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.client-card-open-modal:hover .client-card-name {
+  text-decoration: underline;
+}
+
+.client-card-actions {
+  margin-top: 0.45rem;
+}
+
+.client-card-open-modal-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--theme-primary-bright, rgba(143, 220, 195, 0.95));
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.client-card-open-modal-link:hover {
+  color: var(--theme-text-main, #f2fff9);
+}
