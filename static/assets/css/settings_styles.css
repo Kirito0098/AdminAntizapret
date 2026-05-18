@@ -2347,6 +2347,24 @@
   background: var(--sec-surface-raised);
 }
 
+#security .security-scanner-block--full {
+  grid-column: 1 / -1;
+}
+
+#security .security-scanner-status {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  color: #9aa8b3;
+  background: rgba(120, 135, 145, 0.2);
+  vertical-align: middle;
+}
+
 #security .security-scanner-toggle {
   display: flex;
   align-items: flex-start;
@@ -2358,6 +2376,8 @@
 #security .security-scanner-toggle__text {
   display: grid;
   gap: 0.18rem;
+  flex: 1;
+  min-width: 0;
 }
 
 #security .security-scanner-toggle__text strong {
@@ -2369,6 +2389,55 @@
   color: var(--sec-muted);
   font-size: 0.78rem;
   line-height: 1.35;
+}
+
+#security .security-scanner-hint {
+  display: block;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* Недоступно при Nginx/HTTPS — после базовых стилей toggle, чтобы перебить их */
+#security .security-scanner-block--unavailable {
+  border-color: rgba(70, 82, 92, 0.45);
+  background: rgba(32, 38, 44, 0.92);
+  box-shadow: none;
+}
+
+#security .security-scanner-block--unavailable .security-scanner-toggle,
+#security .security-scanner-block--unavailable .security-scanner-toggle--off {
+  cursor: not-allowed;
+}
+
+#security .security-scanner-block--unavailable .security-scanner-toggle__text strong {
+  color: #6d7a85 !important;
+}
+
+#security .security-scanner-block--unavailable .security-scanner-hint {
+  color: #5f6d78 !important;
+}
+
+#security .security-scanner-block--unavailable .toggle-switch {
+  opacity: 0.55;
+}
+
+#security .security-scanner-block--unavailable .toggle-slider {
+  background: #3a434b !important;
+  box-shadow: none !important;
+}
+
+#security .security-scanner-block--unavailable .toggle-slider:before {
+  background: #6a737c !important;
+  box-shadow: none !important;
+}
+
+#security .security-scanner-block--unavailable .toggle-input:checked + .toggle-slider {
+  background: #3a434b !important;
+}
+
+#security .security-scanner-block--unavailable .toggle-input:checked + .toggle-slider:before {
+  transform: none;
+  background: #6a737c !important;
 }
 
 #security .security-scanner-params {

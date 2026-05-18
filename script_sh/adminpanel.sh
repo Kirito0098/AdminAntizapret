@@ -134,7 +134,7 @@ verify_project_environment() {
     local failed=0 warned=0 passed=0
     local req_file="$INSTALL_DIR/requirements.txt"
     local missing_system_packages=()
-    local required_system_packages=(python3 python3-pip python3-venv python3-dev git wget openssl cron vnstat dnsutils libjpeg-dev zlib1g-dev)
+    local required_system_packages=(python3 python3-pip python3-venv python3-dev git wget openssl cron vnstat dnsutils libjpeg-dev zlib1g-dev iptables ipset)
 
     _vpe_ok()   { ui_ok "$1";   passed=$((passed + 1)); }
     _vpe_warn() { ui_warn "$1"; warned=$((warned + 1)); }
@@ -145,7 +145,7 @@ verify_project_environment() {
     }
 
     ui_section "1) Системные команды"
-    local required_commands=(python3 pip3 git wget openssl systemctl awk sed grep ss dig)
+    local required_commands=(python3 pip3 git wget openssl systemctl awk sed grep ss dig iptables ipset)
     for cmd in "${required_commands[@]}"; do
         if command -v "$cmd" >/dev/null 2>&1; then
             _vpe_ok "$cmd"

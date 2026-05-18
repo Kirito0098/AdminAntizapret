@@ -10,6 +10,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
+from core.services.firewall_tools_check import apt_install_hint, check_firewall_tools
+
 Status = Literal["ok", "warn", "fail"]
 RunCmd = Callable[[list[str], float], subprocess.CompletedProcess]
 
@@ -594,9 +596,38 @@ def run_site_diagnostics(
     _check_port(env, report, runner)
     _check_http_probe(env, report, runner)
     _check_nginx(env, report, runner)
+    _check_firewall_tools(report, runner)
     _build_summary(report, ctx)
 
     return report
+
+
+def _check_firewall_tools(report: DiagnosticsReport, runner: RunCmd) -> None:
+    fw = check_firewall_tools(run_cmd=runner)
+    if fw.fully_ready:
+        _append_result(
+            report,
+            CheckResult("ok", "iptables и ipset", detail=fw.operational_detail),
+        )
+        return
+
+    parts: list[str] = []
+    if fw.missing_commands:
+        parts.append(f"нет команд: {', '.join(fw.missing_commands)}")
+    if fw.missing_packages:
+        parts.append(f"нет пакетов: {', '.join(fw.missing_packages)}")
+    if fw.binaries_available and not fw.operational_ok:
+        parts.append(fw.operational_detail)
+    hint_pkgs = fw.missing_packages or ("iptables", "ipset")
+    _append_result(
+        report,
+        CheckResult(
+            "warn",
+            "iptables и ipset (бан сканеров, whitelist порта панели)",
+            detail="; ".join(parts) or fw.operational_detail,
+            hint_ru=apt_install_hint(hint_pkgs),
+        ),
+    )
 
 
 def format_check_line(result: CheckResult) -> str:

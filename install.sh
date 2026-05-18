@@ -21,6 +21,7 @@ REQUIRED_PACKAGES=(
     vnstat openssl python3 python3-pip python3-venv python3-dev
     libjpeg-dev zlib1g-dev
     wget cron ca-certificates
+    iptables ipset
 )
 
 # Debian ≥13: dnsutils → bind9-dnsutils (dig/host/nslookup)
@@ -348,6 +349,21 @@ _run_check() {
         fi
     else
         _ui_fail "dpkg-query недоступен — проверка пакетов невозможна"
+        fail=1
+    fi
+
+    local _fw_miss=()
+    for _cmd in iptables ipset; do
+        command -v "$_cmd" >/dev/null 2>&1 || _fw_miss+=("$_cmd")
+    done
+    if [ "${#_fw_miss[@]}" -eq 0 ]; then
+        if iptables -L INPUT -n >/dev/null 2>&1 && ipset version >/dev/null 2>&1; then
+            _ui_ok "iptables и ipset (бан сканеров, whitelist порта)"
+        else
+            _ui_warn "iptables/ipset установлены, но не отвечают (модуль ядра, права root)"
+        fi
+    else
+        _ui_fail "Отсутствуют iptables/ipset: ${_fw_miss[*]}"
         fail=1
     fi
 

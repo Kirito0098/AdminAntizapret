@@ -192,6 +192,37 @@
                     </span>
                   </label>
                 </div>
+
+                {% set fw_iptables_unavailable = not ip_whitelist_firewall_applicable %}
+                <div class="security-scanner-block security-scanner-block--full{% if fw_iptables_unavailable %} security-scanner-block--unavailable{% endif %}">
+                  <label class="security-scanner-toggle{% if fw_iptables_unavailable %} security-scanner-toggle--off{% endif %}">
+                    <div class="toggle-switch">
+                      <input type="checkbox" name="whitelist_firewall" value="true" class="toggle-input"
+                        {% if ip_whitelist_firewall_active %}checked{% endif %}
+                        {% if not ip_enabled or not ip_whitelist_firewall_applicable %}disabled{% endif %} />
+                      <span class="toggle-slider"></span>
+                    </div>
+                    <span class="security-scanner-toggle__text">
+                      <strong>
+                        Блок на порту панели (iptables)
+                        {% if fw_iptables_unavailable %}
+                        <span class="security-scanner-status">недоступно</span>
+                        {% endif %}
+                      </strong>
+                      <small class="security-scanner-hint">
+                        {% if ip_whitelist_firewall_applicable %}
+                          {% if panel_publish.mode_key in ('app_https', 'app_https_incomplete') %}
+                        Прямой HTTPS на порту панели (Gunicorn, без Nginx): чужие адреса режутся на сервере, остаётся только список IP выше.
+                          {% else %}
+                        Прямой HTTP на порту панели (без Nginx): чужие адреса режутся на сервере, остаётся только список IP выше.
+                          {% endif %}
+                        {% else %}
+                        Панель за Nginx: гости заходят через веб-сервер (порты 80/443), не на порт приложения. Достаточно списка разрешённых IP вверху.
+                        {% endif %}
+                      </small>
+                    </span>
+                  </label>
+                </div>
               </div>
 
               <div class="security-scanner-params">

@@ -1,3 +1,4 @@
+from core.services.panel_publish_info import is_whitelist_port_firewall_applicable
 from core.services.settings.telegram_normalize import normalize_ip_entry
 
 
@@ -51,6 +52,7 @@ def handle_security_settings(form, *, flash, ip_restriction, log_user_action_eve
         else:
             block_scanners = form.get("block_scanners") == "true"
             block_ip_blocked_dwell = form.get("block_ip_blocked_dwell") == "true"
+            whitelist_firewall = form.get("whitelist_firewall") == "true"
             try:
                 max_attempts = int(form.get("scanner_max_attempts", ip_restriction.scanner_max_attempts))
                 window_seconds = int(form.get("scanner_window_seconds", ip_restriction.scanner_window_seconds))
@@ -64,6 +66,14 @@ def handle_security_settings(form, *, flash, ip_restriction, log_user_action_eve
             except (TypeError, ValueError):
                 flash("Некорректные параметры блокировки сканеров", "error")
             else:
+                fw_applicable = is_whitelist_port_firewall_applicable()
+                if whitelist_firewall and not fw_applicable:
+                    whitelist_firewall = False
+                    flash(
+                        "iptables для whitelist доступен только без Nginx "
+                        "(прямой HTTP или HTTPS на порту панели).",
+                        "warning",
+                    )
                 ip_restriction.set_scanner_protection(
                     enabled=block_scanners,
                     max_attempts=max_attempts,
@@ -71,11 +81,21 @@ def handle_security_settings(form, *, flash, ip_restriction, log_user_action_eve
                     ban_seconds=ban_seconds,
                     block_ip_blocked_dwell=block_ip_blocked_dwell,
                     ip_blocked_dwell_seconds=ip_blocked_dwell_seconds,
+                    whitelist_firewall=whitelist_firewall,
                 )
                 state = "включена" if block_scanners else "выключена"
                 dwell_state = "включён" if block_ip_blocked_dwell else "выключен"
+                if not fw_applicable:
+                    fw_state = "недоступен (режим Nginx)"
+                else:
+                    fw_state = (
+                        "включён"
+                        if ip_restriction.is_whitelist_port_firewall_active()
+                        else "выключен"
+                    )
                 flash(
-                    f"Защита от сканеров {state}. Бан за пребывание на странице блокировки: {dwell_state}.",
+                    f"Защита от сканеров {state}. Бан за пребывание на странице блокировки: {dwell_state}. "
+                    f"iptables для whitelist: {fw_state}.",
                     "success",
                 )
                 log_user_action_event(
@@ -88,7 +108,8 @@ def handle_security_settings(form, *, flash, ip_restriction, log_user_action_eve
                         f"window={ip_restriction.scanner_window_seconds};"
                         f"ban={ip_restriction.scanner_ban_seconds};"
                         f"dwell={1 if block_ip_blocked_dwell else 0};"
-                        f"dwell_sec={ip_restriction.ip_blocked_dwell_seconds}"
+                        f"dwell_sec={ip_restriction.ip_blocked_dwell_seconds};"
+                        f"whitelist_fw={1 if ip_restriction.whitelist_firewall else 0}"
                     ),
                 )
 

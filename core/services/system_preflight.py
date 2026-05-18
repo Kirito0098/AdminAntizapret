@@ -10,6 +10,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
+from core.services.firewall_tools_check import apt_install_hint, check_firewall_tools
+
 Status = Literal["ok", "warn", "fail"]
 RunCmd = Callable[[list[str], float], subprocess.CompletedProcess]
 
@@ -226,6 +228,35 @@ def run_preflight_checks(
         )
     else:
         _add(report, CheckResult("ok", "Системные пакеты установлены"))
+
+    fw = check_firewall_tools(run_cmd=runner)
+    if fw.fully_ready:
+        _add(
+            report,
+            CheckResult("ok", "iptables и ipset", detail=fw.operational_detail),
+        )
+    else:
+        fw_parts: list[str] = []
+        if fw.missing_commands:
+            fw_parts.append(f"команды: {', '.join(fw.missing_commands)}")
+        if fw.missing_packages:
+            fw_parts.append(f"пакеты: {', '.join(fw.missing_packages)}")
+        if fw.binaries_available and not fw.operational_ok:
+            fw_parts.append(fw.operational_detail)
+        fw_detail = "; ".join(fw_parts) or fw.operational_detail
+        if fw.missing_packages or fw.missing_commands:
+            hint = apt_install_hint(fw.missing_packages)
+            fw_detail = (
+                f"{fw_detail}; установка: {hint}" if fw_detail else f"установка: {hint}"
+            )
+        _add(
+            report,
+            CheckResult(
+                "warn",
+                "iptables / ipset (бан сканеров, whitelist порта панели)",
+                detail=fw_detail,
+            ),
+        )
 
     py_bin = os.path.join(venv, "bin", "python3")
     pip_bin = os.path.join(venv, "bin", "pip")

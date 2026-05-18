@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 import os
+from typing import Callable
 from urllib.parse import urlparse
 
 from core.services.session_security import parse_bool_env
+
+PublishModeKey = str
+GetEnvValue = Callable[[str, str], str]
+
+WHITELIST_PORT_FIREWALL_MODES = frozenset(
+    {"direct_http", "app_https", "app_https_incomplete"}
+)
 
 
 def _basename(path: str) -> str:
@@ -13,6 +21,54 @@ def _basename(path: str) -> str:
     if not value:
         return "—"
     return os.path.basename(value)
+
+
+def _is_loopback_bind(bind: str) -> bool:
+    return bind in {"127.0.0.1", "localhost", "::1"}
+
+
+def resolve_panel_publish_mode(
+    *,
+    bind: str,
+    use_https: bool,
+    ssl_cert: str = "",
+    ssl_key: str = "",
+) -> PublishModeKey:
+    """Ключ режима публикации панели (direct_http, reverse_proxy, app_https, …)."""
+    bind = (bind or "0.0.0.0").strip() or "0.0.0.0"
+    has_ssl_material = bool((ssl_cert or "").strip() and (ssl_key or "").strip())
+
+    if use_https:
+        if has_ssl_material:
+            return "app_https"
+        return "app_https_incomplete"
+    if _is_loopback_bind(bind):
+        return "reverse_proxy"
+    return "direct_http"
+
+
+def is_whitelist_port_firewall_applicable(*, get_env_value: GetEnvValue | None = None) -> bool:
+    """iptables-whitelist порта: прямой HTTP/HTTPS на APP_PORT, не за reverse proxy (Nginx)."""
+    def gv(key: str, default: str = "") -> str:
+        if get_env_value is not None:
+            return str(get_env_value(key, default) or default or "").strip()
+        return str(os.getenv(key, default) or default or "").strip()
+
+    bind = gv("BIND", "0.0.0.0") or "0.0.0.0"
+    if _is_loopback_bind(bind):
+        # Nginx/upstream: снаружи ходят на 80/443, не на APP_PORT напрямую.
+        return False
+
+    use_https = parse_bool_env(gv("USE_HTTPS", "false"), default=False)
+    cert = gv("SSL_CERT", "")
+    key = gv("SSL_KEY", "")
+    mode = resolve_panel_publish_mode(
+        bind=bind,
+        use_https=use_https,
+        ssl_cert=cert,
+        ssl_key=key,
+    )
+    return mode in WHITELIST_PORT_FIREWALL_MODES
 
 
 def build_panel_publish_context(*, get_env_value, url_root: str | None) -> dict:
@@ -35,8 +91,12 @@ def build_panel_publish_context(*, get_env_value, url_root: str | None) -> dict:
     cookie_secure = parse_bool_env(gv("SESSION_COOKIE_SECURE", "false"), default=False)
     trusted = gv("TRUSTED_PROXY_IPS", "")
 
-    loopback = bind in {"127.0.0.1", "localhost", "::1"}
-    has_ssl_material = bool(cert and key)
+    mode_key = resolve_panel_publish_mode(
+        bind=bind,
+        use_https=use_https,
+        ssl_cert=cert,
+        ssl_key=key,
+    )
 
     internal_scheme = "https" if use_https else "http"
     internal_url = f"{internal_scheme}://{bind}:{port}/"
@@ -52,20 +112,18 @@ def build_panel_publish_context(*, get_env_value, url_root: str | None) -> dict:
 
     bullet_points: list[str] = []
 
-    if use_https:
-        if has_ssl_material:
-            mode_key = "app_https"
-            mode_title = "HTTPS на стороне приложения (Gunicorn)"
-            bullet_points.append("TLS завершает сам процесс панели; в .env заданы SSL_CERT и SSL_KEY.")
-            bullet_points.append(f"Слушает: <code>{internal_url}</code> (см. BIND и APP_PORT).")
-            if not current_url:
-                bullet_points.append(f"Обычно панель открывают как <code>https://&lt;хост&gt;:{port}/</code>.")
-        else:
-            mode_key = "app_https_incomplete"
-            mode_title = "HTTPS включён, сертификаты не настроены"
-            bullet_points.append("USE_HTTPS=true, но не заданы оба пути SSL_CERT и SSL_KEY — проверьте .env и перезапуск службы.")
-    elif loopback:
-        mode_key = "reverse_proxy"
+    if mode_key == "app_https":
+        mode_title = "HTTPS на стороне приложения (Gunicorn)"
+        bullet_points.append("TLS завершает сам процесс панели; в .env заданы SSL_CERT и SSL_KEY.")
+        bullet_points.append(f"Слушает: <code>{internal_url}</code> (см. BIND и APP_PORT).")
+        if not current_url:
+            bullet_points.append(f"Обычно панель открывают как <code>https://&lt;хост&gt;:{port}/</code>.")
+    elif mode_key == "app_https_incomplete":
+        mode_title = "HTTPS включён, сертификаты не настроены"
+        bullet_points.append(
+            "USE_HTTPS=true, но не заданы оба пути SSL_CERT и SSL_KEY — проверьте .env и перезапуск службы."
+        )
+    elif mode_key == "reverse_proxy":
         mode_title = "За reverse proxy (часто Nginx + HTTPS)"
         bullet_points.append(
             "Приложение слушает только loopback — снаружи доступ обычно через Nginx или другой прокси с TLS."
@@ -86,10 +144,13 @@ def build_panel_publish_context(*, get_env_value, url_root: str | None) -> dict:
         if trusted:
             bullet_points.append(f"Доверенные прокси (TRUSTED_PROXY_IPS): <code>{trusted}</code>.")
     else:
-        mode_key = "direct_http"
         mode_title = "Прямой HTTP к приложению"
-        bullet_points.append(f"Панель слушает <code>http://{bind}:{port}/</code> без TLS на этом уровне (BIND не loopback).")
-        bullet_points.append("Если снаружи используется HTTPS, его завершает другой узел — это не отражено в USE_HTTPS данного сервиса.")
+        bullet_points.append(
+            f"Панель слушает <code>http://{bind}:{port}/</code> без TLS на этом уровне (BIND не loopback)."
+        )
+        bullet_points.append(
+            "Если снаружи используется HTTPS, его завершает другой узел — это не отражено в USE_HTTPS данного сервиса."
+        )
 
     env_rows = [
         {"label": "APP_PORT (порт процесса панели)", "value": port, "mono": True},

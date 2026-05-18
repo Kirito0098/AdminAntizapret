@@ -99,6 +99,7 @@ TEST_TITLES: dict[str, str] = {
     "tests/test_panel_publish_info.py::PanelPublishInfoTests::test_app_https_gunicorn": "Публикация: HTTPS через Gunicorn",
     "tests/test_panel_publish_info.py::PanelPublishInfoTests::test_direct_http": "Публикация: прямой HTTP",
     "tests/test_panel_publish_info.py::PanelPublishInfoTests::test_reverse_proxy_with_domain": "Публикация: reverse proxy с доменом",
+    "tests/test_panel_publish_info.py::PanelPublishInfoTests::test_whitelist_firewall_applicable_without_nginx": "Whitelist firewall applicable without nginx",
     "tests/test_routing_page_context.py::RoutingPageContextTests::test_build_routing_page_context_keys": "Контекст страницы маршрутизации",
     "tests/test_routing_page_context.py::RoutingPageContextTests::test_clamp_openvpn_route_total_cidr_limit_boundaries": "Ограничение лимита CIDR-маршрутов OpenVPN",
     "tests/test_routing_page_context.py::RoutingPageContextTests::test_read_antizapret_settings_from_fixture": "Чтение настроек antizapret из фикстуры",

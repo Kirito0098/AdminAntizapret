@@ -125,11 +125,15 @@ class RunSiteDiagnosticsTests(unittest.TestCase):
                             0,
                         ),
                         "curl -sf --max-time 3 http://127.0.0.1:5050/": ("", "", 0),
+                        "iptables -L INPUT -n": ("", "", 0),
+                        "ipset version": ("v7\n", "", 0),
                     }
                 ),
             )
 
         self.assertGreater(report.ok_count, 0)
+        fw_ok = [r for r in report.results if "iptables" in r.title.lower() and r.status == "ok"]
+        self.assertEqual(len(fw_ok), 1)
         self.assertFalse(
             any(r.status == "fail" and "users.db" in r.title for r in report.results)
         )
@@ -167,6 +171,32 @@ class RunSiteDiagnosticsTests(unittest.TestCase):
             if r.status == "fail" and "HTTPS" in r.title
         ]
         self.assertEqual(len(https_fails), 1)
+
+    @patch("core.services.site_diagnostics.shutil.which", return_value=None)
+    def test_missing_firewall_tools_warns(self, _which):
+        unit_path = f"/etc/systemd/system/{self.ctx.service_name}.service"
+        real_isfile = site_diagnostics.os.path.isfile
+
+        def isfile(path: str) -> bool:
+            if path == unit_path:
+                return True
+            return real_isfile(path)
+
+        with patch.object(site_diagnostics.os.path, "isfile", side_effect=isfile):
+            report = run_site_diagnostics(
+                self.ctx,
+                run_cmd=self._fake_run(
+                    {
+                        f"systemctl is-enabled {self.ctx.service_name}": ("enabled", "", 0),
+                        f"systemctl is-active {self.ctx.service_name}": ("active", "", 0),
+                        f"journalctl -u {self.ctx.service_name} -n 30 --no-pager -o cat": ("", "", 0),
+                        "ss -tlnp": ("", "", 0),
+                    }
+                ),
+            )
+        fw_warns = [r for r in report.results if "iptables" in r.title.lower() and r.status == "warn"]
+        self.assertEqual(len(fw_warns), 1)
+        self.assertIn("apt install", fw_warns[0].hint_ru)
 
     def test_format_check_result_fields(self):
         item = CheckResult("warn", "Тест", detail="деталь", hint_ru="подсказка")

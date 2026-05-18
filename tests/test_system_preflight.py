@@ -92,6 +92,8 @@ class SystemPreflightTests(unittest.TestCase):
             "grep": "/usr/bin/grep",
             "ss": "/usr/bin/ss",
             "dig": "/usr/bin/dig",
+            "iptables": "/usr/sbin/iptables",
+            "ipset": "/usr/sbin/ipset",
         }
         _mocks[2].side_effect = lambda name: which_map.get(name)
 
@@ -110,6 +112,8 @@ class SystemPreflightTests(unittest.TestCase):
                 {
                     f"{pip_bin} list --format=freeze": ("otherpkg==1.0\n", "", 0),
                     f"{pip_bin} check": ("", "", 0),
+                    "iptables -L INPUT -n": ("", "", 0),
+                    "ipset version": ("v7\n", "", 0),
                 }
             ),
         )
@@ -120,10 +124,47 @@ class SystemPreflightTests(unittest.TestCase):
     @patch("core.services.system_preflight._dpkg_installed", return_value=True)
     @patch("core.services.system_preflight._dnsutils_installed", return_value=True)
     def test_missing_script_module_fails(self, *_mocks):
-        which_map = {c: f"/usr/bin/{c}" for c in ("python3", "pip3", "git", "wget", "openssl", "systemctl", "awk", "sed", "grep", "ss", "dig")}
+        which_map = {
+            c: f"/usr/bin/{c}"
+            for c in (
+                "python3",
+                "pip3",
+                "git",
+                "wget",
+                "openssl",
+                "systemctl",
+                "awk",
+                "sed",
+                "grep",
+                "ss",
+                "dig",
+                "iptables",
+                "ipset",
+            )
+        }
         _mocks[2].side_effect = lambda name: which_map.get(name)
         os.remove(os.path.join(self.install, "script_sh", "panel_menus.sh"))
 
-        report = run_preflight_checks(self.ctx, run_cmd=self._fake_run({}))
+        report = run_preflight_checks(
+            self.ctx,
+            run_cmd=self._fake_run(
+                {
+                    "iptables -L INPUT -n": ("", "", 0),
+                    "ipset version": ("v7\n", "", 0),
+                }
+            ),
+        )
         mod_fails = [r for r in report.results if "script_sh" in r.title and r.status == "fail"]
         self.assertEqual(len(mod_fails), 1)
+
+    @patch("core.services.system_preflight.shutil.which")
+    @patch("core.services.system_preflight._dpkg_installed", return_value=True)
+    @patch("core.services.system_preflight._dnsutils_installed", return_value=True)
+    def test_missing_iptables_warns(self, *_mocks):
+        which_map = {c: f"/usr/bin/{c}" for c in ("python3", "pip3", "git", "wget", "openssl", "systemctl", "awk", "sed", "grep", "ss", "dig")}
+        _mocks[2].side_effect = lambda name: which_map.get(name)
+
+        report = run_preflight_checks(self.ctx, run_cmd=self._fake_run({}))
+        fw_warns = [r for r in report.results if "iptables" in r.title.lower() and r.status == "warn"]
+        self.assertEqual(len(fw_warns), 1)
+        self.assertIn("iptables", fw_warns[0].detail)

@@ -40,6 +40,9 @@ class SettingsPageContextTests(unittest.TestCase):
             "has_firewall_entries": False,
             "block_ip_blocked_dwell": False,
             "ip_blocked_dwell_seconds": 30,
+            "whitelist_firewall": False,
+            "whitelist_firewall_applicable": False,
+            "whitelist_firewall_active": False,
             "strikes_for_year": 3,
             "year_ban_seconds": 86400,
             "unban_grace_seconds": 300,
@@ -98,6 +101,8 @@ class SettingsPageContextTests(unittest.TestCase):
         self.assertIn("users", context)
         self.assertIn("panel_publish", context)
         self.assertIn("ip_scanner_max_attempts", context)
+        self.assertIn("ip_whitelist_firewall_applicable", context)
+        self.assertIn("ip_whitelist_firewall_active", context)
         self.assertIn("user_action_audit_logs", context)
         self.assertEqual(context["nightly_idle_restart_time"], "04:00")
         self.assertFalse(context["telegram_auth_enabled"])

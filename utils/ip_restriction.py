@@ -9,7 +9,9 @@ from pathlib import Path
 from flask import jsonify, make_response, request
 from markupsafe import escape
 
+from core.services.panel_publish_info import is_whitelist_port_firewall_applicable
 from ip_blocked.constants import IP_BLOCKED_ACCESS_ENDPOINTS
+from utils.panel_port_firewall import PanelPortFirewall
 from utils.scanner_firewall_store import ScannerFirewallStore
 
 
@@ -39,6 +41,7 @@ class IPRestriction:
         "IP_SCANNER_BAN_SECONDS",
         "IP_BLOCK_IP_BLOCKED_DWELL",
         "IP_BLOCKED_DWELL_SECONDS",
+        "IP_WHITELIST_FIREWALL",
     )
 
     def __init__(self, env_file_path=None):
@@ -50,10 +53,12 @@ class IPRestriction:
         self.scanner_ban_seconds = 3600
         self.block_ip_blocked_dwell = True
         self.ip_blocked_dwell_seconds = 120
+        self.whitelist_firewall = False
         self.app = None
         self.env_file_path = Path(env_file_path) if env_file_path else None
         self._scanner_lock = Lock()
         self._firewall_store = ScannerFirewallStore()
+        self._panel_port_firewall = PanelPortFirewall()
         self._load_from_env()
 
     def init_app(self, app):
@@ -66,8 +71,9 @@ class IPRestriction:
         try:
             self._firewall_store.sync_firewall_from_store()
             self._release_whitelist_from_firewall()
+            self.sync_whitelist_port_firewall()
         except Exception as exc:
-            app.logger.warning("Не удалось синхронизировать баны сканеров с firewall: %s", exc)
+            app.logger.warning("Не удалось синхронизировать firewall: %s", exc)
 
         # Регистрируем обработчик ошибок 403
         @app.errorhandler(403)
@@ -196,6 +202,7 @@ class IPRestriction:
         self.ip_blocked_dwell_seconds = _env_int(
             "IP_BLOCKED_DWELL_SECONDS", 120, minimum=30, maximum=3600
         )
+        self.whitelist_firewall = _env_bool("IP_WHITELIST_FIREWALL", False)
 
     def _load_from_env(self):
         """Загружает настройки из переменных окружения"""
@@ -243,6 +250,7 @@ class IPRestriction:
         """Сохраняет настройки в .env файл"""
         allowed_value = ','.join(sorted(self.allowed_ips)) if self.allowed_ips else ''
         self._apply_env_updates({"ALLOWED_IPS": allowed_value})
+        self.sync_whitelist_port_firewall()
 
     def save_scanner_settings_to_env(self):
         updates = {
@@ -252,8 +260,46 @@ class IPRestriction:
             "IP_SCANNER_BAN_SECONDS": str(self.scanner_ban_seconds),
             "IP_BLOCK_IP_BLOCKED_DWELL": "true" if self.block_ip_blocked_dwell else "false",
             "IP_BLOCKED_DWELL_SECONDS": str(self.ip_blocked_dwell_seconds),
+            "IP_WHITELIST_FIREWALL": "true" if self.whitelist_firewall else "false",
         }
         self._apply_env_updates(updates)
+
+    def is_whitelist_port_firewall_applicable(self) -> bool:
+        return is_whitelist_port_firewall_applicable()
+
+    def is_whitelist_port_firewall_active(self) -> bool:
+        return (
+            self.enabled
+            and self.whitelist_firewall
+            and self.is_whitelist_port_firewall_applicable()
+        )
+
+    def _persist_whitelist_firewall_flag(self) -> None:
+        self._apply_env_updates(
+            {"IP_WHITELIST_FIREWALL": "true" if self.whitelist_firewall else "false"}
+        )
+
+    def sync_whitelist_port_firewall(self):
+        """iptables (IPv4): порт панели только для IP из whitelist (только direct_http)."""
+        try:
+            if not self.is_whitelist_port_firewall_applicable():
+                if self.whitelist_firewall:
+                    self.whitelist_firewall = False
+                    self._persist_whitelist_firewall_flag()
+                self._panel_port_firewall.disable()
+                return False
+
+            if not self.is_whitelist_port_firewall_active():
+                self._panel_port_firewall.disable()
+                return False
+
+            return self._panel_port_firewall.sync(self.allowed_ips)
+        except Exception as exc:
+            if self.app:
+                self.app.logger.warning(
+                    "Не удалось синхронизировать firewall whitelist порта: %s", exc
+                )
+            return False
 
     def set_scanner_protection(
         self,
@@ -264,6 +310,7 @@ class IPRestriction:
         ban_seconds=None,
         block_ip_blocked_dwell=None,
         ip_blocked_dwell_seconds=None,
+        whitelist_firewall=None,
     ):
         self.block_scanners = bool(enabled)
         if max_attempts is not None:
@@ -276,7 +323,10 @@ class IPRestriction:
             self.block_ip_blocked_dwell = bool(block_ip_blocked_dwell)
         if ip_blocked_dwell_seconds is not None:
             self.ip_blocked_dwell_seconds = max(30, min(3600, int(ip_blocked_dwell_seconds)))
+        if whitelist_firewall is not None:
+            self.whitelist_firewall = bool(whitelist_firewall)
         self.save_scanner_settings_to_env()
+        self.sync_whitelist_port_firewall()
 
     def reload_scanner_settings(self):
         self._load_scanner_settings_from_env()
@@ -550,6 +600,7 @@ class IPRestriction:
     def get_scanner_settings(self):
         firewall = self._firewall_store.get_settings_snapshot()
         display = self._firewall_store.get_display_state()
+        applicable = self.is_whitelist_port_firewall_applicable()
         return {
             "enabled": self.block_scanners,
             "max_attempts": self.scanner_max_attempts,
@@ -557,6 +608,9 @@ class IPRestriction:
             "ban_seconds": self.scanner_ban_seconds,
             "block_ip_blocked_dwell": self.block_ip_blocked_dwell,
             "ip_blocked_dwell_seconds": self.ip_blocked_dwell_seconds,
+            "whitelist_firewall": self.whitelist_firewall,
+            "whitelist_firewall_applicable": applicable,
+            "whitelist_firewall_active": self.is_whitelist_port_firewall_active(),
             "strikes_for_year": firewall["strikes_for_year"],
             "year_ban_seconds": firewall["year_ban_seconds"],
             "unban_grace_seconds": firewall["unban_grace_seconds"],

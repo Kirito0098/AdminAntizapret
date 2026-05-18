@@ -1,6 +1,10 @@
 import unittest
 
-from core.services.panel_publish_info import build_panel_publish_context
+from core.services.panel_publish_info import (
+    build_panel_publish_context,
+    is_whitelist_port_firewall_applicable,
+    resolve_panel_publish_mode,
+)
 
 
 class PanelPublishInfoTests(unittest.TestCase):
@@ -70,6 +74,75 @@ class PanelPublishInfoTests(unittest.TestCase):
         )
         self.assertEqual(ctx["mode_key"], "direct_http")
         self.assertEqual(ctx["internal_url"], "http://0.0.0.0:5050/")
+
+    def test_whitelist_firewall_applicable_without_nginx(self) -> None:
+        self.assertTrue(
+            is_whitelist_port_firewall_applicable(
+                get_env_value=lambda k, d="": {
+                    "BIND": "0.0.0.0",
+                    "USE_HTTPS": "false",
+                    "SSL_CERT": "",
+                    "SSL_KEY": "",
+                }.get(k, d)
+            )
+        )
+        self.assertTrue(
+            is_whitelist_port_firewall_applicable(
+                get_env_value=lambda k, d="": {
+                    "BIND": "0.0.0.0",
+                    "USE_HTTPS": "true",
+                    "SSL_CERT": "/c.pem",
+                    "SSL_KEY": "/k.pem",
+                }.get(k, d)
+            )
+        )
+        self.assertTrue(
+            is_whitelist_port_firewall_applicable(
+                get_env_value=lambda k, d="": {
+                    "BIND": "0.0.0.0",
+                    "USE_HTTPS": "true",
+                    "SSL_CERT": "",
+                    "SSL_KEY": "",
+                }.get(k, d)
+            )
+        )
+        self.assertFalse(
+            is_whitelist_port_firewall_applicable(
+                get_env_value=lambda k, d="": {
+                    "BIND": "127.0.0.1",
+                    "USE_HTTPS": "false",
+                }.get(k, d)
+            )
+        )
+        self.assertFalse(
+            is_whitelist_port_firewall_applicable(
+                get_env_value=lambda k, d="": {
+                    "BIND": "127.0.0.1",
+                    "USE_HTTPS": "true",
+                    "SSL_CERT": "/c.pem",
+                    "SSL_KEY": "/k.pem",
+                }.get(k, d)
+            )
+        )
+
+    def test_resolve_panel_publish_mode(self) -> None:
+        self.assertEqual(
+            resolve_panel_publish_mode(bind="0.0.0.0", use_https=False),
+            "direct_http",
+        )
+        self.assertEqual(
+            resolve_panel_publish_mode(bind="127.0.0.1", use_https=False),
+            "reverse_proxy",
+        )
+        self.assertEqual(
+            resolve_panel_publish_mode(
+                bind="0.0.0.0",
+                use_https=True,
+                ssl_cert="/c.pem",
+                ssl_key="/k.pem",
+            ),
+            "app_https",
+        )
 
 
 if __name__ == "__main__":
