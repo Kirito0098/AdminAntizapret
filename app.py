@@ -61,6 +61,7 @@ from core.models import (
     UserTrafficStatProtocol,
     ViewerConfigAccess,
     WireGuardPeerCache,
+    WgAccessPolicy,
     db,
 )
 from core.services.cidr_db_updater import CidrDbUpdaterService
@@ -92,8 +93,10 @@ from core.services import (
     build_services,
     TrafficMaintenanceService,
     TrafficPersistenceService,
+    WgAccessPolicyService,
     register_current_user_context_processor,
 )
+from utils.wg_awg_runtime_enforcer import WgAwgRuntimeEnforcer
 from core.services.session_security import build_session_security_config
 from core.services.http_security import (
     apply_security_headers,
@@ -657,6 +660,9 @@ TRAFFIC_DB_STALE_SECONDS = runtime_settings["TRAFFIC_DB_STALE_SECONDS"]
 TRAFFIC_SYNC_CRON_MARKER = runtime_settings["TRAFFIC_SYNC_CRON_MARKER"]
 TRAFFIC_SYNC_CRON_EXPR = runtime_settings["TRAFFIC_SYNC_CRON_EXPR"]
 TRAFFIC_SYNC_ENABLED = runtime_settings["TRAFFIC_SYNC_ENABLED"]
+WG_POLICY_SYNC_CRON_MARKER = runtime_settings["WG_POLICY_SYNC_CRON_MARKER"]
+WG_POLICY_SYNC_CRON_EXPR = runtime_settings["WG_POLICY_SYNC_CRON_EXPR"]
+WG_POLICY_SYNC_ENABLED = runtime_settings["WG_POLICY_SYNC_ENABLED"]
 NIGHTLY_IDLE_RESTART_MARKER = runtime_settings["NIGHTLY_IDLE_RESTART_MARKER"]
 RUNTIME_BACKUP_CLEANUP_MARKER = runtime_settings["RUNTIME_BACKUP_CLEANUP_MARKER"]
 RUNTIME_BACKUP_CLEANUP_CRON_EXPR = runtime_settings["RUNTIME_BACKUP_CLEANUP_CRON_EXPR"]
@@ -713,6 +719,10 @@ def _ensure_traffic_sync_cron():
     return maintenance_scheduler_service.ensure_traffic_sync_cron()
 
 
+def _ensure_wg_policy_sync_cron():
+    return maintenance_scheduler_service.ensure_wg_policy_sync_cron()
+
+
 def _ensure_nightly_idle_restart_cron():
     return maintenance_scheduler_service.ensure_nightly_idle_restart_cron()
 
@@ -731,6 +741,9 @@ _services = build_services(
     traffic_sync_cron_marker=TRAFFIC_SYNC_CRON_MARKER,
     traffic_sync_cron_expr=TRAFFIC_SYNC_CRON_EXPR,
     traffic_sync_enabled=TRAFFIC_SYNC_ENABLED,
+    wg_policy_sync_cron_marker=WG_POLICY_SYNC_CRON_MARKER,
+    wg_policy_sync_cron_expr=WG_POLICY_SYNC_CRON_EXPR,
+    wg_policy_sync_enabled=WG_POLICY_SYNC_ENABLED,
     nightly_idle_restart_marker=NIGHTLY_IDLE_RESTART_MARKER,
     runtime_backup_cleanup_marker=RUNTIME_BACKUP_CLEANUP_MARKER,
     runtime_backup_cleanup_cron_expr=RUNTIME_BACKUP_CLEANUP_CRON_EXPR,
@@ -827,6 +840,13 @@ try:
         app.logger.warning(_sync_msg)
 except (RuntimeError, OSError, ValueError) as e:
     app.logger.warning(f"Не удалось инициализировать cron sync трафика: {e}")
+
+try:
+    _wg_policy_ok, _wg_policy_msg = _ensure_wg_policy_sync_cron()
+    if not _wg_policy_ok:
+        app.logger.warning(_wg_policy_msg)
+except (RuntimeError, OSError, ValueError) as e:
+    app.logger.warning(f"Не удалось инициализировать cron sync WG/AWG политик: {e}")
 
 try:
     _idle_restart_ok, _idle_restart_msg = _ensure_nightly_idle_restart_cron()
@@ -1036,6 +1056,70 @@ def _sync_wireguard_peer_cache_from_configs(force=False):
 
 def _load_wireguard_peer_cache_maps():
     return network_status_collector_service.load_wireguard_peer_cache_maps()
+
+
+wg_awg_runtime_enforcer = WgAwgRuntimeEnforcer(
+    wireguard_peer_cache_model=WireGuardPeerCache,
+    wireguard_config_files=WIREGUARD_CONFIG_FILES,
+    command_timeout_seconds=4,
+)
+
+wg_access_policy_service = WgAccessPolicyService(
+    db=db,
+    policy_model=WgAccessPolicy,
+    runtime_enforcer=wg_awg_runtime_enforcer,
+)
+
+
+def _wg_build_status_map(client_names):
+    return wg_access_policy_service.build_status_map(client_names)
+
+
+def _wg_set_expiry_days(client_name, days, *, actor_username=None, extend=False):
+    return wg_access_policy_service.set_expiry_days(
+        client_name,
+        days,
+        actor_username=actor_username,
+        extend=extend,
+    )
+
+
+def _wg_set_temp_block_days(client_name, days, *, actor_username=None):
+    return wg_access_policy_service.set_temp_block_days(
+        client_name,
+        days,
+        actor_username=actor_username,
+    )
+
+
+def _wg_clear_temp_block(client_name, *, actor_username=None):
+    return wg_access_policy_service.clear_temp_block(
+        client_name,
+        actor_username=actor_username,
+    )
+
+
+def _wg_reconcile_client_policy(client_name, apply_runtime=True):
+    return wg_access_policy_service.reconcile_client_policy(
+        client_name,
+        apply_runtime=apply_runtime,
+    )
+
+
+def _wg_reconcile_all_policies(apply_runtime=True):
+    return wg_access_policy_service.reconcile_all(apply_runtime=apply_runtime)
+
+
+try:
+    with app.app_context():
+        _wg_reconcile_all_policies(apply_runtime=True)
+except Exception as e:
+    try:
+        with app.app_context():
+            db.session.rollback()
+    except Exception:
+        pass
+    app.logger.warning(f"Не удалось применить WG/AWG политики при запуске: {e}")
 
 
 def _is_wireguard_peer_active(latest_handshake_ts):

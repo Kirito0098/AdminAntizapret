@@ -1,5 +1,6 @@
 import os
 import unittest
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 from core.services.index import (
@@ -74,6 +75,7 @@ class IndexPageContextTests(unittest.TestCase):
             current_user=admin,
             cert_expiry=cert_expiry,
             banned_clients=set(),
+            wg_policy_status_by_client={},
             url_for=fake_url_for,
         )
         by_name = {row["client_name"]: row for row in rows}
@@ -132,6 +134,40 @@ class IndexPageContextTests(unittest.TestCase):
         self.assertEqual(wg_files, ["/wg/vpn-c.conf"])
         self.assertEqual(amneziawg_files, [])
         self.assertIsInstance(handler, FakeHandler)
+
+    def test_build_client_table_rows_wireguard_policy_block_state(self):
+        grouped = {
+            "wg-user": {"vpn": "/x/vpn-wg-user-wg.conf", "antizapret": "/x/antizapret-wg-user-wg.conf"},
+        }
+        admin = SimpleNamespace(role="admin", is_admin=lambda: True)
+
+        def fake_url_for(endpoint, **kwargs):
+            return f"/{endpoint}/{kwargs.get('file_type')}/{kwargs.get('filename')}"
+
+        future_expiry = datetime.utcnow() + timedelta(days=10)
+        rows = build_client_table_rows(
+            "wireguard",
+            grouped,
+            current_user=admin,
+            cert_expiry={},
+            banned_clients=set(),
+            wg_policy_status_by_client={
+                "wg-user": {
+                    "is_blocked": False,
+                    "reason": None,
+                    "expires_at": future_expiry,
+                    "block_until": None,
+                }
+            },
+            url_for=fake_url_for,
+        )
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertFalse(row["is_blocked"])
+        self.assertIsNone(row["wg_block_reason"])
+        self.assertIsInstance(row["wg_days_left"], int)
+        self.assertGreaterEqual(row["wg_days_left"], 8)
+        self.assertLessEqual(row["wg_days_left"], 10)
 
     def test_collect_grouped_service_statuses_without_systemctl(self):
         statuses = collect_grouped_service_statuses()

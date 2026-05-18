@@ -2,12 +2,15 @@
 <tr class="client-row"
   data-client-name="{{ row.client_name }}"
   data-protocol="{{ row.protocol }}"
+  data-blocked="{{ 1 if row.is_blocked else 0 }}"
+  data-can-block="{{ 1 if row.can_block else 0 }}"
   {% if row.protocol == 'openvpn' %}
   data-cert-state="{{ row.cert_state }}"
   data-cert-days="{{ row.cert_days }}"
-  data-blocked="{{ 1 if row.is_blocked else 0 }}"
-  data-can-block="{{ 1 if row.can_block else 0 }}"
   {% endif %}
+  {% if row.wg_block_reason %}data-wg-block-reason="{{ row.wg_block_reason }}"{% endif %}
+  {% if row.wg_expires_at %}data-wg-expires-at="{{ row.wg_expires_at }}"{% endif %}
+  {% if row.wg_block_until %}data-wg-block-until="{{ row.wg_block_until }}"{% endif %}
   data-can-manage="{{ 1 if row.can_manage else 0 }}"
   data-delete-option="{{ row.delete_option }}"
   {% if row.download_vpn_url %}data-download-vpn-url="{{ row.download_vpn_url }}"{% endif %}
@@ -43,7 +46,36 @@
     </div>
     {% endif %}
     {% else %}
-    <span class="client-block-badge is-active">Активный</span>
+    <span class="client-block-badge {% if row.is_blocked %}is-blocked{% else %}is-active{% endif %}">
+      {% if row.is_blocked %}Заблокирован{% else %}Активный{% endif %}
+    </span>
+    <div class="client-cert-meta {% if row.is_blocked %}expired{% else %}active{% endif %}">
+      {% if row.is_blocked %}
+      {% if row.wg_block_reason == 'expired' %}
+      <div>Причина: срок действия истёк</div>
+      {% elif row.wg_block_reason == 'manual_temp' %}
+      <div>Причина: временная блокировка</div>
+      {% else %}
+      <div>Причина: ограничение доступа</div>
+      {% endif %}
+      {% endif %}
+
+      {% if row.wg_days_left is none %}
+      <div>До блокировки: срок не ограничен</div>
+      {% elif row.wg_days_left > 0 %}
+      <div>До блокировки: {{ row.wg_days_left }} дн.</div>
+      {% elif row.wg_days_left == 0 %}
+      <div>До блокировки: сегодня</div>
+      {% else %}
+      <div>До блокировки: срок истёк</div>
+      {% endif %}
+
+      {% if row.wg_expires_at %}
+      <div>До: {{ row.wg_expires_at.split(' ')[0] }}</div>
+      {% elif row.wg_block_until %}
+      <div>До: {{ row.wg_block_until.split(' ')[0] }}</div>
+      {% endif %}
+    </div>
     {% endif %}
     <div class="client-card-meta">
       <span class="client-card-chip is-protocol">{{ row.protocol_label }}</span>

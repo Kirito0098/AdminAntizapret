@@ -53,7 +53,7 @@ function extractCertExpiryData() {
 }
 
 function syncClientBlockedBadge(row) {
-    if (!row || row.dataset.protocol !== 'openvpn') {
+    if (!row) {
         return;
     }
 
@@ -105,7 +105,7 @@ function initializeFormLogic() {
         }
         if (workTermContainer) {
             workTermContainer.style.display =
-                (value === '1') ? 'flex' : 'none';
+                (value === '1' || value === '4') ? 'flex' : 'none';
         }
         if (clientSelectContainer) {
             clientSelectContainer.style.display =

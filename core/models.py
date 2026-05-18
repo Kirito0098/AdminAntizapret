@@ -267,6 +267,19 @@ class WireGuardPeerCache(db.Model):
     )
 
 
+class WgAccessPolicy(db.Model):
+    __tablename__ = "wg_access_policy"
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_name = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    is_temp_blocked = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    block_reason = db.Column(db.String(32), nullable=True, index=True)
+    block_until = db.Column(db.DateTime, nullable=True, index=True)
+    expires_at = db.Column(db.DateTime, nullable=True, index=True)
+    updated_by = db.Column(db.String(80), nullable=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class ActiveWebSession(db.Model):
     __tablename__ = "active_web_session"
 

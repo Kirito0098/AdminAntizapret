@@ -51,6 +51,8 @@ class RuntimeSettingsService:
         wireguard_peer_cache_sync_min_interval_seconds = self._env_int(
             "WIREGUARD_PEER_CACHE_SYNC_MIN_INTERVAL_SECONDS", 300, min_value=0
         )
+        wg_policy_sync_enabled = self._env_bool("WG_POLICY_SYNC_ENABLED", default=True)
+        wg_policy_sync_cron_expr = self._env_str("WG_POLICY_SYNC_CRON", "*/2 * * * *")
 
         return {
             "LOGS_DIR": logs_dir,
@@ -94,6 +96,9 @@ class RuntimeSettingsService:
             },
             "WIREGUARD_ACTIVE_HANDSHAKE_SECONDS": wireguard_active_handshake_seconds,
             "WIREGUARD_PEER_CACHE_SYNC_MIN_INTERVAL_SECONDS": wireguard_peer_cache_sync_min_interval_seconds,
+            "WG_POLICY_SYNC_ENABLED": wg_policy_sync_enabled,
+            "WG_POLICY_SYNC_CRON_MARKER": "# adminantizapret-wg-policy-sync",
+            "WG_POLICY_SYNC_CRON_EXPR": wg_policy_sync_cron_expr,
             "STATUS_LOG_CLEANUP_MARKER": "# adminantizapret-status-cleanup",
             "STATUS_LOG_CLEANUP_PERIODS": {
                 "daily": ("0 3 * * *", "Ежедневно"),

@@ -1,6 +1,7 @@
 import os
 import re
 from collections import OrderedDict
+from datetime import datetime
 
 _CLIENT_NAME_SUFFIX_RE = re.compile(r"-(?:udp|tcp|wg|am)$", re.IGNORECASE)
 _CLIENT_NAME_EXTRA_RE = re.compile(r"-\([^)]+\)$")
@@ -33,7 +34,7 @@ _PROTOCOL_TABLE_CONFIG = {
         "protocol_label": "AmneziaWG",
         "supports_qr": True,
         "supports_cert_meta": False,
-        "supports_block": False,
+        "supports_block": True,
     },
     "wireguard": {
         "file_type": "wg",
@@ -41,7 +42,7 @@ _PROTOCOL_TABLE_CONFIG = {
         "protocol_label": "WireGuard",
         "supports_qr": True,
         "supports_cert_meta": False,
-        "supports_block": False,
+        "supports_block": True,
     },
 }
 
@@ -141,6 +142,25 @@ def _build_file_url(url_for, endpoint, file_type, file_path):
     return url_for(endpoint, file_type=file_type, filename=os.path.basename(file_path))
 
 
+def _format_dt(value):
+    if not value:
+        return None
+    try:
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return None
+
+
+def _resolve_wg_days_left(expires_at):
+    if not expires_at:
+        return None
+    try:
+        now = datetime.utcnow()
+        return (expires_at - now).days
+    except Exception:
+        return None
+
+
 def build_client_table_rows(
     protocol,
     grouped_files,
@@ -148,6 +168,7 @@ def build_client_table_rows(
     current_user,
     cert_expiry,
     banned_clients,
+    wg_policy_status_by_client,
     url_for,
 ):
     config = _PROTOCOL_TABLE_CONFIG[protocol]
@@ -159,6 +180,13 @@ def build_client_table_rows(
         cert_info = cert_expiry.get(client_name) if cert_expiry else None
         cert_state, cert_days, cert_expires_at = _resolve_cert_state(cert_info)
         is_blocked = bool(banned_clients and client_name in banned_clients)
+        wg_state = (wg_policy_status_by_client or {}).get(client_name.lower(), {})
+        wg_is_blocked = bool(wg_state.get("is_blocked"))
+        wg_block_reason = wg_state.get("reason")
+        wg_expires_at_dt = wg_state.get("expires_at")
+        wg_expires_at = _format_dt(wg_expires_at_dt)
+        wg_block_until = _format_dt(wg_state.get("block_until"))
+        wg_days_left = _resolve_wg_days_left(wg_expires_at_dt)
 
         show_cert_meta = is_admin and config["supports_cert_meta"]
         if show_cert_meta:
@@ -178,7 +206,11 @@ def build_client_table_rows(
             "cert_days": data_cert_days,
             "cert_expires_at": cert_expires_at,
             "cert_days_display": cert_days,
-            "is_blocked": is_blocked,
+            "is_blocked": is_blocked if protocol == "openvpn" else wg_is_blocked,
+            "wg_block_reason": wg_block_reason,
+            "wg_expires_at": wg_expires_at,
+            "wg_block_until": wg_block_until,
+            "wg_days_left": wg_days_left,
             "can_block": is_admin and config["supports_block"],
             "can_manage": is_admin,
             "delete_option": config["delete_option"],
@@ -256,6 +288,7 @@ def build_index_get_context(
     idx_user,
     read_banned_clients,
     extract_client_name_from_config_file,
+    wg_build_status_map,
     url_for,
 ):
     (
@@ -274,6 +307,7 @@ def build_index_get_context(
     openvpn_client_names = collect_unique_client_names(openvpn_files, extract_client_name_from_config_file)
     wg_awg_client_names = collect_unique_client_names(wg_files, extract_client_name_from_config_file)
     wg_awg_client_names.update(collect_unique_client_names(amneziawg_files, extract_client_name_from_config_file))
+    wg_policy_status_by_client = wg_build_status_map(wg_awg_client_names)
 
     if is_admin:
         cert_expiry = request_config_file_handler.get_openvpn_cert_expiry()
@@ -300,6 +334,7 @@ def build_index_get_context(
         "current_user": idx_user,
         "cert_expiry": cert_expiry,
         "banned_clients": banned_clients,
+        "wg_policy_status_by_client": wg_policy_status_by_client,
         "url_for": url_for,
     }
 

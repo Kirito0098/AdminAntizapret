@@ -14,7 +14,7 @@ class ScriptExecutor:
         safe_client_name = shlex.quote(client_name)
         command = ["./client.sh", option, safe_client_name]
 
-        if cert_expire:
+        if cert_expire and str(option) == "1":
             if not cert_expire.isdigit() or not (
                 self.min_cert_expire <= int(cert_expire) <= self.max_cert_expire
             ):

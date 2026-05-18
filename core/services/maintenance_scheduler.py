@@ -16,6 +16,9 @@ class MaintenanceSchedulerService:
         traffic_sync_cron_marker,
         traffic_sync_cron_expr,
         traffic_sync_enabled,
+        wg_policy_sync_cron_marker,
+        wg_policy_sync_cron_expr,
+        wg_policy_sync_enabled,
         nightly_idle_restart_marker,
         runtime_backup_cleanup_marker,
         runtime_backup_cleanup_cron_expr,
@@ -32,6 +35,9 @@ class MaintenanceSchedulerService:
         self.traffic_sync_cron_marker = traffic_sync_cron_marker
         self.traffic_sync_cron_expr = traffic_sync_cron_expr
         self.traffic_sync_enabled = bool(traffic_sync_enabled)
+        self.wg_policy_sync_cron_marker = wg_policy_sync_cron_marker
+        self.wg_policy_sync_cron_expr = wg_policy_sync_cron_expr
+        self.wg_policy_sync_enabled = bool(wg_policy_sync_enabled)
         self.nightly_idle_restart_marker = nightly_idle_restart_marker
         self.runtime_backup_cleanup_marker = runtime_backup_cleanup_marker
         self.runtime_backup_cleanup_cron_expr = runtime_backup_cleanup_cron_expr
@@ -89,6 +95,11 @@ class MaintenanceSchedulerService:
     def nightly_idle_restart_command(self):
         python_bin = shlex.quote(self.python_executable)
         script_path = shlex.quote(os.path.join(self.app_root, "utils", "nightly_idle_restart.py"))
+        return f"{python_bin} {script_path} >/dev/null 2>&1"
+
+    def wg_policy_sync_command(self):
+        python_bin = shlex.quote(self.python_executable)
+        script_path = shlex.quote(os.path.join(self.app_root, "utils", "wg_awg_policy_sync.py"))
         return f"{python_bin} {script_path} >/dev/null 2>&1"
 
     def runtime_backup_cleanup_command(self):
@@ -162,6 +173,28 @@ class MaintenanceSchedulerService:
         if nightly_enabled:
             return True, "Cron ночного рестарта включен"
         return True, "Cron ночного рестарта отключен"
+
+    def ensure_wg_policy_sync_cron(self):
+        lines = self.read_crontab_lines()
+        if lines is None:
+            return False, "Не удалось прочитать crontab для синхронизации WG/AWG-политик."
+
+        lines = [line for line in lines if self.wg_policy_sync_cron_marker not in line]
+
+        if self.wg_policy_sync_enabled:
+            if not self.is_valid_cron_expression(self.wg_policy_sync_cron_expr):
+                return False, "Некорректное cron-выражение для синхронизации WG/AWG-политик."
+            command = self.wg_policy_sync_command()
+            lines.append(f"{self.wg_policy_sync_cron_expr} {command} {self.wg_policy_sync_cron_marker}")
+
+        try:
+            self.write_crontab_lines(lines)
+        except Exception as e:
+            return False, f"Ошибка записи cron синхронизации WG/AWG-политик: {e}"
+
+        if self.wg_policy_sync_enabled:
+            return True, "Cron синхронизации WG/AWG-политик включен"
+        return True, "Cron синхронизации WG/AWG-политик отключен"
 
     def ensure_runtime_backup_cleanup_cron(self):
         lines = self.read_crontab_lines()

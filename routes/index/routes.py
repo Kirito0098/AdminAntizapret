@@ -27,6 +27,12 @@ def register_index_routes(
     human_bytes,
     script_executor,
     sync_wireguard_peer_cache_from_configs,
+    wg_build_status_map,
+    wg_set_expiry_days,
+    wg_set_temp_block_days,
+    wg_clear_temp_block,
+    wg_reconcile_client_policy,
+    wg_reconcile_all_policies,
     log_telegram_audit_event,
     log_user_action_event,
     send_tg_admin_notification=None,
@@ -72,6 +78,11 @@ def register_index_routes(
     def index():
         if request.method == "GET":
             idx_user = get_current_user(user_model)
+            try:
+                wg_reconcile_all_policies(apply_runtime=True)
+            except Exception as e:
+                db.session.rollback()
+                app.logger.warning("Не удалось синхронизировать WG/AWG политики при загрузке index: %s", e)
             context = build_index_get_context(
                 session=session,
                 group_folders=group_folders,
@@ -79,6 +90,7 @@ def register_index_routes(
                 idx_user=idx_user,
                 read_banned_clients=read_banned_clients,
                 extract_client_name_from_config_file=extract_client_name_from_config_file,
+                wg_build_status_map=wg_build_status_map,
                 url_for=url_for,
             )
             context["service_statuses"] = collect_grouped_service_statuses()
@@ -125,6 +137,20 @@ def register_index_routes(
                     app.logger.warning(
                         "Не удалось синхронизировать wireguard_peer_cache после client.sh option=%s: %s",
                         option,
+                        e,
+                    )
+            if option == "4" and cert_expire:
+                try:
+                    wg_set_expiry_days(
+                        client_name,
+                        int(cert_expire),
+                        actor_username=session.get("username"),
+                        extend=False,
+                    )
+                except Exception as e:
+                    db.session.rollback()
+                    app.logger.warning(
+                        "Не удалось установить срок WG/AWG политики после создания client.sh option=4: %s",
                         e,
                     )
 
@@ -187,3 +213,75 @@ def register_index_routes(
             )
         except Exception as e:
             return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
+
+    @app.route("/api/wg/client-access", methods=["POST"])
+    @auth_manager.admin_required
+    def api_wg_client_access():
+        client_name = (request.form.get("client_name") or "").strip()
+        action = (request.form.get("action") or "").strip().lower()
+        days_raw = (request.form.get("days") or "").strip()
+        actor_username = session.get("username")
+
+        if not client_name:
+            return jsonify({"success": False, "message": "Не указано имя клиента."}), 400
+
+        try:
+            if action == "temp_block":
+                days_value = int(days_raw or "0")
+                if days_value < 1 or days_value > 3650:
+                    return jsonify({"success": False, "message": "Срок блокировки должен быть в диапазоне 1..3650 дней."}), 400
+                row = wg_set_temp_block_days(client_name, days_value, actor_username=actor_username)
+                log_user_action_event(
+                    "wg_client_temp_block_set",
+                    target_type="wireguard",
+                    target_name=client_name,
+                    details=f"days={days_value}",
+                )
+                message = "Клиент временно заблокирован."
+            elif action == "unblock":
+                row = wg_clear_temp_block(client_name, actor_username=actor_username)
+                log_user_action_event(
+                    "wg_client_temp_block_clear",
+                    target_type="wireguard",
+                    target_name=client_name,
+                    details="manual_unblock=1",
+                )
+                message = "Временная блокировка снята."
+            elif action == "extend":
+                days_value = int(days_raw or "0")
+                if days_value < 1 or days_value > 3650:
+                    return jsonify({"success": False, "message": "Срок продления должен быть в диапазоне 1..3650 дней."}), 400
+                row = wg_set_expiry_days(
+                    client_name,
+                    days_value,
+                    actor_username=actor_username,
+                    extend=True,
+                )
+                log_user_action_event(
+                    "wg_client_expiry_extend",
+                    target_type="wireguard",
+                    target_name=client_name,
+                    details=f"days={days_value}",
+                )
+                message = "Срок действия WG/AWG продлён."
+            else:
+                return jsonify({"success": False, "message": "Неизвестное действие."}), 400
+
+            reconcile_result = wg_reconcile_client_policy(client_name, apply_runtime=True) or {}
+            state = (reconcile_result.get("state") or {})
+            return jsonify(
+                {
+                    "success": True,
+                    "message": message,
+                    "client_name": client_name,
+                    "is_blocked": bool(state.get("is_blocked")),
+                    "reason": state.get("reason"),
+                    "expires_at": row.expires_at.strftime("%Y-%m-%d %H:%M:%S") if row.expires_at else None,
+                    "block_until": row.block_until.strftime("%Y-%m-%d %H:%M:%S") if row.block_until else None,
+                }
+            )
+        except ValueError as e:
+            return jsonify({"success": False, "message": str(e)}), 400
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"success": False, "message": f"Ошибка: {e}"}), 500

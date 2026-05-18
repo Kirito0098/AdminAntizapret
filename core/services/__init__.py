@@ -24,6 +24,7 @@ from .server_monitor import ServerMonitor
 from .service_container import build_services
 from .traffic_maintenance import TrafficMaintenanceService
 from .traffic_persistence import TrafficPersistenceService
+from .wg_access_policy import WgAccessPolicyService
 
 __all__ = [
     "ActiveWebSessionService",
@@ -52,4 +53,5 @@ __all__ = [
     "build_services",
     "TrafficMaintenanceService",
     "TrafficPersistenceService",
+    "WgAccessPolicyService",
 ]
