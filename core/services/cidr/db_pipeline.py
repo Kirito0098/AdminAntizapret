@@ -29,6 +29,7 @@ from core.services.cidr.file_pipeline import (
     _snapshot_baseline_if_missing,
 )
 from core.services.cidr.games import (
+    _collect_game_domains,
     _resolve_game_filter_selection,
     sync_game_hosts_filter,
 )
