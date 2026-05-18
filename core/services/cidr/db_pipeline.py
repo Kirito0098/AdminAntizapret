@@ -23,6 +23,15 @@ from core.services.cidr.route_limits import (
     _normalize_dpi_priority_files,
     _normalize_priority_min_budget,
 )
+from core.services.cidr.file_pipeline import (
+    _emit_progress,
+    _make_runtime_backup,
+    _snapshot_baseline_if_missing,
+)
+from core.services.cidr.games import (
+    _resolve_game_filter_selection,
+    sync_game_hosts_filter,
+)
 
 def update_cidr_files_from_db(
     selected_files=None,
