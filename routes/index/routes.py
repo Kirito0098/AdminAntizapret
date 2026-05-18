@@ -22,6 +22,8 @@ def register_index_routes(
     file_validator,
     group_folders,
     read_banned_clients,
+    openvpn_build_status_map,
+    openvpn_reconcile_all_policies,
     extract_client_name_from_config_file,
     get_logs_dashboard_data_cached,
     human_bytes,
@@ -30,6 +32,7 @@ def register_index_routes(
     wg_build_status_map,
     wg_set_expiry_days,
     wg_set_temp_block_days,
+    wg_set_permanent_block,
     wg_clear_temp_block,
     wg_reconcile_client_policy,
     wg_reconcile_all_policies,
@@ -79,6 +82,11 @@ def register_index_routes(
         if request.method == "GET":
             idx_user = get_current_user(user_model)
             try:
+                openvpn_reconcile_all_policies()
+            except Exception as e:
+                db.session.rollback()
+                app.logger.warning("Не удалось синхронизировать OpenVPN политики при загрузке index: %s", e)
+            try:
                 wg_reconcile_all_policies(apply_runtime=True)
             except Exception as e:
                 db.session.rollback()
@@ -89,6 +97,7 @@ def register_index_routes(
                 config_file_handler=config_file_handler,
                 idx_user=idx_user,
                 read_banned_clients=read_banned_clients,
+                openvpn_build_status_map=openvpn_build_status_map,
                 extract_client_name_from_config_file=extract_client_name_from_config_file,
                 wg_build_status_map=wg_build_status_map,
                 url_for=url_for,
@@ -238,15 +247,24 @@ def register_index_routes(
                     details=f"days={days_value}",
                 )
                 message = "Клиент временно заблокирован."
+            elif action == "permanent_block":
+                row = wg_set_permanent_block(client_name, actor_username=actor_username)
+                log_user_action_event(
+                    "wg_client_permanent_block_set",
+                    target_type="wireguard",
+                    target_name=client_name,
+                    details="manual_permanent=1",
+                )
+                message = "Клиент заблокирован до ручной разблокировки."
             elif action == "unblock":
                 row = wg_clear_temp_block(client_name, actor_username=actor_username)
                 log_user_action_event(
-                    "wg_client_temp_block_clear",
+                    "wg_client_block_clear",
                     target_type="wireguard",
                     target_name=client_name,
                     details="manual_unblock=1",
                 )
-                message = "Временная блокировка снята."
+                message = "Блокировка клиента снята."
             elif action == "extend":
                 days_value = int(days_raw or "0")
                 if days_value < 1 or days_value > 3650:
@@ -278,6 +296,15 @@ def register_index_routes(
                     "reason": state.get("reason"),
                     "expires_at": row.expires_at.strftime("%Y-%m-%d %H:%M:%S") if row.expires_at else None,
                     "block_until": row.block_until.strftime("%Y-%m-%d %H:%M:%S") if row.block_until else None,
+                    "access_days_left": state.get("access_days_left"),
+                    "blocked_days_left": state.get("blocked_days_left"),
+                    "block_mode": state.get("block_mode"),
+                    "block_duration_days": state.get("block_duration_days"),
+                    "block_started_at": (
+                        state.get("block_started_at").strftime("%Y-%m-%d %H:%M:%S")
+                        if state.get("block_started_at")
+                        else None
+                    ),
                 }
             )
         except ValueError as e:

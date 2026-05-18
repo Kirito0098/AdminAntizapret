@@ -42,6 +42,7 @@ function extractCertExpiryData() {
         if (!clientName) return;
 
         syncClientBlockedBadge(row);
+        syncClientAccessMeta(row);
 
         const certState = row.dataset.certState || 'active';
         const certDays = Number.parseInt(row.dataset.certDays || '999', 10);
@@ -67,6 +68,165 @@ function syncClientBlockedBadge(row) {
     badge.classList.toggle('is-blocked', isBlocked);
     badge.classList.toggle('is-active', !isBlocked);
 }
+
+function parseNullableInt(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw || !/^-?\d+$/.test(raw)) {
+        return null;
+    }
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+function setRowDatasetValue(row, key, value) {
+    if (!row || !key) {
+        return;
+    }
+    if (value === null || value === undefined || value === '') {
+        delete row.dataset[key];
+        return;
+    }
+    row.dataset[key] = String(value);
+}
+
+function syncClientAccessMeta(row) {
+    if (!row) {
+        return;
+    }
+
+    const metaNode = row.querySelector('.client-cert-meta');
+    if (!metaNode) {
+        return;
+    }
+
+    const clientName = row.dataset.clientName || '-';
+    const accessExpiresAt = row.dataset.accessExpiresAt || '';
+    const accessDaysLeft = parseNullableInt(row.dataset.accessDaysLeft);
+    const blockMode = (row.dataset.blockMode || 'none').toLowerCase();
+    const blockedUntil = row.dataset.blockedUntil || '';
+    const blockedDaysLeft = parseNullableInt(row.dataset.blockedDaysLeft);
+    const blockDurationDays = parseNullableInt(row.dataset.blockDurationDays);
+    const certState = (row.dataset.certState || 'active').toLowerCase();
+
+    const lines = [];
+    lines.push(`Отключение: ${accessExpiresAt ? accessExpiresAt.split(' ')[0] : 'не ограничено'}`);
+    if (accessDaysLeft === null) {
+        lines.push('Осталось: неизвестно');
+    } else if (accessDaysLeft > 0) {
+        lines.push(`Осталось: ${accessDaysLeft} дн.`);
+    } else if (accessDaysLeft === 0) {
+        lines.push('Осталось: сегодня');
+    } else {
+        lines.push('Осталось: срок истёк');
+    }
+
+    if (blockMode === 'temp') {
+        if (blockDurationDays !== null) {
+            lines.push(`Блокировка: на ${blockDurationDays} дн.`);
+        } else if (blockedDaysLeft !== null && blockedDaysLeft >= 0) {
+            lines.push(`Блокировка: на ${blockedDaysLeft} дн.`);
+        } else {
+            lines.push('Блокировка: временная');
+        }
+        if (blockedUntil) {
+            lines.push(`Разблокировка: ${blockedUntil.split(' ')[0]}`);
+        }
+    } else if (blockMode === 'permanent') {
+        lines.push('Блокировка: до ручной разблокировки');
+    } else if (blockMode === 'expired') {
+        lines.push('Блокировка: срок действия истёк');
+    } else {
+        lines.push('Блокировка: нет');
+    }
+
+    const fragment = document.createDocumentFragment();
+    lines.forEach((text) => {
+        const lineNode = document.createElement('div');
+        lineNode.textContent = text;
+        fragment.appendChild(lineNode);
+    });
+    metaNode.replaceChildren(fragment);
+
+    const forceExpired = blockMode === 'temp' || blockMode === 'permanent' || blockMode === 'expired' || certState === 'expired';
+    metaNode.classList.remove('active', 'expiring', 'expired');
+    if (forceExpired) {
+        metaNode.classList.add('expired');
+    } else if (certState === 'expiring') {
+        metaNode.classList.add('expiring');
+    } else {
+        metaNode.classList.add('active');
+    }
+}
+
+function applyWgAccessPayloadToRow(row, payload) {
+    if (!row || !payload) {
+        return;
+    }
+    row.dataset.blocked = payload.is_blocked ? '1' : '0';
+    setRowDatasetValue(row, 'blockMode', payload.block_mode || 'none');
+    setRowDatasetValue(row, 'blockReason', payload.reason || '');
+    setRowDatasetValue(row, 'accessExpiresAt', payload.expires_at || '');
+    setRowDatasetValue(row, 'accessDaysLeft', payload.access_days_left);
+    setRowDatasetValue(row, 'blockedUntil', payload.block_until || '');
+    setRowDatasetValue(row, 'blockedDaysLeft', payload.blocked_days_left);
+    setRowDatasetValue(row, 'blockDurationDays', payload.block_duration_days);
+    setRowDatasetValue(row, 'wgBlockReason', payload.reason || '');
+    setRowDatasetValue(row, 'wgExpiresAt', payload.expires_at || '');
+    setRowDatasetValue(row, 'wgBlockUntil', payload.block_until || '');
+    setRowDatasetValue(row, 'wgDaysLeft', payload.access_days_left);
+    setRowDatasetValue(row, 'wgBlockedDaysLeft', payload.blocked_days_left);
+    setRowDatasetValue(row, 'wgBlockMode', payload.block_mode || 'none');
+    setRowDatasetValue(row, 'wgBlockDurationDays', payload.block_duration_days);
+    syncClientBlockedBadge(row);
+    syncClientAccessMeta(row);
+}
+
+function applyWgAccessPayloadToClientRows(clientName, payload) {
+    const name = String(clientName || '').trim();
+    if (!name || !payload) {
+        return;
+    }
+    const escapedName = (window.CSS && typeof window.CSS.escape === 'function')
+        ? window.CSS.escape(name)
+        : name.replace(/"/g, '\\"');
+    const rows = document.querySelectorAll(`.client-row[data-client-name="${escapedName}"]`);
+    rows.forEach((row) => {
+        applyWgAccessPayloadToRow(row, payload);
+    });
+}
+
+function applyOpenVpnAccessPayloadToRow(row, payload) {
+    if (!row || !payload) {
+        return;
+    }
+    row.dataset.blocked = payload.is_blocked ? '1' : '0';
+    setRowDatasetValue(row, 'blockMode', payload.block_mode || 'none');
+    setRowDatasetValue(row, 'blockReason', payload.reason || '');
+    setRowDatasetValue(row, 'blockedUntil', payload.block_until || '');
+    setRowDatasetValue(row, 'blockedDaysLeft', payload.blocked_days_left);
+    setRowDatasetValue(row, 'blockDurationDays', payload.block_duration_days);
+    syncClientBlockedBadge(row);
+    syncClientAccessMeta(row);
+}
+
+function applyOpenVpnAccessPayloadToClientRows(clientName, payload) {
+    const name = String(clientName || '').trim();
+    if (!name || !payload) {
+        return;
+    }
+    const escapedName = (window.CSS && typeof window.CSS.escape === 'function')
+        ? window.CSS.escape(name)
+        : name.replace(/"/g, '\\"');
+    const rows = document.querySelectorAll(`.config-table[data-protocol="openvpn"] .client-row[data-client-name="${escapedName}"]`);
+    rows.forEach((row) => {
+        applyOpenVpnAccessPayloadToRow(row, payload);
+    });
+}
+
+window.syncClientAccessMeta = syncClientAccessMeta;
+window.applyWgAccessPayloadToRow = applyWgAccessPayloadToRow;
+window.applyWgAccessPayloadToClientRows = applyWgAccessPayloadToClientRows;
+window.applyOpenVpnAccessPayloadToClientRows = applyOpenVpnAccessPayloadToClientRows;
 
 // ============ UI INITIALIZATION ============
 function initializeUI() {
@@ -644,8 +804,12 @@ function initializeClientBanToggles() {
                 const payload = await updateClientBlockState(clientName, shouldBlock);
 
                 if (row) {
-                    row.dataset.blocked = shouldBlock ? '1' : '0';
-                    syncClientBlockedBadge(row);
+                    if (typeof window.applyOpenVpnAccessPayloadToClientRows === 'function') {
+                        window.applyOpenVpnAccessPayloadToClientRows(clientName, payload);
+                    } else {
+                        row.dataset.blocked = payload.blocked ? '1' : '0';
+                        syncClientBlockedBadge(row);
+                    }
                 }
 
                 showNotification(payload.message || 'Статус блокировки обновлён', 'success');

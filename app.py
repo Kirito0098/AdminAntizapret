@@ -48,6 +48,7 @@ from core.models import (
     LogsDashboardCache,
     OpenVPNPeerInfoCache,
     OpenVPNPeerInfoHistory,
+    OpenVpnAccessPolicy,
     ProviderCidr,
     ProviderMeta,
     QrDownloadAuditLog,
@@ -83,6 +84,7 @@ from core.services import (
     MaintenanceSchedulerService,
     NetworkStatusCollectorService,
     OpenVPNBanlistService,
+    OpenVpnAccessPolicyService,
     OpenVPNSocketReaderService,
     PeerInfoCacheService,
     QrDownloadTokenService,
@@ -1070,9 +1072,51 @@ wg_access_policy_service = WgAccessPolicyService(
     runtime_enforcer=wg_awg_runtime_enforcer,
 )
 
+openvpn_access_policy_service = OpenVpnAccessPolicyService(
+    db=db,
+    policy_model=OpenVpnAccessPolicy,
+    read_banned_clients=_read_banned_clients,
+    write_banned_clients=_write_banned_clients,
+    ensure_client_connect_ban_check_block=_ensure_client_connect_ban_check_block,
+)
+
 
 def _wg_build_status_map(client_names):
     return wg_access_policy_service.build_status_map(client_names)
+
+
+def _openvpn_build_status_map(client_names):
+    return openvpn_access_policy_service.build_status_map(client_names)
+
+
+def _openvpn_set_temp_block_days(client_name, days, *, actor_username=None):
+    return openvpn_access_policy_service.set_temp_block_days(
+        client_name,
+        days,
+        actor_username=actor_username,
+    )
+
+
+def _openvpn_set_permanent_block(client_name, *, actor_username=None):
+    return openvpn_access_policy_service.set_permanent_block(
+        client_name,
+        actor_username=actor_username,
+    )
+
+
+def _openvpn_clear_block(client_name, *, actor_username=None):
+    return openvpn_access_policy_service.clear_block(
+        client_name,
+        actor_username=actor_username,
+    )
+
+
+def _openvpn_reconcile_client_policy(client_name):
+    return openvpn_access_policy_service.reconcile_client_policy(client_name)
+
+
+def _openvpn_reconcile_all_policies():
+    return openvpn_access_policy_service.reconcile_all()
 
 
 def _wg_set_expiry_days(client_name, days, *, actor_username=None, extend=False):
@@ -1092,8 +1136,15 @@ def _wg_set_temp_block_days(client_name, days, *, actor_username=None):
     )
 
 
+def _wg_set_permanent_block(client_name, *, actor_username=None):
+    return wg_access_policy_service.set_permanent_block(
+        client_name,
+        actor_username=actor_username,
+    )
+
+
 def _wg_clear_temp_block(client_name, *, actor_username=None):
-    return wg_access_policy_service.clear_temp_block(
+    return wg_access_policy_service.clear_block(
         client_name,
         actor_username=actor_username,
     )
@@ -1109,6 +1160,17 @@ def _wg_reconcile_client_policy(client_name, apply_runtime=True):
 def _wg_reconcile_all_policies(apply_runtime=True):
     return wg_access_policy_service.reconcile_all(apply_runtime=apply_runtime)
 
+
+try:
+    with app.app_context():
+        _openvpn_reconcile_all_policies()
+except Exception as e:
+    try:
+        with app.app_context():
+            db.session.rollback()
+    except Exception:
+        pass
+    app.logger.warning(f"Не удалось применить OpenVPN политики при запуске: {e}")
 
 try:
     with app.app_context():

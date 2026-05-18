@@ -38,13 +38,31 @@
         <p>{{ expiring_cert_count }} клиент(ов) нужно продлить в ближайшие 30 дней.</p>
       </article>
       {% endif %}
-      {% if banned_clients_count > 0 %}
+      {% if blocked_total_count > 0 %}
       <article class="index-alert-card index-alert-card--neutral">
         <h4>Активны блокировки</h4>
-        <p>{{ banned_clients_count }} клиент(ов) находятся в списке блокировки.</p>
+        <p>
+          Всего: {{ blocked_total_count }} | OpenVPN: {{ blocked_openvpn_count }} | WG/AWG: {{ blocked_wg_awg_count }}
+        </p>
+        {% if blocked_entries %}
+        <ul class="index-alert-list">
+          {% for entry in blocked_entries %}
+          <li>
+            {{ entry.client_name }} — {{ entry.protocol_group }}
+            {% if entry.reason == 'expired' %}
+            (срок истёк)
+            {% elif entry.reason == 'manual_temp' %}
+            (временная блокировка)
+            {% elif entry.reason == 'manual_permanent' %}
+            (до ручной разблокировки)
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
       </article>
       {% endif %}
-      {% if expired_cert_count == 0 and expiring_cert_count == 0 and banned_clients_count == 0 %}
+      {% if expired_cert_count == 0 and expiring_cert_count == 0 and blocked_total_count == 0 %}
       <article class="index-alert-card index-alert-card--ok">
         <h4>Стабильное состояние</h4>
         <p>Критических алертов не обнаружено.</p>

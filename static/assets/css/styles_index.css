@@ -1,3 +1,18 @@
+.index-kpi-note {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--theme-text-muted, #9ca3af);
+}
+
+.index-alert-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.index-alert-list li {
+  margin: 2px 0;
+}
 /*=============== GOOGLE FONTS ===============*/
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap");
 

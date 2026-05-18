@@ -371,6 +371,39 @@ function initializeClientDetailsModal() {
         return payload;
     }
 
+    async function updateOpenVpnClientAccess(clientName, action, days = null) {
+        const csrfInput = document.getElementById('csrf-token-value');
+        const csrfToken = csrfInput ? csrfInput.value : '';
+        const formData = new FormData();
+        formData.append('client_name', clientName);
+        formData.append('action', action);
+        if (days !== null && days !== undefined && String(days).trim() !== '') {
+            formData.append('days', String(days).trim());
+        }
+        if (csrfToken) {
+            formData.append('csrf_token', csrfToken);
+        }
+
+        const response = await fetch('/api/openvpn/client-block', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        });
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (_e) {
+            payload = null;
+        }
+        if (!response.ok || !payload || !payload.success) {
+            const msg = payload && payload.message ? payload.message : `HTTP error! status: ${response.status}`;
+            throw new Error(msg);
+        }
+        return payload;
+    }
+
     function showActionModal({
         title = 'Подтвердите действие',
         message = '',
@@ -818,34 +851,123 @@ function initializeClientDetailsModal() {
         };
 
         if (canBlock) {
+            const openvpnBlocked = row.dataset.blocked === '1';
+
             addActionButton({
-                label: isBlocked ? '🔓 Разблокировать' : '⛔ Заблокировать',
+                label: '⛔ Временная блокировка OpenVPN',
                 groupKey: 'manage',
                 onClick: async (event) => {
                     const button = event.currentTarget;
-                    const currentlyBlocked = row.dataset.blocked === '1';
-                    const nextBlocked = !currentlyBlocked;
-                    const originalText = button.textContent;
+                    const inputValue = await showActionModal({
+                        title: 'Временная блокировка OpenVPN',
+                        message: `Укажите срок блокировки для клиента "${clientName}"`,
+                        mode: 'numberInput',
+                        inputLabel: 'Срок временной блокировки (дни, 1-3650)',
+                        inputDefault: '7',
+                        inputMin: 1,
+                        inputMax: 3650,
+                        confirmLabel: 'Применить',
+                        cancelLabel: 'Отмена',
+                    });
+                    if (inputValue === null) {
+                        return;
+                    }
 
+                    const originalText = button.textContent;
                     button.disabled = true;
                     button.textContent = '...';
-
                     try {
-                        const payload = await updateClientBlockState(clientName, nextBlocked);
-                        row.dataset.blocked = nextBlocked ? '1' : '0';
-                        syncClientBlockedBadge(row);
-                        button.textContent = nextBlocked
-                            ? '🔓 Разблокировать'
-                            : '⛔ Заблокировать';
-                        showNotification(payload.message || 'Статус блокировки обновлён', 'success');
+                        const payload = await updateOpenVpnClientAccess(clientName, 'temp_block', inputValue);
+                        if (typeof window.applyOpenVpnAccessPayloadToClientRows === 'function') {
+                            window.applyOpenVpnAccessPayloadToClientRows(clientName, payload);
+                        } else {
+                            row.dataset.blocked = payload.is_blocked ? '1' : '0';
+                            syncClientBlockedBadge(row);
+                        }
+                        renderActions(clientName);
+                        showNotification(payload.message || 'Статус OpenVPN обновлён', 'success');
                     } catch (error) {
-                        button.textContent = originalText;
-                        showNotification(error.message || 'Не удалось изменить блокировку клиента', 'error');
+                        showNotification(error.message || 'Не удалось изменить статус OpenVPN', 'error');
                     } finally {
                         button.disabled = false;
+                        button.textContent = originalText;
                     }
                 }
             });
+
+            if (!openvpnBlocked) {
+                addActionButton({
+                    label: '⛔ Блокировать до ручной разблокировки',
+                    groupKey: 'manage',
+                    onClick: async (event) => {
+                        const button = event.currentTarget;
+                        const confirmed = await showActionModal({
+                            title: 'Бессрочная блокировка OpenVPN',
+                            message: `Заблокировать клиента "${clientName}" до ручной разблокировки?`,
+                            mode: 'confirm',
+                            confirmLabel: 'Заблокировать',
+                            cancelLabel: 'Отмена',
+                        });
+                        if (!confirmed) {
+                            return;
+                        }
+
+                        const originalText = button.textContent;
+                        button.disabled = true;
+                        button.textContent = '...';
+                        try {
+                            const payload = await updateOpenVpnClientAccess(clientName, 'permanent_block');
+                            if (typeof window.applyOpenVpnAccessPayloadToClientRows === 'function') {
+                                window.applyOpenVpnAccessPayloadToClientRows(clientName, payload);
+                            } else {
+                                row.dataset.blocked = payload.is_blocked ? '1' : '0';
+                                syncClientBlockedBadge(row);
+                            }
+                            renderActions(clientName);
+                            showNotification(payload.message || 'Клиент заблокирован', 'success');
+                        } catch (error) {
+                            showNotification(error.message || 'Не удалось заблокировать клиента', 'error');
+                        } finally {
+                            button.disabled = false;
+                            button.textContent = originalText;
+                        }
+                    }
+                });
+            }
+
+            if (openvpnBlocked) {
+                addActionButton({
+                    label: '🔓 Снять блокировку OpenVPN',
+                    groupKey: 'manage',
+                    onClick: async (event) => {
+                        const button = event.currentTarget;
+                        const originalText = button.textContent;
+                        button.disabled = true;
+                        button.textContent = '...';
+                        try {
+                            const payload = await updateOpenVpnClientAccess(clientName, 'unblock');
+                            if (typeof window.applyOpenVpnAccessPayloadToClientRows === 'function') {
+                                window.applyOpenVpnAccessPayloadToClientRows(clientName, payload);
+                            } else {
+                                row.dataset.blocked = payload.is_blocked ? '1' : '0';
+                                syncClientBlockedBadge(row);
+                            }
+                            renderActions(clientName);
+                            showNotification(payload.message || 'Блокировка снята', 'success');
+                        } catch (error) {
+                            showNotification(error.message || 'Не удалось снять блокировку', 'error');
+                        } finally {
+                            button.disabled = false;
+                            button.textContent = originalText;
+                        }
+                    }
+                });
+            }
+
+            /*
+             * Legacy single-toggle control removed in favor of explicit
+             * temp/permanent/unblock actions for OpenVPN.
+             */
         }
 
         if (canManage && row.dataset.protocol === 'openvpn') {
@@ -922,56 +1044,121 @@ function initializeClientDetailsModal() {
 
         if (canWgManage) {
             addActionButton({
-                label: isBlocked ? '🔓 Разблокировать WG/AWG' : '⛔ Временная блокировка WG/AWG',
+                label: '⛔ Временная блокировка WG/AWG',
                 groupKey: 'manage',
                 onClick: async (event) => {
                     const button = event.currentTarget;
-                    const currentlyBlocked = row.dataset.blocked === '1';
-                    const action = currentlyBlocked ? 'unblock' : 'temp_block';
-                    let daysValue = null;
-                    if (action === 'temp_block') {
-                        const inputValue = await showActionModal({
-                            title: 'Временная блокировка WG/AWG',
-                            message: `Укажите срок блокировки для клиента "${clientName}"`,
-                            mode: 'numberInput',
-                            inputLabel: 'Срок временной блокировки (дни, 1-3650)',
-                            inputDefault: '7',
-                            inputMin: 1,
-                            inputMax: 3650,
-                            confirmLabel: 'Применить',
-                            cancelLabel: 'Отмена',
-                        });
-                        if (inputValue === null) {
-                            return;
-                        }
-                        daysValue = inputValue;
+                    const inputValue = await showActionModal({
+                        title: 'Временная блокировка WG/AWG',
+                        message: `Укажите срок блокировки для клиента "${clientName}"`,
+                        mode: 'numberInput',
+                        inputLabel: 'Срок временной блокировки (дни, 1-3650)',
+                        inputDefault: '7',
+                        inputMin: 1,
+                        inputMax: 3650,
+                        confirmLabel: 'Применить',
+                        cancelLabel: 'Отмена',
+                    });
+                    if (inputValue === null) {
+                        return;
                     }
 
                     const originalText = button.textContent;
                     button.disabled = true;
                     button.textContent = '...';
                     try {
-                        const payload = await updateWgClientAccess(clientName, action, daysValue);
-                        const nextBlocked = !!payload.is_blocked;
-                        row.dataset.blocked = nextBlocked ? '1' : '0';
-                        row.dataset.wgBlockReason = payload.reason || '';
-                        if (payload.expires_at) {
-                            row.dataset.wgExpiresAt = payload.expires_at;
+                        const payload = await updateWgClientAccess(clientName, 'temp_block', inputValue);
+                        if (typeof window.applyWgAccessPayloadToClientRows === 'function') {
+                            window.applyWgAccessPayloadToClientRows(clientName, payload);
+                        } else if (typeof window.applyWgAccessPayloadToRow === 'function') {
+                            window.applyWgAccessPayloadToRow(row, payload);
+                        } else {
+                            row.dataset.blocked = payload.is_blocked ? '1' : '0';
+                            syncClientBlockedBadge(row);
                         }
-                        if (payload.block_until) {
-                            row.dataset.wgBlockUntil = payload.block_until;
-                        }
-                        syncClientBlockedBadge(row);
-                        button.textContent = nextBlocked ? '🔓 Разблокировать WG/AWG' : '⛔ Временная блокировка WG/AWG';
+                        renderActions(clientName);
                         showNotification(payload.message || 'Статус WG/AWG обновлён', 'success');
                     } catch (error) {
-                        button.textContent = originalText;
                         showNotification(error.message || 'Не удалось изменить статус WG/AWG', 'error');
                     } finally {
                         button.disabled = false;
+                        button.textContent = originalText;
                     }
                 }
             });
+
+            if (!isBlocked) {
+                addActionButton({
+                    label: '⛔ Блокировать до ручной разблокировки',
+                    groupKey: 'manage',
+                    onClick: async (event) => {
+                        const button = event.currentTarget;
+                        const confirmed = await showActionModal({
+                            title: 'Бессрочная блокировка WG/AWG',
+                            message: `Заблокировать клиента "${clientName}" до ручной разблокировки?`,
+                            mode: 'confirm',
+                            confirmLabel: 'Заблокировать',
+                            cancelLabel: 'Отмена',
+                        });
+                        if (!confirmed) {
+                            return;
+                        }
+
+                        const originalText = button.textContent;
+                        button.disabled = true;
+                        button.textContent = '...';
+                        try {
+                            const payload = await updateWgClientAccess(clientName, 'permanent_block');
+                            if (typeof window.applyWgAccessPayloadToClientRows === 'function') {
+                                window.applyWgAccessPayloadToClientRows(clientName, payload);
+                            } else if (typeof window.applyWgAccessPayloadToRow === 'function') {
+                                window.applyWgAccessPayloadToRow(row, payload);
+                            } else {
+                                row.dataset.blocked = payload.is_blocked ? '1' : '0';
+                                syncClientBlockedBadge(row);
+                            }
+                            renderActions(clientName);
+                            showNotification(payload.message || 'Клиент заблокирован', 'success');
+                        } catch (error) {
+                            showNotification(error.message || 'Не удалось заблокировать клиента', 'error');
+                        } finally {
+                            button.disabled = false;
+                            button.textContent = originalText;
+                        }
+                    }
+                });
+            }
+
+            if ((row.dataset.blockMode || '') === 'temp' || (row.dataset.blockMode || '') === 'permanent') {
+                addActionButton({
+                    label: '🔓 Снять блокировку WG/AWG',
+                    groupKey: 'manage',
+                    onClick: async (event) => {
+                        const button = event.currentTarget;
+                        const originalText = button.textContent;
+                        button.disabled = true;
+                        button.textContent = '...';
+                        try {
+                            const payload = await updateWgClientAccess(clientName, 'unblock');
+                            if (typeof window.applyWgAccessPayloadToClientRows === 'function') {
+                                window.applyWgAccessPayloadToClientRows(clientName, payload);
+                            } else if (typeof window.applyWgAccessPayloadToRow === 'function') {
+                                window.applyWgAccessPayloadToRow(row, payload);
+                            } else {
+                                row.dataset.blocked = payload.is_blocked ? '1' : '0';
+                                syncClientBlockedBadge(row);
+                            }
+                            renderActions(clientName);
+                            showNotification(payload.message || 'Блокировка снята', 'success');
+                        } catch (error) {
+                            showNotification(error.message || 'Не удалось снять блокировку', 'error');
+                        } finally {
+                            button.disabled = false;
+                            button.textContent = originalText;
+                        }
+                    }
+                });
+            }
 
             addActionButton({
                 label: '♻ Продлить срок WG/AWG',
@@ -998,12 +1185,15 @@ function initializeClientDetailsModal() {
                     button.textContent = '...';
                     try {
                         const payload = await updateWgClientAccess(clientName, 'extend', daysValue);
-                        row.dataset.blocked = payload.is_blocked ? '1' : '0';
-                        row.dataset.wgBlockReason = payload.reason || '';
-                        if (payload.expires_at) {
-                            row.dataset.wgExpiresAt = payload.expires_at;
+                        if (typeof window.applyWgAccessPayloadToClientRows === 'function') {
+                            window.applyWgAccessPayloadToClientRows(clientName, payload);
+                        } else if (typeof window.applyWgAccessPayloadToRow === 'function') {
+                            window.applyWgAccessPayloadToRow(row, payload);
+                        } else {
+                            row.dataset.blocked = payload.is_blocked ? '1' : '0';
+                            syncClientBlockedBadge(row);
                         }
-                        syncClientBlockedBadge(row);
+                        renderActions(clientName);
                         showNotification(payload.message || 'Срок WG/AWG обновлён', 'success');
                     } catch (error) {
                         showNotification(error.message || 'Не удалось продлить срок WG/AWG', 'error');

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from core.services.index import (
     build_client_table_rows,
+    build_index_get_context,
     build_index_kpi,
     collect_grouped_service_statuses,
     group_config_files_by_client,
@@ -45,13 +46,94 @@ class IndexPageContextTests(unittest.TestCase):
             "dave": {"days_left": -3},
             "eve": {"days_left": None},
         }
-        kpi = build_index_kpi(cert_expiry, {"bob"}, openvpn_count=4, wg_awg_count=2)
+        kpi = build_index_kpi(
+            cert_expiry,
+            blocked_openvpn_count=1,
+            blocked_wg_awg_count=2,
+            openvpn_count=4,
+            wg_awg_count=2,
+        )
 
         self.assertEqual(kpi["expiring_count"], 1)
         self.assertEqual(kpi["expired_count"], 2)
         self.assertEqual(kpi["openvpn_clients_count"], 4)
         self.assertEqual(kpi["wg_awg_clients_count"], 2)
-        self.assertEqual(kpi["banned_clients_count"], 1)
+        self.assertEqual(kpi["blocked_openvpn_count"], 1)
+        self.assertEqual(kpi["blocked_wg_awg_count"], 2)
+        self.assertEqual(kpi["blocked_total_count"], 3)
+
+    def test_build_index_get_context_counts_wg_awg_block_once_per_client(self):
+        class FakeHandler:
+            def __init__(self, config_paths):
+                self.config_paths = dict(config_paths)
+
+            def get_config_files(self):
+                return (
+                    ["/ovpn/vpn-ov-user-udp.ovpn"],
+                    ["/wg/vpn-shared-user-wg.conf"],
+                    ["/awg/antizapret-shared-user-am.conf"],
+                )
+
+            def get_openvpn_cert_expiry(self):
+                return {}
+
+            def _extract_client_name_from_ovpn(self, filename):
+                stem = filename.rsplit(".", 1)[0]
+                if stem.startswith("vpn-"):
+                    stem = stem[4:]
+                return stem.replace("-udp", "").replace("-tcp", "")
+
+        session = {"openvpn_group": "GROUP_UDP\\TCP"}
+        group_folders = {"GROUP_UDP\\TCP": ["/ovpn"]}
+        admin = SimpleNamespace(role="admin", is_admin=lambda: True, allowed_configs=[])
+
+        def fake_extract_name(path):
+            stem = os.path.basename(path).rsplit(".", 1)[0]
+            for prefix in ("vpn-", "antizapret-"):
+                if stem.startswith(prefix):
+                    stem = stem[len(prefix):]
+                    break
+            return stem.replace("-wg", "").replace("-am", "")
+
+        context = build_index_get_context(
+            session=session,
+            group_folders=group_folders,
+            config_file_handler=FakeHandler({"openvpn": ["/ovpn"], "wg": ["/wg"], "amneziawg": ["/awg"]}),
+            idx_user=admin,
+            read_banned_clients=lambda: {"ov-user"},
+            openvpn_build_status_map=lambda names: {
+                name: {
+                    "is_blocked": name == "ov-user",
+                    "reason": "manual_permanent" if name == "ov-user" else None,
+                    "block_until": None,
+                    "blocked_days_left": None,
+                    "block_mode": "permanent" if name == "ov-user" else "none",
+                    "block_duration_days": None,
+                    "block_started_at": None,
+                }
+                for name in names
+            },
+            extract_client_name_from_config_file=fake_extract_name,
+            wg_build_status_map=lambda names: {
+                name.lower(): {
+                    "is_blocked": True,
+                    "reason": "manual_temp",
+                    "expires_at": None,
+                    "block_until": None,
+                    "access_days_left": None,
+                    "blocked_days_left": None,
+                    "block_mode": "temp",
+                    "block_duration_days": 7,
+                }
+                for name in names
+            },
+            url_for=lambda endpoint, **kwargs: f"/{endpoint}/{kwargs.get('file_type')}/{kwargs.get('filename')}",
+        )
+
+        self.assertEqual(context["blocked_openvpn_count"], 1)
+        self.assertEqual(context["blocked_wg_awg_count"], 1)
+        self.assertEqual(context["blocked_total_count"], 2)
+        self.assertEqual(len(context["blocked_entries"]), 2)
 
     def test_build_client_table_rows_cert_state(self):
         grouped = {
@@ -75,6 +157,7 @@ class IndexPageContextTests(unittest.TestCase):
             current_user=admin,
             cert_expiry=cert_expiry,
             banned_clients=set(),
+            openvpn_policy_status_by_client={},
             wg_policy_status_by_client={},
             url_for=fake_url_for,
         )
@@ -151,12 +234,17 @@ class IndexPageContextTests(unittest.TestCase):
             current_user=admin,
             cert_expiry={},
             banned_clients=set(),
+            openvpn_policy_status_by_client={},
             wg_policy_status_by_client={
                 "wg-user": {
                     "is_blocked": False,
                     "reason": None,
                     "expires_at": future_expiry,
                     "block_until": None,
+                    "access_days_left": 10,
+                    "blocked_days_left": None,
+                    "block_mode": "none",
+                    "block_duration_days": None,
                 }
             },
             url_for=fake_url_for,
@@ -165,6 +253,8 @@ class IndexPageContextTests(unittest.TestCase):
         row = rows[0]
         self.assertFalse(row["is_blocked"])
         self.assertIsNone(row["wg_block_reason"])
+        self.assertEqual(row["block_mode"], "none")
+        self.assertEqual(row["access_expires_at"], row["wg_expires_at"])
         self.assertIsInstance(row["wg_days_left"], int)
         self.assertGreaterEqual(row["wg_days_left"], 8)
         self.assertLessEqual(row["wg_days_left"], 10)

@@ -161,6 +161,47 @@ def _resolve_wg_days_left(expires_at):
         return None
 
 
+def _resolve_access_days_left(expires_at_dt):
+    if not expires_at_dt:
+        return None
+    try:
+        return (expires_at_dt - datetime.utcnow()).days
+    except Exception:
+        return None
+
+
+def _build_blocked_entries(
+    *,
+    openvpn_blocked_clients,
+    openvpn_policy_status_by_client,
+    wg_policy_status_by_client,
+    wg_awg_client_names,
+):
+    entries = []
+    for client_name in sorted(openvpn_blocked_clients or set(), key=lambda value: value.lower()):
+        ovpn_state = (openvpn_policy_status_by_client or {}).get(str(client_name), {})
+        entries.append(
+            {
+                "client_name": client_name,
+                "protocol_group": "OpenVPN",
+                "reason": ovpn_state.get("reason") or "manual_permanent",
+            }
+        )
+
+    for raw_name in sorted(wg_awg_client_names or set(), key=lambda value: value.lower()):
+        state = (wg_policy_status_by_client or {}).get(str(raw_name).lower(), {})
+        if not bool(state.get("is_blocked")):
+            continue
+        entries.append(
+            {
+                "client_name": raw_name,
+                "protocol_group": "WG/AWG",
+                "reason": state.get("reason"),
+            }
+        )
+    return entries
+
+
 def build_client_table_rows(
     protocol,
     grouped_files,
@@ -168,6 +209,7 @@ def build_client_table_rows(
     current_user,
     cert_expiry,
     banned_clients,
+    openvpn_policy_status_by_client,
     wg_policy_status_by_client,
     url_for,
 ):
@@ -180,13 +222,48 @@ def build_client_table_rows(
         cert_info = cert_expiry.get(client_name) if cert_expiry else None
         cert_state, cert_days, cert_expires_at = _resolve_cert_state(cert_info)
         is_blocked = bool(banned_clients and client_name in banned_clients)
+        ovpn_state = (openvpn_policy_status_by_client or {}).get(client_name, {})
+        ovpn_is_blocked = bool(ovpn_state.get("is_blocked"))
+        ovpn_block_reason = ovpn_state.get("reason")
+        ovpn_block_until_dt = ovpn_state.get("block_until")
+        ovpn_block_until = _format_dt(ovpn_block_until_dt)
+        ovpn_blocked_days_left = ovpn_state.get("blocked_days_left")
+        if ovpn_blocked_days_left is None:
+            ovpn_blocked_days_left = _resolve_access_days_left(ovpn_block_until_dt)
+        ovpn_block_mode = ovpn_state.get("block_mode") or ("permanent" if is_blocked else "none")
+        ovpn_block_duration_days = ovpn_state.get("block_duration_days")
         wg_state = (wg_policy_status_by_client or {}).get(client_name.lower(), {})
         wg_is_blocked = bool(wg_state.get("is_blocked"))
         wg_block_reason = wg_state.get("reason")
         wg_expires_at_dt = wg_state.get("expires_at")
+        wg_block_until_dt = wg_state.get("block_until")
         wg_expires_at = _format_dt(wg_expires_at_dt)
-        wg_block_until = _format_dt(wg_state.get("block_until"))
-        wg_days_left = _resolve_wg_days_left(wg_expires_at_dt)
+        wg_block_until = _format_dt(wg_block_until_dt)
+        wg_days_left = wg_state.get("access_days_left")
+        if wg_days_left is None:
+            wg_days_left = _resolve_wg_days_left(wg_expires_at_dt)
+        wg_blocked_days_left = wg_state.get("blocked_days_left")
+        if wg_blocked_days_left is None:
+            wg_blocked_days_left = _resolve_access_days_left(wg_block_until_dt)
+        wg_block_mode = wg_state.get("block_mode") or ("temp" if wg_block_reason == "manual_temp" else ("expired" if wg_block_reason == "expired" else ("permanent" if wg_block_reason == "manual_permanent" else "none")))
+        wg_block_duration_days = wg_state.get("block_duration_days")
+
+        if protocol == "openvpn":
+            access_expires_at = cert_expires_at
+            access_days_left = cert_days
+            block_mode = ovpn_block_mode
+            block_reason = ovpn_block_reason
+            blocked_until = ovpn_block_until
+            blocked_days_left = ovpn_blocked_days_left
+            block_duration_days = ovpn_block_duration_days
+        else:
+            access_expires_at = wg_expires_at
+            access_days_left = wg_days_left
+            block_mode = wg_block_mode
+            block_reason = wg_block_reason
+            blocked_until = wg_block_until
+            blocked_days_left = wg_blocked_days_left
+            block_duration_days = wg_block_duration_days
 
         show_cert_meta = is_admin and config["supports_cert_meta"]
         if show_cert_meta:
@@ -206,11 +283,21 @@ def build_client_table_rows(
             "cert_days": data_cert_days,
             "cert_expires_at": cert_expires_at,
             "cert_days_display": cert_days,
-            "is_blocked": is_blocked if protocol == "openvpn" else wg_is_blocked,
+            "is_blocked": ovpn_is_blocked if protocol == "openvpn" else wg_is_blocked,
+            "access_expires_at": access_expires_at,
+            "access_days_left": access_days_left,
+            "blocked_until": blocked_until,
+            "blocked_days_left": blocked_days_left,
+            "block_mode": block_mode,
+            "block_reason": block_reason,
+            "block_duration_days": block_duration_days,
             "wg_block_reason": wg_block_reason,
             "wg_expires_at": wg_expires_at,
             "wg_block_until": wg_block_until,
             "wg_days_left": wg_days_left,
+            "wg_blocked_days_left": wg_blocked_days_left,
+            "wg_block_mode": wg_block_mode,
+            "wg_block_duration_days": wg_block_duration_days,
             "can_block": is_admin and config["supports_block"],
             "can_manage": is_admin,
             "delete_option": config["delete_option"],
@@ -244,7 +331,14 @@ def build_client_table_rows(
     return rows
 
 
-def build_index_kpi(cert_expiry, banned_clients, openvpn_count, wg_awg_count):
+def build_index_kpi(
+    cert_expiry,
+    *,
+    blocked_openvpn_count,
+    blocked_wg_awg_count,
+    openvpn_count,
+    wg_awg_count,
+):
     expiring_count = 0
     expired_count = 0
 
@@ -261,7 +355,9 @@ def build_index_kpi(cert_expiry, banned_clients, openvpn_count, wg_awg_count):
         "expired_count": expired_count,
         "openvpn_clients_count": openvpn_count,
         "wg_awg_clients_count": wg_awg_count,
-        "banned_clients_count": len(banned_clients) if banned_clients else 0,
+        "blocked_openvpn_count": int(blocked_openvpn_count or 0),
+        "blocked_wg_awg_count": int(blocked_wg_awg_count or 0),
+        "blocked_total_count": int(blocked_openvpn_count or 0) + int(blocked_wg_awg_count or 0),
     }
 
 
@@ -287,6 +383,7 @@ def build_index_get_context(
     config_file_handler,
     idx_user,
     read_banned_clients,
+    openvpn_build_status_map,
     extract_client_name_from_config_file,
     wg_build_status_map,
     url_for,
@@ -305,6 +402,7 @@ def build_index_get_context(
     banned_clients = set()
 
     openvpn_client_names = collect_unique_client_names(openvpn_files, extract_client_name_from_config_file)
+    openvpn_policy_status_by_client = openvpn_build_status_map(openvpn_client_names)
     wg_awg_client_names = collect_unique_client_names(wg_files, extract_client_name_from_config_file)
     wg_awg_client_names.update(collect_unique_client_names(amneziawg_files, extract_client_name_from_config_file))
     wg_policy_status_by_client = wg_build_status_map(wg_awg_client_names)
@@ -319,11 +417,30 @@ def build_index_get_context(
             if client_name and client_name in raw_banned_clients:
                 banned_clients.add(client_name)
 
+    if openvpn_policy_status_by_client:
+        for client_name in openvpn_client_names:
+            ovpn_state = (openvpn_policy_status_by_client.get(client_name) or {})
+            if bool(ovpn_state.get("is_blocked")):
+                banned_clients.add(client_name)
+
+    blocked_wg_awg_names = {
+        client_name
+        for client_name in wg_awg_client_names
+        if bool((wg_policy_status_by_client.get(client_name.lower(), {}) or {}).get("is_blocked"))
+    }
+    blocked_entries = _build_blocked_entries(
+        openvpn_blocked_clients=banned_clients,
+        openvpn_policy_status_by_client=openvpn_policy_status_by_client,
+        wg_policy_status_by_client=wg_policy_status_by_client,
+        wg_awg_client_names=blocked_wg_awg_names,
+    )
+
     kpi = build_index_kpi(
         cert_expiry,
-        banned_clients,
-        len(openvpn_client_names),
-        len(wg_awg_client_names),
+        blocked_openvpn_count=len(banned_clients),
+        blocked_wg_awg_count=len(blocked_wg_awg_names),
+        openvpn_count=len(openvpn_client_names),
+        wg_awg_count=len(wg_awg_client_names),
     )
 
     openvpn_grouped = group_config_files_by_client(openvpn_files)
@@ -334,6 +451,7 @@ def build_index_get_context(
         "current_user": idx_user,
         "cert_expiry": cert_expiry,
         "banned_clients": banned_clients,
+        "openvpn_policy_status_by_client": openvpn_policy_status_by_client,
         "wg_policy_status_by_client": wg_policy_status_by_client,
         "url_for": url_for,
     }
@@ -348,7 +466,11 @@ def build_index_get_context(
         "wg_awg_clients_count": kpi["wg_awg_clients_count"],
         "expiring_cert_count": kpi["expiring_count"],
         "expired_cert_count": kpi["expired_count"],
-        "banned_clients_count": kpi["banned_clients_count"],
+        "banned_clients_count": kpi["blocked_total_count"],
+        "blocked_total_count": kpi["blocked_total_count"],
+        "blocked_openvpn_count": kpi["blocked_openvpn_count"],
+        "blocked_wg_awg_count": kpi["blocked_wg_awg_count"],
+        "blocked_entries": blocked_entries,
         "current_openvpn_group": group,
         "current_openvpn_folders": folders,
         "openvpn_client_rows": build_client_table_rows("openvpn", openvpn_grouped, **row_kwargs),

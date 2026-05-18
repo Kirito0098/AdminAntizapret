@@ -14,6 +14,7 @@ from .maintenance_scheduler import MaintenanceSchedulerService
 from .logs_dashboard import LogsDashboardCacheService
 from .network_status_collector import NetworkStatusCollectorService
 from .openvpn_banlist import OpenVPNBanlistService
+from .openvpn_access_policy import OpenVpnAccessPolicyService
 from .openvpn_socket_reader import OpenVPNSocketReaderService
 from .peer_info_cache import PeerInfoCacheService
 from .qr_download_token import QrDownloadTokenService
@@ -43,6 +44,7 @@ __all__ = [
     "LogsDashboardCacheService",
     "NetworkStatusCollectorService",
     "OpenVPNBanlistService",
+    "OpenVpnAccessPolicyService",
     "OpenVPNSocketReaderService",
     "PeerInfoCacheService",
     "QrDownloadTokenService",

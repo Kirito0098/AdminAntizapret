@@ -40,6 +40,10 @@ class IndexRoutesWgAccessTests(unittest.TestCase):
             self.calls.append(("unblock", client_name, actor_username))
             return SimpleNamespace(expires_at=None, block_until=None)
 
+        def wg_set_permanent_block(client_name, actor_username=None):
+            self.calls.append(("permanent_block", client_name, actor_username))
+            return SimpleNamespace(expires_at=None, block_until=None)
+
         def wg_set_expiry_days(client_name, days, actor_username=None, extend=False):
             self.calls.append(("extend", client_name, days, actor_username, extend))
             return SimpleNamespace(expires_at=None, block_until=None)
@@ -53,6 +57,8 @@ class IndexRoutesWgAccessTests(unittest.TestCase):
             file_validator=SimpleNamespace(),
             group_folders={},
             read_banned_clients=lambda: set(),
+            openvpn_build_status_map=lambda names: {},
+            openvpn_reconcile_all_policies=lambda: None,
             extract_client_name_from_config_file=lambda _path: "",
             get_logs_dashboard_data_cached=lambda created_by_username=None: {},
             human_bytes=lambda value: str(value),
@@ -61,9 +67,18 @@ class IndexRoutesWgAccessTests(unittest.TestCase):
             wg_build_status_map=lambda names: {},
             wg_set_expiry_days=wg_set_expiry_days,
             wg_set_temp_block_days=wg_set_temp_block_days,
+            wg_set_permanent_block=wg_set_permanent_block,
             wg_clear_temp_block=wg_clear_temp_block,
             wg_reconcile_client_policy=lambda client_name, apply_runtime=True: {
-                "state": {"is_blocked": client_name == "alice", "reason": "manual_temp"}
+                "state": {
+                    "is_blocked": client_name == "alice",
+                    "reason": "manual_temp",
+                    "access_days_left": 12,
+                    "blocked_days_left": 3,
+                    "block_mode": "temp",
+                    "block_duration_days": 5,
+                    "block_started_at": None,
+                }
             },
             wg_reconcile_all_policies=lambda apply_runtime=True: None,
             log_telegram_audit_event=lambda *args, **kwargs: None,
@@ -84,6 +99,22 @@ class IndexRoutesWgAccessTests(unittest.TestCase):
         payload = response.get_json()
         self.assertTrue(payload["success"])
         self.assertEqual(self.calls[0][0], "temp_block")
+        self.assertIn("block_mode", payload)
+        self.assertIn("access_days_left", payload)
+
+    def test_wg_permanent_block_api_success(self):
+        with self.app.test_client() as client:
+            with client.session_transaction() as session_state:
+                session_state["username"] = "admin"
+            response = client.post(
+                "/api/wg/client-access",
+                data={"client_name": "alice", "action": "permanent_block"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(self.calls[0][0], "permanent_block")
 
     def test_wg_api_rejects_invalid_action(self):
         with self.app.test_client() as client:
