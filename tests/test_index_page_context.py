@@ -259,6 +259,41 @@ class IndexPageContextTests(unittest.TestCase):
         self.assertGreaterEqual(row["wg_days_left"], 8)
         self.assertLessEqual(row["wg_days_left"], 10)
 
+    def test_build_client_table_rows_wireguard_shows_hours_when_less_than_day(self):
+        grouped = {
+            "wg-soon": {"vpn": "/x/vpn-wg-soon-wg.conf"},
+        }
+        admin = SimpleNamespace(role="admin", is_admin=lambda: True)
+        now = datetime.utcnow()
+        expires_in_five_hours = now + timedelta(hours=5, minutes=15)
+
+        rows = build_client_table_rows(
+            "wireguard",
+            grouped,
+            current_user=admin,
+            cert_expiry={},
+            banned_clients=set(),
+            openvpn_policy_status_by_client={},
+            wg_policy_status_by_client={
+                "wg-soon": {
+                    "is_blocked": False,
+                    "reason": None,
+                    "expires_at": expires_in_five_hours,
+                    "block_until": None,
+                    "access_days_left": 0,
+                    "blocked_days_left": None,
+                    "block_mode": "none",
+                    "block_duration_days": None,
+                }
+            },
+            url_for=lambda endpoint, **kwargs: f"/{endpoint}",
+        )
+
+        row = rows[0]
+        self.assertEqual(row["access_days_left"], 0)
+        self.assertIn("ч.", row["access_remaining_text"])
+        self.assertNotIn("сегодня", row["access_remaining_text"])
+
     def test_collect_grouped_service_statuses_without_systemctl(self):
         statuses = collect_grouped_service_statuses()
         self.assertGreater(len(statuses), 0)

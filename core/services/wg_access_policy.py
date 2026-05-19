@@ -1,5 +1,17 @@
 from datetime import datetime, timedelta
 
+EXPIRED_REQUIRES_EXTEND_MESSAGE = (
+    "Клиент отключён по истечении срока действия. Для разблокировки продлите срок WG/AWG."
+)
+EXPIRED_REQUIRES_EXTEND_CODE = "expired_requires_extend"
+
+
+class ExpiredRequiresExtendError(ValueError):
+    error_code = EXPIRED_REQUIRES_EXTEND_CODE
+
+    def __init__(self, message=EXPIRED_REQUIRES_EXTEND_MESSAGE):
+        super().__init__(message)
+
 
 class WgAccessPolicyService:
     def __init__(
@@ -15,6 +27,15 @@ class WgAccessPolicyService:
 
     def _now(self):
         return datetime.utcnow()
+
+    def _is_access_expired(self, row, now=None):
+        if row is None:
+            return False
+        expires_at = row.expires_at
+        if not expires_at:
+            return False
+        now = now or self._now()
+        return expires_at <= now
 
     def normalize_client_name(self, client_name):
         return (client_name or "").strip().lower()
@@ -88,6 +109,9 @@ class WgAccessPolicyService:
         row = self._get_or_create(client_name)
         if row is None:
             raise ValueError("Некорректное имя клиента")
+
+        if self._is_access_expired(row):
+            raise ExpiredRequiresExtendError()
 
         row.is_temp_blocked = False
         row.is_permanent_blocked = False

@@ -3,6 +3,8 @@ import re
 from collections import OrderedDict
 from datetime import datetime
 
+from core.services.access_remaining import format_access_remaining
+
 _CLIENT_NAME_SUFFIX_RE = re.compile(r"-(?:udp|tcp|wg|am)$", re.IGNORECASE)
 _CLIENT_NAME_EXTRA_RE = re.compile(r"-\([^)]+\)$")
 
@@ -31,7 +33,7 @@ _PROTOCOL_TABLE_CONFIG = {
     "amneziawg": {
         "file_type": "amneziawg",
         "delete_option": "5",
-        "protocol_label": "AmneziaWG",
+        "protocol_label": "AWG",
         "supports_qr": True,
         "supports_cert_meta": False,
         "supports_block": True,
@@ -39,7 +41,7 @@ _PROTOCOL_TABLE_CONFIG = {
     "wireguard": {
         "file_type": "wg",
         "delete_option": "5",
-        "protocol_label": "WireGuard",
+        "protocol_label": "WG",
         "supports_qr": True,
         "supports_cert_meta": False,
         "supports_block": True,
@@ -250,6 +252,7 @@ def build_client_table_rows(
 
         if protocol == "openvpn":
             access_expires_at = cert_expires_at
+            access_expires_at_raw = cert_info.get("expires_at") if cert_info else None
             access_days_left = cert_days
             block_mode = ovpn_block_mode
             block_reason = ovpn_block_reason
@@ -258,12 +261,15 @@ def build_client_table_rows(
             block_duration_days = ovpn_block_duration_days
         else:
             access_expires_at = wg_expires_at
+            access_expires_at_raw = wg_expires_at_dt
             access_days_left = wg_days_left
             block_mode = wg_block_mode
             block_reason = wg_block_reason
             blocked_until = wg_block_until
             blocked_days_left = wg_blocked_days_left
             block_duration_days = wg_block_duration_days
+
+        access_remaining_text = format_access_remaining(access_expires_at_raw)
 
         show_cert_meta = is_admin and config["supports_cert_meta"]
         if show_cert_meta:
@@ -286,6 +292,7 @@ def build_client_table_rows(
             "is_blocked": ovpn_is_blocked if protocol == "openvpn" else wg_is_blocked,
             "access_expires_at": access_expires_at,
             "access_days_left": access_days_left,
+            "access_remaining_text": access_remaining_text,
             "blocked_until": blocked_until,
             "blocked_days_left": blocked_days_left,
             "block_mode": block_mode,

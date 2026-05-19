@@ -8,6 +8,7 @@ from core.services.index import (
     collect_grouped_service_statuses,
     resolve_openvpn_group_and_files,
 )
+from core.services.wg_access_policy import EXPIRED_REQUIRES_EXTEND_CODE, ExpiredRequiresExtendError
 from core.services.request_user import get_current_user
 from tg_mini.session import has_telegram_mini_session
 
@@ -308,6 +309,17 @@ def register_index_routes(
                 }
             )
         except ValueError as e:
+            if isinstance(e, ExpiredRequiresExtendError):
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": str(e),
+                            "error_code": EXPIRED_REQUIRES_EXTEND_CODE,
+                        }
+                    ),
+                    409,
+                )
             return jsonify({"success": False, "message": str(e)}), 400
         except Exception as e:
             db.session.rollback()

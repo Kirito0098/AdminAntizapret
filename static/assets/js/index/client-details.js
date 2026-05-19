@@ -366,9 +366,135 @@ function initializeClientDetailsModal() {
         }
         if (!response.ok || !payload || !payload.success) {
             const msg = payload && payload.message ? payload.message : `HTTP error! status: ${response.status}`;
-            throw new Error(msg);
+            const error = new Error(msg);
+            error.errorCode = payload && payload.error_code ? payload.error_code : null;
+            throw error;
         }
         return payload;
+    }
+
+    function isWgAccessExpired(row) {
+        if (!row) {
+            return false;
+        }
+        const blockMode = (row.dataset.blockMode || 'none').toLowerCase();
+        if (blockMode === 'expired') {
+            return true;
+        }
+        if (typeof window.formatAccessRemaining !== 'function') {
+            return false;
+        }
+        return window.formatAccessRemaining(row.dataset.accessExpiresAt || '') === 'срок истёк';
+    }
+
+    async function applyWgAccessPayload(clientName, row, payload) {
+        if (typeof window.applyWgAccessPayloadToClientRows === 'function') {
+            window.applyWgAccessPayloadToClientRows(clientName, payload);
+        } else if (typeof window.applyWgAccessPayloadToRow === 'function') {
+            window.applyWgAccessPayloadToRow(row, payload);
+        } else {
+            row.dataset.blocked = payload.is_blocked ? '1' : '0';
+            syncClientBlockedBadge(row);
+        }
+        renderActions(clientName);
+    }
+
+    async function requestWgExtendDays(clientName, row) {
+        const daysValue = await showActionModal({
+            title: 'Продлить срок WG/AWG',
+            message: `Укажите срок продления для клиента "${clientName}"`,
+            mode: 'numberInput',
+            inputLabel: 'Продлить срок действия на (дни, 1-3650)',
+            inputDefault: '30',
+            inputMin: 1,
+            inputMax: 3650,
+            confirmLabel: 'Продлить',
+            cancelLabel: 'Отмена',
+        });
+        if (daysValue === null) {
+            return null;
+        }
+
+        const payload = await updateWgClientAccess(clientName, 'extend', daysValue);
+        await applyWgAccessPayload(clientName, row, payload);
+        showNotification(payload.message || 'Срок WG/AWG обновлён', 'success');
+        return payload;
+    }
+
+    function showExpiredWgExtendModal(clientName, row) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'quick-action-modal';
+            modal.innerHTML = `
+                <div class="quick-action-backdrop"></div>
+                <div class="quick-action-dialog" role="dialog" aria-modal="true" aria-labelledby="expiredWgTitle">
+                    <button type="button" class="quick-action-close" aria-label="Закрыть">×</button>
+                    <div class="quick-action-header">
+                        <h4 id="expiredWgTitle">Срок действия истёк</h4>
+                        <p class="quick-action-message">Клиент «${clientName}» отключён по истечении срока жизни. Для разблокировки необходимо продлить срок.</p>
+                    </div>
+                    <div class="quick-action-actions">
+                        <button type="button" class="download-button quick-action-cancel">Закрыть</button>
+                        <button type="button" class="btn-primary quick-action-extend">♻ Продлить срок WG/AWG</button>
+                    </div>
+                </div>
+            `;
+
+            const closeButton = modal.querySelector('.quick-action-close');
+            const cancelButton = modal.querySelector('.quick-action-cancel');
+            const extendButton = modal.querySelector('.quick-action-extend');
+            const backdrop = modal.querySelector('.quick-action-backdrop');
+
+            let resolved = false;
+            const cleanup = (value = null) => {
+                if (resolved) {
+                    return;
+                }
+                resolved = true;
+                document.removeEventListener('keydown', onKeyDown);
+                document.body.classList.remove('quick-action-modal-open');
+                modal.remove();
+                resolve(value);
+            };
+
+            const onKeyDown = (event) => {
+                if (event.key === 'Escape') {
+                    cleanup(null);
+                }
+            };
+
+            if (closeButton) {
+                closeButton.addEventListener('click', () => cleanup(null));
+            }
+            if (cancelButton) {
+                cancelButton.addEventListener('click', () => cleanup(null));
+            }
+            if (backdrop) {
+                backdrop.addEventListener('click', () => cleanup(null));
+            }
+            if (extendButton) {
+                extendButton.addEventListener('click', async () => {
+                    extendButton.disabled = true;
+                    try {
+                        await requestWgExtendDays(clientName, row);
+                        cleanup(true);
+                    } catch (error) {
+                        showNotification(error.message || 'Не удалось продлить срок WG/AWG', 'error');
+                        extendButton.disabled = false;
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', onKeyDown);
+            document.body.appendChild(modal);
+            document.body.classList.add('quick-action-modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('is-open');
+                if (extendButton) {
+                    extendButton.focus();
+                }
+            });
+        });
     }
 
     async function updateOpenVpnClientAccess(clientName, action, days = null) {
@@ -1129,29 +1255,31 @@ function initializeClientDetailsModal() {
                 });
             }
 
-            if ((row.dataset.blockMode || '') === 'temp' || (row.dataset.blockMode || '') === 'permanent') {
+            const blockMode = (row.dataset.blockMode || 'none').toLowerCase();
+            if (blockMode === 'temp' || blockMode === 'permanent' || blockMode === 'expired') {
                 addActionButton({
                     label: '🔓 Снять блокировку WG/AWG',
                     groupKey: 'manage',
                     onClick: async (event) => {
                         const button = event.currentTarget;
+                        if (isWgAccessExpired(row)) {
+                            await showExpiredWgExtendModal(clientName, row);
+                            return;
+                        }
+
                         const originalText = button.textContent;
                         button.disabled = true;
                         button.textContent = '...';
                         try {
                             const payload = await updateWgClientAccess(clientName, 'unblock');
-                            if (typeof window.applyWgAccessPayloadToClientRows === 'function') {
-                                window.applyWgAccessPayloadToClientRows(clientName, payload);
-                            } else if (typeof window.applyWgAccessPayloadToRow === 'function') {
-                                window.applyWgAccessPayloadToRow(row, payload);
-                            } else {
-                                row.dataset.blocked = payload.is_blocked ? '1' : '0';
-                                syncClientBlockedBadge(row);
-                            }
-                            renderActions(clientName);
+                            await applyWgAccessPayload(clientName, row, payload);
                             showNotification(payload.message || 'Блокировка снята', 'success');
                         } catch (error) {
-                            showNotification(error.message || 'Не удалось снять блокировку', 'error');
+                            if (error.errorCode === 'expired_requires_extend') {
+                                await showExpiredWgExtendModal(clientName, row);
+                            } else {
+                                showNotification(error.message || 'Не удалось снять блокировку', 'error');
+                            }
                         } finally {
                             button.disabled = false;
                             button.textContent = originalText;
@@ -1165,36 +1293,11 @@ function initializeClientDetailsModal() {
                 groupKey: 'manage',
                 onClick: async (event) => {
                     const button = event.currentTarget;
-                    const daysValue = await showActionModal({
-                        title: 'Продлить срок WG/AWG',
-                        message: `Укажите срок продления для клиента "${clientName}"`,
-                        mode: 'numberInput',
-                        inputLabel: 'Продлить срок действия на (дни, 1-3650)',
-                        inputDefault: '30',
-                        inputMin: 1,
-                        inputMax: 3650,
-                        confirmLabel: 'Продлить',
-                        cancelLabel: 'Отмена',
-                    });
-                    if (daysValue === null) {
-                        return;
-                    }
-
                     const originalText = button.textContent;
                     button.disabled = true;
                     button.textContent = '...';
                     try {
-                        const payload = await updateWgClientAccess(clientName, 'extend', daysValue);
-                        if (typeof window.applyWgAccessPayloadToClientRows === 'function') {
-                            window.applyWgAccessPayloadToClientRows(clientName, payload);
-                        } else if (typeof window.applyWgAccessPayloadToRow === 'function') {
-                            window.applyWgAccessPayloadToRow(row, payload);
-                        } else {
-                            row.dataset.blocked = payload.is_blocked ? '1' : '0';
-                            syncClientBlockedBadge(row);
-                        }
-                        renderActions(clientName);
-                        showNotification(payload.message || 'Срок WG/AWG обновлён', 'success');
+                        await requestWgExtendDays(clientName, row);
                     } catch (error) {
                         showNotification(error.message || 'Не удалось продлить срок WG/AWG', 'error');
                     } finally {

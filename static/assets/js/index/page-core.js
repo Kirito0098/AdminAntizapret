@@ -78,6 +78,55 @@ function parseNullableInt(value) {
     return Number.isNaN(parsed) ? null : parsed;
 }
 
+function parseAccessExpiresAt(value) {
+    const raw = String(value ?? '').trim();
+    if (!raw) {
+        return null;
+    }
+    const normalized = raw.endsWith(' UTC')
+        ? `${raw.slice(0, -4).replace(' ', 'T')}Z`
+        : `${raw.replace(' ', 'T')}Z`;
+    const parsed = Date.parse(normalized);
+    if (Number.isNaN(parsed)) {
+        return null;
+    }
+    return new Date(parsed);
+}
+
+function formatAccessRemaining(accessExpiresAt) {
+    const expiresAt = parseAccessExpiresAt(accessExpiresAt);
+    if (!expiresAt) {
+        return null;
+    }
+
+    const nowMs = Date.now();
+    const totalSeconds = Math.floor((expiresAt.getTime() - nowMs) / 1000);
+    if (totalSeconds <= 0) {
+        return 'срок истёк';
+    }
+
+    const days = Math.floor(totalSeconds / 86400);
+    if (days >= 1) {
+        return `${days} дн.`;
+    }
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    if (hours > 0 && minutes > 0) {
+        return `${hours} ч. ${minutes} мин.`;
+    }
+    if (hours > 0) {
+        return `${hours} ч.`;
+    }
+    if (minutes > 0) {
+        return `${minutes} мин.`;
+    }
+    return 'менее минуты';
+}
+
+window.parseAccessExpiresAt = parseAccessExpiresAt;
+window.formatAccessRemaining = formatAccessRemaining;
+
 function setRowDatasetValue(row, key, value) {
     if (!row || !key) {
         return;
@@ -101,7 +150,6 @@ function syncClientAccessMeta(row) {
 
     const clientName = row.dataset.clientName || '-';
     const accessExpiresAt = row.dataset.accessExpiresAt || '';
-    const accessDaysLeft = parseNullableInt(row.dataset.accessDaysLeft);
     const blockMode = (row.dataset.blockMode || 'none').toLowerCase();
     const blockedUntil = row.dataset.blockedUntil || '';
     const blockedDaysLeft = parseNullableInt(row.dataset.blockedDaysLeft);
@@ -110,15 +158,8 @@ function syncClientAccessMeta(row) {
 
     const lines = [];
     lines.push(`Отключение: ${accessExpiresAt ? accessExpiresAt.split(' ')[0] : 'не ограничено'}`);
-    if (accessDaysLeft === null) {
-        lines.push('Осталось: неизвестно');
-    } else if (accessDaysLeft > 0) {
-        lines.push(`Осталось: ${accessDaysLeft} дн.`);
-    } else if (accessDaysLeft === 0) {
-        lines.push('Осталось: сегодня');
-    } else {
-        lines.push('Осталось: срок истёк');
-    }
+    const accessRemainingText = formatAccessRemaining(accessExpiresAt);
+    lines.push(`Осталось: ${accessRemainingText || 'неизвестно'}`);
 
     if (blockMode === 'temp') {
         if (blockDurationDays !== null) {
@@ -134,7 +175,7 @@ function syncClientAccessMeta(row) {
     } else if (blockMode === 'permanent') {
         lines.push('Блокировка: до ручной разблокировки');
     } else if (blockMode === 'expired') {
-        lines.push('Блокировка: срок действия истёк');
+        lines.push('Блокировка: до ручной разблокировки');
     } else {
         lines.push('Блокировка: нет');
     }

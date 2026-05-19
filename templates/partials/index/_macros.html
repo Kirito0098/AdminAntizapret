@@ -39,15 +39,7 @@
       {% endif %}
 
       <div>
-        {% if row.access_days_left is none %}
-        Осталось: неизвестно
-        {% elif row.access_days_left > 0 %}
-        Осталось: {{ row.access_days_left }} дн.
-        {% elif row.access_days_left == 0 %}
-        Осталось: сегодня
-        {% else %}
-        Осталось: срок истёк
-        {% endif %}
+        Осталось: {{ row.access_remaining_text or 'неизвестно' }}
       </div>
 
       {% if row.block_mode == 'temp' %}
@@ -67,7 +59,7 @@
       {% elif row.block_mode == 'permanent' %}
       <div>Блокировка: до ручной разблокировки</div>
       {% elif row.block_mode == 'expired' %}
-      <div>Блокировка: срок действия истёк</div>
+      <div>Блокировка: до ручной разблокировки</div>
       {% else %}
       <div>Блокировка: нет</div>
       {% endif %}
