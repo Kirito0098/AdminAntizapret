@@ -142,7 +142,19 @@ def mini_event_details_label(
         bot_name = detail_map.get("bot", "-")
         max_age = detail_map.get("max_age", "-")
         token_changed = "да" if detail_map.get("token_updated") == "1" else "нет"
-        return f"Бот: {bot_name}, max age: {max_age}с, токен обновлен: {token_changed}"
+        source_raw = str(detail_map.get("source") or "").strip().lower()
+        source_map = {
+            "mini_app": "Mini App",
+            "miniapp": "Mini App",
+            "web_settings": "Веб-настройки",
+        }
+        source = source_map.get(source_raw, "неизвестно")
+        changed = str(detail_map.get("changed") or "-").replace(",", ", ")
+        status = "успешно" if str(detail_map.get("status") or "") == "success" else "с ошибкой"
+        return (
+            f"Источник: {source}, статус: {status}, бот: {bot_name}, "
+            f"max age: {max_age}с, токен обновлен: {token_changed}, изменено: {changed}"
+        )
 
     if event_key in {"mini_restart_service", "mini_run_doall"}:
         task_id = detail_map.get("task_id")
@@ -176,6 +188,17 @@ def build_telegram_mini_audit_view(rows: list[Any] | None) -> list[dict[str, Any
     for row in rows or []:
         event_type = str(getattr(row, "event_type", "") or "").strip()
         details_raw = str(getattr(row, "details", "") or "").strip()
+        detail_map = parse_mini_details_kv(details_raw)
+        source_kind = str(detail_map.get("source") or "").strip().lower()
+        if source_kind in {"mini_app", "miniapp"}:
+            source_label = "Mini App"
+            source_kind = "miniapp"
+        elif source_kind == "web_settings":
+            source_label = "Веб-настройки"
+            source_kind = "web"
+        else:
+            source_label = "Система"
+            source_kind = "system"
         config_name = str(getattr(row, "config_name", "") or "").strip()
         base_event_label = mini_event_label(event_type)
         event_display = f"{base_event_label}: {config_name}" if config_name else base_event_label
@@ -189,6 +212,8 @@ def build_telegram_mini_audit_view(rows: list[Any] | None) -> list[dict[str, Any
                 "event_display": event_display,
                 "details_raw": details_raw,
                 "details_label": mini_event_details_label(event_type, details_raw, config_name),
+                "source_kind": source_kind,
+                "source_label": source_label,
             }
         )
     return view_rows
@@ -198,10 +223,15 @@ def resolve_user_action_source(event_type: str | None, details: str | None) -> t
     event_key = str(event_type or "").strip().lower()
     detail_map = parse_mini_details_kv(details)
     via = str(detail_map.get("via") or "").strip().lower()
+    source = str(detail_map.get("source") or "").strip().lower()
     channel = str(detail_map.get("channel") or "").strip().lower()
 
     if event_key.startswith("miniapp:") or via in {"tg-mini", "tg_mini", "miniapp", "mini-app"}:
         return "miniapp", "📱 MiniApp"
+    if source in {"mini_app", "miniapp"}:
+        return "miniapp", "📱 MiniApp"
+    if source in {"web_settings", "web", "panel"}:
+        return "web", "🖥 Панель"
 
     if channel in {"qr_one_time", "qr", "one_time"}:
         return "qr", "🔗 QR"
@@ -487,6 +517,34 @@ def user_action_event_display(
     return label
 
 
+def user_action_details_label(event_type: str | None, details: str | None) -> str:
+    event_key = str(event_type or "").strip()
+    details_value = str(details or "").strip()
+    if not details_value:
+        return "-"
+
+    detail_map = parse_mini_details_kv(details_value)
+
+    if event_key == "settings_telegram_auth_update":
+        source_raw = str(detail_map.get("source") or "").strip().lower()
+        source_map = {
+            "mini_app": "Mini App",
+            "miniapp": "Mini App",
+            "web_settings": "Веб-настройки",
+        }
+        source = source_map.get(source_raw, "панель")
+        changed = str(detail_map.get("changed") or "-").replace(",", ", ")
+        status = "успешно" if str(detail_map.get("status") or "") == "success" else "с ошибкой"
+        token_changed = "да" if detail_map.get("token_updated") == "1" else "нет"
+        max_age = detail_map.get("max_age", "-")
+        return (
+            f"Источник: {source}; статус: {status}; max age: {max_age}с; "
+            f"токен обновлен: {token_changed}; изменено: {changed}"
+        )
+
+    return details_value
+
+
 def build_user_action_audit_view(rows: list[Any] | None) -> list[dict[str, Any]]:
     view_rows: list[dict[str, Any]] = []
     for row in rows or []:
@@ -508,6 +566,13 @@ def build_user_action_audit_view(rows: list[Any] | None) -> list[dict[str, Any]]
             "miniapp:telegram_mini_login_unlinked",
         }
         is_security_alert = event_type in _SECURITY_ALERT_EVENTS
+        status = str(getattr(row, "status", "") or "").strip() or "success"
+        if is_security_alert or status in {"error", "failed", "fail"}:
+            severity = "high"
+        elif status in {"warning", "warn"}:
+            severity = "medium"
+        else:
+            severity = "low"
 
         view_rows.append(
             {
@@ -522,13 +587,15 @@ def build_user_action_audit_view(rows: list[Any] | None) -> list[dict[str, Any]]
                     getattr(row, "details", None),
                 ),
                 "target_display": target_display,
-                "status": str(getattr(row, "status", "") or "").strip() or "success",
+                "status": status,
                 "details": str(getattr(row, "details", "") or "").strip() or "-",
+                "details_display": user_action_details_label(event_type, getattr(row, "details", None)),
                 "remote_addr": getattr(row, "remote_addr", None),
                 "is_miniapp": is_miniapp,
                 "source_kind": source_kind,
                 "source_label": source_label,
                 "is_security_alert": is_security_alert,
+                "severity": severity,
             }
         )
     return view_rows

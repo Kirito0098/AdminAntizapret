@@ -1,0 +1,19 @@
+<div id="userActionModal" class="user-action-modal" hidden>
+  <div class="user-action-modal__backdrop" data-user-action-close></div>
+  <div class="user-action-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="userActionModalTitle">
+    <div class="user-action-modal__header">
+      <h3 id="userActionModalTitle" class="user-action-modal__title">Подтвердите действие</h3>
+      <button type="button" class="user-action-modal__close" data-user-action-close aria-label="Закрыть">×</button>
+    </div>
+    <p id="userActionModalText" class="user-action-modal__text">Изменение будет применено сразу после подтверждения.</p>
+    <div class="user-action-modal__actions">
+      <button type="button" class="user-action-modal__btn user-action-modal__btn-cancel" data-user-action-close>
+        Отмена
+      </button>
+      <button type="button" id="userActionModalConfirm"
+        class="user-action-modal__btn user-action-modal__btn-confirm is-danger">
+        Подтвердить
+      </button>
+    </div>
+  </div>
+</div>

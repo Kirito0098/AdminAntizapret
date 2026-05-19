@@ -3896,3 +3896,146 @@
 @media (max-width: 600px) {
   .monitor-settings-grid { grid-template-columns: 1fr; }
 }
+
+/* ===== Telegram + Action logs structured redesign ===== */
+#telegram-auth .telegram-page-lead {
+  margin-top: -0.3rem;
+  margin-bottom: 1rem;
+}
+
+#telegram-auth .telegram-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+#telegram-auth .telegram-kpi {
+  border: 1px solid var(--theme-muted-alpha-14, rgba(255, 255, 255, 0.14));
+  background: var(--theme-muted-alpha-02, rgba(255, 255, 255, 0.02));
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+}
+
+#telegram-auth .telegram-kpi.is-on {
+  border-color: rgba(104, 192, 140, 0.46);
+  box-shadow: inset 3px 0 0 rgba(104, 192, 140, 0.8);
+}
+
+#telegram-auth .telegram-kpi.is-off {
+  border-color: rgba(220, 105, 105, 0.46);
+  box-shadow: inset 3px 0 0 rgba(220, 105, 105, 0.8);
+}
+
+#telegram-auth .telegram-kpi__label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.62));
+}
+
+#telegram-auth .telegram-kpi__value {
+  display: block;
+  margin-top: 0.32rem;
+  font-size: 0.95rem;
+  color: var(--theme-text-primary, #edf5ff);
+  font-weight: 600;
+}
+
+#telegram-auth .telegram-structured-form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+#telegram-auth .telegram-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+#telegram-auth .telegram-form-section {
+  border: 1px solid var(--theme-muted-alpha-12, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--theme-muted-alpha-02, rgba(255, 255, 255, 0.02));
+  padding: 0.85rem;
+}
+
+#telegram-auth .telegram-form-section h4 {
+  margin: 0 0 0.7rem;
+  font-size: 0.9rem;
+  color: var(--theme-text-primary, #edf5ff);
+}
+
+#telegram-auth .telegram-form-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+#telegram-auth .telegram-guide-details {
+  margin-top: 0.75rem;
+}
+
+#telegram-auth .telegram-guide-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--theme-text-main, #fff);
+}
+
+#telegram-auth .telegram-guide-details ol,
+#telegram-auth .telegram-guide-details ul {
+  margin-top: 0.55rem;
+}
+
+#telegram-auth .telegram-audit-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+#telegram-auth .telegram-audit-link {
+  white-space: nowrap;
+}
+
+#telegram-auth .tg-audit-table .log-source-badge {
+  margin-right: 0;
+}
+
+#action-logs .action-logs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+#action-logs .audit-log-filters-structured {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto auto auto;
+  gap: 0.55rem;
+}
+
+#action-logs .action-details {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.58));
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+#action-logs .severity-high .action-text {
+  color: #ffd3cd;
+}
+
+@media (max-width: 980px) {
+  #telegram-auth .telegram-kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #telegram-auth .telegram-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #action-logs .audit-log-filters-structured {
+    grid-template-columns: 1fr;
+  }
+}

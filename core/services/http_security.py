@@ -7,6 +7,7 @@ from typing import Any
 
 NOINDEX_PATH_PREFIXES = (
     "/login",
+    "/tg-mini",
     "/qr_download/",
     "/public_download/",
     "/captcha.png",
@@ -40,6 +41,9 @@ def apply_security_headers(response, path: str) -> None:
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    response.headers.setdefault("X-Permitted-Cross-Domain-Policies", "none")
     response.headers.setdefault(
         "Permissions-Policy",
         "camera=(), microphone=(), geolocation=()",
@@ -60,6 +64,7 @@ Disallow: /download/
 Disallow: /captcha.png
 Disallow: /auth/
 Disallow: /ip-blocked
+Disallow: /tg-mini
 """
 
 

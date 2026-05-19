@@ -32,6 +32,7 @@ def register_settings_page_routes(
     get_active_web_session_settings,
     set_active_web_session_settings,
     get_public_download_enabled,
+    log_telegram_audit_event,
     log_user_action_event,
 ):
     @app.route("/settings", methods=["GET", "POST"])
@@ -57,6 +58,7 @@ def register_settings_page_routes(
                 set_active_web_session_settings=set_active_web_session_settings,
                 enqueue_background_task=enqueue_background_task,
                 task_restart_service=task_restart_service,
+                log_telegram_audit_event=log_telegram_audit_event,
                 log_user_action_event=log_user_action_event,
             )
             return redirect(redirect_target)

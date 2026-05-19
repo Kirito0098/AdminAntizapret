@@ -32,6 +32,24 @@
   #action-logs .audit-log-filters__sources::-webkit-scrollbar { display: none; }
 
   #action-logs .audit-user-select { width: 100%; }
+
+  #telegram-auth .tg-audit-filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  #telegram-auth .tg-audit-filters .audit-log-filters__sources {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 5px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #telegram-auth .tg-audit-filters .audit-user-select {
+    width: 100%;
+  }
 }
 
 /* Table: card layout on phones */
@@ -133,6 +151,10 @@
     margin-bottom: 4px;
     white-space: nowrap;
     line-height: 1.5;
+  }
+  #action-logs .audit-action-row .action-details {
+    margin-top: 4px;
+    font-size: 0.75rem;
   }
 
   /* Hide IP — already shown in session header */

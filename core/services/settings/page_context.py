@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from core.services.audit_view_presenter import (
     build_telegram_mini_audit_view,
     build_user_action_audit_view,
+    build_user_action_day_groups,
     build_user_action_sessions,
 )
 from core.services.panel_publish_info import build_panel_publish_context
@@ -68,6 +69,7 @@ def build_settings_page_context(
     ).limit(300).all()
     user_action_audit_view = build_user_action_audit_view(user_action_logs)
     user_action_sessions = build_user_action_sessions(user_action_logs)
+    user_action_day_groups = build_user_action_day_groups(user_action_logs)
     users = user_model.query.all()
     viewer_users = user_model.query.filter_by(role="viewer").all()
 
@@ -146,6 +148,7 @@ def build_settings_page_context(
         "telegram_mini_audit_logs": telegram_mini_audit_view,
         "user_action_audit_logs": user_action_audit_view,
         "user_action_sessions": user_action_sessions,
+        "user_action_day_groups": user_action_day_groups,
         "monitor_cpu_threshold": monitor_cpu_threshold,
         "monitor_ram_threshold": monitor_ram_threshold,
         "monitor_interval_seconds": monitor_interval_seconds,

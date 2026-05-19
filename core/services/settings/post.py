@@ -54,6 +54,7 @@ def process_settings_post(form, *, session, flash, redirect_url, **deps):
         get_env_value=deps["get_env_value"],
         set_env_value=deps["set_env_value"],
         log_user_action_event=deps["log_user_action_event"],
+        log_telegram_audit_event=deps["log_telegram_audit_event"],
     )
     handle_security_settings(
         form,

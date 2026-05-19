@@ -132,8 +132,9 @@ document.addEventListener('keydown', (event) => {
   const emptyState    = document.getElementById("auditEmptyFilter");
   const alertToggle   = document.getElementById("auditAlertToggle");
 
-  const allRows   = Array.from(table.querySelectorAll("tr.audit-action-row"));
+  const allRows = Array.from(table.querySelectorAll("tr.audit-action-row"));
   const allBodies = Array.from(table.querySelectorAll("tbody.audit-session-tbody"));
+  const allDayBodies = Array.from(table.querySelectorAll("tbody.audit-day-hdr-tbody"));
   const total     = allRows.length;
 
   // ── Populate user dropdown ──
@@ -160,10 +161,17 @@ document.addEventListener('keydown', (event) => {
   const collapsedSessions = new Set();
   const collapsedDays     = new Set();
 
-  // All sessions collapsed on load
+  // All sessions collapsed on load.
   allBodies.forEach(tb => {
     collapsedSessions.add(tb.dataset.sessionId);
     tb.classList.add("is-collapsed");
+  });
+  // Collapse all days except the first visible one.
+  allDayBodies.forEach((db, index) => {
+    if (index > 0) {
+      collapsedDays.add(db.dataset.dayId);
+      db.classList.add("is-collapsed");
+    }
   });
 
   // ── Filter state ──
@@ -173,61 +181,6 @@ document.addEventListener('keydown', (event) => {
   function getSearch() {
     return (searchEl?.value || "").trim().toLowerCase();
   }
-
-  // ── Build day groups using CLIENT local timezone ──────────────────────────
-  // Done once at init. Reads data-session-end (UTC ISO) and converts to
-  // local date — so the same local calendar day is always one group,
-  // even if UTC midnight falls mid-session.
-  let allDayBodies = [];
-
-  function buildDayGroups() {
-    const pad = n => String(n).padStart(2, "0");
-
-    // Tag each session tbody with its local date (from session_end UTC)
-    allBodies.forEach(tb => {
-      const el     = tb.querySelector(".audit-session-timerange[data-session-end]");
-      const endIso = el?.dataset.sessionEnd;
-      if (!endIso) { tb.dataset.dayId = ""; return; }
-      const d = new Date(endIso + "Z");
-      tb.dataset.dayId = isNaN(d)
-        ? ""
-        : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    });
-
-    // Insert a day-header <tbody> before the first session of each local date
-    const seenDays = new Set();
-    allBodies.forEach(tb => {
-      const dayId = tb.dataset.dayId;
-      if (!dayId || seenDays.has(dayId)) return;
-      seenDays.add(dayId);
-
-      const daySessions  = allBodies.filter(t => t.dataset.dayId === dayId);
-      const sessionCount = daySessions.length;
-      const alertCount   = daySessions.reduce((s, t) => s + (parseInt(t.dataset.alertCount) || 0), 0);
-      const plural = sessionCount === 1 ? "сессия" : sessionCount <= 4 ? "сессии" : "сессий";
-      const alertBadge = alertCount > 0
-        ? `<span class="audit-alert-badge audit-day-alert-badge" title="Подозрительные события в этот день">⚠ ${alertCount}</span>`
-        : "";
-
-      const dayTbody = document.createElement("tbody");
-      dayTbody.className = "audit-day-hdr-tbody";
-      dayTbody.dataset.dayId = dayId;
-      dayTbody.innerHTML =
-        `<tr class="audit-day-hdr"><td colspan="5" class="audit-day-hdr-cell">` +
-        `<div class="audit-day-hdr-inner">` +
-        `<span class="audit-day-chevron" aria-hidden="true"></span>` +
-        `<span class="audit-day-date">${dayId}</span>` +
-        `<span class="audit-day-sep">·</span>` +
-        `<span class="audit-day-count">${sessionCount} ${plural}</span>` +
-        alertBadge +
-        `</div></td></tr>`;
-
-      tb.parentNode.insertBefore(dayTbody, tb);
-      allDayBodies.push(dayTbody);
-    });
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
 
   function applyFilters() {
     const q    = getSearch();
@@ -294,6 +247,16 @@ document.addEventListener('keydown', (event) => {
       alertToggle.classList.remove("audit-pill--active");
     }
     applyFilters();
+  }
+
+  function applyInitialFilterFromQuery() {
+    const params = new URLSearchParams(window.location.search || "");
+    const src = (params.get("action_src") || "").trim().toLowerCase();
+    if (!src) return;
+    activeSrc = src;
+    sourcePills?.querySelectorAll(".audit-pill").forEach((pill) => {
+      pill.classList.toggle("audit-pill--active", (pill.dataset.src || "") === src);
+    });
   }
 
   // ── Click handler: day header + session header ──
@@ -398,8 +361,91 @@ document.addEventListener('keydown', (event) => {
     if (header) header.textContent = "Время (местное)";
   })();
 
-  // Build day groups from local dates, collapse all days, then run initial filter pass
-  buildDayGroups();
-  allDayBodies.forEach(db => collapsedDays.add(db.dataset.dayId));
+  applyInitialFilterFromQuery();
+  applyFilters();
+})();
+
+// ── Telegram audit filter table ─────────────────────────────────────────────
+(function () {
+  const table = document.getElementById("tgAuditTable");
+  if (!table) return;
+
+  const rows = Array.from(table.querySelectorAll(".tg-audit-row"));
+  const searchEl = document.getElementById("tgAuditSearch");
+  const sourcePills = document.getElementById("tgAuditSourcePills");
+  const userSelect = document.getElementById("tgAuditUserFilter");
+  const countBadge = document.getElementById("tgAuditCount");
+  const clearBtn = document.getElementById("tgAuditClearBtn");
+  const emptyState = document.getElementById("tgAuditEmpty");
+  const total = rows.length;
+  let activeSrc = "";
+
+  const users = [...new Set(rows.map((row) => row.dataset.user).filter(Boolean))].sort();
+  users.forEach((user) => {
+    const option = document.createElement("option");
+    option.value = user;
+    option.textContent = user;
+    userSelect?.appendChild(option);
+  });
+
+  const getSearch = () => (searchEl?.value || "").trim().toLowerCase();
+
+  function applyFilters() {
+    const q = getSearch();
+    const user = userSelect?.value || "";
+    let visible = 0;
+
+    rows.forEach((row) => {
+      const match =
+        (!activeSrc || row.dataset.src === activeSrc) &&
+        (!user || row.dataset.user === user) &&
+        (!q || (row.dataset.text || "").includes(q));
+      row.hidden = !match;
+      if (match) visible += 1;
+    });
+
+    const isFiltered = !!(q || activeSrc || user);
+    if (countBadge) {
+      countBadge.innerHTML = isFiltered ? `<strong>${visible}</strong> из ${total}` : `${total} записей`;
+    }
+    if (emptyState) emptyState.hidden = visible !== 0;
+    table.style.display = visible === 0 ? "none" : "";
+  }
+
+  function clearFilters() {
+    if (searchEl) searchEl.value = "";
+    if (userSelect) userSelect.value = "";
+    activeSrc = "";
+    sourcePills?.querySelectorAll(".audit-pill").forEach((pill, index) => {
+      pill.classList.toggle("audit-pill--active", index === 0);
+    });
+    applyFilters();
+  }
+
+  function convertTimesToLocal() {
+    const pad = (n) => String(n).padStart(2, "0");
+    table.querySelectorAll(".tg-audit-time[data-utc]").forEach((cell) => {
+      const iso = cell.dataset.utc;
+      if (!iso) return;
+      const date = new Date(iso.includes("T") ? `${iso}Z` : iso);
+      if (isNaN(date)) return;
+      cell.textContent = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    });
+  }
+
+  searchEl?.addEventListener("input", applyFilters);
+  userSelect?.addEventListener("change", applyFilters);
+  clearBtn?.addEventListener("click", clearFilters);
+  sourcePills?.addEventListener("click", (event) => {
+    const pill = event.target.closest(".audit-pill");
+    if (!pill) return;
+    activeSrc = pill.dataset.src || "";
+    sourcePills.querySelectorAll(".audit-pill").forEach((item) => {
+      item.classList.toggle("audit-pill--active", item === pill);
+    });
+    applyFilters();
+  });
+
+  convertTimesToLocal();
   applyFilters();
 })();

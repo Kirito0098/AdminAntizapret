@@ -31,6 +31,7 @@ def register_settings_routes(app, **deps):
         get_active_web_session_settings=deps["get_active_web_session_settings"],
         set_active_web_session_settings=deps["set_active_web_session_settings"],
         get_public_download_enabled=deps["get_public_download_enabled"],
+        log_telegram_audit_event=deps["log_telegram_audit_event"],
         log_user_action_event=deps["log_user_action_event"],
     )
     register_settings_api_routes(

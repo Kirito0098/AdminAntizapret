@@ -1,6 +1,5 @@
-from flask import make_response, redirect, session, url_for
+from flask import make_response, redirect, render_template, session, url_for
 
-from tg_mini.blueprint import bp
 from tg_mini.session import enforce_telegram_mini_session
 
 
@@ -13,7 +12,6 @@ def register_tg_mini_page_routes(app, *, auth_manager):
         )
 
     @app.route("/tg-mini", methods=["GET"], endpoint="tg_mini_app")
-    @auth_manager.login_required
     def tg_mini_app():
         denied = _enforce_page_session()
         if denied is not None:
@@ -24,7 +22,7 @@ def register_tg_mini_page_routes(app, *, auth_manager):
             return redirect(url_for("tg_mini_open"))
 
         response = make_response(
-            bp.render_template(
+            render_template(
                 "app.html",
                 panel_username=str(session.get("username") or "").strip(),
                 telegram_mini_id=str(session.get("telegram_mini_id") or "").strip(),
@@ -38,7 +36,7 @@ def register_tg_mini_page_routes(app, *, auth_manager):
 
     @app.route("/tg-mini/open", methods=["GET"], endpoint="tg_mini_open")
     def tg_mini_open():
-        response = make_response(bp.render_template("open.html"))
+        response = make_response(render_template("open.html"))
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         return response

@@ -1,12 +1,37 @@
-    <div id="telegram-auth" class="content-tab">
-      <h2>Telegram авторизация</h2>
+<div id="telegram-auth" class="content-tab">
+  <h2>Telegram авторизация</h2>
+  <p class="help-text telegram-page-lead">
+    Управляйте входом через Telegram и контролируйте журнал событий в одном месте.
+  </p>
 
-      <div class="card settings-inline-card-mb">
-        <h3>Вход в панель через Telegram</h3>
-        <form method="POST" class="settings-form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-          <input type="hidden" name="telegram_auth_action" value="save" />
+  <div class="telegram-kpi-strip settings-inline-card-mb">
+    <div class="telegram-kpi {% if telegram_auth_enabled %}is-on{% else %}is-off{% endif %}">
+      <span class="telegram-kpi__label">Статус входа</span>
+      <span class="telegram-kpi__value">{% if telegram_auth_enabled %}Включен{% else %}Выключен{% endif %}</span>
+    </div>
+    <div class="telegram-kpi">
+      <span class="telegram-kpi__label">Бот</span>
+      <span class="telegram-kpi__value">@{{ telegram_auth_bot_username or "—" }}</span>
+    </div>
+    <div class="telegram-kpi">
+      <span class="telegram-kpi__label">Токен</span>
+      <span class="telegram-kpi__value">{% if telegram_auth_bot_token_set %}Установлен{% else %}Не задан{% endif %}</span>
+    </div>
+    <div class="telegram-kpi">
+      <span class="telegram-kpi__label">Событий в журнале</span>
+      <span class="telegram-kpi__value">{{ telegram_mini_audit_logs|length }}</span>
+    </div>
+  </div>
 
+  <div class="card settings-inline-card-mb">
+    <h3>Настройки входа через Telegram</h3>
+    <form method="POST" class="settings-form telegram-structured-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="telegram_auth_action" value="save" />
+
+      <div class="telegram-form-grid">
+        <section class="telegram-form-section">
+          <h4>Данные бота</h4>
           <div class="form-group">
             <label for="telegram_auth_bot_username">Username бота Telegram</label>
             <input type="text" id="telegram_auth_bot_username" name="telegram_auth_bot_username"
@@ -17,16 +42,19 @@
           <div class="form-group">
             <label for="telegram_auth_bot_token">Токен бота Telegram</label>
             <input type="password" id="telegram_auth_bot_token" name="telegram_auth_bot_token"
-              placeholder="Оставьте пустым, чтобы выключить Telegram логин" autocomplete="off" />
+              placeholder="Введите новый токен (не отображается в логах)" autocomplete="off" />
             <small class="help-text">
               Текущий статус токена:
               <strong>{% if telegram_auth_bot_token_set %}установлен{% else %}не установлен{% endif %}</strong>.
             </small>
           </div>
+        </section>
 
+        <section class="telegram-form-section">
+          <h4>Политика сессии</h4>
           <div class="form-group settings-range-control">
             <div class="settings-range-control__head">
-              <label for="telegram_auth_max_age_seconds">Макс. возраст Telegram авторизации (секунд)</label>
+              <label for="telegram_auth_max_age_seconds">Макс. возраст Telegram авторизации</label>
               <output class="settings-range-control__value" data-slider-value-for="telegram_auth_max_age_seconds">
                 {{ telegram_auth_max_age_seconds }} сек
               </output>
@@ -42,91 +70,134 @@
             <small class="help-text">Рекомендуемое значение: 300 секунд.</small>
           </div>
 
-          <div class="info-box settings-inline-info-mb">
+          <div class="info-box">
             <p class="settings-inline-m0">
-              Статус Telegram логина:
-              <strong>{% if telegram_auth_enabled %}включен{% else %}выключен{% endif %}</strong>.
-            </p>
-            <p class="help-text settings-inline-help-gap">
-              Для входа через Telegram у пользователя должен быть заполнен его персональный TG ID в разделе
-              «Пользователи и доступ».
+              Для входа через Telegram у пользователя должен быть заполнен персональный TG ID
+              в разделе «Пользователи и доступ».
             </p>
           </div>
-
-          <button type="submit" class="button save-button">Сохранить Telegram авторизацию</button>
-        </form>
+        </section>
       </div>
 
-      <div class="card settings-inline-card-mb">
-        <h3>Ссылка на Mini App</h3>
-        <p class="help-text miniapp-link-lead">Эту ссылку можно отправить в Telegram и открыть как web-приложение.</p>
-        <div class="miniapp-link-panel info-box">
-          <div class="form-group miniapp-link-group">
-            <label for="tg-mini-link-input">Ссылка запуска</label>
-            <div class="miniapp-link-row">
-              <input type="text" id="tg-mini-link-input" class="miniapp-link-input"
-                value="{{ url_for('tg_mini_open', _external=True) }}" readonly />
-              <button type="button" id="copy-tg-mini-link-btn" class="button save-button miniapp-link-copy-btn">
-                Скопировать
-              </button>
-            </div>
-          </div>
-          <div class="miniapp-link-actions">
-            <span class="miniapp-link-hint">Можно закрепить эту ссылку в меню бота через BotFather.</span>
-          </div>
-        </div>
-        <p id="copy-tg-mini-link-status" class="help-text miniapp-link-status" aria-live="polite"></p>
+      <div class="telegram-form-actions">
+        <button type="submit" class="button save-button">Сохранить Telegram авторизацию</button>
+      </div>
+    </form>
+  </div>
 
-        <div class="info-box miniapp-link-guide">
-          <h4>Как добавить через BotFather</h4>
-          <ol>
-            <li>Откройте @BotFather в Telegram и выберите вашего бота.</li>
-            <li>Откройте Bot Settings -> Menu Button (или используйте команду /setmenubutton).</li>
-            <li>Выберите бота, вставьте ссылку запуска Mini App из поля выше и сохраните.</li>
-            <li>Откройте чат с ботом и проверьте кнопку Menu/Launch.</li>
-          </ol>
-        </div>
-
-        <div class="info-box miniapp-link-warning">
-          <h4>Важно для Telegram Mini App</h4>
-          <p>Mini App будет работать только при одном из вариантов:</p>
-          <ul>
-            <li>Свой домен + HTTPS-сертификат Let's Encrypt.</li>
-            <li>Nginx reverse proxy + HTTPS-сертификат Let's Encrypt.</li>
-          </ul>
+  <div class="card settings-inline-card-mb">
+    <h3>Ссылка на Mini App</h3>
+    <p class="help-text miniapp-link-lead">Ссылку можно отправить в Telegram и открыть как web-приложение.</p>
+    <div class="miniapp-link-panel info-box">
+      <div class="form-group miniapp-link-group">
+        <label for="tg-mini-link-input">Ссылка запуска</label>
+        <div class="miniapp-link-row">
+          <input type="text" id="tg-mini-link-input" class="miniapp-link-input"
+            value="{{ url_for('tg_mini_open', _external=True) }}" readonly />
+          <button type="button" id="copy-tg-mini-link-btn" class="button save-button miniapp-link-copy-btn">
+            Скопировать
+          </button>
         </div>
       </div>
-
-      <div class="card settings-inline-card-mb">
-        <h3>Журнал Telegram Mini App</h3>
-        <p class="help-text">Последние действия пользователей в Mini App: авторизация, запрос/создание конфигов и
-          изменения настроек.</p>
-        {% if telegram_mini_audit_logs %}
-        <div class="users-list qr-links-log-list">
-          <table class="qr-links-log-table">
-            <thead>
-              <tr>
-                <th class="settings-inline-table-head">Время (UTC)</th>
-                <th class="settings-inline-table-head">Пользователь</th>
-                <th class="settings-inline-table-head">TG ID</th>
-                <th class="settings-inline-table-head">Событие</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in telegram_mini_audit_logs %}
-              <tr>
-                <td class="settings-inline-table-cell-nowrap">{{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                <td class="settings-inline-table-cell">{{ row.actor_username or 'неизвестно' }}</td>
-                <td class="settings-inline-table-cell">{{ row.telegram_id or '-' }}</td>
-                <td class="settings-inline-table-cell" title="{{ row.event_type }}">{{ row.event_display }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <p class="no-data">Событий пока нет</p>
-        {% endif %}
+      <div class="miniapp-link-actions">
+        <span class="miniapp-link-hint">Можно закрепить ссылку в меню бота через BotFather.</span>
       </div>
     </div>
+    <p id="copy-tg-mini-link-status" class="help-text miniapp-link-status" aria-live="polite"></p>
+
+    <details class="telegram-guide-details info-box miniapp-link-guide">
+      <summary>Как добавить ссылку через BotFather</summary>
+      <ol>
+        <li>Откройте @BotFather в Telegram и выберите вашего бота.</li>
+        <li>Откройте Bot Settings -> Menu Button (или используйте /setmenubutton).</li>
+        <li>Вставьте ссылку запуска Mini App из поля выше и сохраните.</li>
+        <li>Проверьте кнопку Menu/Launch в чате с ботом.</li>
+      </ol>
+    </details>
+
+    <details class="telegram-guide-details info-box miniapp-link-warning">
+      <summary>Требования для Telegram Mini App</summary>
+      <ul>
+        <li>Свой домен + HTTPS-сертификат Let's Encrypt.</li>
+        <li>Или Nginx reverse proxy + HTTPS-сертификат Let's Encrypt.</li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="card settings-inline-card-mb">
+    <div class="telegram-audit-head">
+      <div>
+        <h3>Журнал Telegram событий</h3>
+        <p class="help-text">Показывает действия из Mini App и Telegram-настроек.</p>
+      </div>
+      <a class="button secondary-button telegram-audit-link"
+        href="{{ url_for('settings', action_src='miniapp') }}#action-logs">Открыть полный журнал действий</a>
+    </div>
+
+    {% if telegram_mini_audit_logs %}
+    <div class="audit-log-filters tg-audit-filters" id="tgAuditFilters">
+      <div class="audit-log-filters__search">
+        <svg class="audit-search-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.4" />
+          <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+        </svg>
+        <input type="search" id="tgAuditSearch" class="audit-search-input"
+          placeholder="Поиск по событию, пользователю, TG ID..." autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="audit-log-filters__sources" id="tgAuditSourcePills">
+        <button class="audit-pill audit-pill--active" data-src="">Все</button>
+        <button class="audit-pill" data-src="miniapp">Mini App</button>
+        <button class="audit-pill" data-src="web">Веб-настройки</button>
+        <button class="audit-pill" data-src="system">Система</button>
+      </div>
+      <div class="audit-log-filters__user">
+        <select id="tgAuditUserFilter" class="audit-user-select">
+          <option value="">Все пользователи</option>
+        </select>
+      </div>
+      <div class="audit-log-filters__meta">
+        <span class="audit-count-badge" id="tgAuditCount"></span>
+        <button class="audit-clear-btn" id="tgAuditClearBtn" title="Сбросить фильтры">✕ Сбросить</button>
+      </div>
+    </div>
+
+    <div class="users-list qr-links-log-list">
+      <table class="qr-links-log-table tg-audit-table" id="tgAuditTable">
+        <thead>
+          <tr>
+            <th class="settings-inline-table-head">Время (местное)</th>
+            <th class="settings-inline-table-head">Пользователь</th>
+            <th class="settings-inline-table-head">Источник</th>
+            <th class="settings-inline-table-head">Событие</th>
+            <th class="settings-inline-table-head">Детали</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in telegram_mini_audit_logs %}
+          <tr class="tg-audit-row"
+            data-src="{{ row.source_kind }}"
+            data-user="{{ row.actor_username or 'system/anonymous' }}"
+            data-text="{{ ((row.actor_username or 'system/anonymous') ~ ' ' ~ (row.telegram_id or '-') ~ ' ' ~ row.event_display ~ ' ' ~ row.details_label) | lower }}">
+            <td class="settings-inline-table-cell-nowrap tg-audit-time" data-utc="{{ row.created_at.isoformat() }}">
+              {{ row.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+            </td>
+            <td class="settings-inline-table-cell">{{ row.actor_username or 'system/anonymous' }}</td>
+            <td class="settings-inline-table-cell">
+              <span class="log-source-badge log-source-badge-{{ row.source_kind }}">{{ row.source_label }}</span>
+            </td>
+            <td class="settings-inline-table-cell" title="{{ row.event_type }}">{{ row.event_display }}</td>
+            <td class="settings-inline-table-cell">{{ row.details_label }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="audit-log-empty-filter" id="tgAuditEmpty" hidden>
+      <p>Нет Telegram-событий по текущим фильтрам</p>
+    </div>
+    {% else %}
+    <p class="no-data">Событий пока нет</p>
+    {% endif %}
+  </div>
+</div>
 
