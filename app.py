@@ -111,6 +111,11 @@ from core.services.http_security import (
 # Абсолютный путь к корню приложения и .env (не зависит от рабочего каталога процесса).
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE_PATH = os.path.join(APP_ROOT, ".env")
+_SKIP_APP_BOOTSTRAP = os.getenv("ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 # Загрузка переменных окружения из .env файла
 load_dotenv(dotenv_path=ENV_FILE_PATH)
@@ -844,33 +849,34 @@ def _cleanup_status_logs_now():
     return maintenance_scheduler_service.cleanup_status_logs_now()
 
 
-try:
-    _sync_ok, _sync_msg = _ensure_traffic_sync_cron()
-    if not _sync_ok:
-        app.logger.warning(_sync_msg)
-except (RuntimeError, OSError, ValueError) as e:
-    app.logger.warning(f"Не удалось инициализировать cron sync трафика: {e}")
+if not _SKIP_APP_BOOTSTRAP:
+    try:
+        _sync_ok, _sync_msg = _ensure_traffic_sync_cron()
+        if not _sync_ok:
+            app.logger.warning(_sync_msg)
+    except (RuntimeError, OSError, ValueError) as e:
+        app.logger.warning(f"Не удалось инициализировать cron sync трафика: {e}")
 
-try:
-    _wg_policy_ok, _wg_policy_msg = _ensure_wg_policy_sync_cron()
-    if not _wg_policy_ok:
-        app.logger.warning(_wg_policy_msg)
-except (RuntimeError, OSError, ValueError) as e:
-    app.logger.warning(f"Не удалось инициализировать cron sync WG/AWG политик: {e}")
+    try:
+        _wg_policy_ok, _wg_policy_msg = _ensure_wg_policy_sync_cron()
+        if not _wg_policy_ok:
+            app.logger.warning(_wg_policy_msg)
+    except (RuntimeError, OSError, ValueError) as e:
+        app.logger.warning(f"Не удалось инициализировать cron sync WG/AWG политик: {e}")
 
-try:
-    _idle_restart_ok, _idle_restart_msg = _ensure_nightly_idle_restart_cron()
-    if not _idle_restart_ok:
-        app.logger.warning(_idle_restart_msg)
-except (RuntimeError, OSError, ValueError) as e:
-    app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
+    try:
+        _idle_restart_ok, _idle_restart_msg = _ensure_nightly_idle_restart_cron()
+        if not _idle_restart_ok:
+            app.logger.warning(_idle_restart_msg)
+    except (RuntimeError, OSError, ValueError) as e:
+        app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
 
-try:
-    _backup_cleanup_ok, _backup_cleanup_msg = _ensure_runtime_backup_cleanup_cron()
-    if not _backup_cleanup_ok:
-        app.logger.warning(_backup_cleanup_msg)
-except (RuntimeError, OSError, ValueError) as e:
-    app.logger.warning(f"Не удалось инициализировать cron очистки runtime_backups: {e}")
+    try:
+        _backup_cleanup_ok, _backup_cleanup_msg = _ensure_runtime_backup_cleanup_cron()
+        if not _backup_cleanup_ok:
+            app.logger.warning(_backup_cleanup_msg)
+    except (RuntimeError, OSError, ValueError) as e:
+        app.logger.warning(f"Не удалось инициализировать cron очистки runtime_backups: {e}")
 
 def _normalize_traffic_protocol_scope(protocol_scope):
     return traffic_maintenance_service.normalize_traffic_protocol_scope(protocol_scope)
@@ -1169,27 +1175,28 @@ def _wg_reconcile_all_policies(apply_runtime=True):
     return wg_access_policy_service.reconcile_all(apply_runtime=apply_runtime)
 
 
-try:
-    with app.app_context():
-        _openvpn_reconcile_all_policies()
-except Exception as e:
+if not _SKIP_APP_BOOTSTRAP:
     try:
         with app.app_context():
-            db.session.rollback()
-    except Exception:
-        pass
-    app.logger.warning(f"Не удалось применить OpenVPN политики при запуске: {e}")
+            _openvpn_reconcile_all_policies()
+    except Exception as e:
+        try:
+            with app.app_context():
+                db.session.rollback()
+        except Exception:
+            pass
+        app.logger.warning(f"Не удалось применить OpenVPN политики при запуске: {e}")
 
-try:
-    with app.app_context():
-        _wg_reconcile_all_policies(apply_runtime=True)
-except Exception as e:
     try:
         with app.app_context():
-            db.session.rollback()
-    except Exception:
-        pass
-    app.logger.warning(f"Не удалось применить WG/AWG политики при запуске: {e}")
+            _wg_reconcile_all_policies(apply_runtime=True)
+    except Exception as e:
+        try:
+            with app.app_context():
+                db.session.rollback()
+        except Exception:
+            pass
+        app.logger.warning(f"Не удалось применить WG/AWG политики при запуске: {e}")
 
 
 def _is_wireguard_peer_active(latest_handshake_ts):

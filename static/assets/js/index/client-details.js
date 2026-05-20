@@ -373,6 +373,30 @@ function initializeClientDetailsModal() {
         return payload;
     }
 
+    function notifyWgAccessResult(payload, defaultSuccessMessage) {
+        const runtimeErrorCount = Number(payload.runtime_error_count || 0);
+        if (runtimeErrorCount > 0) {
+            const detail = Array.isArray(payload.runtime_errors)
+                ? payload.runtime_errors
+                    .map((entry) => {
+                        if (!entry || !entry.interface) {
+                            return '';
+                        }
+                        const stderr = (entry.stderr || '').trim();
+                        return stderr ? `${entry.interface}: ${stderr}` : entry.interface;
+                    })
+                    .filter(Boolean)
+                    .join('; ')
+                : '';
+            const warningMessage = detail
+                ? `${payload.message || defaultSuccessMessage}. WireGuard не перезагружен (${detail})`
+                : `${payload.message || defaultSuccessMessage}. WireGuard не перезагружен — проверьте wg-quick@antizapret и wg-quick@vpn`;
+            showNotification(warningMessage, 'warning');
+            return;
+        }
+        showNotification(payload.message || defaultSuccessMessage, 'success');
+    }
+
     function isWgAccessExpired(row) {
         if (!row) {
             return false;
@@ -417,7 +441,7 @@ function initializeClientDetailsModal() {
 
         const payload = await updateWgClientAccess(clientName, 'extend', daysValue);
         await applyWgAccessPayload(clientName, row, payload);
-        showNotification(payload.message || 'Срок WG/AWG обновлён', 'success');
+        notifyWgAccessResult(payload, 'Срок WG/AWG обновлён');
         return payload;
     }
 
@@ -1273,7 +1297,7 @@ function initializeClientDetailsModal() {
                         try {
                             const payload = await updateWgClientAccess(clientName, 'unblock');
                             await applyWgAccessPayload(clientName, row, payload);
-                            showNotification(payload.message || 'Блокировка снята', 'success');
+                            notifyWgAccessResult(payload, 'Блокировка снята');
                         } catch (error) {
                             if (error.errorCode === 'expired_requires_extend') {
                                 await showExpiredWgExtendModal(clientName, row);

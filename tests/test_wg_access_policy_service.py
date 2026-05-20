@@ -31,6 +31,7 @@ class WgAccessPolicyServiceTests(unittest.TestCase):
             db=db,
             policy_model=WgAccessPolicy,
             runtime_enforcer=None,
+            use_subprocess_runtime=False,
         )
 
     def tearDown(self):

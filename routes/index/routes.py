@@ -10,6 +10,7 @@ from core.services.index import (
 )
 from core.services.wg_access_policy import EXPIRED_REQUIRES_EXTEND_CODE, ExpiredRequiresExtendError
 from core.services.request_user import get_current_user
+from utils.wg_runtime_subprocess import trigger_wg_policy_sync_background
 from tg_mini.session import has_telegram_mini_session
 
 
@@ -88,7 +89,8 @@ def register_index_routes(
                 db.session.rollback()
                 app.logger.warning("Не удалось синхронизировать OpenVPN политики при загрузке index: %s", e)
             try:
-                wg_reconcile_all_policies(apply_runtime=True)
+                wg_reconcile_all_policies(apply_runtime=False)
+                trigger_wg_policy_sync_background()
             except Exception as e:
                 db.session.rollback()
                 app.logger.warning("Не удалось синхронизировать WG/AWG политики при загрузке index: %s", e)
@@ -288,6 +290,7 @@ def register_index_routes(
 
             reconcile_result = wg_reconcile_client_policy(client_name, apply_runtime=True) or {}
             state = (reconcile_result.get("state") or {})
+            runtime_result = reconcile_result.get("runtime_result") or {}
             return jsonify(
                 {
                     "success": True,
@@ -306,6 +309,9 @@ def register_index_routes(
                         if state.get("block_started_at")
                         else None
                     ),
+                    "runtime_synced_count": int(runtime_result.get("synced_count") or 0),
+                    "runtime_error_count": int(runtime_result.get("error_count") or 0),
+                    "runtime_errors": runtime_result.get("errors") or [],
                 }
             )
         except ValueError as e:

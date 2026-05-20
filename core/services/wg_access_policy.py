@@ -20,10 +20,47 @@ class WgAccessPolicyService:
         db,
         policy_model,
         runtime_enforcer=None,
+        use_subprocess_runtime=True,
+        runtime_subprocess_timeout_seconds=60,
     ):
         self.db = db
         self.policy_model = policy_model
         self.runtime_enforcer = runtime_enforcer
+        self.use_subprocess_runtime = bool(use_subprocess_runtime)
+        self.runtime_subprocess_timeout_seconds = max(10, int(runtime_subprocess_timeout_seconds or 60))
+
+    def _apply_client_runtime(self, client_name, *, is_blocked):
+        if self.use_subprocess_runtime:
+            from utils.wg_runtime_subprocess import apply_wg_client_runtime
+
+            return apply_wg_client_runtime(
+                client_name,
+                is_blocked=is_blocked,
+                timeout_seconds=self.runtime_subprocess_timeout_seconds,
+            )
+        if self.runtime_enforcer is None:
+            return None
+        normalized = self.normalize_client_name(client_name)
+        if is_blocked:
+            return self.runtime_enforcer.block_client_runtime(normalized)
+        return self.runtime_enforcer.unblock_client_runtime(normalized)
+
+    def _reapply_all_blocked_runtime(self):
+        if not (self.use_subprocess_runtime or self.runtime_enforcer is not None):
+            return []
+        now = self._now()
+        results = []
+        for row in self.policy_model.query.all():
+            state = self._resolve_effective_state(row, now=now)
+            if not state["is_blocked"]:
+                continue
+            results.append(
+                {
+                    "client_name": row.client_name,
+                    "result": self._apply_client_runtime(row.client_name, is_blocked=True),
+                }
+            )
+        return results
 
     def _now(self):
         return datetime.utcnow()
@@ -198,13 +235,19 @@ class WgAccessPolicyService:
             self.db.session.commit()
 
         runtime_result = None
-        if apply_runtime and self.runtime_enforcer is not None:
-            if state["is_blocked"]:
-                runtime_result = self.runtime_enforcer.block_client_runtime(normalized)
-            else:
-                runtime_result = self.runtime_enforcer.unblock_client_runtime(normalized)
+        reapplied_blocked = []
+        if apply_runtime and (self.use_subprocess_runtime or self.runtime_enforcer is not None):
+            is_blocked = bool(state["is_blocked"])
+            runtime_result = self._apply_client_runtime(normalized, is_blocked=is_blocked)
+            if not is_blocked:
+                reapplied_blocked = self._reapply_all_blocked_runtime()
 
-        return {"row": row, "state": state, "runtime_result": runtime_result}
+        return {
+            "row": row,
+            "state": state,
+            "runtime_result": runtime_result,
+            "reapplied_blocked": reapplied_blocked,
+        }
 
     def reconcile_all(self, *, apply_runtime=False):
         now = self._now()
@@ -230,19 +273,19 @@ class WgAccessPolicyService:
             self.db.session.commit()
 
         runtime = {"blocked": [], "unblocked": []}
-        if apply_runtime and self.runtime_enforcer is not None:
-            for client_name in blocked_clients:
-                runtime["blocked"].append(
-                    {
-                        "client_name": client_name,
-                        "result": self.runtime_enforcer.block_client_runtime(client_name),
-                    }
-                )
+        if apply_runtime and (self.use_subprocess_runtime or self.runtime_enforcer is not None):
             for client_name in unblocked_clients:
                 runtime["unblocked"].append(
                     {
                         "client_name": client_name,
-                        "result": self.runtime_enforcer.unblock_client_runtime(client_name),
+                        "result": self._apply_client_runtime(client_name, is_blocked=False),
+                    }
+                )
+            for client_name in blocked_clients:
+                runtime["blocked"].append(
+                    {
+                        "client_name": client_name,
+                        "result": self._apply_client_runtime(client_name, is_blocked=True),
                     }
                 )
 
