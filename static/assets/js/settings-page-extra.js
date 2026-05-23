@@ -449,3 +449,16 @@ document.addEventListener('keydown', (event) => {
   convertTimesToLocal();
   applyFilters();
 })();
+
+// Maintenance: убрать админа из рассылки бэкапов в Telegram
+document.querySelectorAll(".maintenance-recipient-item__remove").forEach((btn) => {
+  btn.addEventListener("click", (event) => {
+    event.preventDefault();
+    const checkboxId = btn.getAttribute("data-recipient-checkbox-id");
+    if (!checkboxId) return;
+    const checkbox = document.getElementById(checkboxId);
+    if (!checkbox) return;
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+});

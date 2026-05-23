@@ -1,41 +1,88 @@
-    <div id="maintenance" class="content-tab">
-      <h2>Обслуживание системы</h2>
+    <div id="maintenance" class="content-tab maintenance-tab">
+      <header class="maintenance-page-head">
+        <div class="maintenance-page-head__text">
+          <h2>Обслуживание системы</h2>
+          <p class="maintenance-page-lead">
+            Ночной перезапуск, резервные копии и управление службой панели в одном месте.
+          </p>
+        </div>
+      </header>
 
-      <!-- Ночной рестарт -->
-      <div class="card settings-inline-card-mb">
-        <h3>🌙 Авто-перезапуск сайта ночью</h3>
-        <form method="POST" class="settings-form">
+      {% set backup_count = app_backup_list|length %}
+      {% if app_backup_interval_days == 7 %}
+        {% set backup_interval_label = 'каждые 7 дней' %}
+      {% elif app_backup_interval_days == 30 %}
+        {% set backup_interval_label = 'каждые 30 дней' %}
+      {% else %}
+        {% set backup_interval_label = 'каждый день' %}
+      {% endif %}
+
+      <div class="maintenance-kpi-strip" role="list">
+        <article class="maintenance-kpi maintenance-kpi--info" role="listitem">
+          <span class="maintenance-kpi__label">Активные сессии</span>
+          <strong class="maintenance-kpi__value">{{ active_web_sessions_count }}</strong>
+          <span class="maintenance-kpi__hint">Пользователи в панели сейчас</span>
+        </article>
+        <article class="maintenance-kpi maintenance-kpi--status {% if nightly_idle_restart_enabled %}is-on{% else %}is-off{% endif %}" role="listitem">
+          <span class="maintenance-kpi__label">Ночной рестарт</span>
+          <strong class="maintenance-kpi__value">{% if nightly_idle_restart_enabled %}Включён{% else %}Выключен{% endif %}</strong>
+          <span class="maintenance-kpi__hint">Проверка в {{ nightly_idle_restart_time }}</span>
+        </article>
+        <article class="maintenance-kpi maintenance-kpi--status {% if app_backup_enabled %}is-on{% else %}is-off{% endif %}" role="listitem">
+          <span class="maintenance-kpi__label">Авто-бэкап</span>
+          <strong class="maintenance-kpi__value">{% if app_backup_enabled %}Включён{% else %}Выключен{% endif %}</strong>
+          <span class="maintenance-kpi__hint">
+            {% if app_backup_enabled %}{{ backup_interval_label }}, {{ app_backup_time_hhmm }}{% else %}Ручное создание доступно{% endif %}
+          </span>
+        </article>
+        <article class="maintenance-kpi maintenance-kpi--{% if backup_count %}warn{% else %}info{% endif %}" role="listitem">
+          <span class="maintenance-kpi__label">Архивов</span>
+          <strong class="maintenance-kpi__value">{{ backup_count }} / 5</strong>
+          <span class="maintenance-kpi__hint">Хранится не более 5 последних</span>
+        </article>
+      </div>
+
+      <section class="maintenance-section maintenance-section--nightly" aria-labelledby="maintenance-nightly-title">
+        <div class="maintenance-section__head">
+          <span class="maintenance-section__icon" aria-hidden="true">🌙</span>
+          <div>
+            <h3 id="maintenance-nightly-title" class="maintenance-section__title">Авто-перезапуск сайта ночью</h3>
+            <p class="maintenance-section__subtitle">Перезапуск только при отсутствии активных пользователей в панели</p>
+          </div>
+        </div>
+
+        <form method="POST" class="settings-form maintenance-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <input type="hidden" name="nightly_settings_action" value="save" />
 
-          <div class="info-box settings-inline-info-mb">
-            <p class="settings-inline-m0">
+          <div class="maintenance-callout">
+            <p>
               Сайт перезапускается только если в панели нет активных пользователей.
               Если кто-то работает в это время, перезапуск пропускается до следующей проверки.
             </p>
           </div>
 
-          <div class="form-group">
-            <label for="nightly_idle_restart_enabled">Включить ночной авто-перезапуск</label>
-            <select id="nightly_idle_restart_enabled" name="nightly_idle_restart_enabled" class="form-control">
-              <option value="true" {% if nightly_idle_restart_enabled %}selected{% endif %}>Да</option>
-              <option value="false" {% if not nightly_idle_restart_enabled %}selected{% endif %}>Нет</option>
-            </select>
-            <small class="help-text">Рекомендуется держать включенным.</small>
-          </div>
+          <div class="maintenance-form-grid maintenance-form-grid--2">
+            <div class="form-group">
+              <label for="nightly_idle_restart_enabled">Включить ночной авто-перезапуск</label>
+              <select id="nightly_idle_restart_enabled" name="nightly_idle_restart_enabled" class="form-control">
+                <option value="true" {% if nightly_idle_restart_enabled %}selected{% endif %}>Да</option>
+                <option value="false" {% if not nightly_idle_restart_enabled %}selected{% endif %}>Нет</option>
+              </select>
+              <small class="help-text">Рекомендуется держать включенным.</small>
+            </div>
 
-          <div class="form-group">
-            <label for="nightly_idle_restart_time">Во сколько выполнять проверку</label>
-            <input type="time" id="nightly_idle_restart_time" name="nightly_idle_restart_time"
-              value="{{ nightly_idle_restart_time }}" />
-            <small class="help-text">Пример: 04:00. В это время система проверит активность и перезапустит сайт только
-              при отсутствии пользователей в панели.</small>
+            <div class="form-group">
+              <label for="nightly_idle_restart_time">Во сколько выполнять проверку</label>
+              <input type="time" id="nightly_idle_restart_time" name="nightly_idle_restart_time"
+                value="{{ nightly_idle_restart_time }}" />
+              <small class="help-text">Пример: 04:00 — проверка активности и перезапуск при простое.</small>
+            </div>
           </div>
 
           <div class="form-group settings-range-control">
             <div class="settings-range-control__head">
-              <label for="active_web_session_ttl_seconds">Через сколько секунд без действий считать пользователя
-                неактивным</label>
+              <label for="active_web_session_ttl_seconds">Неактивность пользователя (сек)</label>
               <output class="settings-range-control__value" data-slider-value-for="active_web_session_ttl_seconds">
                 {{ active_web_session_ttl_seconds }} сек
               </output>
@@ -53,8 +100,7 @@
 
           <div class="form-group settings-range-control">
             <div class="settings-range-control__head">
-              <label for="active_web_session_touch_interval_seconds">Как часто обновлять отметку активности
-                (секунд)</label>
+              <label for="active_web_session_touch_interval_seconds">Обновление отметки активности (сек)</label>
               <output class="settings-range-control__value"
                 data-slider-value-for="active_web_session_touch_interval_seconds">
                 {{ active_web_session_touch_interval_seconds }} сек
@@ -69,12 +115,12 @@
                 value="{{ active_web_session_touch_interval_seconds }}" />
               <span class="settings-range-control__hint">Точное значение</span>
             </div>
-            <small class="help-text">Чем меньше значение, тем точнее статус активности. Обычно 30 секунд.</small>
+            <small class="help-text">Чем меньше значение, тем точнее статус. Обычно 30 секунд.</small>
           </div>
 
-          <details class="info-box settings-inline-info-mb">
-            <summary class="settings-inline-summary-pointer">Расширенная настройка (cron)</summary>
-            <div class="form-group settings-inline-formgroup-top">
+          <details class="maintenance-details">
+            <summary>Расширенная настройка (cron)</summary>
+            <div class="form-group">
               <label for="nightly_idle_restart_cron">Cron-выражение запуска проверки</label>
               <input type="text" id="nightly_idle_restart_cron" name="nightly_idle_restart_cron"
                 value="{{ nightly_idle_restart_cron }}" placeholder="0 4 * * *" />
@@ -82,159 +128,214 @@
             </div>
           </details>
 
-          <div class="info-box settings-inline-info-mb">
-            <p class="settings-inline-m0">
-              Активных пользователей в панели сейчас: <strong>{{ active_web_sessions_count }}</strong>
-            </p>
+          <div class="maintenance-callout maintenance-callout--highlight">
+            <p>Активных пользователей в панели сейчас: <strong>{{ active_web_sessions_count }}</strong></p>
           </div>
 
-          <button type="submit" class="button save-button">Сохранить</button>
+          <div class="maintenance-btn-row">
+            <button type="submit" class="button save-button">Сохранить настройки рестарта</button>
+          </div>
         </form>
-      </div>
+      </section>
 
-      <div class="card settings-inline-card-mb">
-        <h3>💾 Бэкапы приложения</h3>
-        <form method="POST" class="settings-form">
+      <section class="maintenance-section maintenance-section--backup" aria-labelledby="maintenance-backup-title">
+        <div class="maintenance-section__head">
+          <span class="maintenance-section__icon" aria-hidden="true">💾</span>
+          <div>
+            <h3 id="maintenance-backup-title" class="maintenance-section__title">Бэкапы приложения</h3>
+            <p class="maintenance-section__subtitle">Создание, восстановление и расписание резервных копий</p>
+          </div>
+        </div>
+
+        <form method="POST" class="settings-form maintenance-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <input type="hidden" name="backup_settings_action" value="save" />
 
-          <div class="form-group">
-            <label for="app_backup_enabled">Авто-бэкапы по расписанию</label>
-            <select id="app_backup_enabled" name="app_backup_enabled" class="form-control">
-              <option value="true" {% if app_backup_enabled %}selected{% endif %}>Да</option>
-              <option value="false" {% if not app_backup_enabled %}selected{% endif %}>Нет</option>
-            </select>
-          </div>
+          <div class="maintenance-form-grid maintenance-form-grid--2">
+            <div class="form-group">
+              <label for="app_backup_enabled">Авто-бэкапы по расписанию</label>
+              <select id="app_backup_enabled" name="app_backup_enabled" class="form-control">
+                <option value="true" {% if app_backup_enabled %}selected{% endif %}>Да</option>
+                <option value="false" {% if not app_backup_enabled %}selected{% endif %}>Нет</option>
+              </select>
+            </div>
 
-          <div class="form-group">
-            <label for="app_backup_interval_days">Интервал авто-бэкапа</label>
-            <select id="app_backup_interval_days" name="app_backup_interval_days" class="form-control">
-              <option value="1" {% if app_backup_interval_days == 1 %}selected{% endif %}>Каждый 1 день</option>
-              <option value="7" {% if app_backup_interval_days == 7 %}selected{% endif %}>Каждые 7 дней</option>
-              <option value="30" {% if app_backup_interval_days == 30 %}selected{% endif %}>Каждые 30 дней</option>
-            </select>
-          </div>
+            <div class="form-group">
+              <label for="app_backup_interval_days">Интервал авто-бэкапа</label>
+              <select id="app_backup_interval_days" name="app_backup_interval_days" class="form-control">
+                <option value="1" {% if app_backup_interval_days == 1 %}selected{% endif %}>Каждый 1 день</option>
+                <option value="7" {% if app_backup_interval_days == 7 %}selected{% endif %}>Каждые 7 дней</option>
+                <option value="30" {% if app_backup_interval_days == 30 %}selected{% endif %}>Каждые 30 дней</option>
+              </select>
+            </div>
 
-          <div class="form-group">
-            <label for="app_backup_time_hhmm">Время запуска авто-бэкапа</label>
-            <input type="time" id="app_backup_time_hhmm" name="app_backup_time_hhmm" value="{{ app_backup_time_hhmm }}" />
+            <div class="form-group">
+              <label for="app_backup_time_hhmm">Время запуска</label>
+              <input type="time" id="app_backup_time_hhmm" name="app_backup_time_hhmm" value="{{ app_backup_time_hhmm }}" />
+            </div>
+
+            <div class="form-group">
+              <label for="app_backup_tg_enabled">Отправка в Telegram</label>
+              <select id="app_backup_tg_enabled" name="app_backup_tg_enabled" class="form-control">
+                <option value="true" {% if app_backup_tg_enabled %}selected{% endif %}>Да (только авто-бэкапы)</option>
+                <option value="false" {% if not app_backup_tg_enabled %}selected{% endif %}>Нет</option>
+              </select>
+            </div>
           </div>
 
           <div class="form-group">
             <label>Что сохранять в бэкапе</label>
-            <div class="settings-inline-checkbox-row">
-              <label><input type="checkbox" name="app_backup_components" value="db" {% if 'db' in app_backup_selected_components %}checked{% endif %} /> База данных</label>
+            <div class="maintenance-scope-grid" role="group" aria-label="Состав бэкапа">
+              <label class="maintenance-scope-card">
+                <input type="checkbox" class="maintenance-scope-card__input" name="app_backup_components" value="db"
+                  {% if 'db' in app_backup_selected_components %}checked{% endif %} />
+                <span class="maintenance-scope-card__check" aria-hidden="true"></span>
+                <span class="maintenance-scope-card__title">База данных</span>
+                <span class="maintenance-scope-card__desc">users.db, site.db</span>
+              </label>
+              <label class="maintenance-scope-card">
+                <input type="checkbox" class="maintenance-scope-card__input" name="app_backup_components" value="env"
+                  {% if 'env' in app_backup_selected_components %}checked{% endif %} />
+                <span class="maintenance-scope-card__check" aria-hidden="true"></span>
+                <span class="maintenance-scope-card__title">.env и runtime</span>
+                <span class="maintenance-scope-card__desc">переменные и настройки</span>
+              </label>
+              <label class="maintenance-scope-card">
+                <input type="checkbox" class="maintenance-scope-card__input" name="app_backup_components" value="configs"
+                  {% if 'configs' in app_backup_selected_components %}checked{% endif %} />
+                <span class="maintenance-scope-card__check" aria-hidden="true"></span>
+                <span class="maintenance-scope-card__title">VPN-конфиги</span>
+                <span class="maintenance-scope-card__desc">OpenVPN, WG, AmneziaWG</span>
+              </label>
             </div>
-            <div class="settings-inline-checkbox-row">
-              <label><input type="checkbox" name="app_backup_components" value="env" {% if 'env' in app_backup_selected_components %}checked{% endif %} /> .env и runtime-настройки</label>
-            </div>
-            <div class="settings-inline-checkbox-row">
-              <label><input type="checkbox" name="app_backup_components" value="configs" {% if 'configs' in app_backup_selected_components %}checked{% endif %} /> VPN-конфиги (OpenVPN/WG/AmneziaWG)</label>
-            </div>
-            <small class="help-text">Хранится максимум 5 последних бэкапов.</small>
+            <small class="help-text">Хранится максимум 5 последних бэкапов. Старые удаляются автоматически.</small>
           </div>
 
           <div class="form-group">
-            <label for="app_backup_tg_enabled">Отправлять авто-бэкап в Telegram</label>
-            <select id="app_backup_tg_enabled" name="app_backup_tg_enabled" class="form-control">
-              <option value="true" {% if app_backup_tg_enabled %}selected{% endif %}>Да</option>
-              <option value="false" {% if not app_backup_tg_enabled %}selected{% endif %}>Нет</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="app_backup_tg_admin_ids">Получатели в Telegram (только админы с Telegram ID)</label>
-            <select id="app_backup_tg_admin_ids" name="app_backup_tg_admin_ids" class="form-control" multiple size="5">
+            <label>Получатели авто-бэкапа в Telegram</label>
+            <p class="maintenance-recipient-hint">Снимите галочку или нажмите «Убрать», чтобы исключить админа из рассылки.</p>
+            {% if app_backup_admin_candidates %}
+            <ul class="maintenance-recipient-list">
               {% for admin in app_backup_admin_candidates %}
-              <option value="{{ admin.id }}" {% if (admin.id|string) in app_backup_tg_admin_ids %}selected{% endif %}>
-                {{ admin.username }} ({{ admin.telegram_id }})
-              </option>
+              <li class="maintenance-recipient-item">
+                <label class="maintenance-recipient-item__label">
+                  <input type="checkbox" class="maintenance-recipient-item__input" id="backup-tg-admin-{{ admin.id }}"
+                    name="app_backup_tg_admin_ids" value="{{ admin.id }}"
+                    {% if (admin.id|string) in app_backup_tg_admin_ids %}checked{% endif %} />
+                  <span class="maintenance-recipient-item__avatar" aria-hidden="true">{{ admin.username[:1]|upper }}</span>
+                  <span class="maintenance-recipient-item__body">
+                    <span class="maintenance-recipient-item__name">{{ admin.username }}</span>
+                    <span class="maintenance-recipient-item__tg">ID {{ admin.telegram_id }}</span>
+                  </span>
+                </label>
+                <button type="button" class="maintenance-recipient-item__remove"
+                  data-recipient-checkbox-id="backup-tg-admin-{{ admin.id }}"
+                  aria-label="Убрать {{ admin.username }} из рассылки">
+                  Убрать
+                </button>
+              </li>
               {% endfor %}
-            </select>
+            </ul>
+            {% else %}
+            <div class="maintenance-callout">
+              <p>Нет администраторов с привязанным Telegram ID. Привяжите ID в разделе пользователей.</p>
+            </div>
+            {% endif %}
+            <small class="help-text">Архив отправляется только при успешном авто-бэкапе, если включена отправка в Telegram.</small>
           </div>
 
-          <button type="submit" class="button save-button">Сохранить настройки бэкапов</button>
+          <div class="maintenance-btn-row">
+            <button type="submit" class="button save-button">Сохранить настройки бэкапов</button>
+          </div>
         </form>
 
-        <div class="settings-inline-formgroup-top">
-          <form method="POST" class="settings-form settings-inline-info-mb">
+        <div class="maintenance-backup-toolbar">
+          <form method="POST" class="settings-form maintenance-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <input type="hidden" name="backup_create_action" value="create" />
             <button type="submit" class="button save-button">Создать бэкап сейчас</button>
           </form>
+
+          <h4 class="maintenance-backup-toolbar__title">Существующие бэкапы</h4>
+          {% if app_backup_list %}
+          <div class="maintenance-backup-table-wrap">
+            <table class="maintenance-backup-table">
+              <thead>
+                <tr>
+                  <th>Файл</th>
+                  <th>Дата (UTC)</th>
+                  <th>Размер</th>
+                  <th>Содержимое</th>
+                  <th>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for backup_item in app_backup_list %}
+                <tr>
+                  <td class="maintenance-backup-table__file">{{ backup_item.file_name }}</td>
+                  <td>{{ backup_item.created_at or "—" }}</td>
+                  <td>{{ backup_item.size_human }}</td>
+                  <td>
+                    {% if backup_item.components %}
+                      {% for comp in backup_item.components %}
+                      <span class="maintenance-badge maintenance-badge--{{ comp }}">{{ comp }}</span>
+                      {% endfor %}
+                    {% else %}
+                      —
+                    {% endif %}
+                    {% if backup_item.summary %}
+                    <div class="maintenance-backup-table__meta">{{ backup_item.summary }}</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="maintenance-backup-actions">
+                      <form method="POST" class="settings-form"
+                        onsubmit="return confirm('Восстановить из бэкапа {{ backup_item.file_name }}? Сервис будет перезапущен.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <input type="hidden" name="backup_restore_action" value="restore" />
+                        <input type="hidden" name="backup_file_name" value="{{ backup_item.file_name }}" />
+                        <button type="submit" class="button save-button">Восстановить</button>
+                      </form>
+                      <form method="POST" class="settings-form"
+                        onsubmit="return confirm('Удалить бэкап {{ backup_item.file_name }}? Это действие нельзя отменить.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <input type="hidden" name="backup_delete_action" value="delete" />
+                        <input type="hidden" name="backup_file_name" value="{{ backup_item.file_name }}" />
+                        <button type="submit" class="button small delete-button">Удалить</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="maintenance-callout">
+            <p>В папке бэкапов пока нет архивов. Создайте первый бэкап кнопкой выше.</p>
+          </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="maintenance-section maintenance-section--restart" aria-labelledby="maintenance-restart-title">
+        <div class="maintenance-section__head">
+          <span class="maintenance-section__icon" aria-hidden="true">🔄</span>
+          <div>
+            <h3 id="maintenance-restart-title" class="maintenance-section__title">Перезапуск службы admin-antizapret</h3>
+            <p class="maintenance-section__subtitle">Применение системных изменений после настройки IP и сервисов</p>
+          </div>
         </div>
 
-        <h4 class="settings-inline-secondary-title">Существующие бэкапы</h4>
-        {% if app_backup_list %}
-        <div class="settings-table-wrapper">
-          <table class="users-table">
-            <thead>
-              <tr>
-                <th>Файл</th>
-                <th>Дата (UTC)</th>
-                <th>Размер</th>
-                <th>Содержимое</th>
-                <th>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for backup_item in app_backup_list %}
-              <tr>
-                <td>{{ backup_item.file_name }}</td>
-                <td>{{ backup_item.created_at or "—" }}</td>
-                <td>{{ backup_item.size_human }}</td>
-                <td>
-                  {% if backup_item.components %}
-                  {{ backup_item.components|join(", ") }}
-                  {% else %}
-                  —
-                  {% endif %}
-                  {% if backup_item.summary %}
-                  <div class="settings-inline-muted-copy">{{ backup_item.summary }}</div>
-                  {% endif %}
-                </td>
-                <td class="settings-backup-actions">
-                  <form method="POST" class="settings-form settings-inline-form-inline"
-                    onsubmit="return confirm('Восстановить из бэкапа {{ backup_item.file_name }}? Сервис будет перезапущен.');">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                    <input type="hidden" name="backup_restore_action" value="restore" />
-                    <input type="hidden" name="backup_file_name" value="{{ backup_item.file_name }}" />
-                    <button type="submit" class="button save-button">Восстановить</button>
-                  </form>
-                  <form method="POST" class="settings-form settings-inline-form-inline"
-                    onsubmit="return confirm('Удалить бэкап {{ backup_item.file_name }}? Это действие нельзя отменить.');">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                    <input type="hidden" name="backup_delete_action" value="delete" />
-                    <input type="hidden" name="backup_file_name" value="{{ backup_item.file_name }}" />
-                    <button type="submit" class="button small delete-button">Удалить</button>
-                  </form>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <div class="info-box">
-          <p class="settings-inline-m0">В папке бэкапов пока нет архивов.</p>
-        </div>
-        {% endif %}
-      </div>
-
-      <!-- Перезапуск службы -->
-      <div class="card">
-        <h3>🔄 Перезапуск службы admin-antizapret</h3>
-        <div class="info-box settings-inline-highlight-box">
-          <p class="settings-inline-secondary-title">
+        <div class="maintenance-callout maintenance-callout--warn">
+          <p>
             Перезапуск может потребоваться после изменения IP-ограничений или других системных настроек.
-          </p>
-          <p class="settings-inline-muted-copy">
-            Изменения вступят в силу только после перезапуска службы admin-antizapret.
+            Изменения вступят в силу только после перезапуска службы.
           </p>
         </div>
 
-        <button id="restartServiceBtn" class="button save-button settings-inline-restart-btn">
-          🔄 Перезапустить службу
+        <button id="restartServiceBtn" type="button" class="button save-button">
+          Перезапустить службу
         </button>
 
         <form id="restartForm" method="POST" class="settings-inline-hidden">
@@ -242,29 +343,27 @@
           <input type="hidden" name="restart_action" value="restart_service" />
         </form>
 
-        <p class="settings-inline-muted-note">
-          ⏱️ Перезапуск занимает 5-10 секунд. Страница будет заблокирована на время перезапуска.
+        <p class="maintenance-footnote">
+          Перезапуск занимает 5–10 секунд. Страница будет заблокирована на время операции.
         </p>
-      </div>
+      </section>
 
-      <!-- Оверлей блокировки -->
-      <div id="loadingOverlay" class="loading-overlay">
+      <div id="loadingOverlay" class="loading-overlay" aria-hidden="true">
         <div class="loading-content">
           <div class="loading-spinner-large"></div>
-          <h2 class="loading-title">🔄 Перезапуск службы</h2>
+          <h2 class="loading-title">Перезапуск службы</h2>
           <p class="loading-message">
             Служба admin-antizapret перезапускается. Пожалуйста, подождите...
           </p>
           <div class="countdown-timer" id="countdownTimer">5</div>
           <div class="loading-details">
-            <p>🛡️ Применяются новые настройки</p>
-            <p>⚡ Остановка и запуск службы</p>
-            <p>✅ Проверка состояния системы</p>
+            <p>Применяются новые настройки</p>
+            <p>Остановка и запуск службы</p>
+            <p>Проверка состояния системы</p>
           </div>
-          <p class="settings-inline-loading-note">
+          <p class="maintenance-loading-note">
             Страница автоматически обновится после завершения
           </p>
         </div>
       </div>
     </div>
-

@@ -700,17 +700,6 @@
   display: inline;
 }
 
-.settings-backup-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.settings-backup-actions .settings-form {
-  display: inline;
-}
-
 .settings-inline-card-mb {
   margin-bottom: 1.5rem;
 }
@@ -825,14 +814,12 @@
 }
 
 #qr-settings,
-#maintenance,
 #telegram-auth,
 #action-logs {
   color: var(--theme-text-primary, rgba(255, 255, 255, 0.95));
 }
 
 #qr-settings > h2,
-#maintenance > h2,
 #telegram-auth > h2,
 #action-logs > h2 {
   color: var(--theme-text-main, #fff);
@@ -840,7 +827,6 @@
 }
 
 #qr-settings .card,
-#maintenance .card,
 #telegram-auth .card,
 #action-logs .card {
   background: var(--theme-logs-surface, rgba(8, 14, 17, 0.78));
@@ -851,7 +837,6 @@
 }
 
 #qr-settings .card h3,
-#maintenance .card h3,
 #telegram-auth .card h3,
 #action-logs .card h3 {
   margin: 0 0 0.9rem;
@@ -863,9 +848,6 @@
 #qr-settings .settings-form input,
 #qr-settings .settings-form select,
 #qr-settings .settings-form textarea,
-#maintenance .settings-form input,
-#maintenance .settings-form select,
-#maintenance .settings-form textarea,
 #telegram-auth .settings-form input,
 #telegram-auth .settings-form select,
 #telegram-auth .settings-form textarea {
@@ -877,9 +859,6 @@
 #qr-settings .settings-form input:focus,
 #qr-settings .settings-form select:focus,
 #qr-settings .settings-form textarea:focus,
-#maintenance .settings-form input:focus,
-#maintenance .settings-form select:focus,
-#maintenance .settings-form textarea:focus,
 #telegram-auth .settings-form input:focus,
 #telegram-auth .settings-form select:focus,
 #telegram-auth .settings-form textarea:focus {
@@ -889,14 +868,12 @@
 }
 
 #qr-settings .help-text,
-#maintenance .help-text,
 #telegram-auth .help-text,
 #action-logs .help-text {
   color: var(--theme-text-secondary, rgba(255, 255, 255, 0.7));
 }
 
 #qr-settings .info-box,
-#maintenance .info-box,
 #telegram-auth .info-box,
 #action-logs .info-box {
   border: 1px solid var(--theme-glass-border, rgba(255, 255, 255, 0.1));
@@ -1858,19 +1835,16 @@
 /* ===== Legacy Green Cleanup (Targeted Tabs) ===== */
 
 #telegram-auth,
-#maintenance,
 #action-logs {
   color: #d7e5eb;
 }
 
 #telegram-auth > h2,
-#maintenance > h2,
 #action-logs > h2 {
   color: #eaf1f4;
 }
 
 #telegram-auth .card,
-#maintenance .card,
 #action-logs .card {
   background: rgba(23, 32, 38, 0.9) !important;
   border: 1px solid #40535f !important;
@@ -1878,7 +1852,6 @@
 }
 
 #telegram-auth .card h3,
-#maintenance .card h3,
 #action-logs .card h3 {
   color: #dceaf1 !important;
   border-bottom: 1px solid rgba(90, 112, 126, 0.4) !important;
@@ -1888,9 +1861,6 @@
 #telegram-auth .settings-form select,
 #telegram-auth .settings-form textarea,
 #telegram-auth .miniapp-link-input,
-#maintenance .settings-form input,
-#maintenance .settings-form select,
-#maintenance .settings-form textarea,
 #action-logs .settings-form input,
 #action-logs .settings-form select,
 #action-logs .settings-form textarea {
@@ -1903,9 +1873,6 @@
 #telegram-auth .settings-form select:focus,
 #telegram-auth .settings-form textarea:focus,
 #telegram-auth .miniapp-link-input:focus,
-#maintenance .settings-form input:focus,
-#maintenance .settings-form select:focus,
-#maintenance .settings-form textarea:focus,
 #action-logs .settings-form input:focus,
 #action-logs .settings-form select:focus,
 #action-logs .settings-form textarea:focus {
@@ -2731,13 +2698,11 @@
 }
 
 #telegram-auth .help-text,
-#maintenance .help-text,
 #action-logs .help-text {
   color: #9caeb8 !important;
 }
 
 #telegram-auth .info-box,
-#maintenance .info-box,
 #action-logs .info-box {
   border: 1px solid #42545f !important;
   background: rgba(30, 41, 48, 0.78) !important;
@@ -3179,9 +3144,6 @@
 #qr-settings .settings-form input,
 #qr-settings .settings-form select,
 #qr-settings .settings-form textarea,
-#maintenance .settings-form input,
-#maintenance .settings-form select,
-#maintenance .settings-form textarea,
 #action-logs .settings-form input,
 #action-logs .settings-form select,
 #action-logs .settings-form textarea {
@@ -3208,9 +3170,6 @@
 #qr-settings .settings-form input:focus,
 #qr-settings .settings-form select:focus,
 #qr-settings .settings-form textarea:focus,
-#maintenance .settings-form input:focus,
-#maintenance .settings-form select:focus,
-#maintenance .settings-form textarea:focus,
 #action-logs .settings-form input:focus,
 #action-logs .settings-form select:focus,
 #action-logs .settings-form textarea:focus {
@@ -3224,7 +3183,6 @@
 #telegram-auth .users-list,
 #user-management .users-list,
 #qr-settings .users-list,
-#maintenance .users-list,
 #action-logs .users-list {
   border: 1px solid #42545f !important;
   background: rgba(30, 41, 48, 0.7) !important;
