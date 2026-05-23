@@ -980,7 +980,8 @@
 /* ── Audit log: user cell ── */
 .audit-td-user {
   vertical-align: middle !important;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
+  color: var(--theme-text-primary, #e6efff);
 }
 
 /* ── Audit log: status badge ── */
@@ -1024,16 +1025,16 @@
 /* ── Audit log: IP cell ── */
 .audit-td-ip {
   vertical-align: middle !important;
-  font-size: 0.82rem;
-  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.65));
+  font-size: 0.79rem;
+  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.56));
   font-variant-numeric: tabular-nums;
 }
 
 .audit-td-details {
   vertical-align: middle !important;
-  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.7));
-  font-size: 0.8rem;
-  line-height: 1.36;
+  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.62));
+  font-size: 0.78rem;
+  line-height: 1.42;
 }
 
 /* ── Filter bar ── */
@@ -1800,24 +1801,30 @@
   vertical-align: middle;
 }
 
+.action-audit-log-table .audit-action-row td {
+  padding-top: 0.34rem;
+  padding-bottom: 0.34rem;
+}
+
 .action-with-source {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  line-height: 1.4;
+  gap: 3px;
+  line-height: 1.32;
 }
 
 .action-badges-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .action-text {
   display: block;
-  font-size: 0.875rem;
-  line-height: 1.4;
+  font-size: 0.84rem;
+  line-height: 1.32;
+  font-weight: 500;
   color: var(--theme-text-primary, #e9f2ff);
 }
 
