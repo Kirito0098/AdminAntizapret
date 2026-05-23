@@ -22,9 +22,11 @@ body {
   color: var(--theme-text-main, hsl(0, 0%, 100%));
   margin: 0;
   padding: 0;
-  background-image: url("../img/login-bg.png");
-  background-size: cover;
-  background-position: center;
+  background-color: #10161a;
+  background-image:
+    radial-gradient(circle at 15% 10%, rgba(82, 109, 120, 0.18) 0%, transparent 44%),
+    radial-gradient(circle at 82% 18%, rgba(54, 88, 98, 0.16) 0%, transparent 42%),
+    linear-gradient(180deg, #12191d 0%, #0e1418 100%);
   background-repeat: no-repeat;
   background-attachment: fixed;
   min-height: 100vh;
@@ -1852,9 +1854,11 @@ body {
   color: var(--text-primary);
   margin: 0;
   padding: 0;
-  background-image: url("../img/login-bg.png");
-  background-size: cover;
-  background-position: center;
+  background-color: #10161a;
+  background-image:
+    radial-gradient(circle at 15% 10%, rgba(82, 109, 120, 0.18) 0%, transparent 44%),
+    radial-gradient(circle at 82% 18%, rgba(54, 88, 98, 0.16) 0%, transparent 42%),
+    linear-gradient(180deg, #12191d 0%, #0e1418 100%);
   background-repeat: no-repeat;
   background-attachment: fixed;
   min-height: 100vh;

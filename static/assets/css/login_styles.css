@@ -104,10 +104,6 @@ img {
   content: none;
 }
 
-.login__img {
-  display: none;
-}
-
 .login {
   position: relative;
   min-width: 0;
