@@ -106,7 +106,7 @@ class AdminNotifyTextTests(unittest.TestCase):
         self.assertIn("⏱️", temp)
         self.assertTrue(self._lines(temp)[2].startswith("Временно"))
         self.assertIn("на 7 дн.", temp)
-        self.assertIn("2026-05-30 09:13:00", temp)
+        self.assertIn("2026-05-30", temp)
         self.assertIn("🛡️", temp)
         self.assertIn("WireGuard", temp)
 

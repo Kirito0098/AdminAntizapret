@@ -47,7 +47,16 @@ class AppAutoBackupTests(unittest.TestCase):
         fake_backup_service = MagicMock()
         fake_backup_service.create_backup.return_value = {"archive_path": archive_path}
 
-        with patch.object(app_auto_backup, "APP_ROOT", self.app_root), patch.object(
+        with patch.dict(
+            os.environ,
+            {
+                "APP_BACKUP_ENABLED": "true",
+                "APP_BACKUP_TG_ENABLED": "true",
+                "APP_BACKUP_TG_ADMIN_IDS": "1,2",
+                "TELEGRAM_AUTH_BOT_TOKEN": "token",
+            },
+            clear=False,
+        ), patch.object(app_auto_backup, "APP_ROOT", self.app_root), patch.object(
             app_auto_backup, "BackupManagerService", return_value=fake_backup_service
         ), patch.object(
             app_auto_backup, "send_tg_document"

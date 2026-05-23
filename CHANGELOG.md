@@ -31,7 +31,12 @@
 
 - Исправления и доработка сохранения настроек **Telegram Login** (вкладка «Telegram» в настройках): нормализация токена и username, единый формат записи в аудит (**`telegram_audit_details`**).
 - События настроек Telegram дублируются в Telegram-аудит (`mini_settings_telegram_auth`); обновлён шаблон **`_tab_telegram_auth.html`**.
-- Вкладка **«Журнал действий»**: новая вёрстка, удобнее на мобильных (`audit_log_mobile.css`).
+- Вкладка **«Журнал действий»**: переработанная структура (группировка по дням и сессиям), фильтры/сортировка/поиск, экспорт CSV и улучшенное представление событий в **`audit_view_presenter`**.
+- Доработана адаптивность журнала для телефонов (`audit_log_mobile.css`, `settings_styles.css`); добавлены тесты по выдаче/экспорту и контексту страницы (`test_audit_view_presenter_action_logs`, `test_settings_api_action_logs_export`, `test_settings_page_context`).
+
+### Вкладка «Пользователи»
+
+- Редизайн блока управления пользователями: карточки с раскрывающимися секциями для роли/пароля/Telegram ID, более удобная компоновка уведомлений и улучшенные стили (`_tab_user_management.html`, `settings_styles.css`, `settings_page_shared.css`).
 
 ### Safe Browsing и безопасность HTTP
 

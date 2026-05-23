@@ -55,11 +55,12 @@ class IPRestrictionTemporaryTests(unittest.TestCase):
         panel_fw.sync.return_value = True
         self.restriction._panel_port_firewall = panel_fw
         self.restriction.whitelist_firewall = True
-        self.restriction.add_temporary_ip("203.0.113.20", 3600)
         with patch(
             "utils.ip_restriction.is_whitelist_port_firewall_applicable",
             return_value=True,
         ):
+            self.restriction.add_temporary_ip("203.0.113.20", 3600)
+            self.restriction.whitelist_firewall = True
             self.restriction.sync_whitelist_port_firewall()
         called_ips = panel_fw.sync.call_args[0][0]
         self.assertIn("203.0.113.20", called_ips)
