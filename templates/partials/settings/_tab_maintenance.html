@@ -92,6 +92,135 @@
         </form>
       </div>
 
+      <div class="card settings-inline-card-mb">
+        <h3>💾 Бэкапы приложения</h3>
+        <form method="POST" class="settings-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <input type="hidden" name="backup_settings_action" value="save" />
+
+          <div class="form-group">
+            <label for="app_backup_enabled">Авто-бэкапы по расписанию</label>
+            <select id="app_backup_enabled" name="app_backup_enabled" class="form-control">
+              <option value="true" {% if app_backup_enabled %}selected{% endif %}>Да</option>
+              <option value="false" {% if not app_backup_enabled %}selected{% endif %}>Нет</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="app_backup_interval_days">Интервал авто-бэкапа</label>
+            <select id="app_backup_interval_days" name="app_backup_interval_days" class="form-control">
+              <option value="1" {% if app_backup_interval_days == 1 %}selected{% endif %}>Каждый 1 день</option>
+              <option value="7" {% if app_backup_interval_days == 7 %}selected{% endif %}>Каждые 7 дней</option>
+              <option value="30" {% if app_backup_interval_days == 30 %}selected{% endif %}>Каждые 30 дней</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="app_backup_time_hhmm">Время запуска авто-бэкапа</label>
+            <input type="time" id="app_backup_time_hhmm" name="app_backup_time_hhmm" value="{{ app_backup_time_hhmm }}" />
+          </div>
+
+          <div class="form-group">
+            <label>Что сохранять в бэкапе</label>
+            <div class="settings-inline-checkbox-row">
+              <label><input type="checkbox" name="app_backup_components" value="db" {% if 'db' in app_backup_selected_components %}checked{% endif %} /> База данных</label>
+            </div>
+            <div class="settings-inline-checkbox-row">
+              <label><input type="checkbox" name="app_backup_components" value="env" {% if 'env' in app_backup_selected_components %}checked{% endif %} /> .env и runtime-настройки</label>
+            </div>
+            <div class="settings-inline-checkbox-row">
+              <label><input type="checkbox" name="app_backup_components" value="configs" {% if 'configs' in app_backup_selected_components %}checked{% endif %} /> VPN-конфиги (OpenVPN/WG/AmneziaWG)</label>
+            </div>
+            <small class="help-text">Хранится максимум 5 последних бэкапов.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="app_backup_tg_enabled">Отправлять авто-бэкап в Telegram</label>
+            <select id="app_backup_tg_enabled" name="app_backup_tg_enabled" class="form-control">
+              <option value="true" {% if app_backup_tg_enabled %}selected{% endif %}>Да</option>
+              <option value="false" {% if not app_backup_tg_enabled %}selected{% endif %}>Нет</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="app_backup_tg_admin_ids">Получатели в Telegram (только админы с Telegram ID)</label>
+            <select id="app_backup_tg_admin_ids" name="app_backup_tg_admin_ids" class="form-control" multiple size="5">
+              {% for admin in app_backup_admin_candidates %}
+              <option value="{{ admin.id }}" {% if (admin.id|string) in app_backup_tg_admin_ids %}selected{% endif %}>
+                {{ admin.username }} ({{ admin.telegram_id }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <button type="submit" class="button save-button">Сохранить настройки бэкапов</button>
+        </form>
+
+        <div class="settings-inline-formgroup-top">
+          <form method="POST" class="settings-form settings-inline-info-mb">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="backup_create_action" value="create" />
+            <button type="submit" class="button save-button">Создать бэкап сейчас</button>
+          </form>
+        </div>
+
+        <h4 class="settings-inline-secondary-title">Существующие бэкапы</h4>
+        {% if app_backup_list %}
+        <div class="settings-table-wrapper">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Файл</th>
+                <th>Дата (UTC)</th>
+                <th>Размер</th>
+                <th>Содержимое</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for backup_item in app_backup_list %}
+              <tr>
+                <td>{{ backup_item.file_name }}</td>
+                <td>{{ backup_item.created_at or "—" }}</td>
+                <td>{{ backup_item.size_human }}</td>
+                <td>
+                  {% if backup_item.components %}
+                  {{ backup_item.components|join(", ") }}
+                  {% else %}
+                  —
+                  {% endif %}
+                  {% if backup_item.summary %}
+                  <div class="settings-inline-muted-copy">{{ backup_item.summary }}</div>
+                  {% endif %}
+                </td>
+                <td class="settings-backup-actions">
+                  <form method="POST" class="settings-form settings-inline-form-inline"
+                    onsubmit="return confirm('Восстановить из бэкапа {{ backup_item.file_name }}? Сервис будет перезапущен.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <input type="hidden" name="backup_restore_action" value="restore" />
+                    <input type="hidden" name="backup_file_name" value="{{ backup_item.file_name }}" />
+                    <button type="submit" class="button save-button">Восстановить</button>
+                  </form>
+                  <form method="POST" class="settings-form settings-inline-form-inline"
+                    onsubmit="return confirm('Удалить бэкап {{ backup_item.file_name }}? Это действие нельзя отменить.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <input type="hidden" name="backup_delete_action" value="delete" />
+                    <input type="hidden" name="backup_file_name" value="{{ backup_item.file_name }}" />
+                    <button type="submit" class="button small delete-button">Удалить</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="info-box">
+          <p class="settings-inline-m0">В папке бэкапов пока нет архивов.</p>
+        </div>
+        {% endif %}
+      </div>
+
       <!-- Перезапуск службы -->
       <div class="card">
         <h3>🔄 Перезапуск службы admin-antizapret</h3>

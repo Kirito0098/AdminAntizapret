@@ -1,0 +1,317 @@
+import glob
+import json
+import os
+import tarfile
+from datetime import datetime, timezone
+from pathlib import Path
+import subprocess
+
+
+class BackupManagerService:
+    SUPPORTED_COMPONENTS = ("db", "env", "configs")
+
+    def __init__(
+        self,
+        *,
+        app_root,
+        backup_root="/var/backups/antizapret",
+        service_name="admin-antizapret",
+        retention_count=5,
+    ):
+        self.app_root = os.path.abspath(app_root)
+        self.backup_root = os.path.abspath(backup_root)
+        self.service_name = service_name
+        self.retention_count = max(1, int(retention_count or 5))
+
+    def default_components(self):
+        return ["db", "env", "configs"]
+
+    def normalize_components(self, components):
+        if not components:
+            return self.default_components()
+        seen = set()
+        result = []
+        for item in components:
+            key = str(item or "").strip().lower()
+            if key not in self.SUPPORTED_COMPONENTS or key in seen:
+                continue
+            seen.add(key)
+            result.append(key)
+        return result or self.default_components()
+
+    def list_backups(self):
+        os.makedirs(self.backup_root, exist_ok=True)
+        archive_paths = sorted(
+            glob.glob(os.path.join(self.backup_root, "*.tar.gz")),
+            key=lambda p: os.path.getmtime(p),
+            reverse=True,
+        )
+        backups = []
+        for archive_path in archive_paths:
+            try:
+                stat = os.stat(archive_path)
+            except OSError:
+                continue
+            metadata = self.read_backup_metadata(archive_path)
+            backups.append(
+                {
+                    "file_name": os.path.basename(archive_path),
+                    "file_path": archive_path,
+                    "size_bytes": int(stat.st_size),
+                    "created_at": metadata.get("created_at")
+                    or datetime.fromtimestamp(stat.st_mtime, timezone.utc).strftime(
+                        "%Y-%m-%dT%H:%M:%SZ"
+                    ),
+                    "components": metadata.get("components", []),
+                    "items_count": int(metadata.get("items_count", 0)),
+                    "summary": metadata.get("summary", ""),
+                }
+            )
+        return backups
+
+    def create_backup(self, *, selected_components, config_paths=None, trigger="manual"):
+        os.makedirs(self.backup_root, exist_ok=True)
+        components = self.normalize_components(selected_components)
+        file_map = self._collect_component_files(components, config_paths or [])
+        file_paths = []
+        for _, paths in file_map.items():
+            file_paths.extend(paths)
+        file_paths = self._dedupe_existing_paths(file_paths)
+        if not file_paths:
+            raise RuntimeError("Нет файлов для резервного копирования")
+
+        created_at = datetime.now(timezone.utc)
+        stamp = created_at.strftime("%Y%m%d_%H%M%S_%f")
+        archive_name = f"full_backup_{stamp}.tar.gz"
+        archive_path = os.path.join(self.backup_root, archive_name)
+        meta_path = os.path.join(self.backup_root, f"full_backup_{stamp}.meta.json")
+
+        with tarfile.open(archive_path, "w:gz") as tar:
+            for file_path in file_paths:
+                tar.add(file_path, arcname=self._archive_name(file_path), recursive=False)
+
+        with tarfile.open(archive_path, "r:gz"):
+            pass
+
+        metadata = self._build_metadata(
+            created_at=created_at,
+            archive_name=archive_name,
+            components=components,
+            file_map=file_map,
+            trigger=trigger,
+        )
+        with open(meta_path, "w", encoding="utf-8") as fh:
+            json.dump(metadata, fh, ensure_ascii=False, indent=2)
+
+        self.prune_old_backups()
+        return {
+            "archive_path": archive_path,
+            "archive_name": archive_name,
+            "meta_path": meta_path,
+            "metadata": metadata,
+        }
+
+    def restore_backup(self, backup_name):
+        archive_path = self.resolve_backup_path(backup_name)
+        if not os.path.isfile(archive_path):
+            raise FileNotFoundError(f"Файл бэкапа не найден: {archive_path}")
+
+        self._service_control("stop", allow_failure=True)
+        self._safe_extract_archive_to_root(archive_path)
+        self._service_control("start", allow_failure=True)
+        return {"archive_path": archive_path, "message": "Восстановление завершено"}
+
+    def delete_backup(self, backup_name):
+        archive_path = self.resolve_backup_path(backup_name)
+        if not os.path.isfile(archive_path):
+            raise FileNotFoundError(f"Файл бэкапа не найден: {archive_path}")
+        self._remove_backup_files(archive_path)
+        return {
+            "archive_path": archive_path,
+            "archive_name": os.path.basename(archive_path),
+            "message": "Бэкап удалён",
+        }
+
+    def resolve_backup_path(self, backup_name):
+        raw = str(backup_name or "").strip()
+        if not raw:
+            raise ValueError("Не выбран файл бэкапа")
+        if os.path.isabs(raw):
+            path = os.path.abspath(raw)
+        else:
+            path = os.path.abspath(os.path.join(self.backup_root, os.path.basename(raw)))
+        if os.path.commonpath([self.backup_root, path]) != self.backup_root:
+            raise ValueError("Недопустимый путь к бэкапу")
+        return path
+
+    def read_backup_metadata(self, archive_path):
+        archive_base = os.path.basename(archive_path)
+        prefix = archive_base[:-7] if archive_base.endswith(".tar.gz") else archive_base
+        meta_json_path = os.path.join(self.backup_root, f"{prefix}.meta.json")
+        if os.path.isfile(meta_json_path):
+            try:
+                with open(meta_json_path, "r", encoding="utf-8") as fh:
+                    meta = json.load(fh)
+                return {
+                    "created_at": str(meta.get("created_at", "")),
+                    "components": list(meta.get("components", [])),
+                    "items_count": int(meta.get("items_count", 0)),
+                    "summary": str(meta.get("summary", "")),
+                }
+            except Exception:
+                pass
+
+        meta_txt_path = os.path.join(self.backup_root, f"{prefix}.meta.txt")
+        if os.path.isfile(meta_txt_path):
+            created_at = ""
+            items_count = 0
+            try:
+                with open(meta_txt_path, "r", encoding="utf-8") as fh:
+                    for line in fh:
+                        if "=" not in line:
+                            continue
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        value = value.strip()
+                        if key == "backup_created_at":
+                            created_at = value
+                        elif key == "data_items_count":
+                            try:
+                                items_count = int(value)
+                            except (TypeError, ValueError):
+                                items_count = 0
+            except Exception:
+                pass
+            return {
+                "created_at": created_at,
+                "components": ["db"],
+                "items_count": items_count,
+                "summary": "Legacy data-only backup",
+            }
+
+        return self._inspect_tar_summary(archive_path)
+
+    def prune_old_backups(self):
+        archive_paths = sorted(
+            glob.glob(os.path.join(self.backup_root, "*.tar.gz")),
+            key=lambda p: os.path.getmtime(p),
+            reverse=True,
+        )
+        stale = archive_paths[self.retention_count :]
+        for archive_path in stale:
+            self._remove_backup_files(archive_path)
+
+    def _remove_backup_files(self, archive_path):
+        prefix = os.path.basename(archive_path).replace(".tar.gz", "")
+        for path in (
+            archive_path,
+            os.path.join(self.backup_root, f"{prefix}.meta.json"),
+            os.path.join(self.backup_root, f"{prefix}.meta.txt"),
+        ):
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+            except OSError as exc:
+                raise RuntimeError(f"Не удалось удалить {path}: {exc}") from exc
+
+    def _db_candidates(self):
+        result = []
+        for db_name in ("users.db", "site.db"):
+            for parent in (self.app_root, os.path.join(self.app_root, "instance")):
+                base = os.path.join(parent, db_name)
+                result.extend([base, f"{base}-wal", f"{base}-shm"])
+        return result
+
+    def _collect_component_files(self, components, config_paths):
+        file_map = {}
+        if "db" in components:
+            file_map["db"] = self._dedupe_existing_paths(self._db_candidates())
+        if "env" in components:
+            file_map["env"] = self._dedupe_existing_paths([os.path.join(self.app_root, ".env")])
+        if "configs" in components:
+            file_map["configs"] = self._dedupe_existing_paths(config_paths)
+        return file_map
+
+    def _dedupe_existing_paths(self, paths):
+        seen = set()
+        result = []
+        for path in paths:
+            abs_path = os.path.abspath(path)
+            if not os.path.isfile(abs_path) or abs_path in seen:
+                continue
+            seen.add(abs_path)
+            result.append(abs_path)
+        return result
+
+    def _archive_name(self, file_path):
+        return file_path.lstrip("/") or os.path.basename(file_path)
+
+    def _build_metadata(self, *, created_at, archive_name, components, file_map, trigger):
+        counts = {key: len(file_map.get(key, [])) for key in self.SUPPORTED_COMPONENTS}
+        return {
+            "created_at": created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "archive_name": archive_name,
+            "trigger": trigger,
+            "components": components,
+            "counts": counts,
+            "items_count": sum(counts.values()),
+            "summary": ", ".join(
+                [
+                    f"DB: {counts.get('db', 0)}",
+                    f"ENV: {counts.get('env', 0)}",
+                    f"CONFIGS: {counts.get('configs', 0)}",
+                ]
+            ),
+        }
+
+    def _safe_extract_archive_to_root(self, archive_path):
+        with tarfile.open(archive_path, "r:gz") as tar:
+            members = tar.getmembers()
+            for member in members:
+                member_name = member.name or ""
+                if member_name.startswith("/") or ".." in Path(member_name).parts:
+                    raise RuntimeError("Бэкап содержит недопустимые пути")
+                target_path = os.path.abspath(os.path.join("/", member_name))
+                if os.path.commonpath([target_path, "/"]) != "/":
+                    raise RuntimeError("Бэкап содержит путь вне корня")
+            tar.extractall(path="/")
+
+    def _service_control(self, action, *, allow_failure):
+        cmd = ["systemctl", action, self.service_name]
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if allow_failure:
+            return
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            stdout = (result.stdout or "").strip()
+            raise RuntimeError(stderr or stdout or f"Ошибка команды: {' '.join(cmd)}")
+
+    def _inspect_tar_summary(self, archive_path):
+        items_count = 0
+        components = set()
+        try:
+            with tarfile.open(archive_path, "r:gz") as tar:
+                for member in tar.getmembers():
+                    if not member.isfile():
+                        continue
+                    items_count += 1
+                    name = member.name
+                    if name.endswith(".env") or name.endswith("/.env"):
+                        components.add("env")
+                    elif "/etc/openvpn/" in name or "/etc/wireguard/" in name:
+                        components.add("configs")
+                    elif name.endswith(".db") or ".db-" in name:
+                        components.add("db")
+        except Exception:
+            pass
+        return {
+            "created_at": "",
+            "components": sorted(components),
+            "items_count": items_count,
+            "summary": "",
+        }

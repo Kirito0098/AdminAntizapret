@@ -53,6 +53,13 @@ class RuntimeSettingsService:
         )
         wg_policy_sync_enabled = self._env_bool("WG_POLICY_SYNC_ENABLED", default=True)
         wg_policy_sync_cron_expr = self._env_str("WG_POLICY_SYNC_CRON", "*/2 * * * *")
+        backup_root = self._env_str("APP_BACKUP_ROOT", "/var/backups/antizapret")
+        backup_interval_days = self._env_int("APP_BACKUP_INTERVAL_DAYS", 1, min_value=1)
+        if backup_interval_days not in (1, 7, 30):
+            backup_interval_days = 1
+        backup_time = self._env_str("APP_BACKUP_TIME", "03:00")
+        backup_components = self._env_str("APP_BACKUP_COMPONENTS", "db,env,configs")
+        backup_tg_admin_ids = self._env_str("APP_BACKUP_TG_ADMIN_IDS", "")
 
         return {
             "LOGS_DIR": logs_dir,
@@ -99,6 +106,16 @@ class RuntimeSettingsService:
             "WG_POLICY_SYNC_ENABLED": wg_policy_sync_enabled,
             "WG_POLICY_SYNC_CRON_MARKER": "# adminantizapret-wg-policy-sync",
             "WG_POLICY_SYNC_CRON_EXPR": wg_policy_sync_cron_expr,
+            "APP_BACKUP_CRON_MARKER": "# adminantizapret-app-backup",
+            "APP_BACKUP_ENABLED": self._env_bool("APP_BACKUP_ENABLED", default=False),
+            "APP_BACKUP_INTERVAL_DAYS": backup_interval_days,
+            "APP_BACKUP_TIME": backup_time,
+            "APP_BACKUP_COMPONENTS": backup_components,
+            "APP_BACKUP_TG_ENABLED": self._env_bool("APP_BACKUP_TG_ENABLED", default=False),
+            "APP_BACKUP_TG_ADMIN_IDS": backup_tg_admin_ids,
+            "APP_BACKUP_ROOT": backup_root,
+            "APP_BACKUP_RETENTION_COUNT": 5,
+            "APP_BACKUP_SERVICE_NAME": self._env_str("APP_BACKUP_SERVICE_NAME", "admin-antizapret"),
             "STATUS_LOG_CLEANUP_MARKER": "# adminantizapret-status-cleanup",
             "STATUS_LOG_CLEANUP_PERIODS": {
                 "daily": ("0 3 * * *", "Ежедневно"),

@@ -700,6 +700,17 @@
   display: inline;
 }
 
+.settings-backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.settings-backup-actions .settings-form {
+  display: inline;
+}
+
 .settings-inline-card-mb {
   margin-bottom: 1.5rem;
 }

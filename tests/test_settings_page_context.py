@@ -9,7 +9,17 @@ class SettingsPageContextTests(unittest.TestCase):
     def test_build_settings_page_context_keys(self):
         user_model = MagicMock()
         user_model.query.all.return_value = []
-        user_model.query.filter_by.return_value.all.return_value = []
+        viewer_query = MagicMock()
+        viewer_query.all.return_value = []
+        admin_query = MagicMock()
+        admin_query.filter.return_value.all.return_value = []
+
+        def _filter_by(**kwargs):
+            if kwargs.get("role") == "admin":
+                return admin_query
+            return viewer_query
+
+        user_model.query.filter_by.side_effect = _filter_by
 
         active_web_session_model = MagicMock()
         active_web_session_model.last_seen_at = datetime(2020, 1, 1)
@@ -91,8 +101,19 @@ class SettingsPageContextTests(unittest.TestCase):
                 group_folders={"g": ["/tmp/openvpn"]},
                 get_env_value=get_env_value,
                 get_nightly_idle_restart_settings=MagicMock(return_value=(True, "0 4 * * *")),
+                get_backup_settings=MagicMock(
+                    return_value={
+                        "enabled": False,
+                        "interval_days": 1,
+                        "time_hhmm": "03:00",
+                        "components": "db,env,configs",
+                        "tg_enabled": False,
+                        "tg_admin_ids": "",
+                    }
+                ),
                 get_active_web_session_settings=MagicMock(return_value=(300, 60)),
                 get_public_download_enabled=MagicMock(return_value=True),
+                backup_manager_service=MagicMock(list_backups=MagicMock(return_value=[])),
                 collect_all_openvpn_files_for_access=MagicMock(return_value=[]),
                 build_openvpn_access_groups=MagicMock(return_value=[]),
                 build_conf_access_groups=MagicMock(return_value=[]),
@@ -107,6 +128,7 @@ class SettingsPageContextTests(unittest.TestCase):
         self.assertIn("temporary_whitelist", context)
         self.assertIn("user_action_audit_logs", context)
         self.assertEqual(context["nightly_idle_restart_time"], "04:00")
+        self.assertIn("app_backup_list", context)
         self.assertFalse(context["telegram_auth_enabled"])
 
 

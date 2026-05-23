@@ -687,12 +687,22 @@ WG_POLICY_SYNC_CRON_MARKER = runtime_settings["WG_POLICY_SYNC_CRON_MARKER"]
 WG_POLICY_SYNC_CRON_EXPR = runtime_settings["WG_POLICY_SYNC_CRON_EXPR"]
 WG_POLICY_SYNC_ENABLED = runtime_settings["WG_POLICY_SYNC_ENABLED"]
 NIGHTLY_IDLE_RESTART_MARKER = runtime_settings["NIGHTLY_IDLE_RESTART_MARKER"]
+APP_BACKUP_CRON_MARKER = runtime_settings["APP_BACKUP_CRON_MARKER"]
+APP_BACKUP_ROOT = runtime_settings["APP_BACKUP_ROOT"]
+APP_BACKUP_RETENTION_COUNT = runtime_settings["APP_BACKUP_RETENTION_COUNT"]
+APP_BACKUP_SERVICE_NAME = runtime_settings["APP_BACKUP_SERVICE_NAME"]
 RUNTIME_BACKUP_CLEANUP_MARKER = runtime_settings["RUNTIME_BACKUP_CLEANUP_MARKER"]
 RUNTIME_BACKUP_CLEANUP_CRON_EXPR = runtime_settings["RUNTIME_BACKUP_CLEANUP_CRON_EXPR"]
 RUNTIME_BACKUP_RETENTION_HOURS = runtime_settings["RUNTIME_BACKUP_RETENTION_HOURS"]
 RUNTIME_BACKUP_ROOT = os.path.join(APP_ROOT, "ips", "runtime_backups")
 _runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", runtime_settings["NIGHTLY_IDLE_RESTART_CRON_EXPR"])
 _runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", runtime_settings["NIGHTLY_IDLE_RESTART_ENABLED"])
+_runtime_set("APP_BACKUP_ENABLED", runtime_settings["APP_BACKUP_ENABLED"])
+_runtime_set("APP_BACKUP_INTERVAL_DAYS", runtime_settings["APP_BACKUP_INTERVAL_DAYS"])
+_runtime_set("APP_BACKUP_TIME", runtime_settings["APP_BACKUP_TIME"])
+_runtime_set("APP_BACKUP_COMPONENTS", runtime_settings["APP_BACKUP_COMPONENTS"])
+_runtime_set("APP_BACKUP_TG_ENABLED", runtime_settings["APP_BACKUP_TG_ENABLED"])
+_runtime_set("APP_BACKUP_TG_ADMIN_IDS", runtime_settings["APP_BACKUP_TG_ADMIN_IDS"])
 _runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", runtime_settings["ACTIVE_WEB_SESSION_TTL_SECONDS"])
 _runtime_set(
     "ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS",
@@ -710,6 +720,26 @@ def _get_nightly_idle_restart_settings():
 def _set_nightly_idle_restart_settings(enabled, cron_expr):
     _runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", bool(enabled))
     _runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", (cron_expr or "0 4 * * *").strip())
+
+
+def _get_backup_settings():
+    return {
+        "enabled": bool(_runtime_get("APP_BACKUP_ENABLED", False)),
+        "interval_days": int(_runtime_get("APP_BACKUP_INTERVAL_DAYS", 1)),
+        "time_hhmm": str(_runtime_get("APP_BACKUP_TIME", "03:00") or "03:00"),
+        "components": str(_runtime_get("APP_BACKUP_COMPONENTS", "db,env,configs") or "db,env,configs"),
+        "tg_enabled": bool(_runtime_get("APP_BACKUP_TG_ENABLED", False)),
+        "tg_admin_ids": str(_runtime_get("APP_BACKUP_TG_ADMIN_IDS", "") or ""),
+    }
+
+
+def _set_backup_settings(*, enabled, interval_days, time_hhmm, components, tg_enabled, tg_admin_ids):
+    _runtime_set("APP_BACKUP_ENABLED", bool(enabled))
+    _runtime_set("APP_BACKUP_INTERVAL_DAYS", int(interval_days))
+    _runtime_set("APP_BACKUP_TIME", (time_hhmm or "03:00").strip())
+    _runtime_set("APP_BACKUP_COMPONENTS", (components or "db,env,configs").strip())
+    _runtime_set("APP_BACKUP_TG_ENABLED", bool(tg_enabled))
+    _runtime_set("APP_BACKUP_TG_ADMIN_IDS", (tg_admin_ids or "").strip())
 
 
 def _get_active_web_session_settings():
@@ -750,6 +780,10 @@ def _ensure_nightly_idle_restart_cron():
     return maintenance_scheduler_service.ensure_nightly_idle_restart_cron()
 
 
+def _ensure_app_backup_cron():
+    return maintenance_scheduler_service.ensure_app_backup_cron()
+
+
 def _ensure_runtime_backup_cleanup_cron():
     return maintenance_scheduler_service.ensure_runtime_backup_cleanup_cron()
 
@@ -768,10 +802,14 @@ _services = build_services(
     wg_policy_sync_cron_expr=WG_POLICY_SYNC_CRON_EXPR,
     wg_policy_sync_enabled=WG_POLICY_SYNC_ENABLED,
     nightly_idle_restart_marker=NIGHTLY_IDLE_RESTART_MARKER,
+    app_backup_cron_marker=APP_BACKUP_CRON_MARKER,
     runtime_backup_cleanup_marker=RUNTIME_BACKUP_CLEANUP_MARKER,
     runtime_backup_cleanup_cron_expr=RUNTIME_BACKUP_CLEANUP_CRON_EXPR,
     runtime_backup_root=RUNTIME_BACKUP_ROOT,
     runtime_backup_retention_hours=RUNTIME_BACKUP_RETENTION_HOURS,
+    backup_root=APP_BACKUP_ROOT,
+    backup_service_name=APP_BACKUP_SERVICE_NAME,
+    backup_retention_count=APP_BACKUP_RETENTION_COUNT,
     openvpn_socket_dir=OPENVPN_SOCKET_DIR,
     openvpn_socket_timeout=OPENVPN_SOCKET_TIMEOUT,
     openvpn_socket_idle_timeout=OPENVPN_SOCKET_IDLE_TIMEOUT,
@@ -798,6 +836,7 @@ _services = build_services(
     integrity_error_cls=IntegrityError,
     is_valid_cron_expression=_is_valid_cron_expression,
     get_nightly_idle_restart_settings=lambda: _get_nightly_idle_restart_settings(),
+    get_backup_settings=lambda: _get_backup_settings(),
     get_active_web_session_settings=lambda: _get_active_web_session_settings(),
     collect_config_protocols_by_client=lambda: _collect_config_protocols_by_client(),
     build_session_key=lambda profile, client: _build_session_key(profile, client),
@@ -823,6 +862,7 @@ _services = build_services(
 )
 
 maintenance_scheduler_service = _services["maintenance_scheduler_service"]
+backup_manager_service = _services["backup_manager_service"]
 active_web_session_service = _services["active_web_session_service"]
 traffic_maintenance_service = _services["traffic_maintenance_service"]
 openvpn_socket_reader_service = _services["openvpn_socket_reader_service"]
@@ -878,6 +918,13 @@ if not _SKIP_APP_BOOTSTRAP:
             app.logger.warning(_idle_restart_msg)
     except (RuntimeError, OSError, ValueError) as e:
         app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
+
+    try:
+        _app_backup_ok, _app_backup_msg = _ensure_app_backup_cron()
+        if not _app_backup_ok:
+            app.logger.warning(_app_backup_msg)
+    except (RuntimeError, OSError, ValueError) as e:
+        app.logger.warning(f"Не удалось инициализировать cron авто-бэкапов: {e}")
 
     try:
         _backup_cleanup_ok, _backup_cleanup_msg = _ensure_runtime_backup_cleanup_cron()

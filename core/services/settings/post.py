@@ -1,4 +1,8 @@
 from core.services.settings.post_handlers.maintenance import (
+    handle_backup_create,
+    handle_backup_delete,
+    handle_backup_restore,
+    handle_backup_settings,
     handle_maintenance_settings,
     handle_restart_service,
 )
@@ -46,6 +50,39 @@ def process_settings_post(form, *, session, flash, redirect_url, **deps):
         set_nightly_idle_restart_settings=deps["set_nightly_idle_restart_settings"],
         set_active_web_session_settings=deps["set_active_web_session_settings"],
         set_env_value=deps["set_env_value"],
+        log_user_action_event=deps["log_user_action_event"],
+    )
+    handle_backup_settings(
+        form,
+        flash=flash,
+        to_bool=deps["to_bool"],
+        set_backup_settings=deps["set_backup_settings"],
+        set_env_value=deps["set_env_value"],
+        ensure_app_backup_cron=deps["ensure_app_backup_cron"],
+        log_user_action_event=deps["log_user_action_event"],
+    )
+    handle_backup_create(
+        form,
+        flash=flash,
+        session=session,
+        enqueue_background_task=deps["enqueue_background_task"],
+        backup_manager_service=deps["backup_manager_service"],
+        get_backup_settings=deps["get_backup_settings"],
+        collect_all_configs_for_access=deps["collect_all_configs_for_access"],
+        log_user_action_event=deps["log_user_action_event"],
+    )
+    handle_backup_restore(
+        form,
+        flash=flash,
+        session=session,
+        enqueue_background_task=deps["enqueue_background_task"],
+        backup_manager_service=deps["backup_manager_service"],
+        log_user_action_event=deps["log_user_action_event"],
+    )
+    handle_backup_delete(
+        form,
+        flash=flash,
+        backup_manager_service=deps["backup_manager_service"],
         log_user_action_event=deps["log_user_action_event"],
     )
     handle_telegram_auth_settings(

@@ -21,6 +21,10 @@ SETTINGS_CHANGE_NOTIFY = frozenset({
     "settings_port_update",
     "settings_telegram_auth_update",
     "settings_nightly_update",
+    "settings_backup_update",
+    "settings_backup_create",
+    "settings_backup_restore",
+    "settings_backup_delete",
     "settings_restart_service",
     "settings_public_download_toggle",
     # QR
@@ -62,6 +66,10 @@ SETTINGS_CHANGE_LABELS = {
     "settings_port_update": "Изменён порт",
     "settings_telegram_auth_update": "Изменены настройки Telegram-авторизации",
     "settings_nightly_update": "Изменено расписание ночного рестарта",
+    "settings_backup_update": "Изменены настройки бэкапов",
+    "settings_backup_create": "Создан бэкап",
+    "settings_backup_restore": "Запущено восстановление из бэкапа",
+    "settings_backup_delete": "Удалён бэкап",
     "settings_restart_service": "Перезапуск сервиса",
     "settings_public_download_toggle": "Изменён публичный доступ к конфигам",
     # QR
@@ -102,6 +110,10 @@ SETTINGS_TG_TITLES = {
     "settings_port_update": "Порт панели",
     "settings_telegram_auth_update": "Авторизация Telegram",
     "settings_nightly_update": "Ночной рестарт",
+    "settings_backup_update": "Бэкапы",
+    "settings_backup_create": "Бэкапы",
+    "settings_backup_restore": "Бэкапы",
+    "settings_backup_delete": "Бэкапы",
     "settings_restart_service": "Перезапуск сервиса",
     "settings_public_download_toggle": "Публичное скачивание",
     "settings_qr_ttl_update": "QR-ссылки",
@@ -137,6 +149,9 @@ SETTINGS_TG_TITLES = {
 # These are one-shot actions (no before/after value)
 SETTINGS_ACTION_EVENTS = frozenset({
     "settings_restart_service",
+    "settings_backup_create",
+    "settings_backup_restore",
+    "settings_backup_delete",
     "settings_run_doall",
     "settings_cidr_update_queued",
     "settings_cidr_rollback_queued",
