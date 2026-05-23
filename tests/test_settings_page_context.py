@@ -127,6 +127,7 @@ class SettingsPageContextTests(unittest.TestCase):
         self.assertIn("ip_whitelist_firewall_active", context)
         self.assertIn("temporary_whitelist", context)
         self.assertIn("user_action_audit_logs", context)
+        self.assertIn("user_action_day_groups", context)
         self.assertEqual(context["nightly_idle_restart_time"], "04:00")
         self.assertIn("app_backup_list", context)
         self.assertFalse(context["telegram_auth_enabled"])

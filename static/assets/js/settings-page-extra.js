@@ -118,55 +118,60 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-// ── Action logs: day/session collapse + filter ─────────────────────────────
+// ── Action logs: grouped table + filters + sort + export ────────────────────
 (function () {
   const table = document.getElementById("auditLogTable");
   if (!table) return;
 
-  const searchEl      = document.getElementById("auditSearch");
-  const sourcePills   = document.getElementById("auditSourcePills");
-  const userSelect    = document.getElementById("auditUserFilter");
-  const countBadge    = document.getElementById("auditLogCount");
-  const clearBtn      = document.getElementById("auditClearBtn");
+  const STORAGE_KEY = "actionLogsFilterStateV2";
+  const searchEl = document.getElementById("auditSearch");
+  const sourcePills = document.getElementById("auditSourcePills");
+  const userSelect = document.getElementById("auditUserFilter");
+  const statusSelect = document.getElementById("auditStatusFilter");
+  const sortSelect = document.getElementById("auditSortSelect");
+  const countBadge = document.getElementById("auditLogCount");
+  const clearBtn = document.getElementById("auditClearBtn");
+  const exportBtn = document.getElementById("auditExportBtn");
   const emptyClearBtn = document.getElementById("auditEmptyClearBtn");
-  const emptyState    = document.getElementById("auditEmptyFilter");
-  const alertToggle   = document.getElementById("auditAlertToggle");
+  const emptyState = document.getElementById("auditEmptyFilter");
+  const alertToggle = document.getElementById("auditAlertToggle");
 
   const allRows = Array.from(table.querySelectorAll("tr.audit-action-row"));
   const allBodies = Array.from(table.querySelectorAll("tbody.audit-session-tbody"));
   const allDayBodies = Array.from(table.querySelectorAll("tbody.audit-day-hdr-tbody"));
-  const total     = allRows.length;
+  const total = allRows.length;
 
-  // ── Populate user dropdown ──
-  const users = [...new Set(allRows.map(r => r.dataset.user).filter(Boolean))].sort();
-  users.forEach(u => {
+  const collapsedSessions = new Set();
+  const collapsedDays = new Set();
+  const daySessionMap = new Map();
+  allDayBodies.forEach((dayBody) => {
+    const dayId = dayBody.dataset.dayId;
+    daySessionMap.set(dayId, allBodies.filter((sessionBody) => sessionBody.dataset.dayId === dayId));
+  });
+
+  const users = [...new Set(allRows.map((row) => row.dataset.user).filter(Boolean))].sort();
+  users.forEach((user) => {
     const opt = document.createElement("option");
-    opt.value = u; opt.textContent = u;
+    opt.value = user;
+    opt.textContent = user;
     userSelect?.appendChild(opt);
   });
 
-  // ── Threat button label ──
-  const threatCount = allRows.filter(r => r.dataset.alert === "true").length;
+  const threatCount = allRows.filter((row) => row.dataset.alert === "true").length;
   if (alertToggle) {
     if (threatCount === 0) {
       alertToggle.hidden = true;
     } else {
       alertToggle.title = `Показать только подозрительные события (${threatCount})`;
-      const textNode = Array.from(alertToggle.childNodes).find(n => n.nodeType === 3);
+      const textNode = Array.from(alertToggle.childNodes).find((node) => node.nodeType === 3);
       if (textNode) textNode.textContent = ` Угрозы (${threatCount})`;
     }
   }
 
-  // ── Collapse state ──
-  const collapsedSessions = new Set();
-  const collapsedDays     = new Set();
-
-  // All sessions collapsed on load.
-  allBodies.forEach(tb => {
+  allBodies.forEach((tb) => {
     collapsedSessions.add(tb.dataset.sessionId);
     tb.classList.add("is-collapsed");
   });
-  // Collapse all days except the first visible one.
   allDayBodies.forEach((db, index) => {
     if (index > 0) {
       collapsedDays.add(db.dataset.dayId);
@@ -174,54 +179,145 @@ document.addEventListener('keydown', (event) => {
     }
   });
 
-  // ── Filter state ──
   let activeSrc = "";
   let alertOnly = false;
+  let activeSort = sortSelect?.value || "time_desc";
+
+  function persistFilterState() {
+    const payload = {
+      q: (searchEl?.value || "").trim(),
+      src: activeSrc,
+      user: userSelect?.value || "",
+      status: statusSelect?.value || "",
+      alertOnly,
+      sort: activeSort,
+    };
+    window.sessionStorage?.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }
+
+  function restoreFilterState() {
+    const raw = window.sessionStorage?.getItem(STORAGE_KEY);
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      if (searchEl && typeof data.q === "string") searchEl.value = data.q;
+      if (typeof data.src === "string") activeSrc = data.src;
+      if (userSelect && typeof data.user === "string") userSelect.value = data.user;
+      if (statusSelect && typeof data.status === "string") statusSelect.value = data.status;
+      if (typeof data.alertOnly === "boolean") alertOnly = data.alertOnly;
+      if (typeof data.sort === "string") activeSort = data.sort;
+    } catch (_err) {
+      // Ignore broken session storage payloads.
+    }
+  }
+
+  function syncFilterUi() {
+    sourcePills?.querySelectorAll(".audit-pill").forEach((pill) => {
+      pill.classList.toggle("audit-pill--active", (pill.dataset.src || "") === activeSrc);
+    });
+    if (sortSelect) sortSelect.value = activeSort;
+    if (alertToggle) {
+      alertToggle.dataset.active = alertOnly ? "true" : "false";
+      alertToggle.classList.toggle("audit-pill--active", alertOnly);
+    }
+  }
 
   function getSearch() {
     return (searchEl?.value || "").trim().toLowerCase();
   }
 
+  function rowSortValue(row, sortMode) {
+    if (sortMode === "user_asc") return (row.dataset.user || "").toLowerCase();
+    if (sortMode === "result_asc") return (row.dataset.statusDisplay || row.dataset.status || "").toLowerCase();
+    return Number(row.dataset.ts || 0);
+  }
+
+  function sortRowsInSession(sessionBody, sortMode) {
+    const rows = Array.from(sessionBody.querySelectorAll("tr.audit-action-row"));
+    rows.sort((a, b) => {
+      const av = rowSortValue(a, sortMode);
+      const bv = rowSortValue(b, sortMode);
+      if (sortMode === "time_asc") return av - bv;
+      if (sortMode === "time_desc") return bv - av;
+      return String(av).localeCompare(String(bv), "ru", { sensitivity: "base" });
+    });
+    rows.forEach((row) => sessionBody.appendChild(row));
+  }
+
+  function sortSessionsWithinDay(dayId, sortMode) {
+    const sessions = daySessionMap.get(dayId) || [];
+    if (sortMode === "time_desc" || sortMode === "time_asc") {
+      sessions.sort((a, b) => {
+        const aTopTs = Number(a.querySelector("tr.audit-action-row")?.dataset.ts || 0);
+        const bTopTs = Number(b.querySelector("tr.audit-action-row")?.dataset.ts || 0);
+        return sortMode === "time_desc" ? bTopTs - aTopTs : aTopTs - bTopTs;
+      });
+    } else if (sortMode === "user_asc") {
+      sessions.sort((a, b) =>
+        String(a.dataset.sessionUser || "").localeCompare(String(b.dataset.sessionUser || ""), "ru", { sensitivity: "base" })
+      );
+    } else if (sortMode === "result_asc") {
+      sessions.sort((a, b) => {
+        const aStatus = (a.querySelector("tr.audit-action-row")?.dataset.statusDisplay || "").toLowerCase();
+        const bStatus = (b.querySelector("tr.audit-action-row")?.dataset.statusDisplay || "").toLowerCase();
+        return aStatus.localeCompare(bStatus, "ru", { sensitivity: "base" });
+      });
+    }
+    const dayHeaderBody = allDayBodies.find((body) => body.dataset.dayId === dayId);
+    if (!dayHeaderBody || !dayHeaderBody.parentNode) return;
+    let insertAfter = dayHeaderBody;
+    sessions.forEach((sessionBody) => {
+      dayHeaderBody.parentNode.insertBefore(sessionBody, insertAfter.nextSibling);
+      insertAfter = sessionBody;
+    });
+  }
+
+  function applySort() {
+    allBodies.forEach((sessionBody) => sortRowsInSession(sessionBody, activeSort));
+    allDayBodies.forEach((dayBody) => sortSessionsWithinDay(dayBody.dataset.dayId, activeSort));
+  }
+
   function applyFilters() {
-    const q    = getSearch();
-    const src  = activeSrc;
+    const q = getSearch();
+    const src = activeSrc;
     const user = userSelect?.value || "";
+    const status = statusSelect?.value || "";
 
     let visible = 0;
-    for (const row of allRows) {
-      const match =
-        (!src       || row.dataset.src  === src)  &&
-        (!user      || row.dataset.user === user) &&
-        (!q         || (row.dataset.text || "").includes(q)) &&
+    allRows.forEach((row) => {
+      const rowStatus = (row.dataset.status || "").toLowerCase();
+      const rowText = (row.dataset.text || "").toLowerCase();
+      const matches =
+        (!src || row.dataset.src === src) &&
+        (!user || row.dataset.user === user) &&
+        (!status || rowStatus === status) &&
+        (!q || rowText.includes(q)) &&
         (!alertOnly || row.dataset.alert === "true");
-      row.dataset.filterHidden = match ? "0" : "1";
+      row.dataset.filterHidden = matches ? "0" : "1";
       const sessionCollapsed = collapsedSessions.has(row.dataset.sessionId);
-      row.hidden = !match || sessionCollapsed;
-      if (match) visible++;
-    }
+      row.hidden = !matches || sessionCollapsed;
+      if (matches) visible += 1;
+    });
 
-    // Session tbodies
-    allBodies.forEach(tb => {
-      const dayCollapsed = collapsedDays.has(tb.dataset.dayId);
-      const bodyRows     = tb.querySelectorAll("tr.audit-action-row");
-      const anyPass      = Array.from(bodyRows).some(r => r.dataset.filterHidden === "0");
-      tb.hidden = dayCollapsed;
-      const hdr = tb.querySelector(".audit-session-hdr");
+    allBodies.forEach((sessionBody) => {
+      const dayCollapsed = collapsedDays.has(sessionBody.dataset.dayId);
+      const anyPass = Array.from(sessionBody.querySelectorAll("tr.audit-action-row"))
+        .some((row) => row.dataset.filterHidden === "0");
+      const hdr = sessionBody.querySelector(".audit-session-hdr");
+      sessionBody.hidden = dayCollapsed;
       if (hdr) hdr.hidden = !anyPass || dayCollapsed;
+      sessionBody.dataset.hasVisibleRows = anyPass ? "1" : "0";
     });
 
-    // Day header tbodies
-    allDayBodies.forEach(db => {
-      const dayId      = db.dataset.dayId;
-      const daySessions = allBodies.filter(tb => tb.dataset.dayId === dayId);
-      const anyPass    = daySessions.some(tb =>
-        Array.from(tb.querySelectorAll("tr.audit-action-row")).some(r => r.dataset.filterHidden === "0")
-      );
-      db.hidden = !anyPass;
-      db.classList.toggle("is-collapsed", collapsedDays.has(dayId));
+    allDayBodies.forEach((dayBody) => {
+      const dayId = dayBody.dataset.dayId;
+      const sessions = daySessionMap.get(dayId) || [];
+      const anyPass = sessions.some((sessionBody) => sessionBody.dataset.hasVisibleRows === "1");
+      dayBody.hidden = !anyPass;
+      dayBody.classList.toggle("is-collapsed", collapsedDays.has(dayId));
     });
 
-    const isFiltered = !!(q || src || user || alertOnly);
+    const isFiltered = !!(q || src || user || status || alertOnly);
     if (countBadge) {
       countBadge.innerHTML = isFiltered
         ? `<strong>${visible}</strong> из ${total}`
@@ -230,41 +326,60 @@ document.addEventListener('keydown', (event) => {
 
     const showEmpty = visible === 0 && isFiltered;
     if (emptyState) emptyState.hidden = !showEmpty;
-    if (table)      table.style.display = showEmpty ? "none" : "";
-    if (clearBtn)   clearBtn.style.opacity = isFiltered ? "1" : "0.4";
+    table.style.display = showEmpty ? "none" : "";
+    if (clearBtn) clearBtn.style.opacity = isFiltered ? "1" : "0.4";
+    persistFilterState();
   }
 
   function clearFilters() {
-    if (searchEl)   searchEl.value = "";
+    if (searchEl) searchEl.value = "";
+    if (userSelect) userSelect.value = "";
+    if (statusSelect) statusSelect.value = "";
     activeSrc = "";
     alertOnly = false;
-    if (userSelect) userSelect.value = "";
-    sourcePills?.querySelectorAll(".audit-pill").forEach((p, i) =>
-      p.classList.toggle("audit-pill--active", i === 0)
-    );
-    if (alertToggle) {
-      alertToggle.dataset.active = "false";
-      alertToggle.classList.remove("audit-pill--active");
-    }
+    activeSort = "time_desc";
+    syncFilterUi();
+    applySort();
     applyFilters();
   }
 
   function applyInitialFilterFromQuery() {
     const params = new URLSearchParams(window.location.search || "");
     const src = (params.get("action_src") || "").trim().toLowerCase();
-    if (!src) return;
-    activeSrc = src;
-    sourcePills?.querySelectorAll(".audit-pill").forEach((pill) => {
-      pill.classList.toggle("audit-pill--active", (pill.dataset.src || "") === src);
-    });
+    if (src) activeSrc = src;
   }
 
-  // ── Click handler: day header + session header ──
-  table.addEventListener("click", e => {
-    const dayHdrRow = e.target.closest(".audit-day-hdr");
+  function getExportEndpoint() {
+    const template = document.getElementById("auditExportPayloadTemplate");
+    if (!template) return "";
+    try {
+      const parsed = JSON.parse(template.textContent || "{}");
+      return String(parsed.endpoint || "");
+    } catch (_err) {
+      return "";
+    }
+  }
+
+  function triggerCsvExport() {
+    const endpoint = getExportEndpoint();
+    if (!endpoint) return;
+    const params = new URLSearchParams();
+    const q = (searchEl?.value || "").trim();
+    if (q) params.set("q", q);
+    if (activeSrc) params.set("src", activeSrc);
+    if (userSelect?.value) params.set("user", userSelect.value);
+    if (statusSelect?.value) params.set("status", statusSelect.value);
+    if (alertOnly) params.set("alert_only", "1");
+    params.set("sort", activeSort);
+    const url = params.toString() ? `${endpoint}?${params.toString()}` : endpoint;
+    window.location.href = url;
+  }
+
+  table.addEventListener("click", (event) => {
+    const dayHdrRow = event.target.closest(".audit-day-hdr");
     if (dayHdrRow) {
       const dayBody = dayHdrRow.closest("tbody.audit-day-hdr-tbody");
-      const dayId   = dayBody?.dataset.dayId;
+      const dayId = dayBody?.dataset.dayId;
       if (!dayId) return;
       if (collapsedDays.has(dayId)) collapsedDays.delete(dayId);
       else collapsedDays.add(dayId);
@@ -272,88 +387,84 @@ document.addEventListener('keydown', (event) => {
       return;
     }
 
-    const sessionHdrRow = e.target.closest(".audit-session-hdr");
+    const sessionHdrRow = event.target.closest(".audit-session-hdr");
     if (!sessionHdrRow) return;
-
-    const tbody     = sessionHdrRow.closest("tbody.audit-session-tbody");
-    const sessionId = tbody?.dataset.sessionId;
-    if (!sessionId) return;
-
-    // Block session toggle when its day is collapsed
-    if (collapsedDays.has(tbody.dataset.dayId)) return;
+    const sessionBody = sessionHdrRow.closest("tbody.audit-session-tbody");
+    const sessionId = sessionBody?.dataset.sessionId;
+    if (!sessionId || !sessionBody) return;
+    if (collapsedDays.has(sessionBody.dataset.dayId)) return;
 
     const wasCollapsed = collapsedSessions.has(sessionId);
     if (wasCollapsed) {
       collapsedSessions.delete(sessionId);
-      tbody.classList.remove("is-collapsed");
+      sessionBody.classList.remove("is-collapsed");
     } else {
       collapsedSessions.add(sessionId);
-      tbody.classList.add("is-collapsed");
+      sessionBody.classList.add("is-collapsed");
     }
-
-    tbody.querySelectorAll("tr.audit-action-row").forEach(row => {
+    sessionBody.querySelectorAll("tr.audit-action-row").forEach((row) => {
       row.hidden = row.dataset.filterHidden === "1" || !wasCollapsed;
     });
   });
 
-  // ── Source pill clicks ──
-  sourcePills?.addEventListener("click", e => {
-    const pill = e.target.closest(".audit-pill");
+  sourcePills?.addEventListener("click", (event) => {
+    const pill = event.target.closest(".audit-pill");
     if (!pill) return;
-    activeSrc = pill.dataset.src ?? "";
-    sourcePills.querySelectorAll(".audit-pill").forEach(p =>
-      p.classList.toggle("audit-pill--active", p === pill)
-    );
+    activeSrc = pill.dataset.src || "";
+    syncFilterUi();
     applyFilters();
   });
 
   searchEl?.addEventListener("input", applyFilters);
   userSelect?.addEventListener("change", applyFilters);
-  clearBtn?.addEventListener("click", clearFilters);
-  emptyClearBtn?.addEventListener("click", clearFilters);
-  alertToggle?.addEventListener("click", () => {
-    alertOnly = !alertOnly;
-    alertToggle.dataset.active = alertOnly ? "true" : "false";
-    alertToggle.classList.toggle("audit-pill--active", alertOnly);
+  statusSelect?.addEventListener("change", applyFilters);
+  sortSelect?.addEventListener("change", () => {
+    activeSort = sortSelect.value || "time_desc";
+    applySort();
     applyFilters();
   });
+  alertToggle?.addEventListener("click", () => {
+    alertOnly = !alertOnly;
+    syncFilterUi();
+    applyFilters();
+  });
+  clearBtn?.addEventListener("click", clearFilters);
+  emptyClearBtn?.addEventListener("click", clearFilters);
+  exportBtn?.addEventListener("click", triggerCsvExport);
 
-  // ── Convert UTC to local time ──
   (function convertTimesToLocal() {
-    const pad = n => String(n).padStart(2, "0");
-
-    table.querySelectorAll(".audit-td-time[data-utc]").forEach(td => {
+    const pad = (n) => String(n).padStart(2, "0");
+    table.querySelectorAll(".audit-td-time[data-utc]").forEach((td) => {
       const iso = td.dataset.utc;
       if (!iso) return;
-      const d = new Date(iso.includes("T") ? iso + "Z" : iso);
-      if (isNaN(d)) return;
-      const dateEl  = td.querySelector(".audit-time-date");
+      const date = new Date(iso.includes("T") ? `${iso}Z` : iso);
+      if (isNaN(date)) return;
+      const dateEl = td.querySelector(".audit-time-date");
       const clockEl = td.querySelector(".audit-time-clock");
-      if (dateEl)  dateEl.textContent  = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-      if (clockEl) clockEl.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      if (dateEl) dateEl.textContent = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+      if (clockEl) clockEl.textContent = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
     });
 
-    table.querySelectorAll(".audit-session-timerange[data-session-start]").forEach(el => {
+    table.querySelectorAll(".audit-session-timerange[data-session-start]").forEach((el) => {
       const startIso = el.dataset.sessionStart;
-      const endIso   = el.dataset.sessionEnd;
+      const endIso = el.dataset.sessionEnd;
       if (!startIso || !endIso) return;
-      const s = new Date(startIso + "Z");
-      const e = new Date(endIso   + "Z");
-      if (isNaN(s) || isNaN(e)) return;
+      const start = new Date(`${startIso}Z`);
+      const end = new Date(`${endIso}Z`);
+      if (isNaN(start) || isNaN(end)) return;
 
-      const fmtDate    = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-      const fmtTime    = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      const fmtTimeSec = d => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-
-      const sameDay  = fmtDate(s) === fmtDate(e);
-      const sameTime = s.getTime() === e.getTime();
+      const fmtDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const fmtTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const fmtTimeSec = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      const sameDay = fmtDate(start) === fmtDate(end);
+      const sameTime = start.getTime() === end.getTime();
 
       if (sameTime) {
-        el.textContent = `${fmtDate(s)}, ${fmtTimeSec(s)}`;
+        el.textContent = `${fmtDate(start)}, ${fmtTimeSec(start)}`;
       } else if (sameDay) {
-        el.textContent = `${fmtDate(s)}, ${fmtTime(s)} — ${fmtTime(e)}`;
+        el.textContent = `${fmtDate(start)}, ${fmtTime(start)} — ${fmtTime(end)}`;
       } else {
-        el.textContent = `${fmtDate(s)} ${fmtTime(s)} — ${fmtDate(e)} ${fmtTime(e)}`;
+        el.textContent = `${fmtDate(start)} ${fmtTime(start)} — ${fmtDate(end)} ${fmtTime(end)}`;
       }
     });
 
@@ -361,7 +472,10 @@ document.addEventListener('keydown', (event) => {
     if (header) header.textContent = "Время (местное)";
   })();
 
+  restoreFilterState();
   applyInitialFilterFromQuery();
+  syncFilterUi();
+  applySort();
   applyFilters();
 })();
 

@@ -56,6 +56,7 @@ def register_settings_routes(app, **deps):
         auth_manager=deps["auth_manager"],
         db=deps["db"],
         user_model=deps["user_model"],
+        user_action_log_model=deps["user_action_log_model"],
         ip_manager=deps["ip_manager"],
         enqueue_background_task=deps["enqueue_background_task"],
         task_restart_service=deps["task_restart_service"],

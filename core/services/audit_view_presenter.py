@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json as _json
 import re
 from typing import Any
 
@@ -827,13 +828,162 @@ def user_action_tg_action_line(
     return label
 
 
+def _humanize_boolean_flag(raw: str | None) -> str:
+    value = str(raw or "").strip().lower()
+    if value in {"1", "true", "yes", "вкл"}:
+        return "включено"
+    if value in {"0", "false", "no", "выкл"}:
+        return "выключено"
+    return value or "—"
+
+
+def _humanize_source_flag(raw: str | None) -> str:
+    value = str(raw or "").strip().lower()
+    if value in {"tg-mini", "tg_mini", "mini_app", "miniapp"}:
+        return "Telegram Mini App"
+    if value in {"web", "panel", "web_settings"}:
+        return "веб-панель"
+    return value or "панель"
+
+
+_TG_NOTIFY_EVENT_LABELS = {
+    "login_success": "успешный вход",
+    "login_failed": "неудачный вход",
+    "tg_unlinked": "непривязанный Telegram",
+    "config_create": "создание конфига",
+    "config_delete": "удаление конфига",
+    "user_create": "добавление пользователя",
+    "user_delete": "удаление пользователя",
+    "client_ban": "блокировка клиента",
+    "settings_change": "изменение настроек",
+    "high_cpu": "высокая нагрузка CPU",
+    "high_ram": "высокая нагрузка RAM",
+}
+
+
+def _humanize_user_action_details(event_key: str, details_value: str) -> str:
+    if not details_value:
+        return "-"
+
+    if "→" in details_value and event_key not in {
+        "settings_nightly_update",
+        "settings_backup_update",
+        "settings_telegram_auth_update",
+    }:
+        old_value, new_value = _parse_arrow_change(details_value) or ("—", "—")
+        return f"Изменено: с {old_value} на {new_value}"
+
+    if event_key == "login_failed":
+        translated = _translate_auth_failure_detail(details_value)
+        return translated if translated != details_value else "Ошибка входа"
+
+    if event_key == "settings_user_password_update":
+        return "Пароль успешно изменён"
+
+    if event_key == "settings_user_tg_notify_update":
+        try:
+            enabled = _json.loads(details_value)
+            if isinstance(enabled, dict) and enabled:
+                labels = [
+                    _TG_NOTIFY_EVENT_LABELS.get(str(key), str(key))
+                    for key, val in enabled.items()
+                    if bool(val)
+                ]
+                if labels:
+                    return "Включены уведомления: " + ", ".join(labels)
+            return "Настройки уведомлений обновлены"
+        except Exception:
+            return "Настройки уведомлений обновлены"
+
+    if event_key in {"settings_viewer_access_grant", "settings_viewer_access_revoke"}:
+        detail_map = parse_mini_details_kv(details_value)
+        count = detail_map.get("configs")
+        group = detail_map.get("group")
+        action_text = "Выдан доступ" if event_key.endswith("grant") else "Доступ отозван"
+        if count and group:
+            return f"{action_text}: {count} конфиг(ов), группа {group}"
+        return action_text
+
+    if event_key == "settings_ip_file_toggle" and "|" in details_value:
+        parts = [part.strip() for part in details_value.split("|")]
+        if len(parts) >= 3:
+            state_text = "включён" if parts[0] == "вкл" else "выключен"
+            return f"Файл «{parts[1]}» {state_text}, затронуто {parts[2]}"
+
+    detail_map = parse_mini_details_kv(details_value)
+    if detail_map:
+        if event_key == "settings_port_update":
+            port = detail_map.get("value", "—")
+            restart = _humanize_boolean_flag(detail_map.get("restart"))
+            source = _humanize_source_flag(detail_map.get("via"))
+            return f"Новый порт: {port}; перезапуск: {restart}; источник: {source}"
+
+        if event_key == "settings_ip_add_temp":
+            duration = detail_map.get("duration", "—")
+            return f"Временный доступ выдан на {duration}"
+
+        if event_key == "settings_ip_bulk_enable":
+            entries = detail_map.get("entries", "0")
+            return f"Включено IP-ограничений: {entries}"
+
+        if event_key == "settings_ip_files_sync":
+            synced = detail_map.get("synced", "0")
+            updated = detail_map.get("updated", "0")
+            missing = detail_map.get("missing")
+            base = f"Синхронизировано файлов: {synced}; обновлено: {updated}"
+            if missing:
+                return f"{base}; отсутствуют источники: {missing.replace(',', ', ')}"
+            return base
+
+        if event_key == "settings_ip_scanner_block":
+            return (
+                f"Защита: {_humanize_boolean_flag(detail_map.get('enabled'))}; "
+                f"порог попыток: {detail_map.get('max', '—')}; "
+                f"окно: {detail_map.get('window', '—')} сек.; "
+                f"бан: {detail_map.get('ban', '—')} сек.; "
+                f"бан на странице блокировки: {_humanize_boolean_flag(detail_map.get('dwell'))}; "
+                f"iptables whitelist: {_humanize_boolean_flag(detail_map.get('whitelist_fw'))}"
+            )
+
+        if event_key == "settings_monitor_update":
+            cpu = detail_map.get("cpu", "—")
+            ram = detail_map.get("ram", "—")
+            interval = detail_map.get("interval", "—")
+            cooldown = detail_map.get("cooldown", "—")
+            return (
+                f"CPU: {cpu}; RAM: {ram}; "
+                f"интервал проверки: {interval}; "
+                f"пауза уведомлений: {cooldown}"
+            )
+
+        if event_key == "settings_tests_run":
+            count = detail_map.get("count")
+            if count == "all":
+                return "Запущены все тесты"
+            if count:
+                return f"Запущено тестов: {count}"
+            return "Тесты запущены"
+
+        if event_key == "settings_user_create":
+            role = detail_map.get("роль", detail_map.get("role", "admin"))
+            role_h = _ROLE_LABELS_RU.get(str(role).lower(), role)
+            tg_id = detail_map.get("TG")
+            if tg_id:
+                return f"Роль: {role_h}; Telegram ID: {tg_id}"
+            return f"Роль: {role_h}"
+
+    humanized = _humanize_raw_details_for_tg(details_value)
+    if humanized:
+        return humanized
+
+    return details_value
+
+
 def user_action_details_label(event_type: str | None, details: str | None) -> str:
     event_key = str(event_type or "").strip()
     details_value = str(details or "").strip()
     if not details_value:
         return "-"
-
-    detail_map = parse_mini_details_kv(details_value)
 
     if event_key == "settings_telegram_auth_update":
         return _format_telegram_auth_details_ru(details_value)
@@ -843,7 +993,33 @@ def user_action_details_label(event_type: str | None, details: str | None) -> st
     ):
         return _format_nightly_update_details(details_value)
 
-    return details_value
+    return _humanize_user_action_details(event_key, details_value)
+
+
+_STATUS_DISPLAY_MAP = {
+    "success": "Успешно",
+    "ok": "Успешно",
+    "info": "Инфо",
+    "warning": "Предупреждение",
+    "warn": "Предупреждение",
+    "error": "Ошибка",
+    "failed": "Ошибка",
+    "fail": "Ошибка",
+}
+
+
+def _normalize_result_status(raw_status: str | None, *, is_security_alert: bool) -> tuple[str, str]:
+    normalized = str(raw_status or "").strip().lower()
+    if not normalized:
+        normalized = "success"
+    if is_security_alert and normalized not in {"error", "failed", "fail"}:
+        normalized = "warning"
+    return normalized, _STATUS_DISPLAY_MAP.get(normalized, normalized.capitalize())
+
+
+def _csv_safe_value(raw_value: str | None) -> str:
+    # Keep CSV rows single-line and predictable.
+    return str(raw_value or "").replace("\r", " ").replace("\n", " ").strip()
 
 
 def build_user_action_audit_view(rows: list[Any] | None) -> list[dict[str, Any]]:
@@ -867,7 +1043,12 @@ def build_user_action_audit_view(rows: list[Any] | None) -> list[dict[str, Any]]
             "miniapp:telegram_mini_login_unlinked",
         }
         is_security_alert = event_type in _SECURITY_ALERT_EVENTS
-        status = str(getattr(row, "status", "") or "").strip() or "success"
+        status, status_display = _normalize_result_status(
+            getattr(row, "status", None),
+            is_security_alert=is_security_alert,
+        )
+        actor_display = str(getattr(row, "actor_username", "") or "").strip() or "system/anonymous"
+        details_display = user_action_details_label(event_type, getattr(row, "details", None))
         if is_security_alert or status in {"error", "failed", "fail"}:
             severity = "high"
         elif status in {"warning", "warn"}:
@@ -875,28 +1056,58 @@ def build_user_action_audit_view(rows: list[Any] | None) -> list[dict[str, Any]]
         else:
             severity = "low"
 
+        created_at = row.created_at
+        event_display = user_action_event_display(
+            event_type,
+            target_name,
+            target_type,
+            getattr(row, "details", None),
+        )
+        csv_action = _csv_safe_value(event_display)
+        csv_details = _csv_safe_value(details_display if details_display != "-" else "")
+        csv_ip = _csv_safe_value(getattr(row, "remote_addr", None) or "")
+        csv_user = _csv_safe_value(actor_display)
+        csv_result = _csv_safe_value(status_display)
+
         view_rows.append(
             {
-                "created_at": row.created_at,
+                "created_at": created_at,
+                "created_at_iso": created_at.isoformat(),
+                "created_at_ts": int(created_at.timestamp()),
                 "actor_username": row.actor_username,
+                "actor_display": actor_display,
                 "event_type": event_type,
                 "event_label": user_action_event_label(event_type),
-                "event_display": user_action_event_display(
-                    event_type,
-                    target_name,
-                    target_type,
-                    getattr(row, "details", None),
-                ),
+                "event_display": event_display,
                 "target_display": target_display,
                 "status": status,
+                "status_display": status_display,
                 "details": str(getattr(row, "details", "") or "").strip() or "-",
-                "details_display": user_action_details_label(event_type, getattr(row, "details", None)),
+                "details_display": details_display,
                 "remote_addr": getattr(row, "remote_addr", None),
                 "is_miniapp": is_miniapp,
                 "source_kind": source_kind,
                 "source_label": source_label,
                 "is_security_alert": is_security_alert,
                 "severity": severity,
+                "search_blob": " ".join(
+                    [
+                        actor_display.lower(),
+                        event_display.lower(),
+                        str(details_display or "").lower(),
+                        str(getattr(row, "remote_addr", "") or "").lower(),
+                        str(status_display).lower(),
+                        str(source_label).lower(),
+                    ]
+                ).strip(),
+                "csv_row": {
+                    "timestamp": created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    "username": csv_user,
+                    "action": csv_action,
+                    "ip": csv_ip or "—",
+                    "result": csv_result,
+                    "details": csv_details or "—",
+                },
             }
         )
     return view_rows

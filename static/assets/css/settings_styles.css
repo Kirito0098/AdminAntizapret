@@ -911,17 +911,17 @@
 #action-logs .action-audit-log-table th:nth-child(1),
 #action-logs .action-audit-log-table td:nth-child(1) {
   white-space: nowrap;
-  width: 115px;
-  min-width: 115px;
+  width: 142px;
+  min-width: 142px;
 }
 
 /* col 2: user — fixed, no wrap, ellipsis on overflow */
 #action-logs .action-audit-log-table th:nth-child(2),
 #action-logs .action-audit-log-table td:nth-child(2) {
   white-space: nowrap;
-  width: 145px;
-  min-width: 100px;
-  max-width: 160px;
+  width: 170px;
+  min-width: 150px;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -930,24 +930,31 @@
 #action-logs .action-audit-log-table th:nth-child(3),
 #action-logs .action-audit-log-table td:nth-child(3) {
   white-space: normal;
-  min-width: 180px;
+  min-width: 230px;
 }
 
-/* col 4: status — compact, no wrap */
+/* col 4: ip — fixed, no wrap */
 #action-logs .action-audit-log-table th:nth-child(4),
 #action-logs .action-audit-log-table td:nth-child(4) {
   white-space: nowrap;
-  width: 90px;
-  min-width: 90px;
-  text-align: center;
+  width: 140px;
+  min-width: 120px;
 }
 
-/* col 5: ip — fixed, no wrap */
+/* col 5: status — compact, no wrap */
 #action-logs .action-audit-log-table th:nth-child(5),
 #action-logs .action-audit-log-table td:nth-child(5) {
   white-space: nowrap;
-  width: 130px;
-  min-width: 110px;
+  width: 132px;
+  min-width: 120px;
+  text-align: center;
+}
+
+/* col 6: details */
+#action-logs .action-audit-log-table th:nth-child(6),
+#action-logs .action-audit-log-table td:nth-child(6) {
+  white-space: normal;
+  min-width: 260px;
 }
 
 /* ── Audit log: date/time cell ── */
@@ -1020,6 +1027,13 @@
   font-size: 0.82rem;
   color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.65));
   font-variant-numeric: tabular-nums;
+}
+
+.audit-td-details {
+  vertical-align: middle !important;
+  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.7));
+  font-size: 0.8rem;
+  line-height: 1.36;
 }
 
 /* ── Filter bar ── */
@@ -1131,6 +1145,11 @@
 
 /* ── User select ── */
 .audit-log-filters__user {
+  flex-shrink: 0;
+}
+
+.audit-log-filters__result,
+.audit-log-filters__sort {
   flex-shrink: 0;
 }
 
@@ -4104,7 +4123,7 @@
 
 #action-logs .audit-log-filters-structured {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto auto auto auto;
+  grid-template-columns: minmax(220px, 1fr) auto auto auto auto auto auto;
   gap: 0.55rem;
 }
 

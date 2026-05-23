@@ -5,8 +5,7 @@
       <div>
         <h3>Журнал действий пользователей</h3>
         <p class="help-text">
-          Последние 300 операций сгруппированы по дням и сессиям. Можно фильтровать по источнику,
-          пользователю и типу событий.
+          Последние 300 операций сгруппированы по дням и сессиям. Доступны фильтры, сортировка и экспорт CSV.
         </p>
       </div>
       <a class="button secondary-button" href="{{ url_for('settings') }}#telegram-auth">
@@ -22,7 +21,7 @@
           <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
         </svg>
         <input type="search" id="auditSearch" class="audit-search-input"
-          placeholder="Поиск по действию, деталям, пользователю, IP..." autocomplete="off" spellcheck="false">
+          placeholder="Поиск по действию, деталям, пользователю, IP, результату..." autocomplete="off" spellcheck="false">
       </div>
 
       <div class="audit-log-filters__sources" id="auditSourcePills">
@@ -40,6 +39,27 @@
         </select>
       </div>
 
+      <div class="audit-log-filters__result">
+        <select id="auditStatusFilter" class="audit-user-select">
+          <option value="">Любой результат</option>
+          <option value="success">Успешно</option>
+          <option value="info">Инфо</option>
+          <option value="warning">Предупреждение</option>
+          <option value="error">Ошибка</option>
+          <option value="failed">Ошибка</option>
+          <option value="fail">Ошибка</option>
+        </select>
+      </div>
+
+      <div class="audit-log-filters__sort">
+        <select id="auditSortSelect" class="audit-user-select">
+          <option value="time_desc">Сначала новые</option>
+          <option value="time_asc">Сначала старые</option>
+          <option value="user_asc">Пользователь (А-Я)</option>
+          <option value="result_asc">Результат (А-Я)</option>
+        </select>
+      </div>
+
       <div class="audit-log-filters__alerts">
         <button class="audit-pill audit-pill--threat" id="auditAlertToggle" data-active="false" title="Показать только подозрительные события">
           <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:11px;height:11px;flex-shrink:0">
@@ -53,6 +73,7 @@
 
       <div class="audit-log-filters__meta">
         <span class="audit-count-badge" id="auditLogCount"></span>
+        <button class="audit-clear-btn" id="auditExportBtn" title="Экспорт текущей выборки в CSV">⬇ Экспорт CSV</button>
         <button class="audit-clear-btn" id="auditClearBtn" title="Сбросить все фильтры">✕ Сбросить</button>
       </div>
     </div>
@@ -64,15 +85,16 @@
             <th class="settings-inline-table-head" id="auditTimeHeader">Время</th>
             <th class="settings-inline-table-head">Пользователь</th>
             <th class="settings-inline-table-head">Действие</th>
-            <th class="settings-inline-table-head audit-th-status">Статус</th>
-            <th class="settings-inline-table-head">IP</th>
+            <th class="settings-inline-table-head audit-th-ip">IP</th>
+            <th class="settings-inline-table-head audit-th-status">Результат</th>
+            <th class="settings-inline-table-head audit-th-details">Детали</th>
           </tr>
         </thead>
 
         {% for day in user_action_day_groups %}
-        <tbody class="audit-day-hdr-tbody" data-day-id="{{ day.date_key }}">
+        <tbody class="audit-day-hdr-tbody" data-day-id="{{ day.date_key }}" data-day-utc="{{ day.date_utc }}">
           <tr class="audit-day-hdr">
-            <td colspan="5" class="audit-day-hdr-cell">
+            <td colspan="6" class="audit-day-hdr-cell">
               <div class="audit-day-hdr-inner">
                 <span class="audit-day-chevron" aria-hidden="true"></span>
                 <span class="audit-day-date">{{ day.date_key }}</span>
@@ -96,7 +118,7 @@
           data-alert-count="{{ session.alert_count }}">
 
           <tr class="audit-session-hdr" data-session="{{ session.session_id }}">
-            <td colspan="5" class="audit-session-hdr-cell">
+            <td colspan="6" class="audit-session-hdr-cell">
               <div class="audit-session-hdr-inner">
                 <span class="audit-session-chevron" aria-hidden="true"></span>
                 <span class="audit-session-username">{{ session.actor_username }}</span>
@@ -127,16 +149,19 @@
           <tr
             class="log-source-row log-source-{{ row.source_kind }} severity-{{ row.severity }}{% if row.is_miniapp %} miniapp-event{% endif %}{% if row.is_security_alert %} audit-security-alert{% endif %} audit-action-row"
             data-src="{{ row.source_kind }}"
-            data-user="{{ row.actor_username or 'system/anonymous' }}"
+            data-user="{{ row.actor_display }}"
+            data-status="{{ row.status }}"
+            data-status-display="{{ row.status_display }}"
             data-alert="{{ 'true' if row.is_security_alert else '' }}"
             data-session-id="{{ session.session_id }}"
-            data-text="{{ ((row.actor_username or 'system/anonymous') ~ ' ' ~ row.event_display ~ ' ' ~ row.details_display ~ ' ' ~ (row.remote_addr or '') ~ ' ' ~ row.event_label) | lower }}">
+            data-ts="{{ row.created_at_ts }}"
+            data-text="{{ row.search_blob }}">
             <td class="settings-inline-table-cell-nowrap audit-td-time" data-utc="{{ row.created_at.isoformat() }}">
               <span class="audit-time-date">{{ row.created_at.strftime('%Y-%m-%d') }}</span>
               <span class="audit-time-clock">{{ row.created_at.strftime('%H:%M:%S') }}</span>
             </td>
             <td class="settings-inline-table-cell audit-td-user">
-              {{ row.actor_username or 'system/anonymous' }}
+              {{ row.actor_display }}
             </td>
             <td class="settings-inline-table-cell action-with-source" title="{{ row.event_type }}">
               <div class="action-badges-row">
@@ -146,19 +171,24 @@
                 <span class="log-source-badge log-source-badge-{{ row.source_kind }}" title="Источник действия">{{ row.source_label }}</span>
               </div>
               <span class="action-text">{{ row.event_display }}</span>
-              <span class="action-details">{{ row.details_display }}</span>
-            </td>
-            <td class="settings-inline-table-cell audit-td-status">
-              <span class="audit-status-badge audit-status-{{ row.status }}">{{ row.status }}</span>
             </td>
             <td class="settings-inline-table-cell audit-td-ip">{{ row.remote_addr or '—' }}</td>
+            <td class="settings-inline-table-cell audit-td-status">
+              <span class="audit-status-badge audit-status-{{ row.status }}">{{ row.status_display }}</span>
+            </td>
+            <td class="settings-inline-table-cell audit-td-details">{{ row.details_display }}</td>
           </tr>
           {% endfor %}
-
         </tbody>
         {% endfor %}
         {% endfor %}
       </table>
+
+      <template id="auditExportPayloadTemplate">
+        {
+          "endpoint": "{{ url_for('api_settings_action_logs_export') }}"
+        }
+      </template>
 
       <div class="audit-log-empty-filter" id="auditEmptyFilter" hidden>
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
