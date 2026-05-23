@@ -8,7 +8,15 @@ import subprocess
 
 
 class BackupManagerService:
-    SUPPORTED_COMPONENTS = ("db", "env", "configs")
+    SUPPORTED_COMPONENTS = ("db", "env", "data")
+    _DATA_ENV_KEYS = ("TEMPORARY_WHITELIST_FILE", "SCANNER_BLOCKS_FILE")
+    _COMPONENT_ORDER = ("db", "env", "data", "configs")
+    _COMPONENT_LABELS = {
+        "db": "Базы SQLite",
+        "env": "Настройки (.env)",
+        "data": "Состояние IP (data/)",
+        "configs": "VPN-конфиги",
+    }
 
     def __init__(
         self,
@@ -24,7 +32,7 @@ class BackupManagerService:
         self.retention_count = max(1, int(retention_count or 5))
 
     def default_components(self):
-        return ["db", "env", "configs"]
+        return ["db", "env", "data"]
 
     def normalize_components(self, components):
         if not components:
@@ -53,26 +61,87 @@ class BackupManagerService:
             except OSError:
                 continue
             metadata = self.read_backup_metadata(archive_path)
-            backups.append(
-                {
-                    "file_name": os.path.basename(archive_path),
-                    "file_path": archive_path,
-                    "size_bytes": int(stat.st_size),
-                    "created_at": metadata.get("created_at")
-                    or datetime.fromtimestamp(stat.st_mtime, timezone.utc).strftime(
-                        "%Y-%m-%dT%H:%M:%SZ"
-                    ),
-                    "components": metadata.get("components", []),
-                    "items_count": int(metadata.get("items_count", 0)),
-                    "summary": metadata.get("summary", ""),
-                }
-            )
+            entry = {
+                "file_name": os.path.basename(archive_path),
+                "file_path": archive_path,
+                "size_bytes": int(stat.st_size),
+                "created_at": metadata.get("created_at")
+                or datetime.fromtimestamp(stat.st_mtime, timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+                "components": metadata.get("components", []),
+                "items_count": int(metadata.get("items_count", 0)),
+                "summary": metadata.get("summary", ""),
+            }
+            backups.append(self.enrich_backup_list_entry(entry))
         return backups
 
-    def create_backup(self, *, selected_components, config_paths=None, trigger="manual"):
+    def enrich_backup_list_entry(self, entry):
+        raw_components = [str(c).strip().lower() for c in (entry.get("components") or []) if str(c).strip()]
+        components = []
+        seen = set()
+        for key in self._COMPONENT_ORDER:
+            if key in raw_components and key not in seen:
+                seen.add(key)
+                components.append(key)
+        for key in raw_components:
+            if key not in seen:
+                seen.add(key)
+                components.append(key)
+
+        summary = str(entry.get("summary") or "").strip()
+        component_labels = [self._COMPONENT_LABELS[c] for c in components if c in self._COMPONENT_LABELS]
+        items_count = int(entry.get("items_count") or 0)
+
+        if summary == "Legacy data-only backup":
+            content_description = "Только базы SQLite (старый скриптовый бэкап)"
+            if not components:
+                components = ["db"]
+                component_labels = [self._COMPONENT_LABELS["db"]]
+        elif set(components) >= {"db", "env", "data"}:
+            content_description = "Полный бэкап панели для переустановки"
+        elif component_labels:
+            content_description = " · ".join(component_labels)
+        elif items_count > 0:
+            content_description = "Состав уточняется по файлам в архиве"
+        else:
+            content_description = "Состав не определён"
+
+        detail = self._format_summary_detail(summary)
+        entry["components"] = components
+        entry["component_labels"] = component_labels
+        entry["content_description"] = content_description
+        entry["content_detail"] = detail
+        entry["is_full_panel_backup"] = set(components) >= {"db", "env", "data"}
+        return entry
+
+    @classmethod
+    def _format_summary_detail(cls, summary):
+        if not summary or summary == "Legacy data-only backup":
+            return ""
+        mapping = {
+            "DB": "файлов БД",
+            "ENV": "файл .env",
+            "DATA": "файлов data/",
+            "CONFIGS": "VPN-файлов",
+        }
+        parts = []
+        for chunk in summary.split(","):
+            chunk = chunk.strip()
+            if ":" not in chunk:
+                continue
+            key, _, count = chunk.partition(":")
+            key = key.strip().upper()
+            count = count.strip()
+            label = mapping.get(key)
+            if label and count.isdigit() and int(count) > 0:
+                parts.append(f"{count} {label}")
+        return ", ".join(parts) if parts else summary
+
+    def create_backup(self, *, selected_components, trigger="manual"):
         os.makedirs(self.backup_root, exist_ok=True)
         components = self.normalize_components(selected_components)
-        file_map = self._collect_component_files(components, config_paths or [])
+        file_map = self._collect_component_files(components)
         file_paths = []
         for _, paths in file_map.items():
             file_paths.extend(paths)
@@ -216,20 +285,46 @@ class BackupManagerService:
 
     def _db_candidates(self):
         result = []
-        for db_name in ("users.db", "site.db"):
-            for parent in (self.app_root, os.path.join(self.app_root, "instance")):
-                base = os.path.join(parent, db_name)
-                result.extend([base, f"{base}-wal", f"{base}-shm"])
+        for parent in (self.app_root, os.path.join(self.app_root, "instance")):
+            if not os.path.isdir(parent):
+                continue
+            for pattern in ("*.db", "*.db-wal", "*.db-shm"):
+                result.extend(glob.glob(os.path.join(parent, pattern)))
         return result
 
-    def _collect_component_files(self, components, config_paths):
+    def _load_env_map(self, env_path):
+        env_map = {}
+        if not os.path.isfile(env_path):
+            return env_map
+        with open(env_path, "r", encoding="utf-8") as fh:
+            for raw_line in fh:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                env_map[key.strip()] = value.strip().strip("'").strip('"')
+        return env_map
+
+    def _data_candidates(self):
+        result = []
+        data_dir = os.path.join(self.app_root, "data")
+        if os.path.isdir(data_dir):
+            result.extend(glob.glob(os.path.join(data_dir, "*.json")))
+        env_map = self._load_env_map(os.path.join(self.app_root, ".env"))
+        for key in self._DATA_ENV_KEYS:
+            raw = (env_map.get(key) or os.getenv(key) or "").strip()
+            if raw:
+                result.append(raw)
+        return result
+
+    def _collect_component_files(self, components):
         file_map = {}
         if "db" in components:
             file_map["db"] = self._dedupe_existing_paths(self._db_candidates())
         if "env" in components:
             file_map["env"] = self._dedupe_existing_paths([os.path.join(self.app_root, ".env")])
-        if "configs" in components:
-            file_map["configs"] = self._dedupe_existing_paths(config_paths)
+        if "data" in components:
+            file_map["data"] = self._dedupe_existing_paths(self._data_candidates())
         return file_map
 
     def _dedupe_existing_paths(self, paths):
@@ -259,7 +354,7 @@ class BackupManagerService:
                 [
                     f"DB: {counts.get('db', 0)}",
                     f"ENV: {counts.get('env', 0)}",
-                    f"CONFIGS: {counts.get('configs', 0)}",
+                    f"DATA: {counts.get('data', 0)}",
                 ]
             ),
         }
@@ -305,13 +400,17 @@ class BackupManagerService:
                         components.add("env")
                     elif "/etc/openvpn/" in name or "/etc/wireguard/" in name:
                         components.add("configs")
+                    elif "/data/" in name and name.endswith(".json"):
+                        components.add("data")
                     elif name.endswith(".db") or ".db-" in name:
                         components.add("db")
         except Exception:
             pass
+        ordered = [c for c in self._COMPONENT_ORDER if c in components]
+        labels = [self._COMPONENT_LABELS[c] for c in ordered if c in self._COMPONENT_LABELS]
         return {
             "created_at": "",
-            "components": sorted(components),
+            "components": ordered,
             "items_count": items_count,
-            "summary": "",
+            "summary": "; ".join(labels) if labels else "",
         }

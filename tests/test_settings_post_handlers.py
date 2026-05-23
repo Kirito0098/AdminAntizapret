@@ -66,7 +66,7 @@ class SettingsPostHandlersTests(unittest.TestCase):
         class _Form(dict):
             def getlist(self, key):
                 values = {
-                    "app_backup_components": ["db", "env"],
+                    "app_backup_components": ["db", "env", "data"],
                     "app_backup_tg_admin_ids": ["1", "x", "2"],
                 }
                 return values.get(key, [])

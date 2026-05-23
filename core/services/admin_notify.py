@@ -178,8 +178,12 @@ def _fmt_code(value: str | None) -> str:
 
 def _fmt_protocol(target_type: str | None) -> str:
     kind = str(target_type or "").strip().lower()
-    if kind in {"wireguard", "wg"}:
-        return "WireGuard/AmneziaWG"
+    if kind in {"wireguard", "wg", "amneziawg", "amnezia"}:
+        wg = _mini_protocol_label("wg")
+        awg = _mini_protocol_label("amneziawg")
+        if kind in {"wireguard", "wg"}:
+            return wg
+        return awg
     label = _mini_protocol_label(kind)
     if label != "неизвестно":
         return label

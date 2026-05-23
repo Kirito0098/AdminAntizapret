@@ -65,9 +65,9 @@ def build_settings_page_context(
     nightly_idle_restart_time = nightly_time_from_cron(nightly_idle_restart_cron)
     backup_settings = get_backup_settings()
     backup_selected_components = {
-        item.strip()
-        for item in str(backup_settings.get("components", "db,env,configs")).split(",")
-        if item.strip()
+        item.strip().lower()
+        for item in str(backup_settings.get("components", "db,env,data")).split(",")
+        if item.strip().lower() in {"db", "env", "data"}
     }
     backup_tg_admin_ids = {
         item.strip()

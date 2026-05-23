@@ -147,7 +147,7 @@
           </div>
         </div>
 
-        <form method="POST" class="settings-form maintenance-form">
+        <form method="POST" class="settings-form maintenance-form js-backup-settings-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <input type="hidden" name="backup_settings_action" value="save" />
 
@@ -191,7 +191,7 @@
                   {% if 'db' in app_backup_selected_components %}checked{% endif %} />
                 <span class="maintenance-scope-card__check" aria-hidden="true"></span>
                 <span class="maintenance-scope-card__title">База данных</span>
-                <span class="maintenance-scope-card__desc">users.db, site.db</span>
+                <span class="maintenance-scope-card__desc">все SQLite в instance/</span>
               </label>
               <label class="maintenance-scope-card">
                 <input type="checkbox" class="maintenance-scope-card__input" name="app_backup_components" value="env"
@@ -201,47 +201,42 @@
                 <span class="maintenance-scope-card__desc">переменные и настройки</span>
               </label>
               <label class="maintenance-scope-card">
-                <input type="checkbox" class="maintenance-scope-card__input" name="app_backup_components" value="configs"
-                  {% if 'configs' in app_backup_selected_components %}checked{% endif %} />
+                <input type="checkbox" class="maintenance-scope-card__input" name="app_backup_components" value="data"
+                  {% if 'data' in app_backup_selected_components %}checked{% endif %} />
                 <span class="maintenance-scope-card__check" aria-hidden="true"></span>
-                <span class="maintenance-scope-card__title">VPN-конфиги</span>
-                <span class="maintenance-scope-card__desc">OpenVPN, WG, AmneziaWG</span>
+                <span class="maintenance-scope-card__title">Файлы data/</span>
+                <span class="maintenance-scope-card__desc">whitelist, баны сканера</span>
               </label>
             </div>
             <small class="help-text">Хранится максимум 5 последних бэкапов. Старые удаляются автоматически.</small>
           </div>
 
-          <div class="form-group">
-            <label>Получатели авто-бэкапа в Telegram</label>
-            <p class="maintenance-recipient-hint">Снимите галочку или нажмите «Убрать», чтобы исключить админа из рассылки.</p>
+          <div class="form-group maintenance-recipient-field">
+            <div class="maintenance-recipient-field__head">
+              <label class="maintenance-recipient-field__label">Получатели в Telegram</label>
+              <span class="maintenance-recipient-field__count">
+                {{ app_backup_tg_admin_ids|length }} из {{ app_backup_admin_candidates|length }}
+              </span>
+            </div>
             {% if app_backup_admin_candidates %}
-            <ul class="maintenance-recipient-list">
+            <p class="maintenance-recipient-hint">Нажмите на имя — включить или исключить из рассылки. Сохраните настройки.</p>
+            <div class="maintenance-recipient-chips" role="group" aria-label="Получатели бэкапа в Telegram">
               {% for admin in app_backup_admin_candidates %}
-              <li class="maintenance-recipient-item">
-                <label class="maintenance-recipient-item__label">
-                  <input type="checkbox" class="maintenance-recipient-item__input" id="backup-tg-admin-{{ admin.id }}"
-                    name="app_backup_tg_admin_ids" value="{{ admin.id }}"
-                    {% if (admin.id|string) in app_backup_tg_admin_ids %}checked{% endif %} />
-                  <span class="maintenance-recipient-item__avatar" aria-hidden="true">{{ admin.username[:1]|upper }}</span>
-                  <span class="maintenance-recipient-item__body">
-                    <span class="maintenance-recipient-item__name">{{ admin.username }}</span>
-                    <span class="maintenance-recipient-item__tg">ID {{ admin.telegram_id }}</span>
-                  </span>
-                </label>
-                <button type="button" class="maintenance-recipient-item__remove"
-                  data-recipient-checkbox-id="backup-tg-admin-{{ admin.id }}"
-                  aria-label="Убрать {{ admin.username }} из рассылки">
-                  Убрать
-                </button>
-              </li>
+              <label class="maintenance-recipient-chip{% if (admin.id|string) in app_backup_tg_admin_ids %} is-on{% endif %}"
+                title="{{ admin.username }} · {{ admin.telegram_id }}">
+                <input type="checkbox" class="maintenance-recipient-chip__input" name="app_backup_tg_admin_ids"
+                  value="{{ admin.id }}" {% if (admin.id|string) in app_backup_tg_admin_ids %}checked{% endif %} />
+                <span class="maintenance-recipient-chip__name">{{ admin.username }}</span>
+                <span class="maintenance-recipient-chip__action" aria-hidden="true"></span>
+              </label>
               {% endfor %}
-            </ul>
+            </div>
             {% else %}
-            <div class="maintenance-callout">
-              <p>Нет администраторов с привязанным Telegram ID. Привяжите ID в разделе пользователей.</p>
+            <div class="maintenance-callout maintenance-callout--compact">
+              <p>Нет админов с Telegram ID.</p>
             </div>
             {% endif %}
-            <small class="help-text">Архив отправляется только при успешном авто-бэкапе, если включена отправка в Telegram.</small>
+            <small class="help-text">Только для авто-бэкапов при включённой отправке в Telegram.</small>
           </div>
 
           <div class="maintenance-btn-row">
@@ -250,71 +245,77 @@
         </form>
 
         <div class="maintenance-backup-toolbar">
-          <form method="POST" class="settings-form maintenance-form">
+          <form method="POST" class="settings-form maintenance-form js-backup-create-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             <input type="hidden" name="backup_create_action" value="create" />
             <button type="submit" class="button save-button">Создать бэкап сейчас</button>
           </form>
 
           <h4 class="maintenance-backup-toolbar__title">Существующие бэкапы</h4>
-          {% if app_backup_list %}
-          <div class="maintenance-backup-table-wrap">
-            <table class="maintenance-backup-table">
-              <thead>
-                <tr>
-                  <th>Файл</th>
-                  <th>Дата (UTC)</th>
-                  <th>Размер</th>
-                  <th>Содержимое</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for backup_item in app_backup_list %}
-                <tr>
-                  <td class="maintenance-backup-table__file">{{ backup_item.file_name }}</td>
-                  <td>{{ backup_item.created_at or "—" }}</td>
-                  <td>{{ backup_item.size_human }}</td>
-                  <td>
-                    {% if backup_item.components %}
-                      {% for comp in backup_item.components %}
-                      <span class="maintenance-badge maintenance-badge--{{ comp }}">{{ comp }}</span>
-                      {% endfor %}
-                    {% else %}
-                      —
-                    {% endif %}
-                    {% if backup_item.summary %}
-                    <div class="maintenance-backup-table__meta">{{ backup_item.summary }}</div>
-                    {% endif %}
-                  </td>
-                  <td>
-                    <div class="maintenance-backup-actions">
-                      <form method="POST" class="settings-form"
-                        onsubmit="return confirm('Восстановить из бэкапа {{ backup_item.file_name }}? Сервис будет перезапущен.');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                        <input type="hidden" name="backup_restore_action" value="restore" />
-                        <input type="hidden" name="backup_file_name" value="{{ backup_item.file_name }}" />
-                        <button type="submit" class="button save-button">Восстановить</button>
-                      </form>
-                      <form method="POST" class="settings-form"
-                        onsubmit="return confirm('Удалить бэкап {{ backup_item.file_name }}? Это действие нельзя отменить.');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                        <input type="hidden" name="backup_delete_action" value="delete" />
-                        <input type="hidden" name="backup_file_name" value="{{ backup_item.file_name }}" />
-                        <button type="submit" class="button small delete-button">Удалить</button>
-                      </form>
-                    </div>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          <div id="maintenanceBackupListHost"{% if not app_backup_list %} hidden{% endif %}>
+            <div class="maintenance-backup-table-wrap">
+              <table class="maintenance-backup-table">
+                <thead>
+                  <tr>
+                    <th>Файл</th>
+                    <th>Дата (UTC)</th>
+                    <th>Размер</th>
+                    <th>Содержимое</th>
+                    <th>Действия</th>
+                  </tr>
+                </thead>
+                <tbody id="maintenanceBackupTableBody">
+                  {% for backup_item in app_backup_list %}
+                  <tr data-backup-file="{{ backup_item.file_name }}">
+                    <td class="maintenance-backup-table__file">{{ backup_item.file_name }}</td>
+                    <td>{{ backup_item.created_at or "—" }}</td>
+                    <td>{{ backup_item.size_human }}</td>
+                    <td class="maintenance-backup-table__content">
+                      <div class="maintenance-backup-content">
+                        {% if backup_item.content_description %}
+                        <p class="maintenance-backup-content__title">{{ backup_item.content_description }}</p>
+                        {% endif %}
+                        {% if backup_item.components %}
+                        <div class="maintenance-backup-content__badges" role="list" aria-label="Компоненты бэкапа">
+                          {% for comp in backup_item.components %}
+                          <span class="maintenance-badge maintenance-badge--{{ comp }}" role="listitem"
+                            title="{{ backup_item.component_labels[loop.index0] if backup_item.component_labels and loop.index0 < backup_item.component_labels|length else comp }}">{{ comp }}</span>
+                          {% endfor %}
+                        </div>
+                        {% if backup_item.component_labels %}
+                        <ul class="maintenance-backup-content__list">
+                          {% for label in backup_item.component_labels %}
+                          <li>{{ label }}</li>
+                          {% endfor %}
+                        </ul>
+                        {% endif %}
+                        {% else %}
+                        <p class="maintenance-backup-content__title maintenance-backup-content__title--muted">Состав не определён</p>
+                        {% endif %}
+                        {% if backup_item.content_detail %}
+                        <p class="maintenance-backup-table__meta">{{ backup_item.content_detail }}</p>
+                        {% elif backup_item.summary and backup_item.summary != backup_item.content_description %}
+                        <p class="maintenance-backup-table__meta">{{ backup_item.summary }}</p>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td class="maintenance-backup-table__actions">
+                      <div class="maintenance-backup-actions">
+                        <button type="button" class="button maintenance-backup-btn maintenance-backup-btn--restore js-backup-restore"
+                          data-file-name="{{ backup_item.file_name }}">Восстановить</button>
+                        <button type="button" class="button maintenance-backup-btn maintenance-backup-btn--delete js-backup-delete"
+                          data-file-name="{{ backup_item.file_name }}">Удалить</button>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
           </div>
-          {% else %}
-          <div class="maintenance-callout">
+          <div id="maintenanceBackupEmpty" class="maintenance-callout"{% if app_backup_list %} hidden{% endif %}>
             <p>В папке бэкапов пока нет архивов. Создайте первый бэкап кнопкой выше.</p>
           </div>
-          {% endif %}
         </div>
       </section>
 

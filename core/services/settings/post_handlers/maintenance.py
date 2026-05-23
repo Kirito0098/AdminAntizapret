@@ -127,9 +127,9 @@ def handle_backup_settings(
     interval_raw = (form.get("app_backup_interval_days") or "1").strip()
     time_raw = (form.get("app_backup_time_hhmm") or "03:00").strip()
     selected_components = [str(v).strip().lower() for v in _form_getlist(form, "app_backup_components")]
-    selected_components = [v for v in selected_components if v in {"db", "env", "configs"}]
+    selected_components = [v for v in selected_components if v in {"db", "env", "data"}]
     if not selected_components:
-        selected_components = ["db", "env", "configs"]
+        selected_components = ["db", "env", "data"]
 
     selected_admin_ids = [str(v).strip() for v in _form_getlist(form, "app_backup_tg_admin_ids")]
     selected_admin_ids = [v for v in selected_admin_ids if v.isdigit()]
@@ -195,26 +195,19 @@ def handle_backup_create(
     enqueue_background_task,
     backup_manager_service,
     get_backup_settings,
-    collect_all_configs_for_access,
     log_user_action_event,
 ):
     if form.get("backup_create_action") != "create":
         return None
 
     backup_settings = get_backup_settings() or {}
-    selected_components = str(backup_settings.get("components", "db,env,configs")).split(",")
+    selected_components = str(backup_settings.get("components", "db,env,data")).split(",")
     selected_components = [item.strip().lower() for item in selected_components if item.strip()]
-    config_paths = (
-        collect_all_configs_for_access("openvpn")
-        + collect_all_configs_for_access("wg")
-        + collect_all_configs_for_access("amneziawg")
-    )
 
     try:
         def _task_create_backup():
             result = backup_manager_service.create_backup(
                 selected_components=selected_components,
-                config_paths=config_paths,
                 trigger="manual",
             )
             return {

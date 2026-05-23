@@ -23,6 +23,24 @@ class AuditViewPresenterTgTests(unittest.TestCase):
         )
         self.assertEqual(text, "Порт панели: с 5050 на 8080")
 
+    def test_tg_action_line_backup_settings_russian(self):
+        text = user_action_tg_action_line(
+            "settings_backup_update",
+            details="enabled=вкл interval=7d time=04:30 components=db,env,data tg=вкл admins=1,2",
+        )
+        self.assertIn("Авто-бэкап включён", text)
+        self.assertIn("каждые 7 дней", text)
+        self.assertIn("базы SQLite", text)
+        self.assertNotIn("enabled=", text)
+
+    def test_tg_action_line_backup_restore(self):
+        text = user_action_tg_action_line(
+            "settings_backup_restore",
+            target_name="full_backup_20260101.tar.gz",
+        )
+        self.assertIn("full_backup_20260101.tar.gz", text)
+        self.assertIn("Восстановление", text)
+
 
 if __name__ == "__main__":
     unittest.main()

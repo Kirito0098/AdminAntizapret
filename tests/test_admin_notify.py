@@ -108,7 +108,7 @@ class AdminNotifyTextTests(unittest.TestCase):
         self.assertIn("на 7 дн.", temp)
         self.assertIn("2026-05-30 09:13:00", temp)
         self.assertIn("🛡️", temp)
-        self.assertIn("WireGuard/AmneziaWG", temp)
+        self.assertIn("WireGuard", temp)
 
         self.assertIn("Постоянная блокировка", permanent)
         self.assertIn("бессрочно", self._lines(permanent)[2])

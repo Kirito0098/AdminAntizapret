@@ -72,6 +72,124 @@ def _format_nightly_update_details(details: str | None) -> str:
     return ", ".join(parts)
 
 
+_BACKUP_COMPONENT_LABELS_RU = {
+    "db": "базы SQLite",
+    "env": "файл .env",
+    "data": "файлы data/",
+}
+
+_ROLE_LABELS_RU = {
+    "admin": "администратор",
+    "viewer": "наблюдатель",
+}
+
+
+def _format_backup_interval_ru(interval_token: str) -> str:
+    raw = str(interval_token or "").strip().lower()
+    if raw in {"1", "1d"}:
+        return "каждый день"
+    if raw.endswith("d") and raw[:-1].isdigit():
+        days = int(raw[:-1])
+        if days == 7:
+            return "каждые 7 дней"
+        if days == 30:
+            return "каждые 30 дней"
+        return f"каждые {days} дн."
+    return raw or "—"
+
+
+def _format_backup_components_ru(components_csv: str) -> str:
+    parts = []
+    for item in str(components_csv or "").split(","):
+        key = item.strip().lower()
+        if not key:
+            continue
+        parts.append(_BACKUP_COMPONENT_LABELS_RU.get(key, key))
+    return ", ".join(parts) if parts else "—"
+
+
+def _format_backup_settings_details_ru(details: str | None) -> str:
+    raw = str(details or "").strip()
+    if not raw:
+        return "Настройки авто-бэкапа изменены"
+
+    enabled_match = re.search(r"enabled=(\S+)", raw)
+    interval_match = re.search(r"interval=(\S+)", raw)
+    time_match = re.search(r"time=(\S+)", raw)
+    components_match = re.search(r"components=([^\s]+)", raw)
+    tg_match = re.search(r"tg=(\S+)", raw)
+    admins_match = re.search(r"admins=(\S+)", raw)
+
+    enabled_raw = (enabled_match.group(1) if enabled_match else "").lower()
+    if enabled_raw in {"вкл", "1", "true", "yes"}:
+        enabled_text = "включён"
+    elif enabled_raw in {"выкл", "0", "false", "no"}:
+        enabled_text = "выключен"
+    else:
+        enabled_text = "изменён"
+
+    interval_text = _format_backup_interval_ru(interval_match.group(1) if interval_match else "")
+    time_text = time_match.group(1) if time_match else "—"
+    components_text = _format_backup_components_ru(
+        components_match.group(1) if components_match else ""
+    )
+
+    tg_raw = (tg_match.group(1) if tg_match else "").lower()
+    if tg_raw in {"вкл", "1", "true", "yes"}:
+        tg_text = "включена"
+    elif tg_raw in {"выкл", "0", "false", "no"}:
+        tg_text = "выключена"
+    else:
+        tg_text = "не изменена"
+
+    admins_text = admins_match.group(1) if admins_match else "—"
+    if admins_text == "-":
+        admins_text = "не выбраны"
+
+    return (
+        f"Авто-бэкап {enabled_text}, интервал {interval_text}, время {time_text}, "
+        f"состав: {components_text}, отправка в Telegram {tg_text}, "
+        f"получатели: {admins_text}"
+    )
+
+
+def _humanize_raw_details_for_tg(details: str | None) -> str | None:
+    """Translate common technical audit detail strings to Russian for Telegram."""
+    text = str(details or "").strip()
+    if not text:
+        return None
+    if "→" in text:
+        return text
+
+    lowered = text.lower()
+    replacements = {
+        "invalid_credentials": "неверный логин или пароль",
+        "verification_failed": "ошибка проверки подписи Telegram",
+        "mini_verification_failed": "ошибка проверки данных Mini App",
+        "telegram_id_not_bound": "Telegram ID не привязан",
+        "manual_create": "ручное создание",
+        "manual_unblock": "ручная разблокировка",
+        "temp_block": "временная блокировка",
+        "permanent_block": "постоянная блокировка",
+        "unblock": "разблокировка",
+        "success": "успешно",
+        "failed": "ошибка",
+        "warning": "предупреждение",
+        "web_login": "вход через веб",
+    }
+    for src, dst in replacements.items():
+        if lowered == src:
+            return dst
+
+    if "=" in text and re.search(r"\b(enabled|interval|components|cron|ttl|touch)=\S+", text):
+        if "components=" in text and "interval=" in text:
+            return _format_backup_settings_details_ru(text)
+        if "cron=" in text or "enabled=" in text:
+            return _format_nightly_update_details(text)
+
+    return None
+
+
 def _format_telegram_auth_details_ru(details: str | None) -> str:
     detail_map = parse_mini_details_kv(str(details or ""))
     source_raw = str(detail_map.get("source") or "").strip().lower()
@@ -79,6 +197,8 @@ def _format_telegram_auth_details_ru(details: str | None) -> str:
         "mini_app": "мини-приложение",
         "miniapp": "мини-приложение",
         "web_settings": "веб-настройки",
+        "web": "веб-панель",
+        "panel": "веб-панель",
     }
     source = source_map.get(source_raw, "панель")
     changed = str(detail_map.get("changed") or "—").replace(",", ", ")
@@ -97,9 +217,9 @@ def mini_event_label(event_type: str | None) -> str:
         "telegram_login_failed": "Вход через Telegram: ошибка",
         "telegram_login_unlinked": "Вход через Telegram: TG ID не привязан",
         "telegram_login_success": "Вход через Telegram: успешно",
-        "telegram_mini_login_failed": "Вход в Mini App: ошибка",
-        "telegram_mini_login_unlinked": "Вход в Mini App: TG ID не привязан",
-        "telegram_mini_login_success": "Вход в Mini App: успешно",
+        "telegram_mini_login_failed": "Вход в мини-приложение: ошибка",
+        "telegram_mini_login_unlinked": "Вход в мини-приложение: TG ID не привязан",
+        "telegram_mini_login_success": "Вход в мини-приложение: успешно",
         "mini_send_config": "Отправка конфига в Telegram",
         "mini_send_config_failed": "Отправка конфига: ошибка",
         "mini_check_bot_delivery": "Проверка связи с ботом",
@@ -209,16 +329,19 @@ def mini_event_details_label(
         token_changed = "да" if detail_map.get("token_updated") == "1" else "нет"
         source_raw = str(detail_map.get("source") or "").strip().lower()
         source_map = {
-            "mini_app": "Mini App",
-            "miniapp": "Mini App",
-            "web_settings": "Веб-настройки",
+            "mini_app": "мини-приложение",
+            "miniapp": "мини-приложение",
+            "web_settings": "веб-настройки",
+            "web": "веб-панель",
+            "panel": "веб-панель",
         }
-        source = source_map.get(source_raw, "неизвестно")
-        changed = str(detail_map.get("changed") or "-").replace(",", ", ")
+        source = source_map.get(source_raw, "панель")
+        changed = str(detail_map.get("changed") or "—").replace(",", ", ")
         status = "успешно" if str(detail_map.get("status") or "") == "success" else "с ошибкой"
         return (
-            f"Источник: {source}, статус: {status}, бот: {bot_name}, "
-            f"max age: {max_age}с, токен обновлен: {token_changed}, изменено: {changed}"
+            f"Источник: {source}; статус: {status}; бот: {bot_name}; "
+            f"макс. возраст данных: {max_age} с; токен обновлён: {token_changed}; "
+            f"изменено: {changed}"
         )
 
     if event_key in {"mini_restart_service", "mini_run_doall"}:
@@ -256,7 +379,7 @@ def build_telegram_mini_audit_view(rows: list[Any] | None) -> list[dict[str, Any
         detail_map = parse_mini_details_kv(details_raw)
         source_kind = str(detail_map.get("source") or "").strip().lower()
         if source_kind in {"mini_app", "miniapp"}:
-            source_label = "Mini App"
+            source_label = "Мини-приложение"
             source_kind = "miniapp"
         elif source_kind == "web_settings":
             source_label = "Веб-настройки"
@@ -292,9 +415,9 @@ def resolve_user_action_source(event_type: str | None, details: str | None) -> t
     channel = str(detail_map.get("channel") or "").strip().lower()
 
     if event_key.startswith("miniapp:") or via in {"tg-mini", "tg_mini", "miniapp", "mini-app"}:
-        return "miniapp", "📱 MiniApp"
+        return "miniapp", "📱 Мини-приложение"
     if source in {"mini_app", "miniapp"}:
-        return "miniapp", "📱 MiniApp"
+        return "miniapp", "📱 Мини-приложение"
     if source in {"web_settings", "web", "panel"}:
         return "web", "🖥 Панель"
 
@@ -302,7 +425,7 @@ def resolve_user_action_source(event_type: str | None, details: str | None) -> t
         return "qr", "🔗 QR"
 
     if channel in {"public", "public_download"}:
-        return "public", "🌍 Public"
+        return "public", "🌍 Публичное скачивание"
 
     if channel in {"api", "rest", "webapi"}:
         return "api", "🔌 API"
@@ -371,6 +494,12 @@ def user_action_event_label(event_type: str | None) -> str:
         "settings_ip_files_sync": "Синхронизация IP-файлов",
         # Тесты
         "settings_tests_run": "Запуск тестов панели",
+        "settings_backup_update": "Изменение настроек бэкапов",
+        "settings_backup_create": "Создание бэкапа",
+        "settings_backup_restore": "Восстановление из бэкапа",
+        "settings_backup_delete": "Удаление бэкапа",
+        "settings_user_tg_notify_update": "Изменение уведомлений в Telegram",
+        "settings_monitor_update": "Изменение мониторинга ресурсов",
     }
     event_key = str(event_type or "").strip()
 
@@ -652,12 +781,42 @@ def user_action_tg_action_line(
     if key == "settings_user_role_update" and "→" in details_value:
         old_val, new_val = _parse_arrow_change(details_value) or ("—", "—")
         user = target_value or "пользователь"
-        return f"Роль пользователя {user}: с «{old_val}» на «{new_val}»"
+        old_ru = _ROLE_LABELS_RU.get(old_val.lower(), old_val)
+        new_ru = _ROLE_LABELS_RU.get(new_val.lower(), new_val)
+        return f"Роль пользователя {user}: с «{old_ru}» на «{new_ru}»"
+
+    if key == "settings_backup_update":
+        return _format_backup_settings_details_ru(details_value)
+
+    if key == "settings_backup_create":
+        return "Запущено ручное создание резервной копии"
+
+    if key == "settings_backup_restore":
+        archive = target_value if target_value and target_value != "manual_create" else ""
+        if archive:
+            return f"Восстановление из архива «{archive}» поставлено в очередь"
+        return "Восстановление из бэкапа поставлено в очередь"
+
+    if key == "settings_backup_delete":
+        if target_value:
+            return f"Удалён бэкап «{target_value}»"
+        return "Удалён файл бэкапа"
+
+    if key == "settings_user_tg_notify_update":
+        return f"Обновлены подписки на уведомления пользователя «{target_value}»" if target_value else "Обновлены подписки на уведомления"
+
+    if key == "settings_monitor_update" and details_value:
+        humanized = _humanize_raw_details_for_tg(details_value)
+        return humanized or f"Мониторинг ресурсов: {details_value}"
 
     if key == "settings_user_telegram_update" and "→" in details_value:
         old_val, new_val = _parse_arrow_change(details_value) or ("—", "—")
         user = target_value or "пользователь"
         return f"Telegram ID пользователя {user}: с {old_val} на {new_val}"
+
+    humanized = _humanize_raw_details_for_tg(details_value)
+    if humanized:
+        return humanized
 
     display = user_action_event_display(key, target_value, target_type, details)
     label = user_action_event_label(key)

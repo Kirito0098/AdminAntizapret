@@ -1,5 +1,6 @@
 from .antizapret import register_settings_antizapret_routes
 from .api import register_settings_api_routes
+from .backup_api import register_backup_api_routes
 from .routes import register_settings_page_routes
 
 
@@ -15,7 +16,6 @@ def register_settings_routes(app, **deps):
         user_action_log_model=deps["user_action_log_model"],
         ip_restriction=deps["ip_restriction"],
         collect_all_openvpn_files_for_access=deps["collect_all_openvpn_files_for_access"],
-        collect_all_configs_for_access=deps["collect_all_configs_for_access"],
         build_openvpn_access_groups=deps["build_openvpn_access_groups"],
         config_file_handler=deps["config_file_handler"],
         group_folders=deps["group_folders"],
@@ -37,6 +37,18 @@ def register_settings_routes(app, **deps):
         get_public_download_enabled=deps["get_public_download_enabled"],
         backup_manager_service=deps["backup_manager_service"],
         log_telegram_audit_event=deps["log_telegram_audit_event"],
+        log_user_action_event=deps["log_user_action_event"],
+    )
+    register_backup_api_routes(
+        app,
+        auth_manager=deps["auth_manager"],
+        backup_manager_service=deps["backup_manager_service"],
+        enqueue_background_task=deps["enqueue_background_task"],
+        get_backup_settings=deps["get_backup_settings"],
+        set_backup_settings=deps["set_backup_settings"],
+        set_env_value=deps["set_env_value"],
+        to_bool=deps["to_bool"],
+        ensure_app_backup_cron=deps["ensure_app_backup_cron"],
         log_user_action_event=deps["log_user_action_event"],
     )
     register_settings_api_routes(

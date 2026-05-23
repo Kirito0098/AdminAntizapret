@@ -450,15 +450,19 @@ document.addEventListener('keydown', (event) => {
   applyFilters();
 })();
 
-// Maintenance: убрать админа из рассылки бэкапов в Telegram
-document.querySelectorAll(".maintenance-recipient-item__remove").forEach((btn) => {
-  btn.addEventListener("click", (event) => {
-    event.preventDefault();
-    const checkboxId = btn.getAttribute("data-recipient-checkbox-id");
-    if (!checkboxId) return;
-    const checkbox = document.getElementById(checkboxId);
-    if (!checkbox) return;
-    checkbox.checked = false;
-    checkbox.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+// Maintenance: синхронизация класса is-on у чипов получателей TG
+document.querySelectorAll(".maintenance-recipient-chip__input").forEach((input) => {
+  const syncChipState = () => {
+    const chip = input.closest(".maintenance-recipient-chip");
+    if (!chip) return;
+    chip.classList.toggle("is-on", input.checked);
+    const counter = document.querySelector(".maintenance-recipient-field__count");
+    if (counter) {
+      const total = document.querySelectorAll(".maintenance-recipient-chip__input").length;
+      const selected = document.querySelectorAll(".maintenance-recipient-chip__input:checked").length;
+      counter.textContent = `${selected} из ${total}`;
+    }
+  };
+  input.addEventListener("change", syncChipState);
+  syncChipState();
 });

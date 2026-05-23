@@ -727,7 +727,7 @@ def _get_backup_settings():
         "enabled": bool(_runtime_get("APP_BACKUP_ENABLED", False)),
         "interval_days": int(_runtime_get("APP_BACKUP_INTERVAL_DAYS", 1)),
         "time_hhmm": str(_runtime_get("APP_BACKUP_TIME", "03:00") or "03:00"),
-        "components": str(_runtime_get("APP_BACKUP_COMPONENTS", "db,env,configs") or "db,env,configs"),
+        "components": str(_runtime_get("APP_BACKUP_COMPONENTS", "db,env,data") or "db,env,data"),
         "tg_enabled": bool(_runtime_get("APP_BACKUP_TG_ENABLED", False)),
         "tg_admin_ids": str(_runtime_get("APP_BACKUP_TG_ADMIN_IDS", "") or ""),
     }
@@ -737,7 +737,7 @@ def _set_backup_settings(*, enabled, interval_days, time_hhmm, components, tg_en
     _runtime_set("APP_BACKUP_ENABLED", bool(enabled))
     _runtime_set("APP_BACKUP_INTERVAL_DAYS", int(interval_days))
     _runtime_set("APP_BACKUP_TIME", (time_hhmm or "03:00").strip())
-    _runtime_set("APP_BACKUP_COMPONENTS", (components or "db,env,configs").strip())
+    _runtime_set("APP_BACKUP_COMPONENTS", (components or "db,env,data").strip())
     _runtime_set("APP_BACKUP_TG_ENABLED", bool(tg_enabled))
     _runtime_set("APP_BACKUP_TG_ADMIN_IDS", (tg_admin_ids or "").strip())
 

@@ -106,7 +106,7 @@ class SettingsPageContextTests(unittest.TestCase):
                         "enabled": False,
                         "interval_days": 1,
                         "time_hhmm": "03:00",
-                        "components": "db,env,configs",
+                        "components": "db,env,data",
                         "tg_enabled": False,
                         "tg_admin_ids": "",
                     }

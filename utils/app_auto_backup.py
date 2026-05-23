@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import glob
 import os
 import sqlite3
 import sys
@@ -38,27 +37,6 @@ def _to_bool(value, default=False):
     if value is None:
         return default
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _collect_config_paths():
-    paths = []
-    patterns = (
-        "/etc/openvpn/client/*.ovpn",
-        "/etc/openvpn/*.ovpn",
-        "/etc/wireguard/*.conf",
-        "/etc/amnezia/amneziawg/*.conf",
-    )
-    for pattern in patterns:
-        paths.extend(glob.glob(pattern))
-    seen = set()
-    result = []
-    for path in paths:
-        abs_path = os.path.abspath(path)
-        if abs_path in seen or not os.path.isfile(abs_path):
-            continue
-        seen.add(abs_path)
-        result.append(abs_path)
-    return result
 
 
 def _load_admin_chat_ids(app_root, selected_admin_ids):
@@ -109,7 +87,7 @@ def main():
 
     backup_root = _env(env_map, "APP_BACKUP_ROOT", "/var/backups/antizapret")
     service_name = _env(env_map, "APP_BACKUP_SERVICE_NAME", "admin-antizapret")
-    components_csv = _env(env_map, "APP_BACKUP_COMPONENTS", "db,env,configs")
+    components_csv = _env(env_map, "APP_BACKUP_COMPONENTS", "db,env,data")
     components = [item.strip().lower() for item in components_csv.split(",") if item.strip()]
 
     backup_service = BackupManagerService(
@@ -120,7 +98,6 @@ def main():
     )
     result = backup_service.create_backup(
         selected_components=components,
-        config_paths=_collect_config_paths(),
         trigger="auto",
     )
 

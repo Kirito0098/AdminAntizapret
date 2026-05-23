@@ -49,7 +49,7 @@ class AppAutoBackupTests(unittest.TestCase):
 
         with patch.object(app_auto_backup, "APP_ROOT", self.app_root), patch.object(
             app_auto_backup, "BackupManagerService", return_value=fake_backup_service
-        ), patch.object(app_auto_backup, "_collect_config_paths", return_value=[]), patch.object(
+        ), patch.object(
             app_auto_backup, "send_tg_document"
         ) as send_tg_document_mock:
             code = app_auto_backup.main()

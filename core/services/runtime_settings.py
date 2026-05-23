@@ -58,7 +58,7 @@ class RuntimeSettingsService:
         if backup_interval_days not in (1, 7, 30):
             backup_interval_days = 1
         backup_time = self._env_str("APP_BACKUP_TIME", "03:00")
-        backup_components = self._env_str("APP_BACKUP_COMPONENTS", "db,env,configs")
+        backup_components = self._env_str("APP_BACKUP_COMPONENTS", "db,env,data")
         backup_tg_admin_ids = self._env_str("APP_BACKUP_TG_ADMIN_IDS", "")
 
         return {
