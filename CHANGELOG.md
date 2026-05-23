@@ -39,6 +39,12 @@
 - Чеклист **`script_sh/safe_browsing_reclassification.md`** для снятия предупреждения Chrome после исправлений.
 - Уточнены заголовки **`http_security`**: CSP, `noindex` для служебных путей (`/login`, `/tg-mini`, `/auth/` и др.).
 
+### Белый список IP (консоль и временный доступ)
+
+- **`adminpanel.sh`**: пункт меню **«9. Белый список IP»** и флаги `--ip-add`, `--ip-remove`, `--ip-add-temp`, `--ip-list` (модуль [`script_sh/ip_whitelist.sh`](script_sh/ip_whitelist.sh), CLI [`script_sh/ip_whitelist_cli.py`](script_sh/ip_whitelist_cli.py)).
+- Вкладка **«Безопасность»**: добавление IP **на 1 ч / 12 ч / 24 ч** (только при включённых IP-ограничениях); постоянные записи — как раньше.
+- Хранение временных адресов в [`data/temporary_whitelist.json`](data/temporary_whitelist.json); учёт в проверке доступа и синхронизации iptables whitelist порта.
+
 ### Прочее
 
 - Удалён фоновый **`login-bg.png`** (~315 KB): фон панели и входа — CSS-градиент (как у `index-page-dark`), без лишней загрузки изображения.

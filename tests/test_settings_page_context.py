@@ -28,6 +28,7 @@ class SettingsPageContextTests(unittest.TestCase):
 
         ip_restriction = MagicMock()
         ip_restriction.get_allowed_ips.return_value = []
+        ip_restriction.get_temporary_whitelist_display.return_value = []
         ip_restriction.is_enabled.return_value = False
         ip_restriction.get_client_ip.return_value = "127.0.0.1"
         ip_restriction.get_scanner_settings.return_value = {
@@ -103,6 +104,7 @@ class SettingsPageContextTests(unittest.TestCase):
         self.assertIn("ip_scanner_max_attempts", context)
         self.assertIn("ip_whitelist_firewall_applicable", context)
         self.assertIn("ip_whitelist_firewall_active", context)
+        self.assertIn("temporary_whitelist", context)
         self.assertIn("user_action_audit_logs", context)
         self.assertEqual(context["nightly_idle_restart_time"], "04:00")
         self.assertFalse(context["telegram_auth_enabled"])

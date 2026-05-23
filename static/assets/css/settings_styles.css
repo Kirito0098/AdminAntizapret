@@ -2322,6 +2322,48 @@
   text-align: right;
 }
 
+#security .badge.temp {
+  background: rgba(138, 120, 220, 0.2);
+  color: #c4b5fd;
+  border: 1px solid rgba(138, 120, 220, 0.35);
+}
+
+#security .security-duration-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+#security .security-duration-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--sec-border, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#security .security-duration-option:has(input:checked) {
+  border-color: rgba(90, 157, 203, 0.55);
+  background: rgba(90, 157, 203, 0.12);
+}
+
+#security .security-duration-option input {
+  margin: 0;
+}
+
+#security .form-label-block {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
 #security .security-info-callout {
   margin: 0 0 0.9rem;
   padding: 0.72rem 0.85rem;

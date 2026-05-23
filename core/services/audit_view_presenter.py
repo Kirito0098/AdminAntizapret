@@ -337,6 +337,8 @@ def user_action_event_label(event_type: str | None) -> str:
         "settings_user_role_update": "Изменение роли пользователя",
         "settings_user_password_update": "Смена пароля пользователя",
         "settings_ip_add": "Добавление IP-ограничения",
+        "settings_ip_add_temp": "Временный доступ по IP",
+        "settings_ip_remove_temp": "Удаление временного IP",
         "settings_ip_scanner_block": "Защита от сканеров (IP)",
         "settings_ip_scanner_bans_clear": "Сброс банов сканеров",
         "settings_ip_scanner_unban": "Разблокировка IP сканера",

@@ -44,6 +44,7 @@ modules=(
     "unit_tests"
     "site_diagnostics"
     "panel_menus"
+    "ip_whitelist"
 )
 
 for module in "${modules[@]}"; do
@@ -450,12 +451,13 @@ main_menu() {
         _m_sep
         _m_item "7. Диагностика запуска сайта"
         _m_item "8. Общий тест системы (окружение + pytest)"
+        _m_item "9. Белый список IP"
         _m_sep
         _m_item "0. Выход"
         _m_bot
         printf "\n"
 
-        read -r -p "  Выберите действие [0-8]: " choice
+        read -r -p "  Выберите действие [0-9]: " choice
         case $choice in
         1) menu_service_panel ;;
         2) menu_administrators ;;
@@ -471,6 +473,7 @@ main_menu() {
             run_unit_tests_summary
             press_any_key
             ;;
+        9) menu_ip_whitelist ;;
         0) exit 0 ;;
         *)
             ui_warn "Неверный выбор"
@@ -780,6 +783,34 @@ main() {
         ;;
     "--diagnose")
         run_site_diagnostics_cli
+        exit $?
+        ;;
+    "--ip-add")
+        if [ -z "${2:-}" ]; then
+            ui_fail "Укажите IP: adminpanel.sh --ip-add <IP>"
+            exit 1
+        fi
+        ip_whitelist_apply add "$2"
+        exit $?
+        ;;
+    "--ip-remove")
+        if [ -z "${2:-}" ]; then
+            ui_fail "Укажите IP: adminpanel.sh --ip-remove <IP>"
+            exit 1
+        fi
+        ip_whitelist_apply remove "$2"
+        exit $?
+        ;;
+    "--ip-add-temp")
+        if [ -z "${2:-}" ] || [ -z "${3:-}" ]; then
+            ui_fail "Использование: adminpanel.sh --ip-add-temp <IP> <1h|12h|24h>"
+            exit 1
+        fi
+        ip_whitelist_apply add-temp "$2" --duration "$3"
+        exit $?
+        ;;
+    "--ip-list")
+        ip_whitelist_run_cli list
         exit $?
         ;;
     *)

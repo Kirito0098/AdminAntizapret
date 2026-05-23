@@ -89,6 +89,7 @@ def build_settings_page_context(
     viewer_access = {vu.id: {acc.config_name for acc in vu.allowed_configs} for vu in viewer_users}
 
     allowed_ips = ip_restriction.get_allowed_ips()
+    temporary_whitelist = ip_restriction.get_temporary_whitelist_display()
     ip_enabled = ip_restriction.is_enabled()
     current_ip = ip_restriction.get_client_ip()
     scanner_settings = ip_restriction.get_scanner_settings()
@@ -109,6 +110,7 @@ def build_settings_page_context(
         "users": users,
         "viewer_users": viewer_users,
         "allowed_ips": allowed_ips,
+        "temporary_whitelist": temporary_whitelist,
         "ip_enabled": ip_enabled,
         "current_ip": current_ip,
         "ip_block_scanners": scanner_settings["enabled"],
