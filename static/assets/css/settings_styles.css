@@ -167,23 +167,27 @@
 
 .user-card__body {
   border-top: 1px solid var(--theme-muted-alpha-09, rgba(255, 255, 255, 0.09));
-  padding: 0.95rem 1rem 1rem;
+  padding: 0.78rem 0.88rem 0.86rem;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
+  gap: 0.68rem;
 }
 
 .user-card__section {
   border: 1px solid var(--theme-muted-alpha-11, rgba(255, 255, 255, 0.11));
   border-radius: 12px;
   background: var(--theme-logs-surface-subtle, rgba(255, 255, 255, 0.03));
-  padding: 0.8rem;
+  padding: 0.68rem 0.72rem;
 }
 
 .user-card__section h4 {
-  margin: 0 0 0.65rem;
-  font-size: 0.95rem;
+  margin: 0 0 0.48rem;
+  font-size: 0.91rem;
   color: var(--theme-text-primary, #e9f2ff);
+}
+
+.user-card__section--wide {
+  grid-column: 1 / -1;
 }
 
 .user-card__section-danger {
@@ -202,7 +206,7 @@
   color: var(--theme-settings-text-danger, rgba(255, 230, 230, 0.92));
 }
 
-#user-management .settings-form input,
+#user-management .settings-form input:not([type="checkbox"]):not([type="radio"]),
 #user-management .settings-form select {
   background: var(--theme-settings-input-bg, rgba(8, 14, 28, 0.72));
   border: 1px solid var(--theme-muted-alpha-14, rgba(255, 255, 255, 0.14));
@@ -213,12 +217,21 @@
     background 0.18s ease;
 }
 
-#user-management .settings-form input:focus,
+#user-management .settings-form input:not([type="checkbox"]):not([type="radio"]):focus,
 #user-management .settings-form select:focus {
   outline: none;
   border-color: var(--theme-settings-focus-border, rgba(123, 185, 255, 0.78));
   background: var(--theme-settings-input-focus-bg, rgba(8, 16, 34, 0.88));
   box-shadow: 0 0 0 3px var(--theme-settings-focus-ring, rgba(63, 140, 255, 0.22));
+}
+
+#user-management .user-card__section .settings-form {
+  display: grid;
+  gap: 0.58rem;
+}
+
+#user-management .user-card__section .form-group {
+  margin-bottom: 0;
 }
 
 #user-management .users-list {
@@ -3847,61 +3860,131 @@
 }
 
 /* ── Telegram notify toggles ── */
-.tg-notify-form { margin: 0; }
+.tg-notify-form {
+  margin: 0;
+  display: grid;
+  gap: 0.58rem;
+}
 
 .tg-notify-events-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 16px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.48rem 0.68rem;
+  margin-bottom: 0;
 }
 
 .tg-notify-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 0.64rem;
   cursor: pointer;
   user-select: none;
-  padding: 4px 0;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--theme-muted-alpha-12, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  background: var(--theme-muted-alpha-03, rgba(255, 255, 255, 0.03));
+  transition: border-color 0.18s ease, background 0.18s ease;
 }
 
-.tg-notify-toggle input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--theme-settings-chip-border, rgba(155, 199, 255, 0.7));
-  cursor: pointer;
-  flex-shrink: 0;
+.tg-notify-toggle:hover {
+  border-color: var(--theme-muted-alpha-18, rgba(255, 255, 255, 0.18));
+  background: var(--theme-muted-alpha-06, rgba(255, 255, 255, 0.06));
+}
+
+.tg-notify-switch {
+  width: 44px;
+  height: 24px;
+  order: 2;
+}
+
+.tg-notify-switch .toggle-slider {
+  background: rgba(84, 102, 114, 0.82);
+}
+
+.tg-notify-switch .toggle-slider:before {
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  bottom: 3px;
+}
+
+.tg-notify-switch .toggle-input:checked + .toggle-slider {
+  background: linear-gradient(
+    140deg,
+    rgba(63, 160, 131, 0.92),
+    rgba(51, 128, 116, 0.92)
+  );
+}
+
+.tg-notify-switch .toggle-input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.tg-notify-switch .toggle-input:focus-visible + .toggle-slider {
+  box-shadow: 0 0 0 3px rgba(63, 140, 255, 0.26);
 }
 
 .tg-notify-toggle__label {
-  font-size: 0.835rem;
+  font-size: 0.82rem;
   color: var(--theme-text-primary, #e9f2ff);
-  line-height: 1.4;
+  line-height: 1.35;
+  order: 1;
 }
 
-.tg-notify-save-btn { margin-top: 2px; }
+.tg-notify-actions {
+  display: flex;
+  gap: 0.52rem;
+  margin-top: 0.08rem;
+}
+
+.tg-notify-actions .button {
+  margin-top: 0;
+  padding: 0.72rem 0.85rem;
+  font-size: 0.92rem;
+  width: 100%;
+}
+
+.tg-notify-help {
+  margin-top: 0.06rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
 
 @media (max-width: 600px) {
-  .tg-notify-events-grid { grid-template-columns: 1fr; }
+  .tg-notify-events-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tg-notify-actions {
+    flex-direction: column;
+    gap: 0.42rem;
+  }
 }
 
 .monitor-settings-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 20px;
-  margin-bottom: 12px;
+  gap: 0.52rem 0.9rem;
+  margin-bottom: 0.06rem;
 }
 
 .monitor-settings-grid .form-label {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--theme-text-secondary, #a0b4cc);
-  margin-bottom: 4px;
+  margin-bottom: 0.22rem;
   display: block;
 }
 
 .monitor-settings-grid .monitor-input {
   width: 100%;
-  max-width: 120px;
+  max-width: none;
+}
+
+.monitor-save-btn {
+  margin-top: 0.2rem;
+  padding: 0.72rem 0.9rem;
+  font-size: 0.92rem;
 }
 
 @media (max-width: 600px) {
