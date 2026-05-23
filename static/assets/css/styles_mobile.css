@@ -626,6 +626,10 @@ body.nav-mobile-open.settings-nav-merged #sidebar.settings-page-wrapper {
   .folder-btn {
     width: 100%;
   }
+
+  #telegram-auth .telegram-kpi-strip {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (min-width: 1440px) {

@@ -158,7 +158,7 @@ def build_platform_instruction_caption(file_name, device_platform, config_kind):
                     "1) Установите WireGuard из Google Play.",
                     "2) В Telegram откройте файл .conf.",
                     "3) Выберите WireGuard в меню Открыть с помощью.",
-                    "4) Нажмите Import и активируйте туннель.",
+                    "4) Нажмите «Импорт» и активируйте туннель.",
                 ]
             )
         elif platform == "apple":
@@ -167,9 +167,9 @@ def build_platform_instruction_caption(file_name, device_platform, config_kind):
                     "🛡 Клиент: WireGuard (iPhone/iPad)",
                     "🔗 Скачать: https://apps.apple.com/app/wireguard/id1441195209",
                     "1) Установите WireGuard из App Store.",
-                    "2) В Telegram нажмите Поделиться -> Открыть в WireGuard.",
-                    "3) Подтвердите Import tunnel.",
-                    "4) Включите туннель переключателем Activate.",
+                    "2) В Telegram нажмите «Поделиться» → «Открыть в WireGuard».",
+                    "3) Подтвердите импорт туннеля.",
+                    "4) Включите туннель переключателем «Activate».",
                 ]
             )
         elif platform == "windows":
@@ -178,9 +178,9 @@ def build_platform_instruction_caption(file_name, device_platform, config_kind):
                     "🛡 Клиент: WireGuard (Windows)",
                     "🔗 Скачать: https://www.wireguard.com/install/",
                     "1) Установите WireGuard для Windows.",
-                    "2) Откройте Import tunnel(s) from file.",
-                    "3) Выберите полученный .conf файл.",
-                    "4) Нажмите Activate для подключения.",
+                    "2) Откройте «Импорт туннеля из файла».",
+                    "3) Выберите полученный файл .conf.",
+                    "4) Нажмите «Activate» для подключения.",
                 ]
             )
         else:
@@ -212,7 +212,7 @@ def build_platform_instruction_caption(file_name, device_platform, config_kind):
                     "🛰 Клиент: AmneziaVPN (iPhone/iPad)",
                     "🔗 Сайт: https://apps.apple.com/ru/app/amneziawg/id6478942365",
                     "1) Установите AmneziaVPN на iOS.",
-                    "2) В Telegram нажмите Поделиться -> Открыть в AmneziaVPN.",
+                    "2) В Telegram нажмите «Поделиться» → «Открыть в AmneziaVPN».",
                     "3) Подтвердите импорт профиля.",
                     "4) Включите подключение в приложении.",
                 ]
@@ -225,7 +225,7 @@ def build_platform_instruction_caption(file_name, device_platform, config_kind):
                     "1) Установите клиент AmneziaVPN для Windows.",
                     "2) Импортируйте полученный .conf файл.",
                     "3) Выберите профиль в списке.",
-                    "4) Запустите подключение кнопкой Connect.",
+                    "4) Запустите подключение кнопкой «Connect».",
                 ]
             )
         else:
@@ -248,7 +248,7 @@ def build_platform_instruction_caption(file_name, device_platform, config_kind):
                     "1) Установите OpenVPN Connect из Google Play.",
                     "2) Откройте файл .ovpn из Telegram.",
                     "3) Выберите OpenVPN Connect.",
-                    "4) Нажмите Add/Connect для подключения.",
+                    "4) Нажмите «Add» / «Connect» для подключения.",
                 ]
             )
         elif platform == "apple":
@@ -257,9 +257,9 @@ def build_platform_instruction_caption(file_name, device_platform, config_kind):
                     "🔐 Клиент: OpenVPN Connect (iPhone/iPad)",
                     "🔗 Скачать: https://apps.apple.com/app/openvpn-connect-openvpn-app/id590379981",
                     "1) Установите OpenVPN Connect из App Store.",
-                    "2) В Telegram: Поделиться -> Открыть в OpenVPN.",
+                    "2) В Telegram: «Поделиться» → «Открыть в OpenVPN».",
                     "3) Импортируйте профиль.",
-                    "4) Нажмите Connect для подключения.",
+                    "4) Нажмите «Connect» для подключения.",
                 ]
             )
         elif platform == "windows":
@@ -268,9 +268,9 @@ def build_platform_instruction_caption(file_name, device_platform, config_kind):
                     "🔐 Клиент: OpenVPN Connect (Windows)",
                     "🔗 Скачать: https://openvpn.net/client/client-connect-vpn-for-windows/",
                     "1) Установите OpenVPN Connect для Windows.",
-                    "2) Нажмите Import Profile и выберите .ovpn.",
+                    "2) Нажмите «Import Profile» и выберите файл .ovpn.",
                     "3) Сохраните профиль.",
-                    "4) Нажмите Connect для запуска VPN.",
+                    "4) Нажмите «Connect» для запуска VPN.",
                 ]
             )
         else:

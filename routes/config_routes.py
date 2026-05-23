@@ -37,8 +37,10 @@ def register_config_routes(
     group_folders,
     result_dir_files,
     ensure_client_connect_ban_check_block,
-    read_banned_clients,
-    write_banned_clients,
+    openvpn_set_temp_block_days,
+    openvpn_set_permanent_block,
+    openvpn_clear_block,
+    openvpn_reconcile_client_policy,
     get_config_type,
     resolve_config_file,
     create_one_time_download_url,
@@ -62,24 +64,56 @@ def register_config_routes(
     def api_openvpn_client_block():
         client_name = request.form.get("client_name", "").strip()
         blocked_raw = (request.form.get("blocked", "").strip().lower())
+        action = (request.form.get("action", "").strip().lower())
+        days_raw = (request.form.get("days", "").strip())
 
         if not client_name_pattern.fullmatch(client_name):
             return jsonify({"success": False, "message": "Некорректный CN клиента."}), 400
 
-        should_block = blocked_raw in {"1", "true", "yes", "on"}
+        if not action:
+            should_block = blocked_raw in {"1", "true", "yes", "on"}
+            action = "permanent_block" if should_block else "unblock"
 
         try:
             ensure_client_connect_ban_check_block()
-            banned_clients = read_banned_clients()
-
-            if should_block:
-                banned_clients.add(client_name)
+            if action == "temp_block":
+                days_value = int(days_raw or "0")
+                if days_value < 1 or days_value > 3650:
+                    return jsonify({"success": False, "message": "Срок блокировки должен быть в диапазоне 1..3650 дней."}), 400
+                row = openvpn_set_temp_block_days(
+                    client_name,
+                    days_value,
+                    actor_username=session.get("username"),
+                )
+                message = "Клиент временно заблокирован."
+                action_event = "openvpn_client_block_toggle"
+                details_text = f"action=temp_block days={days_value}"
+                if row.block_until:
+                    details_text += (
+                        f" block_until={row.block_until.strftime('%Y-%m-%d %H:%M:%S')}"
+                    )
+            elif action == "permanent_block":
+                row = openvpn_set_permanent_block(
+                    client_name,
+                    actor_username=session.get("username"),
+                )
+                message = "Клиент заблокирован до ручной разблокировки."
+                action_event = "openvpn_client_block_toggle"
+                details_text = "action=permanent_block"
+            elif action == "unblock":
+                row = openvpn_clear_block(
+                    client_name,
+                    actor_username=session.get("username"),
+                )
+                message = "Блокировка снята."
+                action_event = "openvpn_client_block_toggle"
+                details_text = "action=unblock"
             else:
-                banned_clients.discard(client_name)
+                return jsonify({"success": False, "message": "Неизвестное действие."}), 400
 
-            write_banned_clients(banned_clients)
+            reconcile_result = openvpn_reconcile_client_policy(client_name) or {}
+            state = reconcile_result.get("state") or {}
             is_tg_mini_action = _has_telegram_mini_session()
-            details_text = f"blocked={1 if should_block else 0}"
             if is_tg_mini_action:
                 log_telegram_audit_event(
                     "mini_openvpn_block_toggle",
@@ -89,7 +123,7 @@ def register_config_routes(
                 details_text += " via=tg-mini"
 
             log_user_action_event(
-                "openvpn_client_block_toggle",
+                action_event,
                 target_type="openvpn",
                 target_name=client_name,
                 details=details_text,
@@ -98,10 +132,18 @@ def register_config_routes(
                 {
                     "success": True,
                     "client_name": client_name,
-                    "blocked": should_block,
-                    "message": "Клиент заблокирован." if should_block else "Блокировка снята.",
+                    "blocked": bool(state.get("is_blocked")),
+                    "is_blocked": bool(state.get("is_blocked")),
+                    "reason": state.get("reason"),
+                    "block_mode": state.get("block_mode"),
+                    "block_until": row.block_until.strftime("%Y-%m-%d %H:%M:%S") if row.block_until else None,
+                    "blocked_days_left": state.get("blocked_days_left"),
+                    "block_duration_days": state.get("block_duration_days"),
+                    "message": message,
                 }
             )
+        except ValueError as e:
+            return jsonify({"success": False, "message": str(e)}), 400
         except PermissionError:
             return jsonify({"success": False, "message": "Нет прав на запись banned_clients."}), 500
         except OSError as e:

@@ -167,23 +167,27 @@
 
 .user-card__body {
   border-top: 1px solid var(--theme-muted-alpha-09, rgba(255, 255, 255, 0.09));
-  padding: 0.95rem 1rem 1rem;
+  padding: 0.78rem 0.88rem 0.86rem;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
+  gap: 0.68rem;
 }
 
 .user-card__section {
   border: 1px solid var(--theme-muted-alpha-11, rgba(255, 255, 255, 0.11));
   border-radius: 12px;
   background: var(--theme-logs-surface-subtle, rgba(255, 255, 255, 0.03));
-  padding: 0.8rem;
+  padding: 0.68rem 0.72rem;
 }
 
 .user-card__section h4 {
-  margin: 0 0 0.65rem;
-  font-size: 0.95rem;
+  margin: 0 0 0.48rem;
+  font-size: 0.91rem;
   color: var(--theme-text-primary, #e9f2ff);
+}
+
+.user-card__section--wide {
+  grid-column: 1 / -1;
 }
 
 .user-card__section-danger {
@@ -202,7 +206,7 @@
   color: var(--theme-settings-text-danger, rgba(255, 230, 230, 0.92));
 }
 
-#user-management .settings-form input,
+#user-management .settings-form input:not([type="checkbox"]):not([type="radio"]),
 #user-management .settings-form select {
   background: var(--theme-settings-input-bg, rgba(8, 14, 28, 0.72));
   border: 1px solid var(--theme-muted-alpha-14, rgba(255, 255, 255, 0.14));
@@ -213,12 +217,21 @@
     background 0.18s ease;
 }
 
-#user-management .settings-form input:focus,
+#user-management .settings-form input:not([type="checkbox"]):not([type="radio"]):focus,
 #user-management .settings-form select:focus {
   outline: none;
   border-color: var(--theme-settings-focus-border, rgba(123, 185, 255, 0.78));
   background: var(--theme-settings-input-focus-bg, rgba(8, 16, 34, 0.88));
   box-shadow: 0 0 0 3px var(--theme-settings-focus-ring, rgba(63, 140, 255, 0.22));
+}
+
+#user-management .user-card__section .settings-form {
+  display: grid;
+  gap: 0.58rem;
+}
+
+#user-management .user-card__section .form-group {
+  margin-bottom: 0;
 }
 
 #user-management .users-list {
@@ -814,14 +827,12 @@
 }
 
 #qr-settings,
-#maintenance,
 #telegram-auth,
 #action-logs {
   color: var(--theme-text-primary, rgba(255, 255, 255, 0.95));
 }
 
 #qr-settings > h2,
-#maintenance > h2,
 #telegram-auth > h2,
 #action-logs > h2 {
   color: var(--theme-text-main, #fff);
@@ -829,7 +840,6 @@
 }
 
 #qr-settings .card,
-#maintenance .card,
 #telegram-auth .card,
 #action-logs .card {
   background: var(--theme-logs-surface, rgba(8, 14, 17, 0.78));
@@ -840,7 +850,6 @@
 }
 
 #qr-settings .card h3,
-#maintenance .card h3,
 #telegram-auth .card h3,
 #action-logs .card h3 {
   margin: 0 0 0.9rem;
@@ -852,9 +861,6 @@
 #qr-settings .settings-form input,
 #qr-settings .settings-form select,
 #qr-settings .settings-form textarea,
-#maintenance .settings-form input,
-#maintenance .settings-form select,
-#maintenance .settings-form textarea,
 #telegram-auth .settings-form input,
 #telegram-auth .settings-form select,
 #telegram-auth .settings-form textarea {
@@ -866,9 +872,6 @@
 #qr-settings .settings-form input:focus,
 #qr-settings .settings-form select:focus,
 #qr-settings .settings-form textarea:focus,
-#maintenance .settings-form input:focus,
-#maintenance .settings-form select:focus,
-#maintenance .settings-form textarea:focus,
 #telegram-auth .settings-form input:focus,
 #telegram-auth .settings-form select:focus,
 #telegram-auth .settings-form textarea:focus {
@@ -878,14 +881,12 @@
 }
 
 #qr-settings .help-text,
-#maintenance .help-text,
 #telegram-auth .help-text,
 #action-logs .help-text {
   color: var(--theme-text-secondary, rgba(255, 255, 255, 0.7));
 }
 
 #qr-settings .info-box,
-#maintenance .info-box,
 #telegram-auth .info-box,
 #action-logs .info-box {
   border: 1px solid var(--theme-glass-border, rgba(255, 255, 255, 0.1));
@@ -910,17 +911,17 @@
 #action-logs .action-audit-log-table th:nth-child(1),
 #action-logs .action-audit-log-table td:nth-child(1) {
   white-space: nowrap;
-  width: 115px;
-  min-width: 115px;
+  width: 142px;
+  min-width: 142px;
 }
 
 /* col 2: user — fixed, no wrap, ellipsis on overflow */
 #action-logs .action-audit-log-table th:nth-child(2),
 #action-logs .action-audit-log-table td:nth-child(2) {
   white-space: nowrap;
-  width: 145px;
-  min-width: 100px;
-  max-width: 160px;
+  width: 170px;
+  min-width: 150px;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -929,24 +930,31 @@
 #action-logs .action-audit-log-table th:nth-child(3),
 #action-logs .action-audit-log-table td:nth-child(3) {
   white-space: normal;
-  min-width: 180px;
+  min-width: 230px;
 }
 
-/* col 4: status — compact, no wrap */
+/* col 4: ip — fixed, no wrap */
 #action-logs .action-audit-log-table th:nth-child(4),
 #action-logs .action-audit-log-table td:nth-child(4) {
   white-space: nowrap;
-  width: 90px;
-  min-width: 90px;
-  text-align: center;
+  width: 140px;
+  min-width: 120px;
 }
 
-/* col 5: ip — fixed, no wrap */
+/* col 5: status — compact, no wrap */
 #action-logs .action-audit-log-table th:nth-child(5),
 #action-logs .action-audit-log-table td:nth-child(5) {
   white-space: nowrap;
-  width: 130px;
-  min-width: 110px;
+  width: 132px;
+  min-width: 120px;
+  text-align: center;
+}
+
+/* col 6: details */
+#action-logs .action-audit-log-table th:nth-child(6),
+#action-logs .action-audit-log-table td:nth-child(6) {
+  white-space: normal;
+  min-width: 260px;
 }
 
 /* ── Audit log: date/time cell ── */
@@ -972,7 +980,8 @@
 /* ── Audit log: user cell ── */
 .audit-td-user {
   vertical-align: middle !important;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
+  color: var(--theme-text-primary, #e6efff);
 }
 
 /* ── Audit log: status badge ── */
@@ -1016,9 +1025,16 @@
 /* ── Audit log: IP cell ── */
 .audit-td-ip {
   vertical-align: middle !important;
-  font-size: 0.82rem;
-  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.65));
+  font-size: 0.79rem;
+  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.56));
   font-variant-numeric: tabular-nums;
+}
+
+.audit-td-details {
+  vertical-align: middle !important;
+  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.62));
+  font-size: 0.78rem;
+  line-height: 1.42;
 }
 
 /* ── Filter bar ── */
@@ -1130,6 +1146,11 @@
 
 /* ── User select ── */
 .audit-log-filters__user {
+  flex-shrink: 0;
+}
+
+.audit-log-filters__result,
+.audit-log-filters__sort {
   flex-shrink: 0;
 }
 
@@ -1780,24 +1801,30 @@
   vertical-align: middle;
 }
 
+.action-audit-log-table .audit-action-row td {
+  padding-top: 0.34rem;
+  padding-bottom: 0.34rem;
+}
+
 .action-with-source {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  line-height: 1.4;
+  gap: 3px;
+  line-height: 1.32;
 }
 
 .action-badges-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .action-text {
   display: block;
-  font-size: 0.875rem;
-  line-height: 1.4;
+  font-size: 0.84rem;
+  line-height: 1.32;
+  font-weight: 500;
   color: var(--theme-text-primary, #e9f2ff);
 }
 
@@ -1847,19 +1874,16 @@
 /* ===== Legacy Green Cleanup (Targeted Tabs) ===== */
 
 #telegram-auth,
-#maintenance,
 #action-logs {
   color: #d7e5eb;
 }
 
 #telegram-auth > h2,
-#maintenance > h2,
 #action-logs > h2 {
   color: #eaf1f4;
 }
 
 #telegram-auth .card,
-#maintenance .card,
 #action-logs .card {
   background: rgba(23, 32, 38, 0.9) !important;
   border: 1px solid #40535f !important;
@@ -1867,7 +1891,6 @@
 }
 
 #telegram-auth .card h3,
-#maintenance .card h3,
 #action-logs .card h3 {
   color: #dceaf1 !important;
   border-bottom: 1px solid rgba(90, 112, 126, 0.4) !important;
@@ -1877,9 +1900,6 @@
 #telegram-auth .settings-form select,
 #telegram-auth .settings-form textarea,
 #telegram-auth .miniapp-link-input,
-#maintenance .settings-form input,
-#maintenance .settings-form select,
-#maintenance .settings-form textarea,
 #action-logs .settings-form input,
 #action-logs .settings-form select,
 #action-logs .settings-form textarea {
@@ -1892,9 +1912,6 @@
 #telegram-auth .settings-form select:focus,
 #telegram-auth .settings-form textarea:focus,
 #telegram-auth .miniapp-link-input:focus,
-#maintenance .settings-form input:focus,
-#maintenance .settings-form select:focus,
-#maintenance .settings-form textarea:focus,
 #action-logs .settings-form input:focus,
 #action-logs .settings-form select:focus,
 #action-logs .settings-form textarea:focus {
@@ -2322,6 +2339,48 @@
   text-align: right;
 }
 
+#security .badge.temp {
+  background: rgba(138, 120, 220, 0.2);
+  color: #c4b5fd;
+  border: 1px solid rgba(138, 120, 220, 0.35);
+}
+
+#security .security-duration-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+#security .security-duration-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--sec-border, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#security .security-duration-option:has(input:checked) {
+  border-color: rgba(90, 157, 203, 0.55);
+  background: rgba(90, 157, 203, 0.12);
+}
+
+#security .security-duration-option input {
+  margin: 0;
+}
+
+#security .form-label-block {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
 #security .security-info-callout {
   margin: 0 0 0.9rem;
   padding: 0.72rem 0.85rem;
@@ -2678,13 +2737,11 @@
 }
 
 #telegram-auth .help-text,
-#maintenance .help-text,
 #action-logs .help-text {
   color: #9caeb8 !important;
 }
 
 #telegram-auth .info-box,
-#maintenance .info-box,
 #action-logs .info-box {
   border: 1px solid #42545f !important;
   background: rgba(30, 41, 48, 0.78) !important;
@@ -3126,9 +3183,6 @@
 #qr-settings .settings-form input,
 #qr-settings .settings-form select,
 #qr-settings .settings-form textarea,
-#maintenance .settings-form input,
-#maintenance .settings-form select,
-#maintenance .settings-form textarea,
 #action-logs .settings-form input,
 #action-logs .settings-form select,
 #action-logs .settings-form textarea {
@@ -3155,9 +3209,6 @@
 #qr-settings .settings-form input:focus,
 #qr-settings .settings-form select:focus,
 #qr-settings .settings-form textarea:focus,
-#maintenance .settings-form input:focus,
-#maintenance .settings-form select:focus,
-#maintenance .settings-form textarea:focus,
 #action-logs .settings-form input:focus,
 #action-logs .settings-form select:focus,
 #action-logs .settings-form textarea:focus {
@@ -3171,7 +3222,6 @@
 #telegram-auth .users-list,
 #user-management .users-list,
 #qr-settings .users-list,
-#maintenance .users-list,
 #action-logs .users-list {
   border: 1px solid #42545f !important;
   background: rgba(30, 41, 48, 0.7) !important;
@@ -3836,63 +3886,276 @@
 }
 
 /* ── Telegram notify toggles ── */
-.tg-notify-form { margin: 0; }
+.tg-notify-form {
+  margin: 0;
+  display: grid;
+  gap: 0.58rem;
+}
 
 .tg-notify-events-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 16px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.48rem 0.68rem;
+  margin-bottom: 0;
 }
 
 .tg-notify-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 0.64rem;
   cursor: pointer;
   user-select: none;
-  padding: 4px 0;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--theme-muted-alpha-12, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  background: var(--theme-muted-alpha-03, rgba(255, 255, 255, 0.03));
+  transition: border-color 0.18s ease, background 0.18s ease;
 }
 
-.tg-notify-toggle input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--theme-settings-chip-border, rgba(155, 199, 255, 0.7));
-  cursor: pointer;
-  flex-shrink: 0;
+.tg-notify-toggle:hover {
+  border-color: var(--theme-muted-alpha-18, rgba(255, 255, 255, 0.18));
+  background: var(--theme-muted-alpha-06, rgba(255, 255, 255, 0.06));
+}
+
+.tg-notify-switch {
+  width: 44px;
+  height: 24px;
+  order: 2;
+}
+
+.tg-notify-switch .toggle-slider {
+  background: rgba(84, 102, 114, 0.82);
+}
+
+.tg-notify-switch .toggle-slider:before {
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  bottom: 3px;
+}
+
+.tg-notify-switch .toggle-input:checked + .toggle-slider {
+  background: linear-gradient(
+    140deg,
+    rgba(63, 160, 131, 0.92),
+    rgba(51, 128, 116, 0.92)
+  );
+}
+
+.tg-notify-switch .toggle-input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.tg-notify-switch .toggle-input:focus-visible + .toggle-slider {
+  box-shadow: 0 0 0 3px rgba(63, 140, 255, 0.26);
 }
 
 .tg-notify-toggle__label {
-  font-size: 0.835rem;
+  font-size: 0.82rem;
   color: var(--theme-text-primary, #e9f2ff);
-  line-height: 1.4;
+  line-height: 1.35;
+  order: 1;
 }
 
-.tg-notify-save-btn { margin-top: 2px; }
+.tg-notify-actions {
+  display: flex;
+  gap: 0.52rem;
+  margin-top: 0.08rem;
+}
+
+.tg-notify-actions .button {
+  margin-top: 0;
+  padding: 0.72rem 0.85rem;
+  font-size: 0.92rem;
+  width: 100%;
+}
+
+.tg-notify-help {
+  margin-top: 0.06rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
 
 @media (max-width: 600px) {
-  .tg-notify-events-grid { grid-template-columns: 1fr; }
+  .tg-notify-events-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tg-notify-actions {
+    flex-direction: column;
+    gap: 0.42rem;
+  }
 }
 
 .monitor-settings-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 20px;
-  margin-bottom: 12px;
+  gap: 0.52rem 0.9rem;
+  margin-bottom: 0.06rem;
 }
 
 .monitor-settings-grid .form-label {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--theme-text-secondary, #a0b4cc);
-  margin-bottom: 4px;
+  margin-bottom: 0.22rem;
   display: block;
 }
 
 .monitor-settings-grid .monitor-input {
   width: 100%;
-  max-width: 120px;
+  max-width: none;
+}
+
+.monitor-save-btn {
+  margin-top: 0.2rem;
+  padding: 0.72rem 0.9rem;
+  font-size: 0.92rem;
 }
 
 @media (max-width: 600px) {
   .monitor-settings-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== Telegram + Action logs structured redesign ===== */
+#telegram-auth .telegram-page-lead {
+  margin-top: -0.3rem;
+  margin-bottom: 1rem;
+}
+
+#telegram-auth .telegram-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+#telegram-auth .telegram-kpi {
+  border: 1px solid var(--theme-muted-alpha-14, rgba(255, 255, 255, 0.14));
+  background: var(--theme-muted-alpha-02, rgba(255, 255, 255, 0.02));
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+}
+
+#telegram-auth .telegram-kpi.is-on {
+  border-color: rgba(104, 192, 140, 0.46);
+  box-shadow: inset 3px 0 0 rgba(104, 192, 140, 0.8);
+}
+
+#telegram-auth .telegram-kpi.is-off {
+  border-color: rgba(220, 105, 105, 0.46);
+  box-shadow: inset 3px 0 0 rgba(220, 105, 105, 0.8);
+}
+
+#telegram-auth .telegram-kpi__label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.62));
+}
+
+#telegram-auth .telegram-kpi__value {
+  display: block;
+  margin-top: 0.32rem;
+  font-size: 0.95rem;
+  color: var(--theme-text-primary, #edf5ff);
+  font-weight: 600;
+}
+
+#telegram-auth .telegram-structured-form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+#telegram-auth .telegram-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+#telegram-auth .telegram-form-section {
+  border: 1px solid var(--theme-muted-alpha-12, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  background: var(--theme-muted-alpha-02, rgba(255, 255, 255, 0.02));
+  padding: 0.85rem;
+}
+
+#telegram-auth .telegram-form-section h4 {
+  margin: 0 0 0.7rem;
+  font-size: 0.9rem;
+  color: var(--theme-text-primary, #edf5ff);
+}
+
+#telegram-auth .telegram-form-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+#telegram-auth .telegram-guide-details {
+  margin-top: 0.75rem;
+}
+
+#telegram-auth .telegram-guide-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--theme-text-main, #fff);
+}
+
+#telegram-auth .telegram-guide-details ol,
+#telegram-auth .telegram-guide-details ul {
+  margin-top: 0.55rem;
+}
+
+#telegram-auth .telegram-audit-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+#telegram-auth .telegram-audit-link {
+  white-space: nowrap;
+}
+
+#telegram-auth .tg-audit-table .log-source-badge {
+  margin-right: 0;
+}
+
+#action-logs .action-logs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+#action-logs .audit-log-filters-structured {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto auto auto auto auto;
+  gap: 0.55rem;
+}
+
+#action-logs .action-details {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--theme-settings-text-muted, rgba(223, 235, 255, 0.58));
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+#action-logs .severity-high .action-text {
+  color: #ffd3cd;
+}
+
+@media (max-width: 980px) {
+  #telegram-auth .telegram-kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #telegram-auth .telegram-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #action-logs .audit-log-filters-structured {
+    grid-template-columns: 1fr;
+  }
 }

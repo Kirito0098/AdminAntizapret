@@ -99,7 +99,7 @@
               </section>
 
               {% if user.telegram_id %}
-              <section class="user-card__section">
+              <section class="user-card__section user-card__section--wide">
                 <h4>Telegram-уведомления</h4>
                 <form method="POST" class="settings-form tg-notify-form">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
@@ -120,23 +120,28 @@
                   <div class="tg-notify-events-grid">
                     {% for key, label in tg_events %}
                     <label class="tg-notify-toggle">
-                      <input type="checkbox" name="tg_e_{{ key }}" value="1"
-                        {% if user.has_tg_notify_event(key) %}checked{% endif %} />
+                      <span class="toggle-switch tg-notify-switch">
+                        <input type="checkbox" class="toggle-input" name="tg_e_{{ key }}" value="1"
+                          {% if user.has_tg_notify_event(key) %}checked{% endif %} />
+                        <span class="toggle-slider"></span>
+                      </span>
                       <span class="tg-notify-toggle__label">{{ label }}</span>
                     </label>
                     {% endfor %}
                   </div>
-                  <button type="submit" class="button save-button tg-notify-save-btn">Сохранить</button>
-                  {% if user.username == current_user.username %}
-                  <button type="button" class="button tg-notify-test-btn"
-                    data-username="{{ user.username }}">Тест уведомлений</button>
-                  {% endif %}
-                  <small class="help-text">Уведомления отправляются через бота Telegram-авторизации.</small>
+                  <div class="tg-notify-actions">
+                    <button type="submit" class="button save-button tg-notify-save-btn">Сохранить</button>
+                    {% if user.username == current_user.username %}
+                    <button type="button" class="button tg-notify-test-btn"
+                      data-username="{{ user.username }}">Тест уведомлений</button>
+                    {% endif %}
+                  </div>
+                  <small class="help-text tg-notify-help">Уведомления отправляются через бота Telegram-авторизации.</small>
                 </form>
               </section>
 
               {% if user.username == current_user.username %}
-              <section class="user-card__section">
+              <section class="user-card__section user-card__section--wide">
                 <h4>Мониторинг нагрузки сервера</h4>
                 <div class="monitor-settings-grid">
                   <div class="form-group">

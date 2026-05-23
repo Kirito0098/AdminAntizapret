@@ -4,6 +4,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings_page_shared.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings_styles.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings_maintenance.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/audit_log_mobile.css') }}" />
 {% endblock %}
 
@@ -16,6 +17,7 @@
 {% include "partials/settings/_tab_security.html" %}
 {% include "partials/settings/_tab_telegram_auth.html" %}
 {% include "partials/settings/_tab_action_logs.html" %}
+{% include "partials/settings/_modal_user_action.html" %}
 {% include "partials/settings/_tab_updates.html" %}
 {% include "partials/settings/_tab_tests.html" %}
 {% include "partials/settings/_layout_end.html" %}

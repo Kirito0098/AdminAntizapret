@@ -16,13 +16,18 @@ class MaintenanceSchedulerService:
         traffic_sync_cron_marker,
         traffic_sync_cron_expr,
         traffic_sync_enabled,
+        wg_policy_sync_cron_marker,
+        wg_policy_sync_cron_expr,
+        wg_policy_sync_enabled,
         nightly_idle_restart_marker,
+        app_backup_cron_marker,
         runtime_backup_cleanup_marker,
         runtime_backup_cleanup_cron_expr,
         runtime_backup_root,
         runtime_backup_retention_hours,
         is_valid_cron_expression,
         get_nightly_idle_restart_settings,
+        get_backup_settings,
     ):
         self.app_root = app_root
         self.logs_dir = logs_dir
@@ -32,13 +37,18 @@ class MaintenanceSchedulerService:
         self.traffic_sync_cron_marker = traffic_sync_cron_marker
         self.traffic_sync_cron_expr = traffic_sync_cron_expr
         self.traffic_sync_enabled = bool(traffic_sync_enabled)
+        self.wg_policy_sync_cron_marker = wg_policy_sync_cron_marker
+        self.wg_policy_sync_cron_expr = wg_policy_sync_cron_expr
+        self.wg_policy_sync_enabled = bool(wg_policy_sync_enabled)
         self.nightly_idle_restart_marker = nightly_idle_restart_marker
+        self.app_backup_cron_marker = app_backup_cron_marker
         self.runtime_backup_cleanup_marker = runtime_backup_cleanup_marker
         self.runtime_backup_cleanup_cron_expr = runtime_backup_cleanup_cron_expr
         self.runtime_backup_root = runtime_backup_root
         self.runtime_backup_retention_hours = max(0, int(runtime_backup_retention_hours or 0))
         self.is_valid_cron_expression = is_valid_cron_expression
         self.get_nightly_idle_restart_settings = get_nightly_idle_restart_settings
+        self.get_backup_settings = get_backup_settings
 
     def status_log_cleanup_command(self):
         quoted_logs_dir = shlex.quote(self.logs_dir)
@@ -89,6 +99,16 @@ class MaintenanceSchedulerService:
     def nightly_idle_restart_command(self):
         python_bin = shlex.quote(self.python_executable)
         script_path = shlex.quote(os.path.join(self.app_root, "utils", "nightly_idle_restart.py"))
+        return f"{python_bin} {script_path} >/dev/null 2>&1"
+
+    def wg_policy_sync_command(self):
+        python_bin = shlex.quote(self.python_executable)
+        script_path = shlex.quote(os.path.join(self.app_root, "utils", "wg_awg_policy_sync.py"))
+        return f"{python_bin} {script_path} >/dev/null 2>&1"
+
+    def app_backup_command(self):
+        python_bin = shlex.quote(self.python_executable)
+        script_path = shlex.quote(os.path.join(self.app_root, "utils", "app_auto_backup.py"))
         return f"{python_bin} {script_path} >/dev/null 2>&1"
 
     def runtime_backup_cleanup_command(self):
@@ -162,6 +182,68 @@ class MaintenanceSchedulerService:
         if nightly_enabled:
             return True, "Cron ночного рестарта включен"
         return True, "Cron ночного рестарта отключен"
+
+    def ensure_wg_policy_sync_cron(self):
+        lines = self.read_crontab_lines()
+        if lines is None:
+            return False, "Не удалось прочитать crontab для синхронизации WG/AWG-политик."
+
+        lines = [line for line in lines if self.wg_policy_sync_cron_marker not in line]
+
+        if self.wg_policy_sync_enabled:
+            if not self.is_valid_cron_expression(self.wg_policy_sync_cron_expr):
+                return False, "Некорректное cron-выражение для синхронизации WG/AWG-политик."
+            command = self.wg_policy_sync_command()
+            lines.append(f"{self.wg_policy_sync_cron_expr} {command} {self.wg_policy_sync_cron_marker}")
+
+        try:
+            self.write_crontab_lines(lines)
+        except Exception as e:
+            return False, f"Ошибка записи cron синхронизации WG/AWG-политик: {e}"
+
+        if self.wg_policy_sync_enabled:
+            return True, "Cron синхронизации WG/AWG-политик включен"
+        return True, "Cron синхронизации WG/AWG-политик отключен"
+
+    def _app_backup_cron_expr(self, interval_days, time_hhmm):
+        minute_str, hour_str = str(time_hhmm or "03:00").split(":", 1)
+        minute = max(0, min(59, int(minute_str)))
+        hour = max(0, min(23, int(hour_str)))
+        if int(interval_days) == 1:
+            return f"{minute} {hour} * * *"
+        return f"{minute} {hour} */{int(interval_days)} * *"
+
+    def ensure_app_backup_cron(self):
+        lines = self.read_crontab_lines()
+        if lines is None:
+            return False, "Не удалось прочитать crontab для авто-бэкапов."
+
+        lines = [line for line in lines if self.app_backup_cron_marker not in line]
+        backup_settings = self.get_backup_settings() or {}
+        enabled = bool(backup_settings.get("enabled", False))
+        interval_days = int(backup_settings.get("interval_days", 1))
+        if interval_days not in (1, 7, 30):
+            interval_days = 1
+        time_hhmm = str(backup_settings.get("time_hhmm", "03:00") or "03:00")
+
+        if enabled:
+            try:
+                cron_expr = self._app_backup_cron_expr(interval_days, time_hhmm)
+            except Exception:
+                return False, "Некорректное время для авто-бэкапа."
+            if not self.is_valid_cron_expression(cron_expr):
+                return False, "Некорректное cron-выражение для авто-бэкапа."
+            command = self.app_backup_command()
+            lines.append(f"{cron_expr} {command} {self.app_backup_cron_marker}")
+
+        try:
+            self.write_crontab_lines(lines)
+        except Exception as e:
+            return False, f"Ошибка записи cron авто-бэкапа: {e}"
+
+        if enabled:
+            return True, "Cron авто-бэкапа включен"
+        return True, "Cron авто-бэкапа отключен"
 
     def ensure_runtime_backup_cleanup_cron(self):
         lines = self.read_crontab_lines()

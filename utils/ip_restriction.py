@@ -13,6 +13,12 @@ from core.services.panel_publish_info import is_whitelist_port_firewall_applicab
 from ip_blocked.constants import IP_BLOCKED_ACCESS_ENDPOINTS
 from utils.panel_port_firewall import PanelPortFirewall
 from utils.scanner_firewall_store import ScannerFirewallStore
+from utils.temporary_whitelist_store import (
+    DURATION_LABELS,
+    TemporaryWhitelistStore,
+    duration_seconds_from_label,
+    normalize_host_ip,
+)
 
 
 def _env_bool(name, default=False):
@@ -59,6 +65,7 @@ class IPRestriction:
         self._scanner_lock = Lock()
         self._firewall_store = ScannerFirewallStore()
         self._panel_port_firewall = PanelPortFirewall()
+        self._temp_whitelist_store = TemporaryWhitelistStore()
         self._load_from_env()
 
     def init_app(self, app):
@@ -293,7 +300,7 @@ class IPRestriction:
                 self._panel_port_firewall.disable()
                 return False
 
-            return self._panel_port_firewall.sync(self.allowed_ips)
+            return self._panel_port_firewall.sync(self._firewall_whitelist_entries())
         except Exception as exc:
             if self.app:
                 self.app.logger.warning(
@@ -347,6 +354,12 @@ class IPRestriction:
 
         return ip or remote_ip
 
+    def _firewall_whitelist_entries(self):
+        """Постоянные и активные временные записи для iptables whitelist порта."""
+        entries = set(self.allowed_ips)
+        entries.update(self._temp_whitelist_store.get_active_ips())
+        return entries
+
     def is_ip_allowed(self, ip_str):
         """Проверяет, разрешен ли IP (одиночный или из подсети)"""
         if not self.enabled:
@@ -370,6 +383,9 @@ class IPRestriction:
                     return True
             except ValueError:
                 continue
+
+        if self._temp_whitelist_store.is_allowed(ip_str):
+            return True
 
         return False
 
@@ -413,6 +429,8 @@ class IPRestriction:
         for entry in self.allowed_ips:
             if "/" in entry:
                 continue
+            self.release_firewall_for_ip(entry)
+        for entry in self._temp_whitelist_store.get_active_ips():
             self.release_firewall_for_ip(entry)
 
     def is_scanner_banned(self, ip_str):
@@ -584,7 +602,47 @@ class IPRestriction:
         """Очищает все IP (выключает ограничения)"""
         self.allowed_ips.clear()
         self.enabled = False
+        self._temp_whitelist_store.clear_all()
         self.save_to_env()
+
+    def add_temporary_ip(self, ip, duration_seconds):
+        """Временный доступ (только при включённом whitelist)."""
+        if not self.enabled:
+            return False, "disabled"
+        ip_key = normalize_host_ip(ip)
+        if not ip_key:
+            return False, "invalid"
+        if not self._temp_whitelist_store.add(ip_key, int(duration_seconds)):
+            return False, "invalid"
+        self.release_firewall_for_ip(ip_key)
+        self.sync_whitelist_port_firewall()
+        return True, ip_key
+
+    def remove_temporary_ip(self, ip):
+        ip_key = normalize_host_ip(ip) or (ip or "").strip()
+        if not ip_key:
+            return False
+        if not self._temp_whitelist_store.remove(ip_key):
+            return False
+        self.sync_whitelist_port_firewall()
+        return True
+
+    def get_temporary_whitelist_display(self):
+        return self._temp_whitelist_store.get_active_entries()
+
+    @staticmethod
+    def parse_duration_label(label):
+        return duration_seconds_from_label(label)
+
+    @staticmethod
+    def allowed_duration_labels():
+        return tuple(DURATION_LABELS.keys())
+
+    def remove_ip_any(self, ip):
+        """Удаляет из постоянного и временного списка."""
+        removed_perm = self.remove_ip(ip)
+        removed_temp = self.remove_temporary_ip(ip)
+        return removed_perm or removed_temp
 
     def get_allowed_ips(self):
         """Возвращает список разрешенных IP"""

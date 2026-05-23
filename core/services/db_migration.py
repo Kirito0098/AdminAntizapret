@@ -275,5 +275,132 @@ class DatabaseMigrationService:
                             )
                         )
                         conn.commit()
+
+                if not insp.has_table("wg_access_policy"):
+                    with self.db.engine.connect() as conn:
+                        conn.execute(
+                            text(
+                                "CREATE TABLE wg_access_policy ("
+                                "id INTEGER NOT NULL PRIMARY KEY, "
+                                "client_name VARCHAR(255) NOT NULL, "
+                                "is_temp_blocked BOOLEAN NOT NULL DEFAULT 0, "
+                                "is_permanent_blocked BOOLEAN NOT NULL DEFAULT 0, "
+                                "block_reason VARCHAR(32), "
+                                "block_started_at DATETIME, "
+                                "block_days INTEGER, "
+                                "block_until DATETIME, "
+                                "expires_at DATETIME, "
+                                "updated_by VARCHAR(80), "
+                                "updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+                                ")"
+                            )
+                        )
+                        conn.commit()
+
+                if insp.has_table("wg_access_policy"):
+                    wg_policy_cols = {c["name"] for c in insp.get_columns("wg_access_policy")}
+                    with self.db.engine.connect() as conn:
+                        wg_policy_missing = {
+                            "is_permanent_blocked": (
+                                "ALTER TABLE wg_access_policy "
+                                "ADD COLUMN is_permanent_blocked BOOLEAN NOT NULL DEFAULT 0"
+                            ),
+                            "block_started_at": "ALTER TABLE wg_access_policy ADD COLUMN block_started_at DATETIME",
+                            "block_days": "ALTER TABLE wg_access_policy ADD COLUMN block_days INTEGER",
+                        }
+                        for col_name, alter_sql in wg_policy_missing.items():
+                            if col_name not in wg_policy_cols:
+                                conn.execute(text(alter_sql))
+                        conn.execute(
+                            text(
+                                "CREATE UNIQUE INDEX IF NOT EXISTS uq_wg_access_policy_client_name "
+                                "ON wg_access_policy (client_name)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_wg_access_policy_temp_blocked "
+                                "ON wg_access_policy (is_temp_blocked)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_wg_access_policy_permanent_blocked "
+                                "ON wg_access_policy (is_permanent_blocked)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_wg_access_policy_block_reason "
+                                "ON wg_access_policy (block_reason)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_wg_access_policy_block_until "
+                                "ON wg_access_policy (block_until)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_wg_access_policy_expires_at "
+                                "ON wg_access_policy (expires_at)"
+                            )
+                        )
+                        conn.commit()
+
+                if not insp.has_table("openvpn_access_policy"):
+                    with self.db.engine.connect() as conn:
+                        conn.execute(
+                            text(
+                                "CREATE TABLE openvpn_access_policy ("
+                                "id INTEGER NOT NULL PRIMARY KEY, "
+                                "client_name VARCHAR(255) NOT NULL, "
+                                "is_temp_blocked BOOLEAN NOT NULL DEFAULT 0, "
+                                "is_permanent_blocked BOOLEAN NOT NULL DEFAULT 0, "
+                                "block_reason VARCHAR(32), "
+                                "block_started_at DATETIME, "
+                                "block_days INTEGER, "
+                                "block_until DATETIME, "
+                                "updated_by VARCHAR(80), "
+                                "updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+                                ")"
+                            )
+                        )
+                        conn.commit()
+
+                if insp.has_table("openvpn_access_policy"):
+                    with self.db.engine.connect() as conn:
+                        conn.execute(
+                            text(
+                                "CREATE UNIQUE INDEX IF NOT EXISTS uq_openvpn_access_policy_client_name "
+                                "ON openvpn_access_policy (client_name)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_openvpn_access_policy_temp_blocked "
+                                "ON openvpn_access_policy (is_temp_blocked)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_openvpn_access_policy_permanent_blocked "
+                                "ON openvpn_access_policy (is_permanent_blocked)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_openvpn_access_policy_block_reason "
+                                "ON openvpn_access_policy (block_reason)"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "CREATE INDEX IF NOT EXISTS ix_openvpn_access_policy_block_until "
+                                "ON openvpn_access_policy (block_until)"
+                            )
+                        )
+                        conn.commit()
             except Exception as exc:
                 logger.warning("DB migration warning: %s", exc, exc_info=True)

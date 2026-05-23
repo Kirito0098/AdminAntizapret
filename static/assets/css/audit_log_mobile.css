@@ -15,9 +15,11 @@
 
   #action-logs .audit-log-filters__search  { order: 1; }
   #action-logs .audit-log-filters__sources { order: 2; }
-  #action-logs .audit-log-filters__alerts  { order: 3; }
-  #action-logs .audit-log-filters__user    { order: 4; }
-  #action-logs .audit-log-filters__meta    { order: 5; margin-left: 0; justify-content: space-between; }
+  #action-logs .audit-log-filters__user    { order: 3; }
+  #action-logs .audit-log-filters__result  { order: 4; }
+  #action-logs .audit-log-filters__sort    { order: 5; }
+  #action-logs .audit-log-filters__alerts  { order: 6; }
+  #action-logs .audit-log-filters__meta    { order: 7; margin-left: 0; justify-content: space-between; }
 
   /* Source pills: horizontal scroll row, no wrapping */
   #action-logs .audit-log-filters__sources {
@@ -32,6 +34,24 @@
   #action-logs .audit-log-filters__sources::-webkit-scrollbar { display: none; }
 
   #action-logs .audit-user-select { width: 100%; }
+
+  #telegram-auth .tg-audit-filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  #telegram-auth .tg-audit-filters .audit-log-filters__sources {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 5px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #telegram-auth .tg-audit-filters .audit-user-select {
+    width: 100%;
+  }
 }
 
 /* Table: card layout on phones */
@@ -76,44 +96,49 @@
 
   /* ── Action rows: card ── */
   #action-logs .audit-action-row {
-    border: 1px solid rgba(121, 184, 163, 0.15);
-    border-radius: 8px;
-    margin: 3px 8px 6px !important;
+    border: 1px solid rgba(146, 172, 188, 0.2);
+    border-radius: 7px;
+    margin: 2px 8px 5px !important;
+    background: rgba(24, 33, 43, 0.42);
+    box-shadow: 0 2px 10px rgba(4, 10, 20, 0.14);
     overflow: hidden;
   }
 
   /* Shared cell base */
   #action-logs .audit-action-row td {
-    padding: 0.42rem 0.65rem !important;
-    border-bottom: 1px solid rgba(121, 184, 163, 0.08);
-    font-size: 0.84rem;
+    padding: 0.36rem 0.58rem !important;
+    font-size: 0.82rem;
     vertical-align: top !important;
   }
   #action-logs .audit-action-row td:last-child { border-bottom: 0; }
-  #action-logs .audit-action-row td:first-child { padding-left: 0.65rem !important; }
+  #action-logs .audit-action-row td:first-child { padding-left: 0.58rem !important; }
 
   /* Simple cells (single value): 2-column label | value grid */
   #action-logs .audit-action-row .audit-td-time,
   #action-logs .audit-action-row .audit-td-user,
+  #action-logs .audit-action-row .audit-td-ip,
   #action-logs .audit-action-row .audit-td-status {
     display: grid !important;
-    grid-template-columns: 78px minmax(0, 1fr);
-    gap: 0.4rem;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 0.34rem;
     align-items: center !important;
   }
 
   /* Labels for simple cells */
   #action-logs .audit-action-row .audit-td-time::before,
   #action-logs .audit-action-row .audit-td-user::before,
+  #action-logs .audit-action-row .audit-td-ip::before,
   #action-logs .audit-action-row .audit-td-status::before {
-    font-size: 0.68rem !important;
-    font-weight: 600;
-    color: rgba(223, 235, 255, 0.42);
+    font-size: 0.64rem !important;
+    font-weight: 500;
+    color: rgba(223, 235, 255, 0.34);
     white-space: nowrap;
-    line-height: 1.5;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
   }
   #action-logs .audit-action-row .audit-td-time::before   { content: "Время"; }
   #action-logs .audit-action-row .audit-td-user::before   { content: "Польз."; }
+  #action-logs .audit-action-row .audit-td-ip::before     { content: "IP"; }
   #action-logs .audit-action-row .audit-td-status::before { content: "Статус"; }
 
   /* Force-show status */
@@ -127,16 +152,50 @@
   #action-logs .audit-action-row .action-with-source::before {
     content: "Действие";
     display: block;
-    font-size: 0.68rem !important;
-    font-weight: 600;
-    color: rgba(223, 235, 255, 0.42);
-    margin-bottom: 4px;
+    font-size: 0.64rem !important;
+    font-weight: 500;
+    color: rgba(223, 235, 255, 0.34);
+    margin-bottom: 3px;
     white-space: nowrap;
-    line-height: 1.5;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+  }
+  #action-logs .audit-action-row .action-details {
+    margin-top: 4px;
+    font-size: 0.75rem;
   }
 
-  /* Hide IP — already shown in session header */
-  #action-logs .audit-action-row .audit-td-ip { display: none !important; }
+  #action-logs .audit-action-row .audit-td-details {
+    display: block !important;
+  }
+  #action-logs .audit-action-row .audit-td-details::before {
+    content: "Детали";
+    display: block;
+    font-size: 0.64rem !important;
+    font-weight: 500;
+    color: rgba(223, 235, 255, 0.34);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+  }
+
+  #action-logs .audit-action-row .action-text {
+    font-size: 0.82rem;
+    line-height: 1.3;
+    color: rgba(236, 244, 255, 0.92);
+  }
+
+  #action-logs .audit-action-row .audit-td-details {
+    font-size: 0.77rem;
+    line-height: 1.35;
+    color: rgba(223, 235, 255, 0.7);
+  }
+
+  #action-logs .audit-action-row .audit-td-user,
+  #action-logs .audit-action-row .audit-td-ip {
+    color: rgba(232, 241, 255, 0.86);
+  }
 
   /* Time: inline date + clock on one line */
   #action-logs .audit-td-time .audit-time-date,

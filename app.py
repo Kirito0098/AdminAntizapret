@@ -21,7 +21,11 @@ import secrets
 from datetime import datetime, timezone, timedelta
 import shlex
 from threading import RLock
-from core.services.admin_notify import AdminNotifyService, SETTINGS_CHANGE_NOTIFY
+from core.services.admin_notify import (
+    AdminNotifyService,
+    CLIENT_BLOCK_NOTIFY_EVENTS,
+    SETTINGS_CHANGE_NOTIFY,
+)
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
@@ -48,6 +52,7 @@ from core.models import (
     LogsDashboardCache,
     OpenVPNPeerInfoCache,
     OpenVPNPeerInfoHistory,
+    OpenVpnAccessPolicy,
     ProviderCidr,
     ProviderMeta,
     QrDownloadAuditLog,
@@ -61,6 +66,7 @@ from core.models import (
     UserTrafficStatProtocol,
     ViewerConfigAccess,
     WireGuardPeerCache,
+    WgAccessPolicy,
     db,
 )
 from core.services.cidr_db_updater import CidrDbUpdaterService
@@ -82,6 +88,7 @@ from core.services import (
     MaintenanceSchedulerService,
     NetworkStatusCollectorService,
     OpenVPNBanlistService,
+    OpenVpnAccessPolicyService,
     OpenVPNSocketReaderService,
     PeerInfoCacheService,
     QrDownloadTokenService,
@@ -92,8 +99,10 @@ from core.services import (
     build_services,
     TrafficMaintenanceService,
     TrafficPersistenceService,
+    WgAccessPolicyService,
     register_current_user_context_processor,
 )
+from utils.wg_awg_runtime_enforcer import WgAwgRuntimeEnforcer
 from core.services.session_security import build_session_security_config
 from core.services.http_security import (
     apply_security_headers,
@@ -106,6 +115,11 @@ from core.services.http_security import (
 # Абсолютный путь к корню приложения и .env (не зависит от рабочего каталога процесса).
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 ENV_FILE_PATH = os.path.join(APP_ROOT, ".env")
+_SKIP_APP_BOOTSTRAP = os.getenv("ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 # Загрузка переменных окружения из .env файла
 load_dotenv(dotenv_path=ENV_FILE_PATH)
@@ -411,7 +425,14 @@ def _log_qr_event(event_type, token_row=None, details=None):
     )
 
 
-def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_username=None, telegram_id=None):
+def _log_telegram_audit_event(
+    event_type,
+    config_name=None,
+    details=None,
+    actor_username=None,
+    telegram_id=None,
+    mirror_user_action=True,
+):
     """Writes Telegram/Mini App audit events without affecting primary workflow.
     Also logs to UserActionLog with 'miniapp:' prefix to show in main action logs."""
     try:
@@ -443,25 +464,26 @@ def _log_telegram_audit_event(event_type, config_name=None, details=None, actor_
         )
         db.session.commit()
 
-        # Also log to UserActionLog with miniapp tag
-        try:
-            db.session.add(
-                UserActionLog(
-                    actor_user_id=actor_user_id,
-                    actor_username=username,
-                    event_type=f"miniapp:{str(event_type or 'unknown')[:59]}",  # Prefix with 'miniapp:' (max 64 chars)
-                    target_type="telegram_miniapp",
-                    target_name=(str(config_name or "").strip()[:255] or None),
-                    status="success",
-                    details=(str(details or "")[:255] or None),
-                    remote_addr=(remote_addr or None),
-                    user_agent=(user_agent or None),
+        if mirror_user_action:
+            # Also log to UserActionLog with miniapp tag.
+            try:
+                db.session.add(
+                    UserActionLog(
+                        actor_user_id=actor_user_id,
+                        actor_username=username,
+                        event_type=f"miniapp:{str(event_type or 'unknown')[:59]}",  # Prefix with 'miniapp:' (max 64 chars)
+                        target_type="telegram_miniapp",
+                        target_name=(str(config_name or "").strip()[:255] or None),
+                        status="success",
+                        details=(str(details or "")[:255] or None),
+                        remote_addr=(remote_addr or None),
+                        user_agent=(user_agent or None),
+                    )
                 )
-            )
-            db.session.commit()
-        except SQLAlchemyError as e2:
-            db.session.rollback()
-            app.logger.warning("Не удалось записать событие Telegram audit в UserActionLog: %s", e2)
+                db.session.commit()
+            except SQLAlchemyError as e2:
+                db.session.rollback()
+                app.logger.warning("Не удалось записать событие Telegram audit в UserActionLog: %s", e2)
     except SQLAlchemyError as e:
         db.session.rollback()
         app.logger.warning("Не удалось записать событие Telegram audit: %s", e)
@@ -516,24 +538,28 @@ def _log_user_action_event(
     try:
         _notify_type = None
         _notify_target = target_name
-        if event_type == "config_delete":
-            _notify_type = "config_delete"
+        _settings_subject = None
+        if event_type in ("config_delete", "config_create", "config_recreate"):
+            _notify_type = event_type
         elif event_type == "settings_user_create":
             _notify_type = "user_create"
         elif event_type == "settings_user_delete":
             _notify_type = "user_delete"
-        elif event_type == "openvpn_client_block_toggle":
+        elif event_type in CLIENT_BLOCK_NOTIFY_EVENTS:
             _notify_type = "client_ban"
         elif event_type in SETTINGS_CHANGE_NOTIFY:
             _notify_type = "settings_change"
+            _settings_subject = target_name
             _notify_target = event_type
         if _notify_type:
             _send_tg_admin_notification(
                 _notify_type,
                 actor_username=username,
                 target_name=_notify_target,
+                target_type=target_type,
                 remote_addr=remote_addr,
                 details=details,
+                subject_name=_settings_subject,
             )
     except Exception:
         pass
@@ -657,13 +683,26 @@ TRAFFIC_DB_STALE_SECONDS = runtime_settings["TRAFFIC_DB_STALE_SECONDS"]
 TRAFFIC_SYNC_CRON_MARKER = runtime_settings["TRAFFIC_SYNC_CRON_MARKER"]
 TRAFFIC_SYNC_CRON_EXPR = runtime_settings["TRAFFIC_SYNC_CRON_EXPR"]
 TRAFFIC_SYNC_ENABLED = runtime_settings["TRAFFIC_SYNC_ENABLED"]
+WG_POLICY_SYNC_CRON_MARKER = runtime_settings["WG_POLICY_SYNC_CRON_MARKER"]
+WG_POLICY_SYNC_CRON_EXPR = runtime_settings["WG_POLICY_SYNC_CRON_EXPR"]
+WG_POLICY_SYNC_ENABLED = runtime_settings["WG_POLICY_SYNC_ENABLED"]
 NIGHTLY_IDLE_RESTART_MARKER = runtime_settings["NIGHTLY_IDLE_RESTART_MARKER"]
+APP_BACKUP_CRON_MARKER = runtime_settings["APP_BACKUP_CRON_MARKER"]
+APP_BACKUP_ROOT = runtime_settings["APP_BACKUP_ROOT"]
+APP_BACKUP_RETENTION_COUNT = runtime_settings["APP_BACKUP_RETENTION_COUNT"]
+APP_BACKUP_SERVICE_NAME = runtime_settings["APP_BACKUP_SERVICE_NAME"]
 RUNTIME_BACKUP_CLEANUP_MARKER = runtime_settings["RUNTIME_BACKUP_CLEANUP_MARKER"]
 RUNTIME_BACKUP_CLEANUP_CRON_EXPR = runtime_settings["RUNTIME_BACKUP_CLEANUP_CRON_EXPR"]
 RUNTIME_BACKUP_RETENTION_HOURS = runtime_settings["RUNTIME_BACKUP_RETENTION_HOURS"]
 RUNTIME_BACKUP_ROOT = os.path.join(APP_ROOT, "ips", "runtime_backups")
 _runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", runtime_settings["NIGHTLY_IDLE_RESTART_CRON_EXPR"])
 _runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", runtime_settings["NIGHTLY_IDLE_RESTART_ENABLED"])
+_runtime_set("APP_BACKUP_ENABLED", runtime_settings["APP_BACKUP_ENABLED"])
+_runtime_set("APP_BACKUP_INTERVAL_DAYS", runtime_settings["APP_BACKUP_INTERVAL_DAYS"])
+_runtime_set("APP_BACKUP_TIME", runtime_settings["APP_BACKUP_TIME"])
+_runtime_set("APP_BACKUP_COMPONENTS", runtime_settings["APP_BACKUP_COMPONENTS"])
+_runtime_set("APP_BACKUP_TG_ENABLED", runtime_settings["APP_BACKUP_TG_ENABLED"])
+_runtime_set("APP_BACKUP_TG_ADMIN_IDS", runtime_settings["APP_BACKUP_TG_ADMIN_IDS"])
 _runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", runtime_settings["ACTIVE_WEB_SESSION_TTL_SECONDS"])
 _runtime_set(
     "ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS",
@@ -681,6 +720,26 @@ def _get_nightly_idle_restart_settings():
 def _set_nightly_idle_restart_settings(enabled, cron_expr):
     _runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", bool(enabled))
     _runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", (cron_expr or "0 4 * * *").strip())
+
+
+def _get_backup_settings():
+    return {
+        "enabled": bool(_runtime_get("APP_BACKUP_ENABLED", False)),
+        "interval_days": int(_runtime_get("APP_BACKUP_INTERVAL_DAYS", 1)),
+        "time_hhmm": str(_runtime_get("APP_BACKUP_TIME", "03:00") or "03:00"),
+        "components": str(_runtime_get("APP_BACKUP_COMPONENTS", "db,env,data") or "db,env,data"),
+        "tg_enabled": bool(_runtime_get("APP_BACKUP_TG_ENABLED", False)),
+        "tg_admin_ids": str(_runtime_get("APP_BACKUP_TG_ADMIN_IDS", "") or ""),
+    }
+
+
+def _set_backup_settings(*, enabled, interval_days, time_hhmm, components, tg_enabled, tg_admin_ids):
+    _runtime_set("APP_BACKUP_ENABLED", bool(enabled))
+    _runtime_set("APP_BACKUP_INTERVAL_DAYS", int(interval_days))
+    _runtime_set("APP_BACKUP_TIME", (time_hhmm or "03:00").strip())
+    _runtime_set("APP_BACKUP_COMPONENTS", (components or "db,env,data").strip())
+    _runtime_set("APP_BACKUP_TG_ENABLED", bool(tg_enabled))
+    _runtime_set("APP_BACKUP_TG_ADMIN_IDS", (tg_admin_ids or "").strip())
 
 
 def _get_active_web_session_settings():
@@ -713,8 +772,16 @@ def _ensure_traffic_sync_cron():
     return maintenance_scheduler_service.ensure_traffic_sync_cron()
 
 
+def _ensure_wg_policy_sync_cron():
+    return maintenance_scheduler_service.ensure_wg_policy_sync_cron()
+
+
 def _ensure_nightly_idle_restart_cron():
     return maintenance_scheduler_service.ensure_nightly_idle_restart_cron()
+
+
+def _ensure_app_backup_cron():
+    return maintenance_scheduler_service.ensure_app_backup_cron()
 
 
 def _ensure_runtime_backup_cleanup_cron():
@@ -731,11 +798,18 @@ _services = build_services(
     traffic_sync_cron_marker=TRAFFIC_SYNC_CRON_MARKER,
     traffic_sync_cron_expr=TRAFFIC_SYNC_CRON_EXPR,
     traffic_sync_enabled=TRAFFIC_SYNC_ENABLED,
+    wg_policy_sync_cron_marker=WG_POLICY_SYNC_CRON_MARKER,
+    wg_policy_sync_cron_expr=WG_POLICY_SYNC_CRON_EXPR,
+    wg_policy_sync_enabled=WG_POLICY_SYNC_ENABLED,
     nightly_idle_restart_marker=NIGHTLY_IDLE_RESTART_MARKER,
+    app_backup_cron_marker=APP_BACKUP_CRON_MARKER,
     runtime_backup_cleanup_marker=RUNTIME_BACKUP_CLEANUP_MARKER,
     runtime_backup_cleanup_cron_expr=RUNTIME_BACKUP_CLEANUP_CRON_EXPR,
     runtime_backup_root=RUNTIME_BACKUP_ROOT,
     runtime_backup_retention_hours=RUNTIME_BACKUP_RETENTION_HOURS,
+    backup_root=APP_BACKUP_ROOT,
+    backup_service_name=APP_BACKUP_SERVICE_NAME,
+    backup_retention_count=APP_BACKUP_RETENTION_COUNT,
     openvpn_socket_dir=OPENVPN_SOCKET_DIR,
     openvpn_socket_timeout=OPENVPN_SOCKET_TIMEOUT,
     openvpn_socket_idle_timeout=OPENVPN_SOCKET_IDLE_TIMEOUT,
@@ -762,6 +836,7 @@ _services = build_services(
     integrity_error_cls=IntegrityError,
     is_valid_cron_expression=_is_valid_cron_expression,
     get_nightly_idle_restart_settings=lambda: _get_nightly_idle_restart_settings(),
+    get_backup_settings=lambda: _get_backup_settings(),
     get_active_web_session_settings=lambda: _get_active_web_session_settings(),
     collect_config_protocols_by_client=lambda: _collect_config_protocols_by_client(),
     build_session_key=lambda profile, client: _build_session_key(profile, client),
@@ -787,6 +862,7 @@ _services = build_services(
 )
 
 maintenance_scheduler_service = _services["maintenance_scheduler_service"]
+backup_manager_service = _services["backup_manager_service"]
 active_web_session_service = _services["active_web_session_service"]
 traffic_maintenance_service = _services["traffic_maintenance_service"]
 openvpn_socket_reader_service = _services["openvpn_socket_reader_service"]
@@ -821,26 +897,41 @@ def _cleanup_status_logs_now():
     return maintenance_scheduler_service.cleanup_status_logs_now()
 
 
-try:
-    _sync_ok, _sync_msg = _ensure_traffic_sync_cron()
-    if not _sync_ok:
-        app.logger.warning(_sync_msg)
-except (RuntimeError, OSError, ValueError) as e:
-    app.logger.warning(f"Не удалось инициализировать cron sync трафика: {e}")
+if not _SKIP_APP_BOOTSTRAP:
+    try:
+        _sync_ok, _sync_msg = _ensure_traffic_sync_cron()
+        if not _sync_ok:
+            app.logger.warning(_sync_msg)
+    except (RuntimeError, OSError, ValueError) as e:
+        app.logger.warning(f"Не удалось инициализировать cron sync трафика: {e}")
 
-try:
-    _idle_restart_ok, _idle_restart_msg = _ensure_nightly_idle_restart_cron()
-    if not _idle_restart_ok:
-        app.logger.warning(_idle_restart_msg)
-except (RuntimeError, OSError, ValueError) as e:
-    app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
+    try:
+        _wg_policy_ok, _wg_policy_msg = _ensure_wg_policy_sync_cron()
+        if not _wg_policy_ok:
+            app.logger.warning(_wg_policy_msg)
+    except (RuntimeError, OSError, ValueError) as e:
+        app.logger.warning(f"Не удалось инициализировать cron sync WG/AWG политик: {e}")
 
-try:
-    _backup_cleanup_ok, _backup_cleanup_msg = _ensure_runtime_backup_cleanup_cron()
-    if not _backup_cleanup_ok:
-        app.logger.warning(_backup_cleanup_msg)
-except (RuntimeError, OSError, ValueError) as e:
-    app.logger.warning(f"Не удалось инициализировать cron очистки runtime_backups: {e}")
+    try:
+        _idle_restart_ok, _idle_restart_msg = _ensure_nightly_idle_restart_cron()
+        if not _idle_restart_ok:
+            app.logger.warning(_idle_restart_msg)
+    except (RuntimeError, OSError, ValueError) as e:
+        app.logger.warning(f"Не удалось инициализировать cron ночного рестарта: {e}")
+
+    try:
+        _app_backup_ok, _app_backup_msg = _ensure_app_backup_cron()
+        if not _app_backup_ok:
+            app.logger.warning(_app_backup_msg)
+    except (RuntimeError, OSError, ValueError) as e:
+        app.logger.warning(f"Не удалось инициализировать cron авто-бэкапов: {e}")
+
+    try:
+        _backup_cleanup_ok, _backup_cleanup_msg = _ensure_runtime_backup_cleanup_cron()
+        if not _backup_cleanup_ok:
+            app.logger.warning(_backup_cleanup_msg)
+    except (RuntimeError, OSError, ValueError) as e:
+        app.logger.warning(f"Не удалось инициализировать cron очистки runtime_backups: {e}")
 
 def _normalize_traffic_protocol_scope(protocol_scope):
     return traffic_maintenance_service.normalize_traffic_protocol_scope(protocol_scope)
@@ -1038,6 +1129,131 @@ def _load_wireguard_peer_cache_maps():
     return network_status_collector_service.load_wireguard_peer_cache_maps()
 
 
+wg_awg_runtime_enforcer = WgAwgRuntimeEnforcer(
+    wireguard_peer_cache_model=WireGuardPeerCache,
+    wireguard_config_files=WIREGUARD_CONFIG_FILES,
+    command_timeout_seconds=4,
+)
+
+wg_access_policy_service = WgAccessPolicyService(
+    db=db,
+    policy_model=WgAccessPolicy,
+    runtime_enforcer=wg_awg_runtime_enforcer,
+)
+
+openvpn_access_policy_service = OpenVpnAccessPolicyService(
+    db=db,
+    policy_model=OpenVpnAccessPolicy,
+    read_banned_clients=_read_banned_clients,
+    write_banned_clients=_write_banned_clients,
+    ensure_client_connect_ban_check_block=_ensure_client_connect_ban_check_block,
+)
+
+
+def _wg_build_status_map(client_names):
+    return wg_access_policy_service.build_status_map(client_names)
+
+
+def _openvpn_build_status_map(client_names):
+    return openvpn_access_policy_service.build_status_map(client_names)
+
+
+def _openvpn_set_temp_block_days(client_name, days, *, actor_username=None):
+    return openvpn_access_policy_service.set_temp_block_days(
+        client_name,
+        days,
+        actor_username=actor_username,
+    )
+
+
+def _openvpn_set_permanent_block(client_name, *, actor_username=None):
+    return openvpn_access_policy_service.set_permanent_block(
+        client_name,
+        actor_username=actor_username,
+    )
+
+
+def _openvpn_clear_block(client_name, *, actor_username=None):
+    return openvpn_access_policy_service.clear_block(
+        client_name,
+        actor_username=actor_username,
+    )
+
+
+def _openvpn_reconcile_client_policy(client_name):
+    return openvpn_access_policy_service.reconcile_client_policy(client_name)
+
+
+def _openvpn_reconcile_all_policies():
+    return openvpn_access_policy_service.reconcile_all()
+
+
+def _wg_set_expiry_days(client_name, days, *, actor_username=None, extend=False):
+    return wg_access_policy_service.set_expiry_days(
+        client_name,
+        days,
+        actor_username=actor_username,
+        extend=extend,
+    )
+
+
+def _wg_set_temp_block_days(client_name, days, *, actor_username=None):
+    return wg_access_policy_service.set_temp_block_days(
+        client_name,
+        days,
+        actor_username=actor_username,
+    )
+
+
+def _wg_set_permanent_block(client_name, *, actor_username=None):
+    return wg_access_policy_service.set_permanent_block(
+        client_name,
+        actor_username=actor_username,
+    )
+
+
+def _wg_clear_temp_block(client_name, *, actor_username=None):
+    return wg_access_policy_service.clear_block(
+        client_name,
+        actor_username=actor_username,
+    )
+
+
+def _wg_reconcile_client_policy(client_name, apply_runtime=True):
+    return wg_access_policy_service.reconcile_client_policy(
+        client_name,
+        apply_runtime=apply_runtime,
+    )
+
+
+def _wg_reconcile_all_policies(apply_runtime=True):
+    return wg_access_policy_service.reconcile_all(apply_runtime=apply_runtime)
+
+
+if not _SKIP_APP_BOOTSTRAP:
+    try:
+        with app.app_context():
+            _openvpn_reconcile_all_policies()
+    except Exception as e:
+        try:
+            with app.app_context():
+                db.session.rollback()
+        except Exception:
+            pass
+        app.logger.warning(f"Не удалось применить OpenVPN политики при запуске: {e}")
+
+    try:
+        with app.app_context():
+            _wg_reconcile_all_policies(apply_runtime=True)
+    except Exception as e:
+        try:
+            with app.app_context():
+                db.session.rollback()
+        except Exception:
+            pass
+        app.logger.warning(f"Не удалось применить WG/AWG политики при запуске: {e}")
+
+
 def _is_wireguard_peer_active(latest_handshake_ts):
     return network_status_collector_service.is_wireguard_peer_active(latest_handshake_ts)
 
@@ -1089,13 +1305,17 @@ admin_notify_service = AdminNotifyService(
 
 
 def _send_tg_admin_notification(event_type, *, actor_username=None,
-                                 target_name=None, remote_addr=None, details=None):
+                                 target_name=None, target_type=None,
+                                 remote_addr=None, details=None,
+                                 subject_name=None):
     admin_notify_service.send(
         event_type,
         actor_username=actor_username,
         target_name=target_name,
+        target_type=target_type,
         remote_addr=remote_addr,
         details=details,
+        subject_name=subject_name,
     )
 
 

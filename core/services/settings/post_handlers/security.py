@@ -13,8 +13,31 @@ def handle_security_settings(form, *, flash, ip_restriction, log_user_action_eve
 
     if ip_action == "add_ip":
         new_ip = form.get("new_ip", "").strip()
+        ip_duration = (form.get("ip_duration") or "permanent").strip().lower()
         if new_ip:
-            if ip_restriction.add_ip(new_ip):
+            if ip_duration in {"1h", "12h", "24h"}:
+                if not ip_restriction.is_enabled():
+                    flash("Сначала включите IP-ограничения", "error")
+                else:
+                    duration_seconds = ip_restriction.parse_duration_label(ip_duration)
+                    ok, detail = ip_restriction.add_temporary_ip(new_ip, duration_seconds)
+                    if ok:
+                        flash(
+                            f"IP {detail} добавлен во временный whitelist на {ip_duration}",
+                            "success",
+                        )
+                        log_user_action_event(
+                            "settings_ip_add_temp",
+                            target_type="ip_restriction",
+                            target_name=detail,
+                            details=f"duration={ip_duration}",
+                        )
+                    else:
+                        flash(
+                            "Неверный IP для временного доступа (только одиночный адрес, без CIDR)",
+                            "error",
+                        )
+            elif ip_restriction.add_ip(new_ip):
                 flash(f"IP {new_ip} добавлен", "success")
                 log_user_action_event(
                     "settings_ip_add",
@@ -23,6 +46,19 @@ def handle_security_settings(form, *, flash, ip_restriction, log_user_action_eve
                 )
             else:
                 flash("Неверный формат IP", "error")
+
+    elif ip_action == "remove_temp_ip":
+        ip_to_remove = form.get("ip_to_remove", "").strip()
+        if ip_to_remove:
+            if ip_restriction.remove_temporary_ip(ip_to_remove):
+                flash(f"Временный доступ для {ip_to_remove} удалён", "success")
+                log_user_action_event(
+                    "settings_ip_remove_temp",
+                    target_type="ip_restriction",
+                    target_name=ip_to_remove,
+                )
+            else:
+                flash("Временный IP не найден", "error")
 
     elif ip_action == "remove_ip":
         ip_to_remove = form.get("ip_to_remove", "").strip()

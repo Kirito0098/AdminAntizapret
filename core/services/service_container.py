@@ -1,6 +1,7 @@
 import sys
 
 from .active_web_session import ActiveWebSessionService
+from .backup_manager import BackupManagerService
 from .logs_dashboard.cache import LogsDashboardCacheService
 from .maintenance_scheduler import MaintenanceSchedulerService
 from .network_status_collector import NetworkStatusCollectorService
@@ -21,7 +22,11 @@ def build_services(
     traffic_sync_cron_marker,
     traffic_sync_cron_expr,
     traffic_sync_enabled,
+    wg_policy_sync_cron_marker,
+    wg_policy_sync_cron_expr,
+    wg_policy_sync_enabled,
     nightly_idle_restart_marker,
+    app_backup_cron_marker,
     runtime_backup_cleanup_marker,
     runtime_backup_cleanup_cron_expr,
     runtime_backup_root,
@@ -52,6 +57,7 @@ def build_services(
     integrity_error_cls,
     is_valid_cron_expression,
     get_nightly_idle_restart_settings,
+    get_backup_settings,
     get_active_web_session_settings,
     collect_config_protocols_by_client,
     build_session_key,
@@ -69,6 +75,9 @@ def build_services(
     format_dt,
     collect_logs_dashboard_data,
     enqueue_background_task,
+    backup_root,
+    backup_service_name,
+    backup_retention_count,
 ):
     maintenance_scheduler_service = MaintenanceSchedulerService(
         app_root=app_root,
@@ -79,13 +88,25 @@ def build_services(
         traffic_sync_cron_marker=traffic_sync_cron_marker,
         traffic_sync_cron_expr=traffic_sync_cron_expr,
         traffic_sync_enabled=traffic_sync_enabled,
+        wg_policy_sync_cron_marker=wg_policy_sync_cron_marker,
+        wg_policy_sync_cron_expr=wg_policy_sync_cron_expr,
+        wg_policy_sync_enabled=wg_policy_sync_enabled,
         nightly_idle_restart_marker=nightly_idle_restart_marker,
+        app_backup_cron_marker=app_backup_cron_marker,
         runtime_backup_cleanup_marker=runtime_backup_cleanup_marker,
         runtime_backup_cleanup_cron_expr=runtime_backup_cleanup_cron_expr,
         runtime_backup_root=runtime_backup_root,
         runtime_backup_retention_hours=runtime_backup_retention_hours,
         is_valid_cron_expression=is_valid_cron_expression,
         get_nightly_idle_restart_settings=get_nightly_idle_restart_settings,
+        get_backup_settings=get_backup_settings,
+    )
+
+    backup_manager_service = BackupManagerService(
+        app_root=app_root,
+        backup_root=backup_root,
+        service_name=backup_service_name,
+        retention_count=backup_retention_count,
     )
 
     active_web_session_service = ActiveWebSessionService(
@@ -168,6 +189,7 @@ def build_services(
 
     return {
         "maintenance_scheduler_service": maintenance_scheduler_service,
+        "backup_manager_service": backup_manager_service,
         "active_web_session_service": active_web_session_service,
         "traffic_maintenance_service": traffic_maintenance_service,
         "openvpn_socket_reader_service": openvpn_socket_reader_service,

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from core.services.audit_view_presenter import (
     build_telegram_mini_audit_view,
     build_user_action_audit_view,
+    build_user_action_day_groups,
     build_user_action_sessions,
 )
 from core.services.panel_publish_info import build_panel_publish_context
@@ -35,13 +36,26 @@ def build_settings_page_context(
     group_folders,
     get_env_value,
     get_nightly_idle_restart_settings,
+    get_backup_settings,
     get_active_web_session_settings,
     get_public_download_enabled,
+    backup_manager_service,
     collect_all_openvpn_files_for_access,
     build_openvpn_access_groups,
     build_conf_access_groups,
     request_url_root=None,
 ):
+    def _human_size(size_bytes):
+        size = float(max(0, int(size_bytes or 0)))
+        units = ["B", "KB", "MB", "GB", "TB"]
+        idx = 0
+        while size >= 1024 and idx < len(units) - 1:
+            size /= 1024
+            idx += 1
+        if idx == 0:
+            return f"{int(size)} {units[idx]}"
+        return f"{size:.1f} {units[idx]}"
+
     current_port = os.getenv("APP_PORT", "5050")
     qr_download_token_ttl_seconds = get_env_value("QR_DOWNLOAD_TOKEN_TTL_SECONDS", "600")
     qr_download_token_max_downloads = get_env_value("QR_DOWNLOAD_TOKEN_MAX_DOWNLOADS", "1")
@@ -49,6 +63,28 @@ def build_settings_page_context(
 
     nightly_idle_restart_enabled, nightly_idle_restart_cron = get_nightly_idle_restart_settings()
     nightly_idle_restart_time = nightly_time_from_cron(nightly_idle_restart_cron)
+    backup_settings = get_backup_settings()
+    backup_selected_components = {
+        item.strip().lower()
+        for item in str(backup_settings.get("components", "db,env,data")).split(",")
+        if item.strip().lower() in {"db", "env", "data"}
+    }
+    backup_tg_admin_ids = {
+        item.strip()
+        for item in str(backup_settings.get("tg_admin_ids", "")).split(",")
+        if item.strip()
+    }
+    try:
+        backup_entries = backup_manager_service.list_backups()
+    except Exception:
+        backup_entries = []
+    for entry in backup_entries:
+        entry["size_human"] = _human_size(entry.get("size_bytes", 0))
+    backup_admin_candidates = (
+        user_model.query.filter_by(role="admin")
+        .filter(user_model.telegram_id.isnot(None))
+        .all()
+    )
 
     active_web_session_ttl_seconds, active_web_session_touch_interval_seconds = get_active_web_session_settings()
     active_web_sessions_count = active_web_session_model.query.filter(
@@ -68,6 +104,7 @@ def build_settings_page_context(
     ).limit(300).all()
     user_action_audit_view = build_user_action_audit_view(user_action_logs)
     user_action_sessions = build_user_action_sessions(user_action_logs)
+    user_action_day_groups = build_user_action_day_groups(user_action_logs)
     users = user_model.query.all()
     viewer_users = user_model.query.filter_by(role="viewer").all()
 
@@ -87,6 +124,7 @@ def build_settings_page_context(
     viewer_access = {vu.id: {acc.config_name for acc in vu.allowed_configs} for vu in viewer_users}
 
     allowed_ips = ip_restriction.get_allowed_ips()
+    temporary_whitelist = ip_restriction.get_temporary_whitelist_display()
     ip_enabled = ip_restriction.is_enabled()
     current_ip = ip_restriction.get_client_ip()
     scanner_settings = ip_restriction.get_scanner_settings()
@@ -107,6 +145,7 @@ def build_settings_page_context(
         "users": users,
         "viewer_users": viewer_users,
         "allowed_ips": allowed_ips,
+        "temporary_whitelist": temporary_whitelist,
         "ip_enabled": ip_enabled,
         "current_ip": current_ip,
         "ip_block_scanners": scanner_settings["enabled"],
@@ -139,6 +178,14 @@ def build_settings_page_context(
         "nightly_idle_restart_enabled": nightly_idle_restart_enabled,
         "nightly_idle_restart_cron": nightly_idle_restart_cron,
         "nightly_idle_restart_time": nightly_idle_restart_time,
+        "app_backup_enabled": bool(backup_settings.get("enabled", False)),
+        "app_backup_interval_days": int(backup_settings.get("interval_days", 1)),
+        "app_backup_time_hhmm": str(backup_settings.get("time_hhmm", "03:00")),
+        "app_backup_selected_components": backup_selected_components,
+        "app_backup_tg_enabled": bool(backup_settings.get("tg_enabled", False)),
+        "app_backup_tg_admin_ids": backup_tg_admin_ids,
+        "app_backup_list": backup_entries,
+        "app_backup_admin_candidates": backup_admin_candidates,
         "active_web_session_ttl_seconds": active_web_session_ttl_seconds,
         "active_web_session_touch_interval_seconds": active_web_session_touch_interval_seconds,
         "active_web_sessions_count": active_web_sessions_count,
@@ -146,6 +193,7 @@ def build_settings_page_context(
         "telegram_mini_audit_logs": telegram_mini_audit_view,
         "user_action_audit_logs": user_action_audit_view,
         "user_action_sessions": user_action_sessions,
+        "user_action_day_groups": user_action_day_groups,
         "monitor_cpu_threshold": monitor_cpu_threshold,
         "monitor_ram_threshold": monitor_ram_threshold,
         "monitor_interval_seconds": monitor_interval_seconds,

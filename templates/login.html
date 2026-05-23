@@ -24,9 +24,6 @@
 <body class="auth-index-bridge">
   <div class="login-shell">
     <section class="login-stage" aria-label="Страница авторизации">
-      <img src="{{ url_for('static', filename='assets/img/login-bg.png') }}" alt="Фоновое изображение входа"
-        class="login__img" />
-
       <div class="login login--embedded">
         <script id="flash-messages" type="application/json">
             {{ get_flashed_messages(with_categories=True) | tojson }}

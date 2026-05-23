@@ -137,7 +137,7 @@ body {
   color: #dceaf1;
 }
 
-.settings-form input,
+.settings-form input:not([type="checkbox"]):not([type="radio"]),
 .settings-form select,
 .settings-form textarea,
 .input-field,
@@ -151,7 +151,7 @@ body {
   min-height: 40px;
 }
 
-.settings-form input:focus,
+.settings-form input:not([type="checkbox"]):not([type="radio"]):focus,
 .settings-form select:focus,
 .settings-form textarea:focus,
 .input-field:focus,
@@ -597,7 +597,7 @@ body {
   background: rgba(30, 41, 48, 0.78) !important;
 }
 
-.content-tab .settings-form input,
+.content-tab .settings-form input:not([type="checkbox"]):not([type="radio"]),
 .content-tab .settings-form select,
 .content-tab .settings-form textarea {
   background: rgba(35, 48, 56, 0.84) !important;
@@ -605,7 +605,7 @@ body {
   color: #d7e5eb !important;
 }
 
-.content-tab .settings-form input:focus,
+.content-tab .settings-form input:not([type="checkbox"]):not([type="radio"]):focus,
 .content-tab .settings-form select:focus,
 .content-tab .settings-form textarea:focus {
   border-color: rgba(131, 183, 243, 0.72) !important;

@@ -9,6 +9,7 @@ from core.services.http_security import (
 
 def test_should_noindex_sensitive_paths():
     assert should_noindex_path("/login")
+    assert should_noindex_path("/tg-mini/open")
     assert should_noindex_path("/qr_download/abc")
     assert should_noindex_path("/public_download/ips")
     assert not should_noindex_path("/")
@@ -38,6 +39,7 @@ def test_apply_security_headers_sets_csp_and_noindex_for_login():
 def test_build_robots_txt_blocks_download_paths():
     body = build_robots_txt()
     assert "Disallow: /login" in body
+    assert "Disallow: /tg-mini" in body
     assert "Disallow: /qr_download/" in body
     assert "Disallow: /download/" in body
     assert "Disallow: /ip-blocked" in body

@@ -17,7 +17,8 @@
     </article>
     <article class="index-kpi-card">
       <span class="index-kpi-label">Заблокированные CN</span>
-      <strong class="index-kpi-value index-kpi-value--danger">{{ banned_clients_count }}</strong>
+      <strong class="index-kpi-value index-kpi-value--danger">{{ blocked_total_count }}</strong>
+      <small class="index-kpi-note">OpenVPN: {{ blocked_openvpn_count }}, WG/AWG: {{ blocked_wg_awg_count }}</small>
     </article>
   </div>
 </section>
