@@ -88,6 +88,10 @@ def register_config_routes(
                 message = "Клиент временно заблокирован."
                 action_event = "openvpn_client_block_toggle"
                 details_text = f"action=temp_block days={days_value}"
+                if row.block_until:
+                    details_text += (
+                        f" block_until={row.block_until.strftime('%Y-%m-%d %H:%M:%S')}"
+                    )
             elif action == "permanent_block":
                 row = openvpn_set_permanent_block(
                     client_name,

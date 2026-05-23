@@ -198,12 +198,6 @@ def register_index_routes(
                 target_name=client_name,
                 details=details_text,
             )
-            if event_type in ("config_create", "config_recreate") and callable(send_tg_admin_notification):
-                send_tg_admin_notification(
-                    event_type,
-                    actor_username=session.get("username"),
-                    target_name=client_name,
-                )
 
             return jsonify(
                 {
@@ -243,11 +237,14 @@ def register_index_routes(
                 if days_value < 1 or days_value > 3650:
                     return jsonify({"success": False, "message": "Срок блокировки должен быть в диапазоне 1..3650 дней."}), 400
                 row = wg_set_temp_block_days(client_name, days_value, actor_username=actor_username)
+                block_details = f"action=temp_block days={days_value}"
+                if row.block_until:
+                    block_details += f" block_until={row.block_until.strftime('%Y-%m-%d %H:%M:%S')}"
                 log_user_action_event(
                     "wg_client_temp_block_set",
                     target_type="wireguard",
                     target_name=client_name,
-                    details=f"days={days_value}",
+                    details=block_details,
                 )
                 message = "Клиент временно заблокирован."
             elif action == "permanent_block":
@@ -256,7 +253,7 @@ def register_index_routes(
                     "wg_client_permanent_block_set",
                     target_type="wireguard",
                     target_name=client_name,
-                    details="manual_permanent=1",
+                    details="action=permanent_block",
                 )
                 message = "Клиент заблокирован до ручной разблокировки."
             elif action == "unblock":
@@ -265,7 +262,7 @@ def register_index_routes(
                     "wg_client_block_clear",
                     target_type="wireguard",
                     target_name=client_name,
-                    details="manual_unblock=1",
+                    details="action=unblock",
                 )
                 message = "Блокировка клиента снята."
             elif action == "extend":

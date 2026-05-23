@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -25,6 +26,70 @@ def parse_mini_details_kv(raw_details: str | None) -> dict[str, str]:
             continue
         result[key] = value.strip()
     return result
+
+
+def _parse_arrow_change(details: str | None) -> tuple[str, str] | None:
+    text = str(details or "").strip()
+    if "→" not in text:
+        return None
+    old_value, new_value = text.split("→", 1)
+    return old_value.strip(), new_value.strip()
+
+
+def _humanize_cron(cron_expr: str) -> str:
+    parts = str(cron_expr or "").strip().split()
+    if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+        minute, hour = int(parts[0]), int(parts[1])
+        return f"ежедневно в {hour:02d}:{minute:02d}"
+    return str(cron_expr or "").strip()
+
+
+def _format_nightly_update_details(details: str | None) -> str:
+    raw = str(details or "").strip()
+    if not raw:
+        return "Ночной рестарт: настройки изменены"
+
+    enabled_match = re.search(r"enabled=(\S+)", raw)
+    cron_match = re.search(r"cron=(.+?)\s+ttl=", raw)
+    ttl_match = re.search(r"ttl=(\d+)", raw)
+    touch_match = re.search(r"touch=(\d+)", raw)
+
+    enabled_raw = (enabled_match.group(1) if enabled_match else "").lower()
+    if enabled_raw in {"вкл", "1", "true", "yes"}:
+        enabled_text = "включён"
+    elif enabled_raw in {"выкл", "0", "false", "no"}:
+        enabled_text = "выключен"
+    else:
+        enabled_text = "изменён"
+
+    parts = [f"Ночной рестарт {enabled_text}"]
+    if cron_match:
+        parts.append(f"по расписанию {_humanize_cron(cron_match.group(1))}")
+    if ttl_match:
+        parts.append(f"TTL сессии {ttl_match.group(1)} с")
+    if touch_match:
+        parts.append(f"интервал активности {touch_match.group(1)} с")
+    return ", ".join(parts)
+
+
+def _format_telegram_auth_details_ru(details: str | None) -> str:
+    detail_map = parse_mini_details_kv(str(details or ""))
+    source_raw = str(detail_map.get("source") or "").strip().lower()
+    source_map = {
+        "mini_app": "мини-приложение",
+        "miniapp": "мини-приложение",
+        "web_settings": "веб-настройки",
+    }
+    source = source_map.get(source_raw, "панель")
+    changed = str(detail_map.get("changed") or "—").replace(",", ", ")
+    status = "успешно" if str(detail_map.get("status") or "") == "success" else "с ошибкой"
+    token_changed = "да" if detail_map.get("token_updated") == "1" else "нет"
+    max_age = detail_map.get("max_age", "—")
+    return (
+        f"источник: {source}; статус: {status}; "
+        f"макс. возраст данных: {max_age} с; токен обновлён: {token_changed}; "
+        f"изменено: {changed}"
+    )
 
 
 def mini_event_label(event_type: str | None) -> str:
@@ -352,14 +417,26 @@ def user_action_event_display(
 
     # ── QR settings ─────────────────────────────────────────────────────
     if event_key == "settings_qr_max_downloads_update":
+        arrow = _parse_arrow_change(details_value)
+        if arrow:
+            return f"Лимит скачиваний QR: с {arrow[0]} до {arrow[1]}"
         value = detail_map.get("value")
         return f"Лимит скачиваний QR-ссылки изменён до {value}" if value else label
 
     if event_key == "settings_qr_ttl_update":
+        arrow = _parse_arrow_change(details_value)
+        if arrow:
+            old_val, new_val = arrow
+            new_clean = new_val.rstrip("с").strip()
+            old_clean = old_val.rstrip("с").strip()
+            return f"TTL QR-ссылки: с {old_clean} до {new_clean} с"
         value = detail_map.get("value")
         return f"TTL одноразовой ссылки изменён до {value} сек." if value else label
 
     if event_key == "settings_qr_pin_update":
+        length = detail_map.get("length")
+        if length:
+            return f"PIN QR-ссылки обновлён (длина {length} цифр)"
         return "PIN одноразовой ссылки обновлён"
 
     if event_key == "settings_qr_pin_clear":
@@ -367,6 +444,9 @@ def user_action_event_display(
 
     # ── Порт ────────────────────────────────────────────────────────────
     if event_key == "settings_port_update":
+        arrow = _parse_arrow_change(details_value)
+        if arrow:
+            return f"Порт панели изменён: с {arrow[0]} на {arrow[1]}"
         value = detail_map.get("value")
         return f"Порт панели изменён на {value}" if value else label
 
@@ -451,6 +531,8 @@ def user_action_event_display(
 
     # ── Ночной рестарт ──────────────────────────────────────────────────
     if event_key == "settings_nightly_update":
+        if "cron=" in details_value or "enabled=" in details_value:
+            return _format_nightly_update_details(details_value)
         enabled = detail_map.get("enabled")
         if enabled == "1":
             return "Ночной рестарт: включён"
@@ -517,6 +599,73 @@ def user_action_event_display(
     return label
 
 
+def user_action_tg_action_line(
+    event_key: str,
+    *,
+    details: str | None = None,
+    target_name: str | None = None,
+    target_type: str | None = None,
+) -> str:
+    """Human-readable Russian action line for Telegram settings notifications."""
+    key = str(event_key or "").strip()
+    details_value = str(details or "").strip()
+    target_value = str(target_name or "").strip()
+
+    if key == "settings_nightly_update":
+        return _format_nightly_update_details(details_value)
+
+    if key == "settings_port_update":
+        arrow = _parse_arrow_change(details_value)
+        if arrow:
+            return f"Порт панели: с {arrow[0]} на {arrow[1]}"
+
+    if key == "settings_qr_ttl_update":
+        arrow = _parse_arrow_change(details_value)
+        if arrow:
+            old_val, new_val = arrow
+            new_clean = new_val.rstrip("с").strip()
+            old_clean = old_val.rstrip("с").strip()
+            return f"TTL QR-ссылки: с {old_clean} до {new_clean} с"
+
+    if key == "settings_qr_max_downloads_update":
+        arrow = _parse_arrow_change(details_value)
+        if arrow:
+            return f"Лимит скачиваний QR: с {arrow[0]} до {arrow[1]}"
+
+    if key == "settings_qr_pin_update":
+        length = parse_mini_details_kv(details_value).get("length")
+        if length:
+            return f"PIN QR-ссылки обновлён (длина {length} цифр)"
+        return "PIN QR-ссылки обновлён"
+
+    if key == "settings_qr_pin_clear":
+        return "PIN QR-ссылок сброшен"
+
+    if key == "settings_telegram_auth_update" and details_value:
+        return f"Изменены настройки авторизации Telegram: {_format_telegram_auth_details_ru(details_value)}"
+
+    if key == "settings_user_password_update":
+        return "Пароль пользователя изменён"
+
+    if key == "settings_user_role_update" and "→" in details_value:
+        old_val, new_val = _parse_arrow_change(details_value) or ("—", "—")
+        user = target_value or "пользователь"
+        return f"Роль пользователя {user}: с «{old_val}» на «{new_val}»"
+
+    if key == "settings_user_telegram_update" and "→" in details_value:
+        old_val, new_val = _parse_arrow_change(details_value) or ("—", "—")
+        user = target_value or "пользователь"
+        return f"Telegram ID пользователя {user}: с {old_val} на {new_val}"
+
+    display = user_action_event_display(key, target_value, target_type, details)
+    label = user_action_event_label(key)
+    if display and display != label:
+        return display
+    if details_value and "→" in details_value:
+        return details_value
+    return label
+
+
 def user_action_details_label(event_type: str | None, details: str | None) -> str:
     event_key = str(event_type or "").strip()
     details_value = str(details or "").strip()
@@ -526,21 +675,12 @@ def user_action_details_label(event_type: str | None, details: str | None) -> st
     detail_map = parse_mini_details_kv(details_value)
 
     if event_key == "settings_telegram_auth_update":
-        source_raw = str(detail_map.get("source") or "").strip().lower()
-        source_map = {
-            "mini_app": "Mini App",
-            "miniapp": "Mini App",
-            "web_settings": "Веб-настройки",
-        }
-        source = source_map.get(source_raw, "панель")
-        changed = str(detail_map.get("changed") or "-").replace(",", ", ")
-        status = "успешно" if str(detail_map.get("status") or "") == "success" else "с ошибкой"
-        token_changed = "да" if detail_map.get("token_updated") == "1" else "нет"
-        max_age = detail_map.get("max_age", "-")
-        return (
-            f"Источник: {source}; статус: {status}; max age: {max_age}с; "
-            f"токен обновлен: {token_changed}; изменено: {changed}"
-        )
+        return _format_telegram_auth_details_ru(details_value)
+
+    if event_key == "settings_nightly_update" and (
+        "cron=" in details_value or "enabled=" in details_value
+    ):
+        return _format_nightly_update_details(details_value)
 
     return details_value
 

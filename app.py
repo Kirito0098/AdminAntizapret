@@ -21,7 +21,11 @@ import secrets
 from datetime import datetime, timezone, timedelta
 import shlex
 from threading import RLock
-from core.services.admin_notify import AdminNotifyService, SETTINGS_CHANGE_NOTIFY
+from core.services.admin_notify import (
+    AdminNotifyService,
+    CLIENT_BLOCK_NOTIFY_EVENTS,
+    SETTINGS_CHANGE_NOTIFY,
+)
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
 import time
@@ -534,24 +538,28 @@ def _log_user_action_event(
     try:
         _notify_type = None
         _notify_target = target_name
-        if event_type == "config_delete":
-            _notify_type = "config_delete"
+        _settings_subject = None
+        if event_type in ("config_delete", "config_create", "config_recreate"):
+            _notify_type = event_type
         elif event_type == "settings_user_create":
             _notify_type = "user_create"
         elif event_type == "settings_user_delete":
             _notify_type = "user_delete"
-        elif event_type == "openvpn_client_block_toggle":
+        elif event_type in CLIENT_BLOCK_NOTIFY_EVENTS:
             _notify_type = "client_ban"
         elif event_type in SETTINGS_CHANGE_NOTIFY:
             _notify_type = "settings_change"
+            _settings_subject = target_name
             _notify_target = event_type
         if _notify_type:
             _send_tg_admin_notification(
                 _notify_type,
                 actor_username=username,
                 target_name=_notify_target,
+                target_type=target_type,
                 remote_addr=remote_addr,
                 details=details,
+                subject_name=_settings_subject,
             )
     except Exception:
         pass
@@ -1250,13 +1258,17 @@ admin_notify_service = AdminNotifyService(
 
 
 def _send_tg_admin_notification(event_type, *, actor_username=None,
-                                 target_name=None, remote_addr=None, details=None):
+                                 target_name=None, target_type=None,
+                                 remote_addr=None, details=None,
+                                 subject_name=None):
     admin_notify_service.send(
         event_type,
         actor_username=actor_username,
         target_name=target_name,
+        target_type=target_type,
         remote_addr=remote_addr,
         details=details,
+        subject_name=subject_name,
     )
 
 

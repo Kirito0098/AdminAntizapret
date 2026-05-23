@@ -2,7 +2,19 @@ import threading
 import psutil
 from datetime import datetime, timedelta
 
+from core.services.audit_view_presenter import (
+    _mini_protocol_label,
+    parse_mini_details_kv,
+    user_action_tg_action_line,
+)
 from core.services.tg_notify import send_tg_message
+
+CLIENT_BLOCK_NOTIFY_EVENTS = frozenset({
+    "openvpn_client_block_toggle",
+    "wg_client_temp_block_set",
+    "wg_client_permanent_block_set",
+    "wg_client_block_clear",
+})
 
 SETTINGS_CHANGE_NOTIFY = frozenset({
     # Основные настройки
@@ -82,7 +94,41 @@ SETTINGS_CHANGE_LABELS = {
     "settings_run_doall": "Перегенерация конфигурации VPN (doall.sh)",
 }
 
-# These are one-shot actions (no before/after value); shown with 🔧 header
+SETTINGS_TG_TITLES = {
+    "settings_port_update": "Порт панели",
+    "settings_telegram_auth_update": "Авторизация Telegram",
+    "settings_nightly_update": "Ночной рестарт",
+    "settings_restart_service": "Перезапуск сервиса",
+    "settings_public_download_toggle": "Публичное скачивание",
+    "settings_qr_ttl_update": "QR-ссылки",
+    "settings_qr_pin_update": "PIN QR-ссылок",
+    "settings_qr_pin_clear": "PIN QR-ссылок",
+    "settings_qr_max_downloads_update": "Лимит QR-скачиваний",
+    "settings_ip_add": "Белый список IP",
+    "settings_ip_remove": "Белый список IP",
+    "settings_ip_clear": "Белый список IP",
+    "settings_ip_bulk_enable": "IP-файлы",
+    "settings_ip_add_from_file": "Белый список IP",
+    "settings_ip_files_sync": "Сверка IP-файлов",
+    "settings_ip_file_toggle": "Фильтр IP",
+    "settings_user_password_update": "Пароль пользователя",
+    "settings_user_role_update": "Роль пользователя",
+    "settings_user_telegram_update": "Telegram ID",
+    "settings_cidr_update_queued": "Обновление CIDR",
+    "settings_cidr_rollback_queued": "Откат CIDR",
+    "settings_cidr_games_sync": "Игровые фильтры",
+    "settings_cidr_total_limit_update": "Лимит CIDR",
+    "settings_cidr_db_refresh_queued": "База CIDR",
+    "settings_cidr_generate_from_db": "Генерация CIDR",
+    "settings_cidr_preset_create": "CIDR-пресет",
+    "settings_cidr_preset_update": "CIDR-пресет",
+    "settings_cidr_preset_delete": "CIDR-пресет",
+    "settings_cidr_preset_reset": "CIDR-пресет",
+    "settings_antifilter_refresh": "AntiFilter",
+    "settings_run_doall": "Применение изменений",
+}
+
+# These are one-shot actions (no before/after value)
 SETTINGS_ACTION_EVENTS = frozenset({
     "settings_restart_service",
     "settings_run_doall",
@@ -104,6 +150,134 @@ _PREF_KEY_MAP = {
 }
 
 
+def _fmt_code(value: str | None) -> str:
+    text = str(value or "").strip()
+    return f"<code>{text or '—'}</code>"
+
+
+def _fmt_protocol(target_type: str | None) -> str:
+    kind = str(target_type or "").strip().lower()
+    if kind in {"wireguard", "wg"}:
+        return "WireGuard/AmneziaWG"
+    label = _mini_protocol_label(kind)
+    if label != "неизвестно":
+        return label
+    return ""
+
+
+def _protocol_emoji(target_type: str | None) -> str:
+    kind = str(target_type or "").strip().lower()
+    if kind in {"openvpn", "ovpn"}:
+        return "🔐"
+    if kind in {"wireguard", "wg"}:
+        return "🛡️"
+    if kind in {"amneziawg", "amnezia"}:
+        return "🌀"
+    return "📄"
+
+
+def _fmt_config_object(target_type: str | None, target_name: str | None) -> str:
+    protocol = _fmt_protocol(target_type)
+    emoji = _protocol_emoji(target_type)
+    name = _fmt_code(target_name)
+    if protocol:
+        return f"{emoji} {protocol} 📁 {name}"
+    return f"📁 {name}"
+
+
+def _fmt_action_config(verb: str, target_type: str | None, target_name: str | None) -> str:
+    verb_text = (verb or "").strip()
+    if verb_text:
+        verb_text = verb_text[0].upper() + verb_text[1:]
+    return f"{verb_text} конфигурацию {_fmt_config_object(target_type, target_name)}"
+
+
+def _format_notify(title: str, actor_line: str | None, action_line: str, when: str) -> str:
+    lines = [title]
+    if actor_line:
+        lines.append(actor_line)
+    lines.append(action_line)
+    lines.append(when)
+    return "\n".join(lines)
+
+
+def _format_notify_system(title: str, action_line: str, when: str) -> str:
+    return f"{title}\n{action_line}\n{when}"
+
+
+def _fmt_actor(actor_username: str | None, *, as_admin: bool = False) -> str:
+    icon = "👨‍💼" if as_admin else "👤"
+    role = "Администратор" if as_admin else "Пользователь"
+    return f"{icon} {role} {_fmt_code(actor_username)}"
+
+
+def _fmt_ip(remote_addr: str | None) -> str:
+    return f"🌐 IP {_fmt_code(remote_addr)}"
+
+
+def _fmt_when(now: str) -> str:
+    return f"🕐 {now}"
+
+
+def _resolve_client_block_action(details: str | None) -> str:
+    detail_map = parse_mini_details_kv(details)
+    action = str(detail_map.get("action") or "").strip().lower()
+    if action in {"temp_block", "permanent_block", "unblock"}:
+        return action
+    if detail_map.get("manual_unblock") == "1":
+        return "unblock"
+    if detail_map.get("manual_permanent") == "1":
+        return "permanent_block"
+    if detail_map.get("days") and detail_map.get("blocked") not in {"0", "1"}:
+        return "temp_block"
+    blocked = detail_map.get("blocked")
+    if blocked == "0":
+        return "unblock"
+    if blocked == "1":
+        return "permanent_block"
+    return ""
+
+
+def _build_client_ban_message(
+    actor_admin: str,
+    target_type: str | None,
+    target_name: str | None,
+    details: str | None,
+    when: str,
+) -> str | None:
+    client = _fmt_config_object(target_type, target_name)
+    action = _resolve_client_block_action(details)
+    detail_map = parse_mini_details_kv(details)
+    days = detail_map.get("days")
+    block_until = detail_map.get("block_until")
+
+    if action == "unblock":
+        return _format_notify(
+            "🟢 <b>Разблокировка клиента</b>",
+            actor_admin,
+            f"Разблокировал клиента {client}",
+            when,
+        )
+    if action == "permanent_block":
+        return _format_notify(
+            "🔴 <b>Постоянная блокировка</b>",
+            actor_admin,
+            f"Заблокировал клиента {client} бессрочно (до ручной разблокировки)",
+            when,
+        )
+    if action == "temp_block":
+        duration = f"на {days} дн." if days else "временно"
+        if block_until:
+            duration = f"{duration}, до {_fmt_code(block_until)}"
+        return _format_notify(
+            "⏱️ <b>Временная блокировка</b>",
+            actor_admin,
+            f"Временно заблокировал клиента {client} {duration}",
+            when,
+        )
+    return None
+
+
 class AdminNotifyService:
     def __init__(self, *, user_model, get_env_value, logger):
         self.user_model = user_model
@@ -115,7 +289,8 @@ class AdminNotifyService:
     # ── Public API ────────────────────────────────────────────────────────────
 
     def send(self, event_type, *, actor_username=None, target_name=None,
-             remote_addr=None, details=None):
+             target_type=None, remote_addr=None, details=None,
+             subject_name=None):
         try:
             bot_token = (self.get_env_value("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip()
             if not bot_token:
@@ -131,8 +306,15 @@ class AdminNotifyService:
             if not notify_users:
                 return
 
-            text = self._build_text(event_type, actor_username, target_name,
-                                    remote_addr, details)
+            text = self._build_text(
+                event_type,
+                actor_username,
+                target_name,
+                target_type,
+                remote_addr,
+                details,
+                subject_name,
+            )
             if text is None:
                 return
 
@@ -152,60 +334,125 @@ class AdminNotifyService:
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _build_text(self, event_type, actor_username, target_name,
-                    remote_addr, details):
+                    target_type, remote_addr, details, subject_name=None):
         now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-        a = f"<code>{actor_username or '—'}</code>"
-        ip = f"<code>{remote_addr or '—'}</code>"
-        t = f"<code>{target_name or '—'}</code>"
-        d = f"\n🔄 <code>{details}</code>" if details else ""
+        when = _fmt_when(now)
+        actor_admin = _fmt_actor(actor_username, as_admin=True)
+        actor_user = _fmt_actor(actor_username, as_admin=False)
+        ip = _fmt_ip(remote_addr)
 
         if event_type == "login_success":
-            return f"✅ <b>Успешный вход</b>\n👤 {a}\n🌐 IP: {ip}\n🕐 {now}"
+            return _format_notify(
+                "✅ <b>Вход в панель</b>",
+                actor_user,
+                f"Вошёл в панель · {ip}",
+                when,
+            )
         if event_type == "login_failed":
-            return f"⚠️ <b>Неудачная попытка входа</b>\n👤 Логин: {a}\n🌐 IP: {ip}\n🕐 {now}"
+            return _format_notify_system(
+                "⚠️ <b>Неудачный вход</b>",
+                f"🔑 Логин {_fmt_code(actor_username)} · {ip}",
+                when,
+            )
         if event_type in ("tg_login_unlinked", "tg_mini_login_unlinked"):
-            via = "Mini App" if "mini" in event_type else "Telegram"
-            return (f"🚫 <b>Вход через {via}: TG ID не привязан</b>\n"
-                    f"🆔 TG ID: {t}\n🌐 IP: {ip}\n🕐 {now}")
-        if event_type in ("config_create", "config_recreate"):
-            verb = "Пересоздан" if event_type == "config_recreate" else "Создан"
-            return f"📄 <b>{verb} конфиг</b>\n📁 {t}\n👤 {a}\n🕐 {now}"
+            via = "📱 мини-приложение" if "mini" in event_type else "✈️ Телеграм"
+            return _format_notify_system(
+                "🚫 <b>TG ID не привязан</b>",
+                f"Попытка входа через {via} · 🆔 {_fmt_code(target_name)} · {ip}",
+                when,
+            )
+        if event_type == "config_create":
+            return _format_notify(
+                "✨ <b>Создание конфига</b>",
+                actor_admin,
+                _fmt_action_config("создал", target_type, target_name),
+                when,
+            )
+        if event_type == "config_recreate":
+            return _format_notify(
+                "🔄 <b>Пересоздание конфига</b>",
+                actor_admin,
+                _fmt_action_config("пересоздал", target_type, target_name),
+                when,
+            )
         if event_type == "config_delete":
-            return f"🗑 <b>Удалён конфиг</b>\n📁 {t}\n👤 {a}\n🕐 {now}"
+            return _format_notify(
+                "🗑️ <b>Удаление конфига</b>",
+                actor_admin,
+                _fmt_action_config("удалил", target_type, target_name),
+                when,
+            )
         if event_type == "user_create":
-            return f"👤 <b>Добавлен пользователь</b>\n🆔 {t}{d}\n👤 Кем: {a}\n🕐 {now}"
+            extra = f" · 📝 {_fmt_code(details)}" if details else ""
+            return _format_notify(
+                "➕ <b>Новый пользователь</b>",
+                actor_admin,
+                f"Добавил пользователя 🆔 {_fmt_code(target_name)}{extra}",
+                when,
+            )
         if event_type == "user_delete":
-            return f"❌ <b>Удалён пользователь</b>\n🆔 {t}\n👤 Кем: {a}\n🕐 {now}"
+            return _format_notify(
+                "➖ <b>Удаление пользователя</b>",
+                actor_admin,
+                f"Удалил пользователя 🆔 {_fmt_code(target_name)}",
+                when,
+            )
         if event_type == "client_ban":
-            if details and "blocked=1" in details:
-                ban_status = "🔴 Заблокирован"
-            elif details and "blocked=0" in details:
-                ban_status = "🟢 Разблокирован"
-            else:
-                ban_status = "Изменён статус"
-            return f"🔒 <b>Блокировка клиента</b>\n📁 {t}\n{ban_status}\n👤 {a}\n🕐 {now}"
+            block_text = _build_client_ban_message(
+                actor_admin, target_type, target_name, details, when,
+            )
+            if block_text:
+                return block_text
+            return _format_notify(
+                "🔒 <b>Статус клиента</b>",
+                actor_admin,
+                f"Изменил статус блокировки для {_fmt_config_object(target_type, target_name)}",
+                when,
+            )
         if event_type == "settings_change":
             if target_name == "settings_ip_file_toggle" and details:
                 parts = details.split("|")
                 is_on = parts[0] == "вкл" if parts else False
                 display = parts[1] if len(parts) > 1 else "—"
                 ip_info = parts[2] if len(parts) > 2 else ""
+                verb = "Включил" if is_on else "Отключил"
+                suffix = f" · 📋 {ip_info}" if ip_info else ""
                 icon = "✅" if is_on else "🔴"
-                verb = "Включён" if is_on else "Отключён"
-                suffix = f" ({ip_info})" if ip_info else ""
-                return f"{icon} <b>{verb} фильтр: {display}{suffix}</b>\n👤 {a}\n🕐 {now}"
-            label = SETTINGS_CHANGE_LABELS.get(target_name, target_name or "—")
-            if target_name in SETTINGS_ACTION_EVENTS:
-                # One-shot action — no before/after value
-                ctx = f"\n📋 <code>{details}</code>" if details else ""
-                return f"🔧 <b>Действие выполнено</b>\n📌 {label}{ctx}\n👤 {a}\n🕐 {now}"
-            else:
-                # Value change — show old → new
-                return f"⚙️ <b>Изменены настройки</b>\n📝 {label}{d}\n👤 {a}\n🕐 {now}"
+                return _format_notify(
+                    f"{icon} <b>Фильтр IP</b>",
+                    actor_admin,
+                    f"{verb} 🗂️ <code>{display}</code>{suffix}",
+                    when,
+                )
+            settings_key = str(target_name or "").strip()
+            tg_title = SETTINGS_TG_TITLES.get(settings_key, "Изменение настроек")
+            action_line = user_action_tg_action_line(
+                settings_key,
+                details=details,
+                target_name=subject_name,
+                target_type=target_type,
+            )
+            icon = "🔧" if settings_key in SETTINGS_ACTION_EVENTS else "⚙️"
+            return _format_notify(
+                f"{icon} <b>{tg_title}</b>",
+                actor_admin,
+                action_line,
+                when,
+            )
         if event_type == "high_cpu":
-            return f"🔥 <b>Высокая нагрузка CPU</b>{d}\n🕐 {now}"
+            metric = _fmt_code(details) if details else "—"
+            return _format_notify_system(
+                "🔥 <b>Высокая нагрузка процессора</b>",
+                f"📊 {metric}",
+                when,
+            )
         if event_type == "high_ram":
-            return f"💾 <b>Высокая нагрузка RAM</b>{d}\n🕐 {now}"
+            metric = _fmt_code(details) if details else "—"
+            return _format_notify_system(
+                "💾 <b>Высокая нагрузка памяти</b>",
+                f"📊 {metric}",
+                when,
+            )
         return None
 
     def _monitor_loop(self):
