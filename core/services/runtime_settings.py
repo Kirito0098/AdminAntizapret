@@ -60,6 +60,10 @@ class RuntimeSettingsService:
         backup_time = self._env_str("APP_BACKUP_TIME", "03:00")
         backup_components = self._env_str("APP_BACKUP_COMPONENTS", "db,env,data")
         backup_tg_admin_ids = self._env_str("APP_BACKUP_TG_ADMIN_IDS", "")
+        backup_az_enabled = self._env_bool("APP_BACKUP_AZ_ENABLED", default=True)
+        backup_az_install_dir = self._env_str("APP_BACKUP_AZ_INSTALL_DIR", "") or self._env_str(
+            "ANTIZAPRET_INSTALL_DIR", "/root/antizapret"
+        )
 
         return {
             "LOGS_DIR": logs_dir,
@@ -116,6 +120,8 @@ class RuntimeSettingsService:
             "APP_BACKUP_ROOT": backup_root,
             "APP_BACKUP_RETENTION_COUNT": 5,
             "APP_BACKUP_SERVICE_NAME": self._env_str("APP_BACKUP_SERVICE_NAME", "admin-antizapret"),
+            "APP_BACKUP_AZ_ENABLED": backup_az_enabled,
+            "APP_BACKUP_AZ_INSTALL_DIR": backup_az_install_dir,
             "STATUS_LOG_CLEANUP_MARKER": "# adminantizapret-status-cleanup",
             "STATUS_LOG_CLEANUP_PERIODS": {
                 "daily": ("0 3 * * *", "Ежедневно"),

@@ -126,6 +126,7 @@ def register_all_routes(app, sock, deps):
         set_active_web_session_settings=g("_set_active_web_session_settings"),
         get_public_download_enabled=g("_get_public_download_enabled"),
         backup_manager_service=g("backup_manager_service"),
+        app_root=g("APP_ROOT"),
         log_telegram_audit_event=g("_log_telegram_audit_event"),
         log_user_action_event=g("_log_user_action_event"),
         cidr_db_updater_service=g("cidr_db_updater_service"),

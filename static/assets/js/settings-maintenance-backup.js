@@ -6,6 +6,31 @@
   const tableBody = document.getElementById("maintenanceBackupTableBody");
   const listHost = document.getElementById("maintenanceBackupListHost");
   const emptyState = document.getElementById("maintenanceBackupEmpty");
+  const archivesTitle = section.querySelector(".maintenance-backup-block--archives .maintenance-backup-block__title");
+
+  const clientTimezone = (() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    } catch (_err) {
+      return "";
+    }
+  })();
+
+  const backupDateFormatter = (() => {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZoneName: "short",
+      });
+    } catch (_err) {
+      return null;
+    }
+  })();
 
   const notify = (message, type) => {
     if (typeof window.showNotification === "function") {
@@ -15,10 +40,43 @@
     window.alert(message);
   };
 
+  const askBackupConfirm = async ({ message, confirmText = "OK", confirmVariant = "ok" }) => {
+    if (typeof window.showUserActionConfirm === "function") {
+      return window.showUserActionConfirm({
+        appearance: "native",
+        message,
+        confirmText,
+        cancelText: "Отмена",
+        confirmVariant,
+      });
+    }
+    return window.confirm(message);
+  };
+
   const escapeHtml = (value) => {
     const node = document.createElement("span");
     node.textContent = value == null ? "" : String(value);
     return node.innerHTML;
+  };
+
+  const formatBackupDate = (raw) => {
+    const text = String(raw || "").trim();
+    if (!text) return "—";
+    const parsed = Date.parse(text);
+    if (Number.isNaN(parsed) || !backupDateFormatter) {
+      return text;
+    }
+    try {
+      return backupDateFormatter.format(new Date(parsed));
+    } catch (_err) {
+      return text;
+    }
+  };
+
+  const updateArchivesTitle = (count) => {
+    if (!archivesTitle) return;
+    const n = Math.max(0, Number(count) || 0);
+    archivesTitle.textContent = `Сохранённые архивы (${n} / 5)`;
   };
 
   const renderContentCell = (item) => {
@@ -58,7 +116,7 @@
     return `
       <tr data-backup-file="${escapeHtml(fileName)}">
         <td class="maintenance-backup-table__file">${escapeHtml(fileName)}</td>
-        <td>${escapeHtml(item.created_at || "—")}</td>
+        <td>${escapeHtml(formatBackupDate(item.created_at))}</td>
         <td>${escapeHtml(item.size_human || "")}</td>
         <td class="maintenance-backup-table__content">${renderContentCell(item)}</td>
         <td class="maintenance-backup-table__actions">
@@ -77,11 +135,22 @@
     if (emptyState) emptyState.hidden = hasItems;
   };
 
+  const latestBackupNeedsMetadataRetry = (backups) => {
+    const items = Array.isArray(backups) ? backups : [];
+    if (!items.length) return false;
+    const latest = items[0];
+    const hasComponents = Array.isArray(latest.components) && latest.components.length > 0;
+    const hasItemsCount = Number(latest.items_count) > 0;
+    const hasSummary = String(latest.summary || "").trim().length > 0;
+    return !hasComponents && !hasItemsCount && !hasSummary;
+  };
+
   const renderBackupTable = (backups) => {
     if (!tableBody) return;
     const items = Array.isArray(backups) ? backups : [];
     tableBody.innerHTML = items.map(renderBackupRow).join("");
     toggleListVisibility(items.length > 0);
+    updateArchivesTitle(items.length);
   };
 
   const setBusy = (element, busy) => {
@@ -99,6 +168,9 @@
       },
       options.headers || {}
     );
+    if (clientTimezone) {
+      headers["X-Client-Timezone"] = clientTimezone;
+    }
     const response = await fetch(url, Object.assign({}, options, { headers }));
     let data = {};
     try {
@@ -120,7 +192,34 @@
       return false;
     }
     renderBackupTable(data.backups);
-    return true;
+    return data.backups;
+  };
+
+  const refreshBackupListWithRetry = async () => {
+    let backups = await refreshBackupList();
+    if (backups && latestBackupNeedsMetadataRetry(backups)) {
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      backups = await refreshBackupList();
+    }
+    return backups;
+  };
+
+  const waitForBackupTaskAndRefresh = async (data, options = {}) => {
+    const timeoutMs = options.timeoutMs || 900000;
+    if (!data?.task_id || typeof pollBackgroundTask !== "function") {
+      await refreshBackupListWithRetry();
+      return;
+    }
+    try {
+      const task = await pollBackgroundTask(data.task_id, { timeoutMs });
+      if (task.status === "completed") {
+        await refreshBackupListWithRetry();
+        return;
+      }
+      notify(task.error || task.message || "Фоновая задача завершилась с ошибкой", "error");
+    } catch (err) {
+      notify(err.message || "Ошибка ожидания фоновой задачи", "error");
+    }
   };
 
   const handleApiMessages = (data, fallbackType) => {
@@ -152,6 +251,30 @@
     }
   });
 
+  section.querySelector(".js-backup-send-tg")?.addEventListener("click", async (event) => {
+    const btn = event.currentTarget;
+    if (btn.disabled) return;
+    const confirmed = await askBackupConfirm({
+      message:
+        "Создать бэкапы панели и AntiZapret (если включён) и отправить архивы выбранным админам в Telegram?",
+    });
+    if (!confirmed) {
+      return;
+    }
+    setBusy(btn, true);
+    try {
+      const data = await apiFetch("/api/backups/test-telegram", { method: "POST" });
+      handleApiMessages(data, data.success ? "info" : "error");
+      if (data.success) {
+        await waitForBackupTaskAndRefresh(data);
+      }
+    } catch (_err) {
+      notify("Ошибка сети при создании бэкапа и отправке в Telegram", "error");
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+
   section.querySelector(".js-backup-create-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -161,9 +284,7 @@
       const data = await apiFetch("/api/backups/create", { method: "POST" });
       handleApiMessages(data, "info");
       if (data.success) {
-        window.setTimeout(() => {
-          refreshBackupList();
-        }, 3000);
+        await waitForBackupTaskAndRefresh(data, { timeoutMs: 600000 });
       }
     } catch (_err) {
       notify("Ошибка сети при создании бэкапа", "error");
@@ -181,7 +302,10 @@
     if (!fileName) return;
 
     if (restoreBtn) {
-      if (!window.confirm(`Восстановить из бэкапа ${fileName}? Сервис будет перезапущен.`)) {
+      const restoreConfirmed = await askBackupConfirm({
+        message: `Восстановить из бэкапа ${fileName}? Сервис будет перезапущен.`,
+      });
+      if (!restoreConfirmed) {
         return;
       }
       setBusy(restoreBtn, true);
@@ -200,7 +324,11 @@
       return;
     }
 
-    if (!window.confirm(`Удалить бэкап ${fileName}? Это действие нельзя отменить.`)) {
+    const deleteConfirmed = await askBackupConfirm({
+      message: `Удалить бэкап ${fileName}? Это действие нельзя отменить.`,
+      confirmVariant: "danger",
+    });
+    if (!deleteConfirmed) {
       return;
     }
     setBusy(deleteBtn, true);

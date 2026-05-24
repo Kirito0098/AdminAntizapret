@@ -552,6 +552,8 @@ def _log_user_action_event(
             _settings_subject = target_name
             _notify_target = event_type
         if _notify_type:
+            from core.services.notify_time import get_client_timezone_from_request
+
             _send_tg_admin_notification(
                 _notify_type,
                 actor_username=username,
@@ -560,6 +562,7 @@ def _log_user_action_event(
                 remote_addr=remote_addr,
                 details=details,
                 subject_name=_settings_subject,
+                client_timezone=get_client_timezone_from_request(),
             )
     except Exception:
         pass
@@ -703,6 +706,8 @@ _runtime_set("APP_BACKUP_TIME", runtime_settings["APP_BACKUP_TIME"])
 _runtime_set("APP_BACKUP_COMPONENTS", runtime_settings["APP_BACKUP_COMPONENTS"])
 _runtime_set("APP_BACKUP_TG_ENABLED", runtime_settings["APP_BACKUP_TG_ENABLED"])
 _runtime_set("APP_BACKUP_TG_ADMIN_IDS", runtime_settings["APP_BACKUP_TG_ADMIN_IDS"])
+_runtime_set("APP_BACKUP_AZ_ENABLED", runtime_settings["APP_BACKUP_AZ_ENABLED"])
+_runtime_set("APP_BACKUP_AZ_INSTALL_DIR", runtime_settings["APP_BACKUP_AZ_INSTALL_DIR"])
 _runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", runtime_settings["ACTIVE_WEB_SESSION_TTL_SECONDS"])
 _runtime_set(
     "ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS",
@@ -730,16 +735,27 @@ def _get_backup_settings():
         "components": str(_runtime_get("APP_BACKUP_COMPONENTS", "db,env,data") or "db,env,data"),
         "tg_enabled": bool(_runtime_get("APP_BACKUP_TG_ENABLED", False)),
         "tg_admin_ids": str(_runtime_get("APP_BACKUP_TG_ADMIN_IDS", "") or ""),
+        "az_enabled": bool(_runtime_get("APP_BACKUP_AZ_ENABLED", True)),
     }
 
 
-def _set_backup_settings(*, enabled, interval_days, time_hhmm, components, tg_enabled, tg_admin_ids):
+def _set_backup_settings(
+    *,
+    enabled,
+    interval_days,
+    time_hhmm,
+    components,
+    tg_enabled,
+    tg_admin_ids,
+    az_enabled=True,
+):
     _runtime_set("APP_BACKUP_ENABLED", bool(enabled))
     _runtime_set("APP_BACKUP_INTERVAL_DAYS", int(interval_days))
     _runtime_set("APP_BACKUP_TIME", (time_hhmm or "03:00").strip())
     _runtime_set("APP_BACKUP_COMPONENTS", (components or "db,env,data").strip())
     _runtime_set("APP_BACKUP_TG_ENABLED", bool(tg_enabled))
     _runtime_set("APP_BACKUP_TG_ADMIN_IDS", (tg_admin_ids or "").strip())
+    _runtime_set("APP_BACKUP_AZ_ENABLED", bool(az_enabled))
 
 
 def _get_active_web_session_settings():
@@ -1307,7 +1323,7 @@ admin_notify_service = AdminNotifyService(
 def _send_tg_admin_notification(event_type, *, actor_username=None,
                                  target_name=None, target_type=None,
                                  remote_addr=None, details=None,
-                                 subject_name=None):
+                                 subject_name=None, client_timezone=None):
     admin_notify_service.send(
         event_type,
         actor_username=actor_username,
@@ -1316,6 +1332,7 @@ def _send_tg_admin_notification(event_type, *, actor_username=None,
         remote_addr=remote_addr,
         details=details,
         subject_name=subject_name,
+        client_timezone=client_timezone,
     )
 
 

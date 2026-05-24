@@ -1,10 +1,16 @@
 import glob
 import json
 import os
+import shutil
 import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
+
+from core.services.db_backup_export import (
+    BACKUP_EXCLUDED_TABLES,
+    prepare_db_files_for_backup,
+)
 
 
 class BackupManagerService:
@@ -72,6 +78,7 @@ class BackupManagerService:
                 "components": metadata.get("components", []),
                 "items_count": int(metadata.get("items_count", 0)),
                 "summary": metadata.get("summary", ""),
+                "db_without_cidr": bool(metadata.get("db_without_cidr", False)),
             }
             backups.append(self.enrich_backup_list_entry(entry))
         return backups
@@ -99,7 +106,10 @@ class BackupManagerService:
                 components = ["db"]
                 component_labels = [self._COMPONENT_LABELS["db"]]
         elif set(components) >= {"db", "env", "data"}:
-            content_description = "Полный бэкап панели для переустановки"
+            if entry.get("db_without_cidr"):
+                content_description = "Полный бэкап панели (без базы CIDR провайдеров)"
+            else:
+                content_description = "Полный бэкап панели для переустановки"
         elif component_labels:
             content_description = " · ".join(component_labels)
         elif items_count > 0:
@@ -141,12 +151,9 @@ class BackupManagerService:
     def create_backup(self, *, selected_components, trigger="manual"):
         os.makedirs(self.backup_root, exist_ok=True)
         components = self.normalize_components(selected_components)
-        file_map = self._collect_component_files(components)
-        file_paths = []
-        for _, paths in file_map.items():
-            file_paths.extend(paths)
-        file_paths = self._dedupe_existing_paths(file_paths)
-        if not file_paths:
+        file_map, db_prepared, db_without_cidr = self._collect_component_files(components)
+        tar_entries = self._build_tar_entries(file_map, db_prepared)
+        if not tar_entries:
             raise RuntimeError("Нет файлов для резервного копирования")
 
         created_at = datetime.now(timezone.utc)
@@ -155,30 +162,36 @@ class BackupManagerService:
         archive_path = os.path.join(self.backup_root, archive_name)
         meta_path = os.path.join(self.backup_root, f"full_backup_{stamp}.meta.json")
 
-        with tarfile.open(archive_path, "w:gz") as tar:
-            for file_path in file_paths:
-                tar.add(file_path, arcname=self._archive_name(file_path), recursive=False)
+        cleanup_dirs = [p.cleanup_dir for p in db_prepared if p.cleanup_dir]
+        try:
+            with tarfile.open(archive_path, "w:gz") as tar:
+                for file_path, arcname in tar_entries:
+                    tar.add(file_path, arcname=arcname, recursive=False)
 
-        with tarfile.open(archive_path, "r:gz"):
-            pass
+            with tarfile.open(archive_path, "r:gz"):
+                pass
 
-        metadata = self._build_metadata(
-            created_at=created_at,
-            archive_name=archive_name,
-            components=components,
-            file_map=file_map,
-            trigger=trigger,
-        )
-        with open(meta_path, "w", encoding="utf-8") as fh:
-            json.dump(metadata, fh, ensure_ascii=False, indent=2)
+            metadata = self._build_metadata(
+                created_at=created_at,
+                archive_name=archive_name,
+                components=components,
+                file_map=file_map,
+                trigger=trigger,
+                db_without_cidr=db_without_cidr,
+            )
+            with open(meta_path, "w", encoding="utf-8") as fh:
+                json.dump(metadata, fh, ensure_ascii=False, indent=2)
 
-        self.prune_old_backups()
-        return {
-            "archive_path": archive_path,
-            "archive_name": archive_name,
-            "meta_path": meta_path,
-            "metadata": metadata,
-        }
+            self.prune_old_backups()
+            return {
+                "archive_path": archive_path,
+                "archive_name": archive_name,
+                "meta_path": meta_path,
+                "metadata": metadata,
+            }
+        finally:
+            for cleanup_dir in cleanup_dirs:
+                shutil.rmtree(cleanup_dir, ignore_errors=True)
 
     def restore_backup(self, backup_name):
         archive_path = self.resolve_backup_path(backup_name)
@@ -226,6 +239,7 @@ class BackupManagerService:
                     "components": list(meta.get("components", [])),
                     "items_count": int(meta.get("items_count", 0)),
                     "summary": str(meta.get("summary", "")),
+                    "db_without_cidr": bool(meta.get("db_without_cidr", False)),
                 }
             except Exception:
                 pass
@@ -319,13 +333,32 @@ class BackupManagerService:
 
     def _collect_component_files(self, components):
         file_map = {}
+        db_prepared = []
+        db_without_cidr = False
         if "db" in components:
-            file_map["db"] = self._dedupe_existing_paths(self._db_candidates())
+            db_prepared, db_without_cidr = prepare_db_files_for_backup(
+                self._dedupe_existing_paths(self._db_candidates())
+            )
+            file_map["db"] = [item.file_path for item in db_prepared]
         if "env" in components:
             file_map["env"] = self._dedupe_existing_paths([os.path.join(self.app_root, ".env")])
         if "data" in components:
             file_map["data"] = self._dedupe_existing_paths(self._data_candidates())
-        return file_map
+        return file_map, db_prepared, db_without_cidr
+
+    def _build_tar_entries(self, file_map, db_prepared):
+        arcname_by_path = {item.file_path: self._archive_name(item.tar_arcname) for item in db_prepared}
+        entries = []
+        seen = set()
+        for paths in file_map.values():
+            for file_path in paths:
+                abs_path = os.path.abspath(file_path)
+                if abs_path in seen:
+                    continue
+                seen.add(abs_path)
+                arcname = arcname_by_path.get(abs_path, self._archive_name(abs_path))
+                entries.append((abs_path, arcname))
+        return entries
 
     def _dedupe_existing_paths(self, paths):
         seen = set()
@@ -341,8 +374,20 @@ class BackupManagerService:
     def _archive_name(self, file_path):
         return file_path.lstrip("/") or os.path.basename(file_path)
 
-    def _build_metadata(self, *, created_at, archive_name, components, file_map, trigger):
+    def _build_metadata(
+        self,
+        *,
+        created_at,
+        archive_name,
+        components,
+        file_map,
+        trigger,
+        db_without_cidr=False,
+    ):
         counts = {key: len(file_map.get(key, [])) for key in self.SUPPORTED_COMPONENTS}
+        db_summary = f"DB: {counts.get('db', 0)}"
+        if db_without_cidr:
+            db_summary = f"{db_summary} (без CIDR)"
         return {
             "created_at": created_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "archive_name": archive_name,
@@ -350,9 +395,11 @@ class BackupManagerService:
             "components": components,
             "counts": counts,
             "items_count": sum(counts.values()),
+            "db_without_cidr": bool(db_without_cidr),
+            "db_excluded_tables": sorted(BACKUP_EXCLUDED_TABLES) if db_without_cidr else [],
             "summary": ", ".join(
                 [
-                    f"DB: {counts.get('db', 0)}",
+                    db_summary,
                     f"ENV: {counts.get('env', 0)}",
                     f"DATA: {counts.get('data', 0)}",
                 ]

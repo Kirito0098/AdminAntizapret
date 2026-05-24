@@ -1,74 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
-  const createUserActionConfirm = () => {
-    const modal = document.getElementById("userActionModal");
-    const titleEl = document.getElementById("userActionModalTitle");
-    const textEl = document.getElementById("userActionModalText");
-    const confirmBtn = document.getElementById("userActionModalConfirm");
-
-    if (!modal || !titleEl || !textEl || !confirmBtn) {
-      return async ({ message = "Подтвердить действие?" } = {}) => window.confirm(message);
-    }
-
-    const closeTargets = modal.querySelectorAll("[data-user-action-close]");
-    const closeModal = () => {
-      modal.classList.remove("is-open");
-      document.body.classList.remove("user-action-modal-open");
-      setTimeout(() => {
-        modal.setAttribute("hidden", "");
-      }, 180);
-    };
-
-    return ({
-      title = "Подтвердите действие",
-      message = "Изменение будет применено сразу.",
-      confirmText = "Подтвердить",
-      confirmVariant = "danger",
-    } = {}) => {
-      titleEl.textContent = title;
-      textEl.textContent = message;
-      confirmBtn.textContent = confirmText;
-      confirmBtn.classList.toggle("is-danger", confirmVariant === "danger");
-
-      modal.removeAttribute("hidden");
-      requestAnimationFrame(() => {
-        modal.classList.add("is-open");
-      });
-      document.body.classList.add("user-action-modal-open");
-
-      return new Promise((resolve) => {
-        let done = false;
-
-        const cleanup = (result) => {
-          if (done) return;
-          done = true;
-          closeModal();
-          confirmBtn.removeEventListener("click", onConfirm);
-          closeTargets.forEach((target) => {
-            target.removeEventListener("click", onCancel);
-          });
-          document.removeEventListener("keydown", onEsc);
-          resolve(result);
-        };
-
-        const onConfirm = () => cleanup(true);
-        const onCancel = () => cleanup(false);
-        const onEsc = (event) => {
-          if (event.key === "Escape") {
-            cleanup(false);
-          }
-        };
-
-        confirmBtn.addEventListener("click", onConfirm);
-        closeTargets.forEach((target) => {
-          target.addEventListener("click", onCancel);
-        });
-        document.addEventListener("keydown", onEsc);
-      });
-    };
-  };
-
   const initUserActionPopups = () => {
-    const askConfirm = createUserActionConfirm();
+    const askConfirm =
+      typeof window.showUserActionConfirm === "function"
+        ? window.showUserActionConfirm
+        : async ({ message = "Подтвердить действие?" } = {}) => window.confirm(message);
 
     const bindConfirm = (selector, getOptions) => {
       document.querySelectorAll(selector).forEach((form) => {
