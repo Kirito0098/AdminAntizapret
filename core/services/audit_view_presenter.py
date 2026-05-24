@@ -497,7 +497,7 @@ def user_action_event_label(event_type: str | None) -> str:
         "settings_tests_run": "Запуск тестов панели",
         "settings_backup_update": "Изменение настроек бэкапов",
         "settings_backup_create": "Создание бэкапа",
-        "settings_backup_test_telegram": "Тестовый бэкап в Telegram",
+        "settings_backup_test_telegram": "Бэкап и отправка в Telegram",
         "settings_backup_restore": "Восстановление из бэкапа",
         "settings_backup_delete": "Удаление бэкапа",
         "settings_user_tg_notify_update": "Изменение уведомлений в Telegram",
@@ -794,7 +794,7 @@ def user_action_tg_action_line(
         return "Запущено ручное создание резервной копии"
 
     if key == "settings_backup_test_telegram":
-        return "Запущен тестовый бэкап с отправкой архивов в Telegram"
+        return "Запущено создание бэкапа и отправка архивов в Telegram"
 
     if key == "settings_backup_restore":
         archive = target_value if target_value and target_value != "manual_create" else ""

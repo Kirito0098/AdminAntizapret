@@ -211,6 +211,7 @@ def handle_backup_test_telegram(
         flash(err, "error")
         return None
 
+    task_id = None
     try:
         def _task_test_backup_tg():
             result = run_backup_job(
@@ -220,7 +221,7 @@ def handle_backup_test_telegram(
                 send_telegram=True,
             )
             return {
-                "message": f"Тестовый бэкап завершён: {result.get('summary', '')}",
+                "message": f"Создание бэкапа и отправка в Telegram завершены: {result.get('summary', '')}",
                 "output": result.get("summary", ""),
             }
 
@@ -228,10 +229,11 @@ def handle_backup_test_telegram(
             "app_backup_test_tg",
             _task_test_backup_tg,
             created_by_username=session.get("username"),
-            queued_message="Тестовый бэкап и отправка в Telegram поставлены в очередь",
+            queued_message="Создание бэкапа и отправка в Telegram поставлены в очередь",
         )
+        task_id = task.id
         flash(
-            f"Тестовый бэкап запущен в фоне (task: {task.id[:8]}). "
+            f"Создание бэкапа и отправка в Telegram запущены в фоне (task: {task.id[:8]}). "
             "Архивы панели и AntiZapret (если включён) будут отправлены выбранным админам.",
             "info",
         )
@@ -241,8 +243,9 @@ def handle_backup_test_telegram(
             target_name="test_telegram",
         )
     except Exception as exc:
-        flash(f"Ошибка запуска тестового бэкапа: {exc}", "error")
-    return None
+        flash(f"Ошибка создания бэкапа и отправки в Telegram: {exc}", "error")
+        return None
+    return {"task_id": task_id} if task_id else None
 
 
 def handle_backup_create(
@@ -262,6 +265,7 @@ def handle_backup_create(
     selected_components = str(backup_settings.get("components", "db,env,data")).split(",")
     selected_components = [item.strip().lower() for item in selected_components if item.strip()]
 
+    task_id = None
     try:
         def _task_create_backup():
             result = backup_manager_service.create_backup(
@@ -279,6 +283,7 @@ def handle_backup_create(
             created_by_username=session.get("username"),
             queued_message="Создание бэкапа поставлено в очередь",
         )
+        task_id = task.id
         flash(
             f"Создание бэкапа запущено в фоне (task: {task.id[:8]}).",
             "info",
@@ -290,7 +295,8 @@ def handle_backup_create(
         )
     except Exception as exc:
         flash(f"Ошибка запуска создания бэкапа: {exc}", "error")
-    return None
+        return None
+    return {"task_id": task_id} if task_id else None
 
 
 def handle_backup_restore(

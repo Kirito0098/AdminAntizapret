@@ -312,7 +312,7 @@ def run_backup_job(
             ]
             chat_ids = load_admin_chat_ids(app_root, selected_admin_ids)
             created_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-            label = "Тестовый бэкап" if trigger == "test" else "Авто-бэкап"
+            label = "Ручной бэкап" if trigger == "test" else "Авто-бэкап"
             panel_documents, panel_notices, tg_cleanup_dirs = build_panel_telegram_documents(
                 backup_service=backup_service,
                 app_root=app_root,

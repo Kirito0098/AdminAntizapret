@@ -41,6 +41,11 @@ class AuditViewPresenterTgTests(unittest.TestCase):
         self.assertIn("full_backup_20260101.tar.gz", text)
         self.assertIn("Восстановление", text)
 
+    def test_tg_action_line_backup_send_telegram(self):
+        text = user_action_tg_action_line("settings_backup_test_telegram")
+        self.assertIn("создание бэкапа", text.lower())
+        self.assertNotIn("тестов", text.lower())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -552,6 +552,8 @@ def _log_user_action_event(
             _settings_subject = target_name
             _notify_target = event_type
         if _notify_type:
+            from core.services.notify_time import get_client_timezone_from_request
+
             _send_tg_admin_notification(
                 _notify_type,
                 actor_username=username,
@@ -560,6 +562,7 @@ def _log_user_action_event(
                 remote_addr=remote_addr,
                 details=details,
                 subject_name=_settings_subject,
+                client_timezone=get_client_timezone_from_request(),
             )
     except Exception:
         pass
@@ -1320,7 +1323,7 @@ admin_notify_service = AdminNotifyService(
 def _send_tg_admin_notification(event_type, *, actor_username=None,
                                  target_name=None, target_type=None,
                                  remote_addr=None, details=None,
-                                 subject_name=None):
+                                 subject_name=None, client_timezone=None):
     admin_notify_service.send(
         event_type,
         actor_username=actor_username,
@@ -1329,6 +1332,7 @@ def _send_tg_admin_notification(event_type, *, actor_username=None,
         remote_addr=remote_addr,
         details=details,
         subject_name=subject_name,
+        client_timezone=client_timezone,
     )
 
 

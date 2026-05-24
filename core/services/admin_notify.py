@@ -7,6 +7,7 @@ from core.services.audit_view_presenter import (
     parse_mini_details_kv,
     user_action_tg_action_line,
 )
+from core.services.notify_time import format_notify_when
 from core.services.tg_notify import send_tg_message
 
 CLIENT_BLOCK_NOTIFY_EVENTS = frozenset({
@@ -69,7 +70,7 @@ SETTINGS_CHANGE_LABELS = {
     "settings_nightly_update": "Изменено расписание ночного рестарта",
     "settings_backup_update": "Изменены настройки бэкапов",
     "settings_backup_create": "Создан бэкап",
-    "settings_backup_test_telegram": "Тестовый бэкап в Telegram",
+    "settings_backup_test_telegram": "Бэкап и отправка в Telegram",
     "settings_backup_restore": "Запущено восстановление из бэкапа",
     "settings_backup_delete": "Удалён бэкап",
     "settings_restart_service": "Перезапуск сервиса",
@@ -319,7 +320,7 @@ class AdminNotifyService:
 
     def send(self, event_type, *, actor_username=None, target_name=None,
              target_type=None, remote_addr=None, details=None,
-             subject_name=None):
+             subject_name=None, client_timezone=None):
         try:
             bot_token = (self.get_env_value("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip()
             if not bot_token:
@@ -343,6 +344,7 @@ class AdminNotifyService:
                 remote_addr,
                 details,
                 subject_name,
+                client_timezone=client_timezone,
             )
             if text is None:
                 return
@@ -363,9 +365,9 @@ class AdminNotifyService:
     # ── Internal ──────────────────────────────────────────────────────────────
 
     def _build_text(self, event_type, actor_username, target_name,
-                    target_type, remote_addr, details, subject_name=None):
-        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-        when = _fmt_when(now)
+                    target_type, remote_addr, details, subject_name=None,
+                    *, client_timezone=None):
+        when = _fmt_when(format_notify_when(client_timezone))
         actor_admin = _fmt_actor(actor_username, as_admin=True)
         actor_user = _fmt_actor(actor_username, as_admin=False)
         ip = _fmt_ip(remote_addr)

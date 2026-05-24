@@ -87,12 +87,22 @@ def register_backup_api_routes(
         )
         return _api_result(collector)
 
+    def _task_extra(handler_result):
+        if not handler_result or not handler_result.get("task_id"):
+            return None
+        task_id = handler_result["task_id"]
+        return {
+            "task_id": task_id,
+            "queued": True,
+            "status_url": f"/api/tasks/{task_id}",
+        }
+
     @app.route("/api/backups/create", methods=["POST"])
     @auth_manager.admin_required
     def api_backups_create():
         collector = _FlashCollector()
         form = {"backup_create_action": "create"}
-        handle_backup_create(
+        handler_result = handle_backup_create(
             form,
             flash=collector,
             session=session,
@@ -101,13 +111,13 @@ def register_backup_api_routes(
             get_backup_settings=get_backup_settings,
             log_user_action_event=log_user_action_event,
         )
-        return _api_result(collector)
+        return _api_result(collector, extra=_task_extra(handler_result))
 
     @app.route("/api/backups/test-telegram", methods=["POST"])
     @auth_manager.admin_required
     def api_backups_test_telegram():
         collector = _FlashCollector()
-        handle_backup_test_telegram(
+        handler_result = handle_backup_test_telegram(
             {"backup_test_tg_action": "test"},
             flash=collector,
             session=session,
@@ -115,7 +125,7 @@ def register_backup_api_routes(
             app_root=app_root,
             log_user_action_event=log_user_action_event,
         )
-        return _api_result(collector)
+        return _api_result(collector, extra=_task_extra(handler_result))
 
     @app.route("/api/backups/restore", methods=["POST"])
     @auth_manager.admin_required

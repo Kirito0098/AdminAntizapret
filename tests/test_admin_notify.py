@@ -22,6 +22,7 @@ class AdminNotifyTextTests(unittest.TestCase):
             kwargs.get("remote_addr"),
             kwargs.get("details"),
             kwargs.get("subject_name"),
+            client_timezone=kwargs.get("client_timezone"),
         )
 
     def _lines(self, text):
@@ -48,6 +49,17 @@ class AdminNotifyTextTests(unittest.TestCase):
         self.assertIn("📁", lines[2])
         self.assertIn("<code>Test</code>", lines[2])
         self.assertRegex(lines[3], r"^🕐 \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$")
+
+    def test_settings_change_uses_client_timezone(self):
+        text = self._build(
+            "settings_change",
+            actor_username="admin1",
+            subject_name="settings_backup_test_telegram",
+            client_timezone="Europe/Moscow",
+        )
+        lines = self._lines(text)
+        self.assertRegex(lines[3], r"^🕐 \d{4}-\d{2}-\d{2} \d{2}:\d{2} ")
+        self.assertNotRegex(lines[3], r" UTC$")
 
     def test_config_create_openvpn_narrative(self):
         text = self._build(

@@ -658,38 +658,154 @@
 
 /* ----- Backup block ----- */
 
-#maintenance .maintenance-backup-toolbar {
+#maintenance .maintenance-backup-block {
+  border: 1px solid var(--mnt-border);
+  background: var(--theme-glass-bg, rgba(26, 36, 43, 0.5));
+  border-radius: 10px;
+  padding: 1rem 1.05rem;
   margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--mnt-border);
 }
 
-#maintenance .maintenance-backup-toolbar__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem 0.75rem;
-  margin-bottom: 0.5rem;
-}
-
-#maintenance .maintenance-backup-toolbar__actions form {
-  margin: 0;
-}
-
-#maintenance .maintenance-backup-btn--test-tg {
-  border-color: rgba(56, 189, 248, 0.45);
-}
-
-#maintenance .maintenance-backup-toolbar__hint {
-  margin: 0 0 1rem;
-  max-width: 52rem;
-}
-
-#maintenance .maintenance-backup-toolbar__title {
-  margin: 0 0 0.75rem;
+#maintenance .maintenance-backup-block__title {
+  margin: 0 0 0.85rem;
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--mnt-text);
+}
+
+#maintenance .maintenance-backup-subtitle {
+  margin: 1rem 0 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mnt-muted);
+}
+
+#maintenance .maintenance-backup-block--settings .maintenance-backup-subtitle:first-of-type {
+  margin-top: 0;
+}
+
+#maintenance .maintenance-backup-actions-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+@media (min-width: 720px) {
+  #maintenance .maintenance-backup-actions-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  #maintenance .maintenance-backup-actions-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+#maintenance .maintenance-backup-action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--mnt-border);
+  border-radius: 10px;
+  background: rgba(22, 30, 36, 0.55);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+#maintenance .maintenance-backup-action-card:hover {
+  border-color: rgba(84, 102, 115, 0.65);
+  background: rgba(30, 41, 48, 0.7);
+}
+
+#maintenance .maintenance-backup-action-card--tg {
+  border-color: var(--mnt-info-border);
+  background: var(--mnt-info-soft);
+}
+
+#maintenance .maintenance-backup-action-card--tg:hover {
+  border-color: var(--mnt-info);
+  background: rgba(90, 157, 203, 0.2);
+}
+
+#maintenance .maintenance-backup-action-card__title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--mnt-text);
+}
+
+#maintenance .maintenance-backup-action-card__lead {
+  margin: 0;
+  flex: 1;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--mnt-muted);
+}
+
+#maintenance .maintenance-backup-action-card__lead code {
+  font-size: 0.78rem;
+  color: var(--mnt-text);
+}
+
+#maintenance .maintenance-backup-action-card__form {
+  margin: 0;
+}
+
+#maintenance .maintenance-backup-action-card__btn {
+  align-self: flex-start;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (min-width: 480px) {
+  #maintenance .maintenance-backup-action-card__btn {
+    width: auto;
+    max-width: 100%;
+  }
+}
+
+#maintenance .maintenance-backup-btn--tg {
+  border-color: var(--mnt-info-border);
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--mnt-text);
+}
+
+#maintenance .maintenance-backup-btn--tg:hover:not(:disabled) {
+  border-color: var(--mnt-info);
+  background: rgba(56, 189, 248, 0.22);
+}
+
+#maintenance .maintenance-backup-btn__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.65rem;
+  margin-right: 0.35rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  background: var(--mnt-info);
+  color: #0f1720;
+}
+
+#maintenance .maintenance-backup-action-card__note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--mnt-warn, #fbbf24);
+}
+
+#maintenance .maintenance-backup-block--archives {
+  margin-top: 1.15rem;
+}
+
+#maintenance .maintenance-backup-block--archives .maintenance-backup-table-wrap {
+  margin-top: 0.25rem;
 }
 
 #maintenance .maintenance-backup-table-wrap {

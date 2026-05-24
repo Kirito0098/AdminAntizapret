@@ -54,7 +54,7 @@ class BackupTelegramJobTests(unittest.TestCase):
                 backup_service=backup_service,
                 app_root=self.app_root,
                 panel_result=panel_result,
-                label="Тестовый бэкап",
+                label="Ручной бэкап",
                 created_at="2026-05-24 11:00 UTC",
             )
 

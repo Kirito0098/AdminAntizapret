@@ -121,7 +121,7 @@ class AppAutoBackupTests(unittest.TestCase):
         caption = send_tg_document_mock.call_args.kwargs.get("caption") or (
             send_tg_document_mock.call_args.args[3] if len(send_tg_document_mock.call_args.args) > 3 else ""
         )
-        self.assertIn("Тестовый бэкап", caption)
+        self.assertIn("Ручной бэкап", caption)
 
 
 if __name__ == "__main__":
