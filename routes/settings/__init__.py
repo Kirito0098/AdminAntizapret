@@ -50,6 +50,7 @@ def register_settings_routes(app, **deps):
         to_bool=deps["to_bool"],
         ensure_app_backup_cron=deps["ensure_app_backup_cron"],
         log_user_action_event=deps["log_user_action_event"],
+        app_root=deps["app_root"],
     )
     register_settings_api_routes(
         app,

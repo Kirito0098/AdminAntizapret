@@ -123,6 +123,7 @@ def handle_backup_settings(
 
     enabled = to_bool((form.get("app_backup_enabled") or "false").strip().lower(), default=False)
     tg_enabled = to_bool((form.get("app_backup_tg_enabled") or "false").strip().lower(), default=False)
+    az_enabled = to_bool((form.get("app_backup_az_enabled") or "true").strip().lower(), default=True)
 
     interval_raw = (form.get("app_backup_interval_days") or "1").strip()
     time_raw = (form.get("app_backup_time_hhmm") or "03:00").strip()
@@ -153,6 +154,7 @@ def handle_backup_settings(
         components=components_csv,
         tg_enabled=tg_enabled,
         tg_admin_ids=admin_ids_csv,
+        az_enabled=az_enabled,
     )
     set_env_value("APP_BACKUP_ENABLED", "true" if enabled else "false")
     set_env_value("APP_BACKUP_INTERVAL_DAYS", str(interval_days))
@@ -160,6 +162,7 @@ def handle_backup_settings(
     set_env_value("APP_BACKUP_COMPONENTS", components_csv)
     set_env_value("APP_BACKUP_TG_ENABLED", "true" if tg_enabled else "false")
     set_env_value("APP_BACKUP_TG_ADMIN_IDS", admin_ids_csv)
+    set_env_value("APP_BACKUP_AZ_ENABLED", "true" if az_enabled else "false")
 
     os.environ["APP_BACKUP_ENABLED"] = "true" if enabled else "false"
     os.environ["APP_BACKUP_INTERVAL_DAYS"] = str(interval_days)
@@ -167,6 +170,7 @@ def handle_backup_settings(
     os.environ["APP_BACKUP_COMPONENTS"] = components_csv
     os.environ["APP_BACKUP_TG_ENABLED"] = "true" if tg_enabled else "false"
     os.environ["APP_BACKUP_TG_ADMIN_IDS"] = admin_ids_csv
+    os.environ["APP_BACKUP_AZ_ENABLED"] = "true" if az_enabled else "false"
 
     cron_ok, cron_msg = ensure_app_backup_cron()
     if cron_ok:
@@ -180,10 +184,64 @@ def handle_backup_settings(
         details=(
             f"enabled={'вкл' if enabled else 'выкл'} interval={interval_days}d "
             f"time={time_raw} components={components_csv} "
-            f"tg={'вкл' if tg_enabled else 'выкл'} admins={admin_ids_csv or '-'}"
+            f"tg={'вкл' if tg_enabled else 'выкл'} az={'вкл' if az_enabled else 'выкл'} "
+            f"admins={admin_ids_csv or '-'}"
         ),
         status="success" if cron_ok else "warning",
     )
+    return None
+
+
+def handle_backup_test_telegram(
+    form,
+    *,
+    flash,
+    session,
+    enqueue_background_task,
+    app_root,
+    log_user_action_event,
+):
+    if form.get("backup_test_tg_action") != "test":
+        return None
+
+    from core.services.backup_telegram_job import run_backup_job, validate_telegram_delivery
+
+    ok, err = validate_telegram_delivery(app_root)
+    if not ok:
+        flash(err, "error")
+        return None
+
+    try:
+        def _task_test_backup_tg():
+            result = run_backup_job(
+                app_root,
+                trigger="test",
+                require_auto_enabled=False,
+                send_telegram=True,
+            )
+            return {
+                "message": f"Тестовый бэкап завершён: {result.get('summary', '')}",
+                "output": result.get("summary", ""),
+            }
+
+        task = enqueue_background_task(
+            "app_backup_test_tg",
+            _task_test_backup_tg,
+            created_by_username=session.get("username"),
+            queued_message="Тестовый бэкап и отправка в Telegram поставлены в очередь",
+        )
+        flash(
+            f"Тестовый бэкап запущен в фоне (task: {task.id[:8]}). "
+            "Архивы панели и AntiZapret (если включён) будут отправлены выбранным админам.",
+            "info",
+        )
+        log_user_action_event(
+            "settings_backup_test_telegram",
+            target_type="backup",
+            target_name="test_telegram",
+        )
+    except Exception as exc:
+        flash(f"Ошибка запуска тестового бэкапа: {exc}", "error")
     return None
 
 

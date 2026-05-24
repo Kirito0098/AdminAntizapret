@@ -152,6 +152,32 @@
     }
   });
 
+  section.querySelector(".js-backup-test-tg")?.addEventListener("click", async (event) => {
+    const btn = event.currentTarget;
+    if (btn.disabled) return;
+    if (
+      !window.confirm(
+        "Создать бэкапы панели и AntiZapret (если включён) и отправить архивы выбранным админам в Telegram?"
+      )
+    ) {
+      return;
+    }
+    setBusy(btn, true);
+    try {
+      const data = await apiFetch("/api/backups/test-telegram", { method: "POST" });
+      handleApiMessages(data, data.success ? "info" : "error");
+      if (data.success) {
+        window.setTimeout(() => {
+          refreshBackupList();
+        }, 5000);
+      }
+    } catch (_err) {
+      notify("Ошибка сети при тестовом бэкапе", "error");
+    } finally {
+      setBusy(btn, false);
+    }
+  });
+
   section.querySelector(".js-backup-create-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;

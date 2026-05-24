@@ -37,10 +37,12 @@ def send_tg_document(
     caption: str = "",
     *,
     run_async: bool = True,
-) -> None:
-    """Send a Telegram document in a daemon thread. Never raises."""
+    timeout_seconds: int = 120,
+) -> bool:
+    """Send a Telegram document. Returns True on success. Never raises when run_async=True."""
+    upload_timeout = max(15, int(timeout_seconds or 120))
 
-    def _send():
+    def _send() -> bool:
         try:
             with open(file_path, "rb") as fh:
                 file_bytes = fh.read()
@@ -76,12 +78,19 @@ def send_tg_document(
                 data=bytes(body),
                 headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
             )
-            with urllib.request.urlopen(req, timeout=15):
+            with urllib.request.urlopen(req, timeout=upload_timeout):
                 pass
+            return True
         except Exception as exc:
-            logger.warning("TG document send failed chat_id=%s: %s", chat_id, exc)
+            logger.warning(
+                "TG document send failed chat_id=%s file=%s: %s",
+                chat_id,
+                file_path,
+                exc,
+            )
+            return False
 
     if run_async:
         threading.Thread(target=_send, daemon=True).start()
-        return
-    _send()
+        return True
+    return _send()

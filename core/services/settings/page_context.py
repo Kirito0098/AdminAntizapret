@@ -183,6 +183,7 @@ def build_settings_page_context(
         "app_backup_time_hhmm": str(backup_settings.get("time_hhmm", "03:00")),
         "app_backup_selected_components": backup_selected_components,
         "app_backup_tg_enabled": bool(backup_settings.get("tg_enabled", False)),
+        "app_backup_az_enabled": bool(backup_settings.get("az_enabled", True)),
         "app_backup_tg_admin_ids": backup_tg_admin_ids,
         "app_backup_list": backup_entries,
         "app_backup_admin_candidates": backup_admin_candidates,

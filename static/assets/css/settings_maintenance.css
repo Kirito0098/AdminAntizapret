@@ -664,6 +664,27 @@
   border-top: 1px solid var(--mnt-border);
 }
 
+#maintenance .maintenance-backup-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+#maintenance .maintenance-backup-toolbar__actions form {
+  margin: 0;
+}
+
+#maintenance .maintenance-backup-btn--test-tg {
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+#maintenance .maintenance-backup-toolbar__hint {
+  margin: 0 0 1rem;
+  max-width: 52rem;
+}
+
 #maintenance .maintenance-backup-toolbar__title {
   margin: 0 0 0.75rem;
   font-size: 0.95rem;
