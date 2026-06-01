@@ -676,12 +676,15 @@ class CidrListUpdaterTests(unittest.TestCase):
 
     def test_sync_games_include_hosts_enable_and_disable(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
-            include_hosts_path = os.path.join(tmp_dir, "include-hosts.txt")
+            include_hosts_path = os.path.join(tmp_dir, "AZ-Game-include-hosts.txt")
             with open(include_hosts_path, "w", encoding="utf-8") as handle:
                 handle.write("custom.example\n")
 
-            with patch.object(cidr_list_updater, "GAME_INCLUDE_HOSTS_FILE", include_hosts_path):
-                enabled = cidr_list_updater._sync_games_include_hosts(["lol", "dota2", "csgo", "faceit"])
+            with patch.object(cidr_list_updater, "AZ_GAME_INCLUDE_HOSTS_FILE", include_hosts_path):
+                enabled = cidr_list_updater._sync_games_include_hosts(
+                    ["lol", "dota2", "csgo", "faceit"],
+                    include_game_domains=True,
+                )
 
                 self.assertTrue(enabled["success"])
                 self.assertTrue(enabled["changed"])
@@ -695,7 +698,7 @@ class CidrListUpdaterTests(unittest.TestCase):
                 self.assertIn("counter-strike.net", enabled_content)
                 self.assertIn("faceit.com", enabled_content)
 
-                disabled = cidr_list_updater._sync_games_include_hosts([])
+                disabled = cidr_list_updater._sync_games_include_hosts([], include_game_domains=False)
                 self.assertTrue(disabled["success"])
 
                 with open(include_hosts_path, "r", encoding="utf-8") as handle:
@@ -707,11 +710,13 @@ class CidrListUpdaterTests(unittest.TestCase):
 
     def test_sync_game_hosts_filter_runs_without_cidr_update(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
-            include_hosts_path = os.path.join(tmp_dir, "include-hosts.txt")
-            include_ips_path = os.path.join(tmp_dir, "include-ips.txt")
+            include_hosts_path = os.path.join(tmp_dir, "AZ-Game-include-hosts.txt")
+            include_ips_path = os.path.join(tmp_dir, "AZ-Game-include-ips.txt")
+            with open(include_hosts_path, "w", encoding="utf-8") as handle:
+                handle.write("custom.example\n")
 
-            with patch.object(cidr_list_updater, "GAME_INCLUDE_HOSTS_FILE", include_hosts_path), patch.object(
-                cidr_list_updater, "GAME_INCLUDE_IPS_FILE", include_ips_path
+            with patch.object(cidr_list_updater, "AZ_GAME_INCLUDE_HOSTS_FILE", include_hosts_path), patch.object(
+                cidr_list_updater, "AZ_GAME_INCLUDE_IPS_FILE", include_ips_path
             ), patch.object(
                 cidr_list_updater,
                 "_resolve_game_domains_ipv4_cidrs",
@@ -722,16 +727,14 @@ class CidrListUpdaterTests(unittest.TestCase):
             self.assertTrue(result["success"])
             self.assertIn("game_hosts_filter", result)
             self.assertIn("game_ips_filter", result)
-            self.assertTrue(result["game_hosts_filter"]["enabled"])
-            self.assertEqual(result["game_hosts_filter"]["selected_game_count"], 2)
+            self.assertFalse(result["game_hosts_filter"]["enabled"])
+            self.assertEqual(result["game_hosts_filter"]["domain_count"], 0)
             self.assertEqual(result["game_ips_filter"]["cidr_count"], 2)
 
             with open(include_hosts_path, "r", encoding="utf-8") as handle:
                 content = handle.read()
 
-            self.assertIn(cidr_list_updater.GAME_FILTER_BLOCK_START, content)
-            self.assertIn("riotgames.com", content)
-            self.assertIn("faceit.com", content)
+            self.assertEqual(content.strip(), "custom.example")
 
             with open(include_ips_path, "r", encoding="utf-8") as handle:
                 ips_content = handle.read()
@@ -739,6 +742,79 @@ class CidrListUpdaterTests(unittest.TestCase):
             self.assertIn(cidr_list_updater.GAME_FILTER_IP_BLOCK_START, ips_content)
             self.assertIn("203.0.113.10/32", ips_content)
             self.assertIn("203.0.113.11/32", ips_content)
+
+    def test_sync_game_hosts_filter_includes_domains_only_when_enabled(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            include_hosts_path = os.path.join(tmp_dir, "AZ-Game-include-hosts.txt")
+            include_ips_path = os.path.join(tmp_dir, "AZ-Game-include-ips.txt")
+
+            with patch.object(cidr_list_updater, "AZ_GAME_INCLUDE_HOSTS_FILE", include_hosts_path), patch.object(
+                cidr_list_updater, "AZ_GAME_INCLUDE_IPS_FILE", include_ips_path
+            ), patch.object(
+                cidr_list_updater,
+                "_resolve_game_domains_ipv4_cidrs",
+                return_value=(["203.0.113.10/32"], []),
+            ):
+                result = cidr_list_updater.sync_game_hosts_filter(
+                    include_game_keys=["lol"],
+                    include_game_domains=True,
+                )
+
+            self.assertTrue(result["success"])
+            with open(include_hosts_path, "r", encoding="utf-8") as handle:
+                content = handle.read()
+            self.assertIn(cidr_list_updater.GAME_FILTER_BLOCK_START, content)
+            self.assertIn("riotgames.com", content)
+
+    def test_get_available_game_filters_contains_provider_and_source_metadata(self):
+        filters = cidr_list_updater.get_available_game_filters()
+        self.assertTrue(filters)
+        sample = filters[0]
+        self.assertIn("provider", sample)
+        self.assertIn("source_type", sample)
+        self.assertIn("asn_count", sample)
+        self.assertIn("tags", sample)
+
+    def test_validate_game_filter_keys_returns_invalid_items(self):
+        result = cidr_list_updater.validate_game_filter_keys(["lol", "steam", "does_not_exist"])
+        self.assertIn("lol", result["normalized_keys"])
+        self.assertIn("steam_platform", result["normalized_keys"])
+        self.assertIn("does_not_exist", result["invalid_keys"])
+
+    def test_preview_game_hosts_filter_returns_counts(self):
+        with patch.object(
+            cidr_list_updater,
+            "_resolve_game_domains_ipv4_cidrs",
+            return_value=(["198.51.100.10/32"], []),
+        ):
+            preview = cidr_list_updater.preview_game_hosts_filter(include_game_keys=["lol"])
+        self.assertTrue(preview["success"])
+        self.assertIn("preview", preview)
+        self.assertEqual(preview["preview"]["selected_game_count"], 1)
+        self.assertEqual(preview["preview"]["domain_count"], 0)
+        self.assertGreaterEqual(preview["preview"]["cidr_count"], 1)
+        self.assertIn("overlap_summary", preview["preview"])
+        self.assertIn("per_game_stats", preview["preview"])
+        self.assertIn("lol", preview["preview"]["per_game_stats"])
+        self.assertEqual(preview["preview"]["domains_to_add"], [])
+
+    def test_preview_game_hosts_filter_includes_domains_only_when_enabled(self):
+        with patch.object(
+            cidr_list_updater,
+            "_resolve_game_domains_ipv4_cidrs",
+            return_value=(["198.51.100.10/32"], []),
+        ):
+            with_domains = cidr_list_updater.preview_game_hosts_filter(
+                include_game_keys=["lol"],
+                include_game_domains=True,
+            )
+            without_domains = cidr_list_updater.preview_game_hosts_filter(
+                include_game_keys=["lol"],
+                include_game_domains=False,
+            )
+        self.assertTrue(with_domains["success"])
+        self.assertGreaterEqual(len(with_domains["preview"]["domains_to_add"]), 1)
+        self.assertEqual(without_domains["preview"]["domains_to_add"], [])
 
 if __name__ == "__main__":
     unittest.main()

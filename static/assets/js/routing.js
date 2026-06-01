@@ -553,12 +553,24 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   const getSelectedCidrGames = () => {
+    if (window.AntiZapretGameFilters?.getSelectedKeys) {
+      return window.AntiZapretGameFilters.getSelectedKeys();
+    }
     return Array.from(document.querySelectorAll(".cidr-game-checkbox:checked"))
       .map((input) => (input.value || "").trim().toLowerCase())
       .filter(Boolean);
   };
 
   const setAllCidrGamesChecked = (checked) => {
+    if (window.AntiZapretGameFilters?.setSelectedKeys) {
+      const keys = checked
+        ? Array.from(document.querySelectorAll("#cidr-game-filters .cidr-game-checkbox"))
+          .map((input) => String(input.value || "").trim().toLowerCase())
+          .filter(Boolean)
+        : [];
+      window.AntiZapretGameFilters.setSelectedKeys(keys);
+      return;
+    }
     document.querySelectorAll(".cidr-game-checkbox").forEach((input) => {
       input.checked = Boolean(checked);
     });
@@ -936,32 +948,21 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   const renderCidrGameFilters = (gameFilters) => {
-    const container = document.getElementById("cidr-game-filters");
-    if (!container) return;
-
     const selectedBeforeRender = new Set(getSelectedCidrGames());
-
-    if (!Array.isArray(gameFilters) || !gameFilters.length) {
-      container.innerHTML = '<p class="no-data">Игровые фильтры недоступны</p>';
+    if (window.AntiZapretGameFilters?.setFilters) {
+      window.AntiZapretGameFilters.setFilters(Array.isArray(gameFilters) ? gameFilters : []);
+      if (selectedBeforeRender.size) {
+        window.AntiZapretGameFilters.setSelectedKeys(Array.from(selectedBeforeRender));
+      }
       return;
     }
-
-    container.innerHTML = gameFilters.map((item) => {
-      const key = String(item?.key || "").trim().toLowerCase();
-      const title = String(item?.title || key || "Игра");
-      const checked = selectedBeforeRender.has(key) ? "checked" : "";
-      return `
-        <label class="cidr-scope-chip cidr-game-chip">
-          <input type="checkbox" class="cidr-game-checkbox" value="${key}" ${checked} />
-          <span>${title}</span>
-        </label>
-      `;
-    }).join("");
-
-    applyCidrGameSearchFilter();
   };
 
   const applyCidrGameSearchFilter = () => {
+    if (window.AntiZapretGameFilters?.applyFilters) {
+      window.AntiZapretGameFilters.applyFilters();
+      return;
+    }
     const searchInput = document.getElementById("cidr-games-search-input");
     const metaElement = document.getElementById("cidr-games-search-meta");
     const chips = Array.from(document.querySelectorAll("#cidr-game-filters .cidr-game-chip"));
@@ -995,6 +996,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     renderCidrRegions(payload.regions || []);
     renderCidrGameFilters(payload.game_filters || []);
+    if (Array.isArray(payload.saved_game_keys) && window.AntiZapretGameFilters?.setSelectedKeys) {
+      window.AntiZapretGameFilters.setSelectedKeys(payload.saved_game_keys);
+    }
 
     const totalLimitInput = document.getElementById("cidr-total-limit-input");
     const totalLimitValue = Number(payload?.settings?.openvpn_route_total_cidr_limit || 0);
@@ -1013,6 +1017,7 @@ document.addEventListener("DOMContentLoaded", function () {
     includeNonGeoFallback = false,
     excludeRuCidrs = false,
     includeGameKeys = [],
+    includeGameDomains = false,
     strictGeoFilter = false,
     openvpnRouteTotalCidrLimit = null,
     dpiLogText = "",
@@ -1020,6 +1025,7 @@ document.addEventListener("DOMContentLoaded", function () {
     dpiMandatoryFiles = [],
     dpiPriorityMinBudget = 0,
     endpoint = "/api/cidr-lists",
+    silent = false,
   }) => {
     const getCsrfToken = () => {
       return document.querySelector('input[name="csrf_token"]')?.value ||
@@ -1040,12 +1046,14 @@ document.addEventListener("DOMContentLoaded", function () {
         exclude_ru_cidrs: excludeRuCidrs,
         include_game_hosts: Array.isArray(includeGameKeys) && includeGameKeys.length > 0,
         include_game_keys: includeGameKeys,
+        include_game_domains: Boolean(includeGameDomains),
         strict_geo_filter: strictGeoFilter,
         openvpn_route_total_cidr_limit: openvpnRouteTotalCidrLimit,
         dpi_log_text: dpiLogText,
         dpi_priority_files: dpiPriorityFiles,
         dpi_mandatory_files: dpiMandatoryFiles,
         dpi_priority_min_budget: dpiPriorityMinBudget,
+        silent: Boolean(silent),
       }),
     });
 
@@ -1200,6 +1208,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!section) return;
 
     let regionsLoaded = false;
+    let gameFiltersController = null;
     let dpiPriorityFiles = [];
     let dpiMandatoryFiles = [];
     window._cidrDpiPriorityFiles = [];
@@ -1208,6 +1217,95 @@ document.addEventListener("DOMContentLoaded", function () {
     const ensureLoaded = async () => {
       if (regionsLoaded) return;
       await fetchCidrRegions();
+      if (!gameFiltersController && window.AntiZapretGameFilters?.init) {
+        gameFiltersController = window.AntiZapretGameFilters.init({
+          onSelectionChanged: () => {
+            renderCidrMeta();
+            scheduleCidrEstimateRefresh();
+          },
+          onPreview: async (includeGameKeys, options = {}) => {
+            try {
+              await ensureLoaded();
+              setCidrStatus("Подготовка preview игровых фильтров...", "info");
+              const preview = await runCidrAction({
+                action: "preview_games_sync",
+                regions: [],
+                includeGameKeys,
+                includeGameDomains: Boolean(options.includeGameDomains),
+              });
+              const info = preview?.preview || {};
+              const overlapSummary = info?.overlap_summary || {};
+              const unresolvedCount = Number(info.unresolved_domain_count || 0);
+              const overlapCount = Number(overlapSummary.overlap_count || 0);
+              setCidrStatus(
+                `Preview: игр ${Number(info.selected_game_count || 0)}, доменов ${Number(info.domain_count || 0)}, CIDR ${Number(info.cidr_count || 0)}`
+                + (unresolvedCount > 0 ? `, unresolved ${unresolvedCount}` : "")
+                + (overlapCount > 0 ? `, пересечений ${overlapCount}` : ""),
+                (unresolvedCount > 0 || overlapCount > 0) ? "warning" : "success"
+              );
+              return preview;
+            } catch (error) {
+              setCidrStatus(`Ошибка preview: ${error.message}`, "error");
+              throw error;
+            }
+          },
+          onEstimateGame: async (gameKey) => {
+            const preview = await runCidrAction({
+              action: "preview_games_sync",
+              regions: [],
+              includeGameKeys: [gameKey],
+              includeGameDomains: false,
+              silent: true,
+            });
+            return preview;
+          },
+          onApply: async (includeGameKeys, options = {}) => {
+            try {
+              setCidrStatus("Синхронизация AZ-Game-include файлов по выбранным играм...", "info");
+              startCidrProgress("Синхронизация AZ-Game-include файлов...", { simulated: true });
+              const result = await runCidrAction({
+                action: "sync_games_hosts",
+                regions: [],
+                includeGameKeys,
+                includeGameDomains: Boolean(options.includeGameDomains),
+              });
+              finishCidrProgress({ success: true, stageText: "AZ-Game-include файлы синхронизированы" });
+
+              const info = result?.game_hosts_filter || {};
+              const ipsInfo = result?.game_ips_filter || {};
+              const overlapSummary = ipsInfo?.overlap_summary || {};
+              const selectedCount = Number(info.selected_game_count || 0);
+              const domainCount = Number(info.domain_count || 0);
+              const cidrCount = Number(ipsInfo.cidr_count || 0);
+              const overlapCount = Number(overlapSummary.overlap_count || 0);
+              const changed = Boolean(info.changed || ipsInfo.changed);
+              const baseMessage = result?.message || "Игровые фильтры синхронизированы";
+              const suffix = changed
+                ? ` (игр: ${selectedCount}, доменов: ${domainCount}, CIDR: ${cidrCount})`
+                : " (изменений не было)";
+              const overlapSuffix = overlapCount > 0 ? `, пересечений: ${overlapCount}` : "";
+              setCidrStatus(`${baseMessage}${suffix}${overlapSuffix}`, overlapCount > 0 ? "warning" : "success");
+              renderCidrMeta();
+              if (window.AntiZapretGameFilters?.renderPreview) {
+                window.AntiZapretGameFilters.renderPreview({
+                  preview: {
+                    selected_game_count: selectedCount,
+                    domain_count: domainCount,
+                    cidr_count: cidrCount,
+                    unresolved_domain_count: Number(ipsInfo.unresolved_domain_count || 0),
+                    include_game_domains: Boolean(options.includeGameDomains),
+                    overlap_summary: overlapSummary,
+                  },
+                });
+              }
+            } catch (error) {
+              finishCidrProgress({ success: false, stageText: "Ошибка синхронизации AZ-Game-include файлов" });
+              setCidrStatus(`Ошибка: ${error.message}`, "error");
+              throw error;
+            }
+          },
+        });
+      }
       regionsLoaded = true;
     };
 
@@ -1286,22 +1384,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
 
-    document.getElementById("cidr-games-select-all")?.addEventListener("click", () => {
-      setAllCidrGamesChecked(true);
-      renderCidrMeta();
-      scheduleCidrEstimateRefresh();
-    });
-
-    document.getElementById("cidr-games-clear-all")?.addEventListener("click", () => {
-      setAllCidrGamesChecked(false);
-      renderCidrMeta();
-      scheduleCidrEstimateRefresh();
-    });
-
-    document.getElementById("cidr-games-search-input")?.addEventListener("input", () => {
-      applyCidrGameSearchFilter();
-    });
-
     document.getElementById("cidr-save-total-limit")?.addEventListener("click", async () => {
       try {
         setCidrBusy(true);
@@ -1335,43 +1417,6 @@ document.addEventListener("DOMContentLoaded", function () {
         scheduleCidrEstimateRefresh(50);
       } catch (error) {
         finishCidrProgress({ success: false, stageText: "Ошибка сохранения лимита" });
-        setCidrStatus(`Ошибка: ${error.message}`, "error");
-      } finally {
-        setCidrBusy(false);
-      }
-    });
-
-    document.getElementById("cidr-sync-games-hosts")?.addEventListener("click", async () => {
-      try {
-        setCidrBusy(true);
-        await ensureLoaded();
-        const { includeGameKeys } = getCidrRegionSettings();
-        setCidrStatus("Синхронизация include-hosts/include-ips по выбранным играм...", "info");
-        startCidrProgress("Синхронизация include-hosts/include-ips...", { simulated: true });
-
-        const result = await runCidrAction({
-          action: "sync_games_hosts",
-          regions: [],
-          includeGameKeys,
-        });
-
-        finishCidrProgress({ success: true, stageText: "include-hosts/include-ips синхронизированы" });
-
-        const info = result?.game_hosts_filter || {};
-        const ipsInfo = result?.game_ips_filter || {};
-        const selectedCount = Number(info.selected_game_count || 0);
-        const domainCount = Number(info.domain_count || 0);
-        const cidrCount = Number(ipsInfo.cidr_count || 0);
-        const changed = Boolean(info.changed || ipsInfo.changed);
-        const baseMessage = result?.message || "Игровые фильтры синхронизированы";
-        const suffix = changed
-          ? ` (игр: ${selectedCount}, доменов: ${domainCount}, CIDR: ${cidrCount})`
-          : " (изменений не было)";
-
-        setCidrStatus(`${baseMessage}${suffix}`, "success");
-        renderCidrMeta();
-      } catch (error) {
-        finishCidrProgress({ success: false, stageText: "Ошибка синхронизации include-hosts/include-ips" });
         setCidrStatus(`Ошибка: ${error.message}`, "error");
       } finally {
         setCidrBusy(false);
@@ -1746,7 +1791,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     window.addEventListener("settings:tab-changed", async (event) => {
       const tabId = event?.detail?.tabId;
-      if (tabId !== "cidr-update") return;
+      if (tabId !== "cidr-update" && tabId !== "game-filters") return;
       try {
         await ensureLoaded();
         renderCidrMeta();
@@ -1754,6 +1799,12 @@ document.addEventListener("DOMContentLoaded", function () {
       } catch (error) {
         setCidrStatus(`Ошибка: ${error.message}`, "error");
       }
+    });
+
+    // Ensure game-tab controls are initialized even when user
+    // lands directly on #game-filters before opening #cidr-update.
+    ensureLoaded().catch((error) => {
+      setCidrStatus(`Ошибка: ${error.message}`, "error");
     });
 
     scheduleCidrEstimateRefresh(120);

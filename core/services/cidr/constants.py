@@ -107,14 +107,25 @@ _ANTIFILTER_INDEX_CACHE = {
     "expires_at": 0.0,
     "index": None,
 }
-GAME_INCLUDE_HOSTS_FILE = os.getenv(
-    "CIDR_GAME_INCLUDE_HOSTS_FILE",
+LEGACY_GAME_INCLUDE_HOSTS_FILE = os.getenv(
+    "CIDR_GAME_LEGACY_INCLUDE_HOSTS_FILE",
     "/root/antizapret/config/include-hosts.txt",
 )
-GAME_INCLUDE_IPS_FILE = os.getenv(
-    "CIDR_GAME_INCLUDE_IPS_FILE",
+LEGACY_GAME_INCLUDE_IPS_FILE = os.getenv(
+    "CIDR_GAME_LEGACY_INCLUDE_IPS_FILE",
     "/root/antizapret/config/include-ips.txt",
 )
+AZ_GAME_INCLUDE_HOSTS_FILE = os.getenv(
+    "CIDR_AZ_GAME_INCLUDE_HOSTS_FILE",
+    "/root/antizapret/config/AZ-Game-include-hosts.txt",
+)
+AZ_GAME_INCLUDE_IPS_FILE = os.getenv(
+    "CIDR_AZ_GAME_INCLUDE_IPS_FILE",
+    "/root/antizapret/config/AZ-Game-include-ips.txt",
+)
+# Backward-compatible aliases for modules/tests that still patch GAME_INCLUDE_*.
+GAME_INCLUDE_HOSTS_FILE = AZ_GAME_INCLUDE_HOSTS_FILE
+GAME_INCLUDE_IPS_FILE = AZ_GAME_INCLUDE_IPS_FILE
 GAME_FILTER_BLOCK_START = "# BEGIN AdminAntizapret CIDR games include"
 GAME_FILTER_BLOCK_END = "# END AdminAntizapret CIDR games include"
 GAME_FILTER_IP_BLOCK_START = "# BEGIN AdminAntizapret CIDR games include-ips"

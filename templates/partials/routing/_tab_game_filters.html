@@ -1,42 +1,136 @@
-    <div id="game-filters" class="content-tab">
-      <h2>Игровые серверы</h2>
-      <div class="card settings-inline-card-mb">
-        <h3>Издательства и игровые платформы</h3>
+<div id="game-filters" class="content-tab">
+  <h2>Игровые серверы</h2>
+  <div class="card settings-inline-card-mb game-filters-shell">
+    <div class="game-filters-head">
+      <div>
+        <h3>Каталог игровых провайдеров</h3>
         <p class="help-text">
-          Выберите издательства, трафик которых нужно маршрутизировать через Antizapret.
-          IP-диапазоны загружаются автоматически из официальных ASN через RIPE API при каждом применении.
-          Для платформ без выделенного AS используется DNS-резолв доменов.
+          По умолчанию вкладка формирует только игровые IP/CIDR и сохраняет их в
+          <code>AZ-Game-include-ips.txt</code>. Домены можно включить отдельно (опционально),
+          тогда они будут записаны в <code>AZ-Game-include-hosts.txt</code>.
         </p>
-
-        <div class="cidr-games-search-wrap settings-inline-card-mt">
-          <input id="cidr-games-search-input" type="search" class="cidr-games-search-input"
-            placeholder="Поиск по издательству или игре..." autocomplete="off" />
-          <small id="cidr-games-search-meta" class="help-text">Показано: —</small>
-        </div>
-
-        <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid settings-inline-card-mt" role="group"
-          aria-label="Фильтры по издательствам">
-          {% for item in cidr_game_filters %}
-          <label class="cidr-scope-chip cidr-game-chip{% if item.key in saved_game_keys %} is-checked{% endif %}"
-            title="{{ item.subtitle }}">
-            <input type="checkbox" class="cidr-game-checkbox" value="{{ item.key }}" data-subtitle="{{ item.subtitle }}"
-              {% if item.key in saved_game_keys %}checked{% endif %} />
-            <span class="cidr-game-chip__title">{{ item.title }}</span>
-            {% if item.subtitle %}
-            <span class="cidr-game-chip__sub">{{ item.subtitle }}</span>
-            {% endif %}
-          </label>
-          {% endfor %}
-        </div>
-
-        <div class="cidr-actions-row settings-inline-card-mt">
-          <button id="cidr-games-select-all" type="button" class="button">Выбрать все</button>
-          <button id="cidr-games-clear-all" type="button" class="button">Снять все</button>
-          <button id="cidr-sync-games-hosts" type="button" class="button save-button">💾 Применить в
-            include-hosts/include-ips</button>
-        </div>
+      </div>
+      <div class="game-filters-stats" aria-live="polite">
+        <span class="game-filters-stat">Выбрано: <strong id="cidr-games-selected-count">{{ saved_game_keys|length }}</strong></span>
+        <span class="game-filters-stat">Показано: <strong id="cidr-games-visible-count">{{ cidr_game_filters|length }}</strong></span>
+        <span class="game-filters-stat">Всего: <strong id="cidr-games-total-count">{{ cidr_game_filters|length }}</strong></span>
       </div>
     </div>
+
+    <div class="game-filters-toolbar settings-inline-card-mt">
+      <div class="cidr-games-search-wrap">
+        <input
+          id="cidr-games-search-input"
+          type="search"
+          class="cidr-games-search-input"
+          placeholder="Поиск по игре, издателю, ключу..."
+          autocomplete="off"
+          data-game-filter-control="search"
+        />
+        <small id="cidr-games-search-meta" class="help-text">Показано: {{ cidr_game_filters|length }}/{{ cidr_game_filters|length }}</small>
+      </div>
+
+      <label class="game-filters-select-wrap">
+        <span>Провайдер</span>
+        <select id="cidr-games-provider-filter" class="cidr-games-select" data-game-filter-control="provider">
+          <option value="all">Все провайдеры</option>
+        </select>
+      </label>
+
+      <label class="game-filters-select-wrap">
+        <span>Источник</span>
+        <select id="cidr-games-source-filter" class="cidr-games-select" data-game-filter-control="source">
+          <option value="all">ASN + DNS</option>
+          <option value="asn">Только ASN</option>
+          <option value="dns">Только DNS</option>
+        </select>
+      </label>
+
+      <label class="game-filters-toggle">
+        <input id="cidr-games-only-selected" type="checkbox" data-game-filter-control="only-selected" />
+        <span>Только выбранные</span>
+      </label>
+
+      <label class="game-filters-toggle">
+        <input id="cidr-games-include-domains" type="checkbox" data-game-filter-control="include-domains" />
+        <span>Добавлять домены (опционально)</span>
+      </label>
+    </div>
+
+    <div class="cidr-actions-row settings-inline-card-mt game-filters-actions">
+      <button id="cidr-games-select-all" type="button" class="button" data-game-filter-control="bulk">Выбрать все</button>
+      <button id="cidr-games-clear-all" type="button" class="button" data-game-filter-control="bulk">Снять все</button>
+      <button id="cidr-games-select-visible" type="button" class="button" data-game-filter-control="bulk">Выбрать видимые</button>
+      <button id="cidr-games-invert-selection" type="button" class="button" data-game-filter-control="bulk">Инвертировать</button>
+      <button id="cidr-games-preview-sync" type="button" class="button" data-game-filter-control="preview">Preview</button>
+      <button id="cidr-sync-games-hosts" type="button" class="button save-button" data-game-filter-control="apply">
+        Применить в AZ-Game-include файлы
+      </button>
+    </div>
+
+    <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid settings-inline-card-mt" role="group" aria-label="Фильтры по игровым серверам">
+      {% for item in cidr_game_filters %}
+      <label
+        class="cidr-scope-chip cidr-game-chip{% if item.key in saved_game_keys %} is-checked{% endif %}"
+        title="{{ item.subtitle }}"
+        data-game-provider="{{ item.provider or '' }}"
+        data-game-source="{{ item.source_type or 'dns' }}"
+      >
+        <input
+          type="checkbox"
+          class="cidr-game-checkbox"
+          value="{{ item.key }}"
+          data-subtitle="{{ item.subtitle }}"
+          data-provider="{{ item.provider or '' }}"
+          data-source="{{ item.source_type or 'dns' }}"
+          {% if item.key in saved_game_keys %}checked{% endif %}
+        />
+        <span class="cidr-game-chip__title">{{ item.title }}</span>
+        {% if item.subtitle %}
+        <span class="cidr-game-chip__sub">{{ item.subtitle }}</span>
+        {% endif %}
+        <span class="cidr-game-chip__stats">
+          <small>CIDR: <strong>0</strong></small>
+          <small>Пересечения: <strong>0</strong></small>
+        </span>
+        <span class="cidr-game-chip__meta">
+          <small>{{ item.domain_count }} доменов</small>
+          {% if item.asn_count and item.asn_count > 0 %}
+          <small>{{ item.asn_count }} ASN</small>
+          {% endif %}
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+
+    <div id="cidr-games-preview-panel" class="cidr-games-preview-panel settings-inline-card-mt" hidden>
+      <div class="cidr-games-preview-panel__head">
+        <h4>Preview перед применением</h4>
+        <small id="cidr-games-preview-updated-at" class="help-text"></small>
+      </div>
+      <div class="cidr-games-preview-panel__stats">
+        <div><span>Игр</span><strong id="cidr-games-preview-selected">0</strong></div>
+        <div><span>Доменов</span><strong id="cidr-games-preview-domains">0</strong></div>
+        <div><span>CIDR</span><strong id="cidr-games-preview-cidrs">0</strong></div>
+        <div><span>Unresolved</span><strong id="cidr-games-preview-unresolved">0</strong></div>
+      </div>
+      <div class="cidr-games-preview-panel__stats">
+        <div><span>Пересечений</span><strong id="cidr-games-preview-overlap-count">0</strong></div>
+        <div><span>Затронуто игр</span><strong id="cidr-games-preview-overlap-games">0</strong></div>
+        <div><span>Домены в apply</span><strong id="cidr-games-preview-domains-enabled">нет</strong></div>
+      </div>
+      <div id="cidr-games-preview-warnings" class="help-text"></div>
+      <div id="cidr-games-preview-overlap-wrap" class="cidr-games-preview-details" hidden>
+        <h5>Где пересечения</h5>
+        <ul id="cidr-games-preview-overlap-list" class="cidr-games-preview-list"></ul>
+      </div>
+      <div id="cidr-games-preview-domains-wrap" class="cidr-games-preview-details" hidden>
+        <h5>Домены к добавлению</h5>
+        <ul id="cidr-games-preview-domains-list" class="cidr-games-preview-list"></ul>
+      </div>
+    </div>
+  </div>
+</div>
 
     <!-- ═══════════════ 6. Обслуживание ═══════════════ -->
 

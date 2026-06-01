@@ -16,10 +16,13 @@ from core.services.cidr_list_updater import (
     estimate_cidr_matches_from_db,
     get_available_game_filters,
     get_available_regions,
+    get_saved_game_keys,
+    preview_game_hosts_filter,
     rollback_to_baseline,
     sync_game_hosts_filter,
     update_cidr_files,
     update_cidr_files_from_db,
+    validate_game_filter_keys,
 )
 from core.services.openvpn_route_limits import (
     OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS,
@@ -260,6 +263,7 @@ def register_settings_api_routes(
                     "success": True,
                     "regions": get_available_regions(),
                     "game_filters": get_available_game_filters(),
+                    "saved_game_keys": get_saved_game_keys(),
                     "settings": {
                         "openvpn_route_total_cidr_limit": int(current_total_limit),
                         "openvpn_route_total_cidr_limit_max": OPENVPN_ROUTE_TOTAL_CIDR_LIMIT_MAX_IOS,
@@ -283,12 +287,17 @@ def register_settings_api_routes(
 
         include_non_geo_fallback = bool(payload.get("include_non_geo_fallback", False))
         exclude_ru_cidrs = bool(payload.get("exclude_ru_cidrs", False))
+        silent = bool(payload.get("silent", False))
         include_game_hosts = bool(payload.get("include_game_hosts", False))
+        include_game_domains = bool(payload.get("include_game_domains", False))
         include_game_keys_raw = payload.get("include_game_keys")
         if isinstance(include_game_keys_raw, list):
             include_game_keys = [str(item).strip().lower() for item in include_game_keys_raw if str(item).strip()]
         else:
             include_game_keys = []
+        game_key_validation = validate_game_filter_keys(include_game_keys)
+        include_game_keys = game_key_validation.get("normalized_keys") or []
+        invalid_game_keys = game_key_validation.get("invalid_keys") or []
         strict_geo_filter = bool(payload.get("strict_geo_filter", False))
         dpi_priority_files_raw = payload.get("dpi_priority_files")
         if isinstance(dpi_priority_files_raw, list):
@@ -309,6 +318,10 @@ def register_settings_api_routes(
             dpi_log_text = str(payload.get("dpi_log_text") or "")
             result = analyze_dpi_log(dpi_log_text)
             return jsonify(result), (200 if result.get("success") else 400)
+
+        if action in {"update", "estimate"} and invalid_game_keys:
+            message = f"Найдены невалидные ключи игровых фильтров: {', '.join(invalid_game_keys[:10])}"
+            return jsonify({"success": False, "message": message, "invalid_game_keys": invalid_game_keys}), 400
 
         if action == "set_total_limit":
             raw_limit = str(payload.get("openvpn_route_total_cidr_limit") or "").strip()
@@ -339,25 +352,81 @@ def register_settings_api_routes(
                 }
             )
 
-        if action == "sync_games_hosts":
-            result = sync_game_hosts_filter(
+        if action == "preview_games_sync":
+            if invalid_game_keys:
+                message = f"Найдены невалидные ключи игровых фильтров: {', '.join(invalid_game_keys[:10])}"
+                log_user_action_event(
+                    "settings_cidr_games_preview",
+                    target_type="cidr",
+                    target_name="include-hosts",
+                    details=message,
+                    status="error",
+                )
+                return jsonify({"success": False, "message": message, "invalid_game_keys": invalid_game_keys}), 400
+            result = preview_game_hosts_filter(
                 include_game_hosts=include_game_hosts,
                 include_game_keys=include_game_keys,
+                include_game_domains=include_game_domains,
             )
-            if result.get("success"):
-                game_hosts_filter = result.get("game_hosts_filter") or {}
-                game_ips_filter = result.get("game_ips_filter") or {}
+            preview_info = result.get("preview") or {}
+            overlap_summary = preview_info.get("overlap_summary") or {}
+            if not silent:
+                log_user_action_event(
+                    "settings_cidr_games_preview",
+                    target_type="cidr",
+                    target_name="AZ-Game-include",
+                    details=(
+                        f"selected_games={int(preview_info.get('selected_game_count') or 0)} "
+                        f"domains={int(preview_info.get('domain_count') or 0)} "
+                        f"cidrs={int(preview_info.get('cidr_count') or 0)} "
+                        f"unresolved={int(preview_info.get('unresolved_domain_count') or 0)} "
+                        f"overlap={int(overlap_summary.get('overlap_count') or 0)} "
+                        f"domains_enabled={1 if include_game_domains else 0}"
+                    ),
+                    status="success" if result.get("success") else "error",
+                )
+            return jsonify(result), (200 if result.get("success") else 400)
+
+        if action == "sync_games_hosts":
+            if invalid_game_keys:
+                message = f"Найдены невалидные ключи игровых фильтров: {', '.join(invalid_game_keys[:10])}"
                 log_user_action_event(
                     "settings_cidr_games_sync",
                     target_type="cidr",
                     target_name="include-hosts",
+                    details=message,
+                    status="error",
+                )
+                return jsonify({"success": False, "message": message, "invalid_game_keys": invalid_game_keys}), 400
+            result = sync_game_hosts_filter(
+                include_game_hosts=include_game_hosts,
+                include_game_keys=include_game_keys,
+                include_game_domains=include_game_domains,
+            )
+            if result.get("success"):
+                game_hosts_filter = result.get("game_hosts_filter") or {}
+                game_ips_filter = result.get("game_ips_filter") or {}
+                overlap_summary = game_ips_filter.get("overlap_summary") or {}
+                log_user_action_event(
+                    "settings_cidr_games_sync",
+                    target_type="cidr",
+                    target_name="AZ-Game-include",
                     details=(
-                        f"enabled={1 if game_hosts_filter.get('enabled') else 0} "
+                        f"domains_enabled={1 if include_game_domains else 0} "
                         f"selected_games={int(game_hosts_filter.get('selected_game_count') or 0)} "
                         f"domains={int(game_hosts_filter.get('domain_count') or 0)} "
-                        f"cidrs={int(game_ips_filter.get('cidr_count') or 0)}"
+                        f"cidrs={int(game_ips_filter.get('cidr_count') or 0)} "
+                        f"overlap={int(overlap_summary.get('overlap_count') or 0)}"
                     ),
                     status="success",
+                )
+            else:
+                log_user_action_event(
+                    "settings_cidr_games_sync",
+                    target_type="cidr",
+                    target_name="AZ-Game-include",
+                    details=str(result.get("message") or result.get("error") or "unknown_error"),
+                    status="error",
                 )
             return jsonify(result), (200 if result.get("success") else 400)
 
@@ -611,6 +680,12 @@ def register_settings_api_routes(
         include_game_hosts = bool(payload.get("include_game_hosts", False))
         include_game_keys_raw = payload.get("include_game_keys")
         include_game_keys = [str(k).strip().lower() for k in include_game_keys_raw if str(k).strip()] if isinstance(include_game_keys_raw, list) else []
+        game_key_validation = validate_game_filter_keys(include_game_keys)
+        include_game_keys = game_key_validation.get("normalized_keys") or []
+        invalid_game_keys = game_key_validation.get("invalid_keys") or []
+        if invalid_game_keys:
+            message = f"Найдены невалидные ключи игровых фильтров: {', '.join(invalid_game_keys[:10])}"
+            return jsonify({"success": False, "message": message, "invalid_game_keys": invalid_game_keys}), 400
         strict_geo_filter = bool(payload.get("strict_geo_filter", False))
         filter_by_antifilter = bool(payload.get("filter_by_antifilter", False))
         dpi_priority_files_raw = payload.get("dpi_priority_files")
