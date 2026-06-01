@@ -1745,9 +1745,9 @@
 }
 
 #cidr-update .cidr-gen-options__row {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
 }
 
 #cidr-update .cidr-gen-options .toggle-wrapper {
