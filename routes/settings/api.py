@@ -488,12 +488,10 @@ def register_settings_api_routes(
         provider_meta = {}
         for key, info in status.get("providers", {}).items():
             meta = _IP_FILES_META.get(key, {})
-            dynamic_asns = info.get("active_asns") or []
             provider_meta[key] = {
                 **info,
                 "name": meta.get("name", key),
-                "as_numbers": dynamic_asns or meta.get("as_numbers", []),
-                "configured_as_numbers": meta.get("as_numbers", []),
+                "as_numbers": info.get("active_asns") or [],
                 "category": meta.get("category", ""),
                 "what_hosts": meta.get("what_hosts", ""),
                 "tags": meta.get("tags", []),
@@ -546,6 +544,32 @@ def register_settings_api_routes(
             "message": "Обновление CIDR БД запущено в фоне",
             "status_url": url_for("api_cidr_task_status", task_id=task_id),
         }), 202
+
+    @app.route("/api/cidr-db/clear", methods=["POST"])
+    @auth_manager.admin_required
+    def api_cidr_db_clear():
+        payload = request.get_json(silent=True) or {}
+        selected_files = payload.get("selected_files")
+        if isinstance(selected_files, list):
+            selected_files = [str(f) for f in selected_files] or None
+
+        triggered_by = f"manual:{session.get('username', 'unknown')}"
+        result = cidr_db_updater_service.clear_provider_data(
+            selected_files=selected_files,
+            triggered_by=triggered_by,
+        )
+
+        _clear_label = "все файлы" if not selected_files else ", ".join((selected_files or [])[:5]) + ("…" if len(selected_files or []) > 5 else "")
+        log_user_action_event(
+            "settings_cidr_db_clear",
+            target_type="cidr_db",
+            target_name="all" if not selected_files else ",".join((selected_files or [])[:10]),
+            details=f"файлы: {_clear_label}; удалено CIDR: {result.get('deleted', {}).get('provider_cidr', 0)}",
+            status="success" if result.get("success") else "error",
+        )
+
+        status_code = 200 if result.get("success") else 400
+        return jsonify(result), status_code
 
     @app.route("/api/cidr-db/generate", methods=["POST"])
     @auth_manager.admin_required
@@ -748,12 +772,15 @@ def register_settings_api_routes(
     @app.route("/api/cidr-providers/meta", methods=["GET"])
     @auth_manager.admin_required
     def api_cidr_providers_meta():
+        db_status = cidr_db_updater_service.get_db_status()
+        db_providers = db_status.get("providers") or {}
         result = {}
         for key, meta in _IP_FILES_META.items():
+            db_info = db_providers.get(key) or {}
             result[key] = {
                 "name": meta.get("name", key),
                 "description": meta.get("description", ""),
-                "as_numbers": meta.get("as_numbers", []),
+                "as_numbers": db_info.get("active_asns") or [],
                 "category": meta.get("category", ""),
                 "what_hosts": meta.get("what_hosts", ""),
                 "tags": meta.get("tags", []),

@@ -351,17 +351,26 @@ document.addEventListener("DOMContentLoaded", function () {
   const setCidrStatus = (message, level = "info") => {
     const statusElement = getCidrStatusElement();
     if (!statusElement) return;
+    const normalized = typeof message === "string" ? message.trim() : String(message || "").trim();
 
     if (level === "success" || level === "error") {
-      window.showNotification?.(message, level);
+      if (normalized) window.showNotification?.(normalized, level);
       statusElement.hidden = true;
       statusElement.textContent = "";
       statusElement.style.display = "none";
       return;
     }
 
-    statusElement.textContent = message;
-    statusElement.className = `notification notification-${level} notification-inline-progress`;
+    if (!normalized) {
+      statusElement.hidden = true;
+      statusElement.textContent = "";
+      statusElement.style.display = "none";
+      return;
+    }
+
+    statusElement.textContent = normalized;
+    statusElement.classList.remove("notification-success", "notification-info", "notification-warning", "notification-error");
+    statusElement.classList.add("notification", "notification-inline-progress", `notification-${level}`);
     statusElement.hidden = false;
     statusElement.style.display = "block";
   };

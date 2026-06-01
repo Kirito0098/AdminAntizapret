@@ -93,18 +93,16 @@
       <div id="cidr-db-providers-table-wrap" class="cidr-db-table-wrap">
         <table class="cidr-db-table" id="cidr-db-providers-table">
           <colgroup>
-            <col style="width:200px">
-            <col style="width:150px">
+            <col style="width:220px">
             <col style="width:90px">
             <col style="width:80px">
             <col style="width:110px">
-            <col style="width:80px">
+            <col style="width:130px">
             <col>
           </colgroup>
           <thead>
             <tr>
               <th scope="col">Провайдер</th>
-              <th scope="col">AS</th>
               <th scope="col">Категория</th>
               <th scope="col">CIDR в БД</th>
               <th scope="col">Обновлено</th>
@@ -114,7 +112,7 @@
           </thead>
           <tbody id="cidr-db-providers-tbody">
             <tr>
-              <td colspan="7" class="help-text cidr-db-table__placeholder">Загрузка…</td>
+              <td colspan="6" class="help-text cidr-db-table__placeholder">Загрузка…</td>
             </tr>
           </tbody>
         </table>
@@ -123,6 +121,8 @@
       <div class="cidr-actions-row settings-inline-card-mt">
         <button id="cidr-db-refresh-all" type="button" class="button save-button">Обновить всю БД сейчас</button>
         <button id="cidr-db-refresh-selected" type="button" class="button">Обновить выбранных в БД</button>
+        <button id="cidr-db-clear-all" type="button" class="button delete-button">Очистить всю БД CIDR</button>
+        <button id="cidr-db-clear-selected" type="button" class="button delete-button">Очистить выбранных в БД</button>
         <button id="cidr-db-toggle-history" type="button" class="button">История обновлений</button>
       </div>
 
@@ -131,7 +131,7 @@
         <ul id="cidr-db-history-list" class="cidr-result-list" style="margin-top:.4rem"></ul>
       </div>
 
-      <div id="cidr-db-status-msg" class="notification settings-inline-hidden" style="margin-top:.5rem"></div>
+      <div id="cidr-db-status-msg" class="notification notification-inline-progress settings-inline-hidden" style="margin-top:.5rem"></div>
       <div id="cidr-db-alerts" class="notification notification-warning settings-inline-hidden"
         style="margin-top:.5rem"></div>
     </div><!-- /cidr-db-body -->
@@ -168,7 +168,7 @@
         <button id="antifilter-refresh-btn" type="button" class="button save-button">Обновить антифильтр
           сейчас</button>
       </div>
-      <div id="antifilter-status-msg" class="notification settings-inline-hidden" style="margin-top:.5rem"></div>
+      <div id="antifilter-status-msg" class="notification notification-inline-progress settings-inline-hidden" style="margin-top:.5rem"></div>
     </div><!-- /antifilter-body -->
   </div>
 
@@ -518,7 +518,7 @@
       <ol id="cidr-step-items" class="cidr-step-items"></ol>
     </div>
 
-    <div id="cidr-update-status" class="notification settings-inline-hidden"></div>
+    <div id="cidr-update-status" class="notification notification-inline-progress settings-inline-hidden"></div>
 
     <section id="cidr-result-panel" class="cidr-result-panel settings-inline-card-mt" hidden>
       <div class="cidr-result-panel__head">

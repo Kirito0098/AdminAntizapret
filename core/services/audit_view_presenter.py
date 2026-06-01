@@ -484,6 +484,7 @@ def user_action_event_label(event_type: str | None) -> str:
         "settings_cidr_update_queued": "Обновление CIDR-файлов",
         "settings_cidr_rollback_queued": "Откат CIDR-файлов",
         "settings_cidr_db_refresh_queued": "Обновление базы CIDR",
+        "settings_cidr_db_clear": "Очистка базы CIDR",
         "settings_cidr_generate_from_db": "Генерация CIDR из базы",
         "settings_cidr_games_sync": "Синхронизация игровых хостов",
         "settings_cidr_total_limit_update": "Изменение лимита CIDR",
@@ -704,7 +705,8 @@ def user_action_event_display(
 
     if event_key in {
         "settings_cidr_update_queued", "settings_cidr_rollback_queued",
-        "settings_cidr_db_refresh_queued", "settings_cidr_generate_from_db",
+        "settings_cidr_db_refresh_queued", "settings_cidr_db_clear",
+        "settings_cidr_generate_from_db",
     }:
         scope = target_value if target_value and target_value != "all" else "все файлы"
         return f"{label} ({scope})"

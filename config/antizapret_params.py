@@ -169,12 +169,12 @@ ANTIZAPRET_PARAMS = [
     {"key": "wireguard_host",         "env": "WIREGUARD_HOST",         "type": "string", "default": "", "html_id": "wireguard-host-input"},
 ]
 
-# Список разрешенных IP-файлов с отображаемыми именами, описаниями и метаданными AS
+# Список разрешенных IP-файлов с отображаемыми именами и описаниями.
+# ASN хранятся в БД (provider_asn) после обновления CIDR из PROVIDER_SOURCES.
 IP_FILES = {
     "akamai-ips.txt": {
         "name": "Akamai",
         "description": "Маршрутизация сетей Akamai через Antizapret (CDN и edge-сервисы).",
-        "as_numbers": ["AS20940", "AS16625"],
         "category": "cdn",
         "what_hosts": "CDN: Apple App Store, Adobe, крупные новостные сайты, стриминг-платформы. Один из крупнейших мировых CDN-провайдеров.",
         "tags": ["cdn", "streaming", "enterprise"],
@@ -182,7 +182,6 @@ IP_FILES = {
     "amazon-ips.txt": {
         "name": "Amazon",
         "description": "Маршрутизация сетей Amazon/AWS через Antizapret.",
-        "as_numbers": ["AS16509", "AS14618", "AS8987", "AS9059", "AS45773"],
         "category": "cloud",
         "what_hosts": "AWS: Twitch, Slack, GitHub Actions, Netflix (частично), Amazon.com, Discord (голосовые серверы), сотни тысяч SaaS-сервисов и игровых серверов.",
         "tags": ["cloud", "gaming", "social", "streaming", "enterprise"],
@@ -190,7 +189,6 @@ IP_FILES = {
     "digitalocean-ips.txt": {
         "name": "DigitalOcean",
         "description": "Маршрутизация сетей DigitalOcean через Antizapret.",
-        "as_numbers": ["AS14061", "AS46652"],
         "category": "hosting",
         "what_hosts": "Хостинг независимых разработчиков и стартапов, игровые серверы сообщества, self-hosted сервисы.",
         "tags": ["hosting", "gaming"],
@@ -198,7 +196,6 @@ IP_FILES = {
     "google-ips.txt": {
         "name": "Google",
         "description": "Маршрутизация сетей Google/Google Cloud через Antizapret.",
-        "as_numbers": ["AS15169"],
         "category": "cloud",
         "what_hosts": "YouTube, Google Search, Gmail, Google Play, Android обновления, Google Maps, Google Drive, Firebase, Google Cloud Platform.",
         "tags": ["cloud", "streaming", "enterprise", "mobile"],
@@ -206,7 +203,6 @@ IP_FILES = {
     "hetzner-ips.txt": {
         "name": "Hetzner",
         "description": "Маршрутизация сетей Hetzner через Antizapret.",
-        "as_numbers": ["AS24940", "AS213230", "AS212317", "AS215859", "AS210248"],
         "category": "hosting",
         "what_hosts": "Немецкий хостинг-провайдер: игровые серверы, self-hosted приложения, европейские разработчики.",
         "tags": ["hosting", "gaming", "europe"],
@@ -214,7 +210,6 @@ IP_FILES = {
     "ovh-ips.txt": {
         "name": "OVH",
         "description": "Маршрутизация сетей OVH через Antizapret.",
-        "as_numbers": ["AS16276", "AS35540"],
         "category": "hosting",
         "what_hosts": "Французский хостинг: европейские игровые серверы (MMO, Minecraft), хостинг игровых проектов, VPS-серверы.",
         "tags": ["hosting", "gaming", "europe"],
@@ -222,7 +217,6 @@ IP_FILES = {
     "cloudflare-ips.txt": {
         "name": "Cloudflare",
         "description": "Маршрутизация сетей Cloudflare через Antizapret.",
-        "as_numbers": ["AS13335", "AS209242"],
         "category": "cdn",
         "what_hosts": "Cloudflare CDN/Proxy: сайты и API за Cloudflare, защитные страницы, edge-сервисы.",
         "tags": ["cdn", "security", "enterprise"],
@@ -230,7 +224,6 @@ IP_FILES = {
     "fastly-ips.txt": {
         "name": "Fastly",
         "description": "Маршрутизация сетей Fastly через Antizapret.",
-        "as_numbers": ["AS54113"],
         "category": "cdn",
         "what_hosts": "CDN: Reddit, GitHub, Twitter/X, Spotify, Vimeo, The Guardian, BBC. Ускорение контента для крупных медиа-платформ.",
         "tags": ["cdn", "social", "streaming", "enterprise"],
@@ -238,7 +231,6 @@ IP_FILES = {
     "azure-ips.txt": {
         "name": "Microsoft Azure",
         "description": "Маршрутизация сетей Microsoft/Azure через Antizapret.",
-        "as_numbers": ["AS8075"],
         "category": "cloud",
         "what_hosts": "Microsoft Azure, Xbox Live, LinkedIn, GitHub (частично), Microsoft 365, Teams, OneDrive, Windows Update.",
         "tags": ["cloud", "gaming", "social", "enterprise"],
@@ -246,7 +238,6 @@ IP_FILES = {
     "oracle-ips.txt": {
         "name": "Oracle",
         "description": "Маршрутизация сетей Oracle Cloud через Antizapret.",
-        "as_numbers": ["AS31898", "AS54253", "AS1219", "AS6142", "AS14544", "AS20054"],
         "category": "cloud",
         "what_hosts": "Oracle Cloud Infrastructure: бесплатный tier популярен для self-hosted проектов, TikTok (частично использует OCI).",
         "tags": ["cloud", "hosting"],
@@ -254,7 +245,6 @@ IP_FILES = {
     "cdn77-ips.txt": {
         "name": "CDN77",
         "description": "Маршрутизация сетей CDN77 через Antizapret.",
-        "as_numbers": ["AS60068", "AS212238"],
         "category": "cdn",
         "what_hosts": "CDN для стриминга и медиа-контента. Используется многими стриминг-сервисами.",
         "tags": ["cdn", "streaming"],
@@ -262,7 +252,6 @@ IP_FILES = {
     "m247-ips.txt": {
         "name": "M247",
         "description": "Маршрутизация сетей M247 через Antizapret.",
-        "as_numbers": ["AS9009"],
         "category": "hosting",
         "what_hosts": "M247 Europe SRL: транзит и дата-центры, часто используется CDN/hosting-сервисами.",
         "tags": ["hosting", "transit", "europe"],

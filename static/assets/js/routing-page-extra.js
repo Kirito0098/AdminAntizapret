@@ -87,16 +87,11 @@
     }
 
     if (!filtered.length) {
-      dbTbody.innerHTML = '<tr><td colspan="7" class="help-text cidr-db-table__placeholder">Нет провайдеров по текущим фильтрам</td></tr>';
+      dbTbody.innerHTML = '<tr><td colspan="6" class="help-text cidr-db-table__placeholder">Нет провайдеров по текущим фильтрам</td></tr>';
       return;
     }
 
     const rowsHtml = filtered.map((p) => {
-      const asList = Array.isArray(p.as_numbers) ? p.as_numbers : [];
-      const asVisible = asList.slice(0, 10);
-      const asHtml = asVisible.map((a) => `<span class="cidr-db-as-badge">${escapeHtml(a)}</span>`).join("")
-        + (asList.length > 10 ? `<span class="cidr-db-as-badge">+${asList.length - 10}</span>` : "");
-
       const cat = p.category || "";
       const catHtml = cat ? `<span class="cidr-db-cat cidr-db-cat--${escapeHtml(cat)}">${escapeHtml(catLabel[cat] || cat)}</span>` : "—";
       const st = String(p.refresh_status || "never");
@@ -106,9 +101,6 @@
 
       const anomaly = p.anomaly_level && p.anomaly_level !== "none"
         ? `<div class="cidr-db-anomaly" title="${escapeHtml(p.anomaly_reason || "")}">⚠ ${escapeHtml(p.anomaly_level)}</div>`
-        : "";
-      const asnMeta = (p.active_asn_count || p.asn_count)
-        ? `<div class="cidr-db-as-meta">ASN: ${Number(p.active_asn_count || 0)}/${Number(p.asn_count || 0)}</div>`
         : "";
 
       const providerName = escapeHtml(p.name || p.key || "—");
@@ -126,7 +118,6 @@
                   <span class="cidr-db-provider-source" title="${sourceUsed}">${sourceUsed}</span>
                 </div>
               </td>
-              <td data-label="AS"><div class="cidr-db-as">${asHtml || "—"}</div>${asnMeta}</td>
               <td data-label="Категория">${catHtml}</td>
               <td data-label="CIDR в БД" class="cidr-db-num">${cidrCount}</td>
               <td data-label="Обновлено">${fmtDt(p.last_refreshed_at)}</td>
@@ -140,15 +131,22 @@
 
   function setDbMsg(text, level) {
     if (!dbMsg) return;
+    const normalized = typeof text === "string" ? text.trim() : String(text || "").trim();
     if (level === "success" || level === "error") {
-      if (text) window.showNotification?.(text, level);
+      if (normalized) window.showNotification?.(normalized, level);
       dbMsg.hidden = true;
       dbMsg.textContent = "";
       return;
     }
-    dbMsg.textContent = text;
-    dbMsg.className = `notification notification-${level || "info"} notification-inline-progress`;
-    dbMsg.hidden = !text;
+    if (!normalized) {
+      dbMsg.hidden = true;
+      dbMsg.textContent = "";
+      return;
+    }
+    dbMsg.textContent = normalized;
+    dbMsg.classList.remove("notification-success", "notification-info", "notification-warning", "notification-error");
+    dbMsg.classList.add("notification", "notification-inline-progress", `notification-${level || "info"}`);
+    dbMsg.hidden = false;
   }
 
   function fmtDt(iso) {
@@ -170,15 +168,16 @@
 
     if (dbAlerts) {
       const alerts = Array.isArray(data.alerts) ? data.alerts : [];
-      if (!alerts.length) {
+      const bannerAlerts = alerts.filter((alert) => alert.level !== "none" && alert.level !== "info");
+      if (!bannerAlerts.length) {
         dbAlerts.hidden = true;
       } else {
-        const lines = alerts.slice(0, 8).map((alert) => {
+        const lines = bannerAlerts.slice(0, 8).map((alert) => {
           const provider = alert.provider_key ? `[${alert.provider_key}] ` : "";
           return `• ${provider}${alert.message || "Обнаружена деградация"}`;
         });
         dbAlerts.textContent = lines.join("\n");
-        dbAlerts.className = "notification " + (alerts.some(a => a.level === "critical") ? "notification-error" : "notification-warning");
+        dbAlerts.className = "notification " + (bannerAlerts.some(a => a.level === "critical") ? "notification-error" : "notification-warning");
         dbAlerts.hidden = false;
       }
     }
@@ -283,6 +282,46 @@
     const checked = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
     triggerDbRefresh(checked.length ? checked : null);
   });
+
+  async function triggerDbClear(selectedFiles) {
+    const section = document.getElementById("cidr-update");
+    if (section && section.classList.contains("cidr-busy")) return;
+
+    const isAll = !selectedFiles || !selectedFiles.length;
+    const confirmText = isAll
+      ? "Удалить все CIDR, ASN и метаданные провайдеров из БД? Генерация маршрутов потребует повторного обновления из интернета."
+      : `Удалить CIDR, ASN и метаданные для ${selectedFiles.length} выбранных провайдеров? Потребуется повторное обновление из интернета.`;
+    if (!confirm(confirmText)) return;
+
+    setDbMsg("Очищаю БД CIDR…", "info");
+    try {
+      const r = await fetch("/api/cidr-db/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+        body: JSON.stringify({ selected_files: isAll ? null : selectedFiles }),
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.message || "Ошибка очистки CIDR БД");
+
+      window._cidrDbProviderCounts = {};
+      if (typeof window._cidrRenderMeta === "function") window._cidrRenderMeta();
+      await loadDbStatus();
+      setDbMsg(d.message || "БД CIDR очищена", "success");
+    } catch (e) {
+      setDbMsg("Ошибка: " + (e.message || e), "error");
+    }
+  }
+
+  document.getElementById("cidr-db-clear-all")?.addEventListener("click", () => triggerDbClear(null));
+  document.getElementById("cidr-db-clear-selected")?.addEventListener("click", () => {
+    const checked = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+    if (!checked.length) {
+      window.showNotification?.("Выберите провайдеров CIDR для очистки", "error");
+      return;
+    }
+    triggerDbClear(checked);
+  });
+
   document.getElementById("cidr-db-toggle-history")?.addEventListener("click", () => {
     const h = document.getElementById("cidr-db-history");
     if (h) h.hidden = !h.hidden;
@@ -389,15 +428,22 @@
     }
     function setMsg(text, level) {
       if (!msg) return;
+      const normalized = typeof text === "string" ? text.trim() : String(text || "").trim();
       if (level === "success" || level === "error") {
-        if (text) window.showNotification?.(text, level);
+        if (normalized) window.showNotification?.(normalized, level);
         msg.hidden = true;
         msg.textContent = "";
         return;
       }
-      msg.textContent = text;
-      msg.className = `notification notification-${level || "info"} notification-inline-progress`;
-      msg.hidden = !text;
+      if (!normalized) {
+        msg.hidden = true;
+        msg.textContent = "";
+        return;
+      }
+      msg.textContent = normalized;
+      msg.classList.remove("notification-success", "notification-info", "notification-warning", "notification-error");
+      msg.classList.add("notification", "notification-inline-progress", `notification-${level || "info"}`);
+      msg.hidden = false;
     }
 
     async function loadStatus() {
