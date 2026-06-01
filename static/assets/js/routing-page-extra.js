@@ -16,6 +16,7 @@
   const dbMsg = document.getElementById("cidr-db-status-msg");
   const dbAlerts = document.getElementById("cidr-db-alerts");
   const dbDryRunPreview = document.getElementById("cidr-db-dry-run-preview");
+  const dbActionHint = document.getElementById("cidr-db-action-hint");
   const dbTableState = { providers: [] };
 
   const catLabel = { cdn: "CDN", cloud: "Облако", hosting: "Хостинг" };
@@ -141,17 +142,20 @@
       if (normalized) window.showNotification?.(normalized, level);
       dbMsg.hidden = true;
       dbMsg.textContent = "";
+      dbMsg.style.display = "none";
       return;
     }
     if (!normalized) {
       dbMsg.hidden = true;
       dbMsg.textContent = "";
+      dbMsg.style.display = "none";
       return;
     }
     dbMsg.textContent = normalized;
     dbMsg.classList.remove("notification-success", "notification-info", "notification-warning", "notification-error");
     dbMsg.classList.add("notification", "notification-inline-progress", `notification-${level || "info"}`);
     dbMsg.hidden = false;
+    dbMsg.style.display = "block";
   }
 
   function fmtDt(iso) {
@@ -168,6 +172,7 @@
     if (!entries.length) {
       dbDryRunPreview.hidden = true;
       dbDryRunPreview.textContent = "";
+      dbDryRunPreview.style.display = "none";
       return;
     }
     const lines = entries.slice(0, 12).map(([key, info]) => {
@@ -179,6 +184,7 @@
     });
     dbDryRunPreview.textContent = ["Dry-run: изменения без записи в БД", ...lines].join("\n");
     dbDryRunPreview.hidden = false;
+    dbDryRunPreview.style.display = "block";
   }
 
   function renderDbStatus(data) {
@@ -195,6 +201,7 @@
       const bannerAlerts = alerts.filter((alert) => alert.level !== "none" && alert.level !== "info");
       if (!bannerAlerts.length) {
         dbAlerts.hidden = true;
+        dbAlerts.style.display = "none";
       } else {
         const lines = bannerAlerts.slice(0, 8).map((alert) => {
           const provider = alert.provider_key ? `[${alert.provider_key}] ` : "";
@@ -203,11 +210,13 @@
         dbAlerts.textContent = lines.join("\n");
         dbAlerts.className = "notification " + (bannerAlerts.some(a => a.level === "critical") ? "notification-error" : "notification-warning");
         dbAlerts.hidden = false;
+        dbAlerts.style.display = "block";
       }
     }
     if (dbDryRunPreview) {
       dbDryRunPreview.hidden = true;
       dbDryRunPreview.textContent = "";
+      dbDryRunPreview.style.display = "none";
     }
 
     // Expose per-provider CIDR counts for the 900-limit counter
@@ -540,17 +549,20 @@
         if (normalized) window.showNotification?.(normalized, level);
         msg.hidden = true;
         msg.textContent = "";
+        msg.style.display = "none";
         return;
       }
       if (!normalized) {
         msg.hidden = true;
         msg.textContent = "";
+        msg.style.display = "none";
         return;
       }
       msg.textContent = normalized;
       msg.classList.remove("notification-success", "notification-info", "notification-warning", "notification-error");
       msg.classList.add("notification", "notification-inline-progress", `notification-${level || "info"}`);
       msg.hidden = false;
+      msg.style.display = "block";
     }
 
     async function loadStatus() {
@@ -856,6 +868,91 @@
   // ── Init: load on tab activation ──────────────────────────────────
   let _dbLoaded = false;
   let _presetsLoaded = false;
+
+  function initDbActionHints() {
+    const actionsRow = document.querySelector("#cidr-db-card .cidr-actions-row");
+    if (!actionsRow || !dbActionHint) return;
+
+    document.body.appendChild(dbActionHint);
+
+    let activeHintBtn = null;
+    const viewportPad = 12;
+    const gap = 10;
+
+    function hideDbActionHint() {
+      activeHintBtn = null;
+      dbActionHint.hidden = true;
+      dbActionHint.textContent = "";
+      dbActionHint.style.top = "";
+      dbActionHint.style.left = "";
+      dbActionHint.style.removeProperty("--hint-arrow-x");
+      dbActionHint.removeAttribute("data-placement");
+    }
+
+    function positionDbActionHint(btn) {
+      const btnRect = btn.getBoundingClientRect();
+      const hintRect = dbActionHint.getBoundingClientRect();
+      const spaceAbove = btnRect.top - viewportPad;
+      const spaceBelow = window.innerHeight - btnRect.bottom - viewportPad;
+      const placement = spaceAbove >= hintRect.height + gap || spaceAbove >= spaceBelow ? "above" : "below";
+
+      let top = placement === "above"
+        ? btnRect.top - hintRect.height - gap
+        : btnRect.bottom + gap;
+
+      top = Math.max(viewportPad, Math.min(top, window.innerHeight - hintRect.height - viewportPad));
+
+      let left = btnRect.left + (btnRect.width / 2) - (hintRect.width / 2);
+      left = Math.max(viewportPad, Math.min(left, window.innerWidth - hintRect.width - viewportPad));
+
+      const arrowX = btnRect.left + (btnRect.width / 2) - left;
+
+      dbActionHint.style.top = `${Math.round(top)}px`;
+      dbActionHint.style.left = `${Math.round(left)}px`;
+      dbActionHint.style.setProperty("--hint-arrow-x", `${Math.round(arrowX)}px`);
+      dbActionHint.dataset.placement = placement;
+    }
+
+    function showDbActionHint(btn, text) {
+      const normalized = String(text || "").trim();
+      if (!btn || !normalized) {
+        hideDbActionHint();
+        return;
+      }
+
+      activeHintBtn = btn;
+      dbActionHint.textContent = normalized;
+      dbActionHint.hidden = false;
+      dbActionHint.style.visibility = "hidden";
+      positionDbActionHint(btn);
+      dbActionHint.style.visibility = "visible";
+    }
+
+    function refreshDbActionHintPosition() {
+      if (activeHintBtn && !dbActionHint.hidden) positionDbActionHint(activeHintBtn);
+    }
+
+    actionsRow.addEventListener("mouseover", (event) => {
+      const btn = event.target.closest(".cidr-db-action-btn");
+      if (btn) showDbActionHint(btn, btn.dataset.hint || "");
+    });
+    actionsRow.addEventListener("mouseleave", (event) => {
+      if (!event.relatedTarget || !actionsRow.contains(event.relatedTarget)) hideDbActionHint();
+    });
+
+    actionsRow.addEventListener("focusin", (event) => {
+      const btn = event.target.closest(".cidr-db-action-btn");
+      if (btn) showDbActionHint(btn, btn.dataset.hint || "");
+    });
+    actionsRow.addEventListener("focusout", (event) => {
+      if (!actionsRow.contains(event.relatedTarget)) hideDbActionHint();
+    });
+
+    window.addEventListener("scroll", refreshDbActionHintPosition, true);
+    window.addEventListener("resize", refreshDbActionHintPosition);
+  }
+
+  initDbActionHints();
 
   function onCidrTabActive() {
     if (!_dbLoaded) { _dbLoaded = true; loadDbStatus(); }
