@@ -13,7 +13,138 @@
     onEstimateGame: null,
   };
 
+  const progressState = {
+    timerId: null,
+    percent: 0,
+    stageIndex: 0,
+    stages: [],
+  };
+
+  const PREVIEW_PROGRESS_STAGES = [
+    "Подготовка проверки...",
+    "Загрузка игровых IP и ASN...",
+    "Проверка VPN-маршрутов...",
+    "Проверка DIRECT-маршрутов...",
+    "Анализ пересечений...",
+  ];
+
+  const APPLY_PROGRESS_STAGES = [
+    "Подготовка применения...",
+    "Синхронизация VPN (include)...",
+    "Синхронизация DIRECT (exclude)...",
+    "Запись AZ-Game файлов...",
+  ];
+
   const byId = (id) => document.getElementById(id);
+
+  const getProgressElements = () => ({
+    container: byId("cidr-games-progress"),
+    label: byId("cidr-games-progress-label"),
+    stage: byId("cidr-games-progress-stage"),
+    percent: byId("cidr-games-progress-percent"),
+    fill: byId("cidr-games-progress-fill"),
+    track: byId("cidr-games-progress-track"),
+    overlay: byId("cidr-games-busy-overlay"),
+    overlayLabel: byId("cidr-games-busy-overlay-label"),
+  });
+
+  const renderProgress = ({ percent, stageText, labelText }) => {
+    const elements = getProgressElements();
+    if (!elements.container) return;
+
+    const safePercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    if (elements.fill) {
+      elements.fill.style.width = `${safePercent}%`;
+    }
+    if (elements.percent) {
+      elements.percent.textContent = `${safePercent}%`;
+    }
+    if (elements.stage && stageText) {
+      elements.stage.textContent = stageText;
+    }
+    if (elements.label && labelText) {
+      elements.label.textContent = labelText;
+    }
+    if (elements.overlayLabel && labelText) {
+      elements.overlayLabel.textContent = labelText;
+    }
+    if (elements.track) {
+      elements.track.setAttribute("aria-valuenow", String(safePercent));
+      elements.track.setAttribute("aria-valuetext", `${safePercent}%`);
+    }
+  };
+
+  const stopProgressTimer = () => {
+    if (!progressState.timerId) return;
+    window.clearInterval(progressState.timerId);
+    progressState.timerId = null;
+  };
+
+  const startProgress = ({
+    label = "Выполняется операция...",
+    stages = PREVIEW_PROGRESS_STAGES,
+    simulated = true,
+  } = {}) => {
+    const elements = getProgressElements();
+    if (!elements.container) return;
+
+    stopProgressTimer();
+    progressState.percent = 4;
+    progressState.stageIndex = 0;
+    progressState.stages = Array.isArray(stages) && stages.length ? stages : PREVIEW_PROGRESS_STAGES;
+
+    elements.container.hidden = false;
+    if (elements.overlay) {
+      elements.overlay.hidden = false;
+    }
+
+    renderProgress({
+      percent: progressState.percent,
+      stageText: progressState.stages[0],
+      labelText: label,
+    });
+
+    if (!simulated) return;
+
+    progressState.timerId = window.setInterval(() => {
+      const delta = Math.floor(Math.random() * 4) + 2;
+      progressState.percent = Math.min(92, progressState.percent + delta);
+
+      const stageCount = progressState.stages.length;
+      if (stageCount > 1) {
+        const threshold = 92 / (stageCount - 1);
+        progressState.stageIndex = Math.min(
+          stageCount - 1,
+          Math.floor(progressState.percent / threshold),
+        );
+      }
+
+      renderProgress({
+        percent: progressState.percent,
+        stageText: progressState.stages[progressState.stageIndex],
+        labelText: label,
+      });
+    }, 480);
+  };
+
+  const finishProgress = ({ success = true, stageText = "Готово", labelText = null } = {}) => {
+    const elements = getProgressElements();
+    if (!elements.container) return;
+
+    stopProgressTimer();
+    renderProgress({
+      percent: 100,
+      stageText,
+      labelText: labelText || (success ? "Операция завершена" : "Операция завершена с ошибкой"),
+    });
+
+    window.setTimeout(() => {
+      elements.container.hidden = true;
+      if (elements.overlay) {
+        elements.overlay.hidden = true;
+      }
+    }, success ? 1200 : 2000);
+  };
 
   const loadCachedStats = () => {
     try {
@@ -59,17 +190,48 @@
     const subtitle = String(item?.subtitle || "").trim();
     const domainCount = Number(item?.domain_count || 0);
     const asnCount = Number(item?.asn_count || 0);
+    const serverIpCount = Number(item?.server_ip_count || 0);
     const provider = normalizeProviderName(item?.provider) || inferProviderFromSubtitle(subtitle);
-    const sourceType = String(item?.source_type || (asnCount > 0 ? "asn" : "dns")).trim().toLowerCase() || "dns";
+    const sourceTypeRaw = String(item?.source_type || "").trim().toLowerCase();
+    const sourceType = sourceTypeRaw === "servers" || sourceTypeRaw === "asn"
+      ? sourceTypeRaw
+      : (serverIpCount > 0 ? "servers" : (asnCount > 0 ? "asn" : "dns"));
+    const tags = Array.isArray(item?.tags)
+      ? item.tags.map((tag) => String(tag || "").trim()).filter(Boolean)
+      : [];
     return {
       key,
       title,
       subtitle,
       domain_count: Number.isFinite(domainCount) ? domainCount : 0,
       asn_count: Number.isFinite(asnCount) ? asnCount : 0,
+      server_ip_count: Number.isFinite(serverIpCount) ? serverIpCount : 0,
       provider,
-      source_type: sourceType === "asn" ? "asn" : "dns",
+      source_type: sourceType,
+      network: String(item?.network || inferNetworkFromSubtitle(subtitle) || "").trim(),
+      tags,
     };
+  };
+
+  const inferNetworkFromSubtitle = (subtitle) => {
+    const parts = String(subtitle || "").trim().split("—");
+    if (parts.length < 2) return "";
+    const network = parts.slice(1).join("—").trim();
+    if (!network || network.toUpperCase() === "DNS") return "";
+    return network;
+  };
+
+  const getModeLabel = (mode) => {
+    if (mode === "include") return "VPN";
+    if (mode === "exclude") return "DIRECT";
+    return "Не назначено";
+  };
+
+  const getNetworkLabel = (item) => {
+    if (item.network) return item.network;
+    if (item.source_type === "servers") return "Игровые IP";
+    if (item.source_type === "asn") return "RIPE";
+    return "По доменам";
   };
 
   const getModeByKey = (key) => {
@@ -113,7 +275,7 @@
     const value = String(card.dataset.gameKey || "").trim().toLowerCase();
     const cardProvider = String(card.dataset.gameProvider || "").trim().toLowerCase();
     const mode = getModeByKey(value);
-    if (query && !title.includes(query) && !subtitle.includes(query) && !value.includes(query)) return false;
+    if (query && !title.includes(query) && !subtitle.includes(query) && !value.includes(query) && !cardProvider.includes(query)) return false;
     if (provider !== "all" && cardProvider !== provider) return false;
     if (onlySelected && mode === "none") return false;
     return true;
@@ -167,18 +329,27 @@
     container.innerHTML = state.items
       .map((item) => {
         const mode = getModeByKey(item.key);
-        const subtitleHtml = item.subtitle
+        const subtitleHtml = item.subtitle && !item.network
           ? `<span class="cidr-game-chip__sub">${item.subtitle}</span>`
           : "";
         const gameStats = getPerGameStat(item.key);
-        const gameStatsHtml = `
-          <span class="cidr-game-chip__stats">
-            <small>CIDR: <strong class="${gameStats.loading ? "metric-loading" : ""}">${toCompactCount(gameStats.cidr_count, gameStats.loading)}</strong></small>
-            <small>Пересечения: <strong class="${gameStats.loading ? "metric-loading" : ""}">${toCompactCount(gameStats.overlap_count, gameStats.loading)}</strong></small>
-          </span>
+        const modeBadgeClass = mode === "include" ? "is-include" : (mode === "exclude" ? "is-exclude" : "is-none");
+        const statsGridHtml = `
+          <div class="cidr-game-chip__stats-grid">
+            <div class="cidr-game-chip__stat">
+              <span>CIDR</span>
+              <strong class="${gameStats.loading ? "metric-loading" : ""}">${toCompactCount(gameStats.cidr_count, gameStats.loading)}</strong>
+            </div>
+            <div class="cidr-game-chip__stat">
+              <span>Пересечения</span>
+              <strong class="${gameStats.loading ? "metric-loading" : ""}">${toCompactCount(gameStats.overlap_count, gameStats.loading)}</strong>
+            </div>
+            <div class="cidr-game-chip__stat">
+              <span>${item.server_ip_count > 0 ? "Игр. IP" : "Домены"}</span>
+              <strong>${item.server_ip_count > 0 ? item.server_ip_count : item.domain_count}</strong>
+            </div>
+          </div>
         `;
-        const domainMeta = state.includeDomains ? `<small>${item.domain_count} доменов</small>` : "";
-        const asnMeta = item.asn_count > 0 ? `<small>${item.asn_count} ASN</small>` : "";
         return `
           <label class="cidr-scope-chip cidr-game-chip"
             data-game-key="${item.key}"
@@ -186,13 +357,22 @@
             data-subtitle="${item.subtitle}">
             <input type="hidden" class="cidr-game-mode-input" value="${mode}" data-game-key="${item.key}" />
             <div class="cidr-game-chip__body">
-              <span class="cidr-game-chip__title">${item.title}</span>
+              <div class="cidr-game-chip__head">
+                <span class="cidr-game-chip__title">${item.title}</span>
+                <span class="cidr-game-chip__mode-badge ${modeBadgeClass}">${getModeLabel(mode)}</span>
+              </div>
               ${subtitleHtml}
-              ${gameStatsHtml}
-              <span class="cidr-game-chip__meta">
-                ${domainMeta}
-                ${asnMeta}
-              </span>
+              <div class="cidr-game-chip__facts">
+                <span class="cidr-game-chip__fact">
+                  <span>Провайдер</span>
+                  <strong>${item.provider}</strong>
+                </span>
+                <span class="cidr-game-chip__fact">
+                  <span>Сеть</span>
+                  <strong>${getNetworkLabel(item)}</strong>
+                </span>
+              </div>
+              ${statsGridHtml}
             </div>
             <div class="cidr-game-chip__mode" data-mode="${mode}">
               <button type="button" class="cidr-game-mode-btn is-include ${mode === "include" ? "is-active" : ""}" data-game-mode-btn="include">VPN</button>
@@ -220,11 +400,34 @@
     return visibleCount;
   };
 
-  const setBusy = (isBusy) => {
+  const setBusy = (isBusy, progressOptions = null) => {
     state.isBusy = Boolean(isBusy);
+    const shell = document.querySelector("#game-filters .game-filters-shell");
+    if (shell) {
+      shell.classList.toggle("game-filters-shell--busy", state.isBusy);
+    }
+
     document.querySelectorAll("[data-game-filter-control]").forEach((node) => {
       node.disabled = state.isBusy;
+      node.classList.remove("is-busy");
     });
+    document.querySelectorAll("#cidr-game-filters .cidr-game-mode-btn").forEach((node) => {
+      node.disabled = state.isBusy;
+    });
+
+    if (state.isBusy) {
+      const triggerId = String(progressOptions?.triggerId || "").trim();
+      if (triggerId) {
+        const trigger = byId(triggerId);
+        trigger?.classList.add("is-busy");
+      }
+      if (progressOptions) {
+        startProgress(progressOptions);
+      }
+      return;
+    }
+
+    stopProgressTimer();
   };
 
   const setMode = (key, mode) => {
@@ -400,8 +603,13 @@
 
     byId("cidr-games-preview-sync")?.addEventListener("click", async () => {
       if (typeof callbacks.onPreview !== "function") return;
+      let success = false;
       try {
-        setBusy(true);
+        setBusy(true, {
+          label: "Проверка перед применением...",
+          triggerId: "cidr-games-preview-sync",
+          stages: PREVIEW_PROGRESS_STAGES,
+        });
         const includeGameKeys = getIncludeKeys();
         const excludeGameKeys = getExcludeKeys();
         const conflicted = detectConflictedKeys(includeGameKeys, excludeGameKeys);
@@ -420,19 +628,29 @@
         } else {
           renderPreview(result);
         }
+        success = true;
       } catch (error) {
         if (typeof callbacks.onError === "function") {
           callbacks.onError(error);
         }
       } finally {
+        finishProgress({
+          success,
+          stageText: success ? "Проверка завершена" : "Ошибка проверки",
+        });
         setBusy(false);
       }
     });
 
     byId("cidr-sync-games-apply")?.addEventListener("click", async () => {
       if (typeof callbacks.onApplyRoutes !== "function") return;
+      let success = false;
       try {
-        setBusy(true);
+        setBusy(true, {
+          label: "Применение игровых маршрутов...",
+          triggerId: "cidr-sync-games-apply",
+          stages: APPLY_PROGRESS_STAGES,
+        });
         const includeGameKeys = getIncludeKeys();
         const excludeGameKeys = getExcludeKeys();
         const conflicted = detectConflictedKeys(includeGameKeys, excludeGameKeys);
@@ -448,42 +666,52 @@
         if (previewPayload) {
           renderPreview(previewPayload);
         }
+        success = true;
       } catch (error) {
         if (typeof callbacks.onError === "function") {
           callbacks.onError(error);
         }
       } finally {
+        finishProgress({
+          success,
+          stageText: success ? "Игровые маршруты применены" : "Ошибка применения",
+        });
         setBusy(false);
       }
     });
   };
 
   const runProgressiveCardEstimates = async () => {
-    if (typeof state.onEstimateGame !== "function" || !state.items.length) return;
+    const batchEstimate = state.onBatchEstimate || state.onEstimateGame;
+    if (typeof batchEstimate !== "function" || !state.items.length) return;
     const runId = ++state.estimateRunId;
     const queue = state.items.map((item) => item.key).filter(Boolean);
-    for (const key of queue) {
+    const pendingKeys = queue.filter((key) => !state.perGameStats[key]);
+    if (!pendingKeys.length) return;
+    try {
+      const previewPayload = typeof state.onBatchEstimate === "function"
+        ? await state.onBatchEstimate(pendingKeys)
+        : await state.onEstimateGame(pendingKeys[0]);
       if (runId !== state.estimateRunId) return;
-      if (state.perGameStats[key]) continue;
-      try {
-        const previewPayload = await state.onEstimateGame(key);
-        if (runId !== state.estimateRunId) return;
-        const preview = previewPayload?.preview || previewPayload || {};
-        const perGame = preview?.per_game_stats?.[key] || {};
-        const overlapSummary = preview?.overlap_summary || {};
-        const cidrCount = Number(perGame.cidr_count || preview.cidr_count || 0);
-        const overlapCount = Number(perGame.overlap_count || overlapSummary.overlap_count || 0);
-        state.perGameStats[key] = {
+      const preview = previewPayload?.preview || previewPayload || {};
+      const perGameStats = (preview.per_game_stats && typeof preview.per_game_stats === "object")
+        ? preview.per_game_stats
+        : {};
+      pendingKeys.forEach((key) => {
+        const normalizedKey = String(key || "").trim().toLowerCase();
+        const perGame = perGameStats[normalizedKey] || {};
+        const cidrCount = Number(perGame.cidr_count || 0);
+        const overlapCount = Number(perGame.overlap_count || 0);
+        state.perGameStats[normalizedKey] = {
           cidr_count: Number.isFinite(cidrCount) ? cidrCount : 0,
           overlap_count: Number.isFinite(overlapCount) ? overlapCount : 0,
         };
-        persistCachedStats();
-        renderCards();
-        applyFilters();
-      } catch (_error) {
-        // silent: keep card at zero if preload estimate fails
-      }
-      await new Promise((resolve) => setTimeout(resolve, 120));
+      });
+      persistCachedStats();
+      renderCards();
+      applyFilters();
+    } catch (_error) {
+      // silent: keep card at zero if preload estimate fails
     }
   };
 
@@ -531,6 +759,8 @@
       typeof callbacks.onSelectionChanged === "function" ? callbacks.onSelectionChanged : null;
     state.onEstimateGame =
       typeof callbacks.onEstimateGame === "function" ? callbacks.onEstimateGame : null;
+    state.onBatchEstimate =
+      typeof callbacks.onBatchEstimate === "function" ? callbacks.onBatchEstimate : null;
     hydrateModesFromDom();
     setupInteractionHandlers({
       onPreview: callbacks.onPreview,

@@ -173,6 +173,34 @@ class AdminNotifyTextTests(unittest.TestCase):
         self.assertIn("Порт панели", lines[0])
         self.assertIn("с 5050 на 8080", lines[2])
 
+    def test_settings_change_games_routes_sync_russian(self):
+        text = self._build(
+            "settings_change",
+            actor_username="Claymore",
+            target_name="settings_cidr_games_routes_sync",
+            details=(
+                "include_games=2 include_cidrs=42 include_domains=0 include_overlap=0 "
+                "exclude_games=1 exclude_cidrs=10 exclude_domains=0 exclude_overlap=0"
+            ),
+        )
+        lines = self._lines(text)
+        self.assertEqual(len(lines), 4)
+        self.assertIn("Игровые маршруты", lines[0])
+        self.assertIn("VPN: 2 игр, 42 CIDR", lines[2])
+        self.assertIn("DIRECT: 1 игр, 10 CIDR", lines[2])
+        self.assertNotIn("игр: 0", text)
+
+    def test_settings_change_games_sync_skips_zero_counts(self):
+        text = self._build(
+            "settings_change",
+            actor_username="Claymore",
+            target_name="settings_cidr_games_sync",
+            details="selected_games=0 domains=0 cidrs=0 overlap=0",
+        )
+        lines = self._lines(text)
+        self.assertIn("VPN: фильтры очищены", lines[2])
+        self.assertNotIn("игр: 0", text)
+
 
 if __name__ == "__main__":
     unittest.main()

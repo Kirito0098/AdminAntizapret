@@ -48,47 +48,78 @@
       <button id="cidr-games-reset-all" type="button" class="button" data-game-filter-control="reset">
         Сбросить все
       </button>
-      <button id="cidr-games-preview-sync" type="button" class="button"
-        data-game-filter-control="preview">Проверить перед применением</button>
+      <button id="cidr-games-preview-sync" type="button" class="button" data-game-filter-control="preview">Проверить
+        перед применением</button>
       <button id="cidr-sync-games-apply" type="button" class="button save-button" data-game-filter-control="apply">
         Применить
       </button>
     </div>
 
-    <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid settings-inline-card-mt" role="group"
-      aria-label="Фильтры по игровым серверам">
+    <div id="cidr-games-progress" class="cidr-games-progress settings-inline-card-mt" hidden aria-live="polite">
+      <div class="cidr-games-progress__head">
+        <span id="cidr-games-progress-label" class="cidr-games-progress__label">Выполняется операция...</span>
+        <span id="cidr-games-progress-percent" class="cidr-games-progress__percent">0%</span>
+      </div>
+      <div id="cidr-games-progress-track" class="cidr-games-progress__track" role="progressbar" aria-valuemin="0"
+        aria-valuemax="100" aria-valuenow="0">
+        <div id="cidr-games-progress-fill" class="cidr-games-progress__fill"></div>
+      </div>
+      <small id="cidr-games-progress-stage" class="cidr-games-progress__stage help-text">Подготовка...</small>
+    </div>
+
+    <div class="cidr-games-grid-wrap settings-inline-card-mt">
+      <div id="cidr-games-busy-overlay" class="cidr-games-busy-overlay" hidden aria-hidden="true">
+        <span class="cidr-games-busy-overlay__spinner" aria-hidden="true"></span>
+        <span id="cidr-games-busy-overlay-label" class="cidr-games-busy-overlay__label">Выполняется...</span>
+      </div>
+      <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid" role="group"
+        aria-label="Фильтры по игровым серверам">
       {% for item in cidr_game_filters %}
       <label class="cidr-scope-chip cidr-game-chip{% if item.key in saved_game_keys %} is-checked{% endif %}"
-        title="{{ item.subtitle }}" data-game-key="{{ item.key }}"
-        data-game-provider="{{ item.provider or '' }}"
+        title="{{ item.subtitle }}" data-game-key="{{ item.key }}" data-game-provider="{{ item.provider or '' }}"
         data-game-source="{{ item.source_type or 'dns' }}">
-        <input type="hidden" class="cidr-game-mode-input" value="{{ 'include' if item.key in saved_game_keys else 'none' }}"
-          data-game-key="{{ item.key }}" />
+        <input type="hidden" class="cidr-game-mode-input"
+          value="{{ 'include' if item.key in saved_game_keys else 'none' }}" data-game-key="{{ item.key }}" />
         <div class="cidr-game-chip__body">
-          <span class="cidr-game-chip__title">{{ item.title }}</span>
-          {% if item.subtitle %}
+          <div class="cidr-game-chip__head">
+            <span class="cidr-game-chip__title">{{ item.title }}</span>
+            <span
+              class="cidr-game-chip__mode-badge {% if item.key in saved_game_keys %}is-include{% else %}is-none{% endif %}">
+              {% if item.key in saved_game_keys %}VPN{% else %}Не назначено{% endif %}
+            </span>
+          </div>
+          {% if item.subtitle and not item.network %}
           <span class="cidr-game-chip__sub">{{ item.subtitle }}</span>
           {% endif %}
-          <span class="cidr-game-chip__stats">
-            <small>CIDR: <strong>0</strong></small>
-            <small>Пересечения: <strong>0</strong></small>
-          </span>
-          <span class="cidr-game-chip__meta">
-            <small>{{ item.domain_count }} доменов</small>
-            {% if item.asn_count and item.asn_count > 0 %}
-            <small>{{ item.asn_count }} ASN</small>
-            {% endif %}
-          </span>
+          <div class="cidr-game-chip__facts">
+            <span class="cidr-game-chip__fact">
+              <span>Провайдер</span>
+              <strong>{{ item.provider or 'Unknown' }}</strong>
+            </span>
+            <span class="cidr-game-chip__fact">
+              <span>Сеть</span>
+              <strong>{% if item.network %}{{ item.network }}{% elif item.source_type == 'asn' %}RIPE{% else %}По
+                доменам{% endif %}</strong>
+            </span>
+          </div>
+          <div class="cidr-game-chip__stats-grid">
+            <div class="cidr-game-chip__stat"><span>CIDR</span><strong>...</strong></div>
+            <div class="cidr-game-chip__stat"><span>Пересечения</span><strong>...</strong></div>
+            <div class="cidr-game-chip__stat"><span>Домены</span><strong>{{ item.domain_count }}</strong></div>
+          </div>
         </div>
         <div class="cidr-game-chip__mode" data-mode="{{ 'include' if item.key in saved_game_keys else 'none' }}">
-          <button type="button" class="cidr-game-mode-btn is-include{% if item.key in saved_game_keys %} is-active{% endif %}"
+          <button type="button"
+            class="cidr-game-mode-btn is-include{% if item.key in saved_game_keys %} is-active{% endif %}"
             data-game-mode-btn="include">VPN</button>
           <button type="button" class="cidr-game-mode-btn is-exclude" data-game-mode-btn="exclude">DIRECT</button>
-          <button type="button" class="cidr-game-mode-btn is-none{% if item.key not in saved_game_keys %} is-active{% endif %}"
+          <button type="button"
+            class="cidr-game-mode-btn is-none{% if item.key not in saved_game_keys %} is-active{% endif %}"
             data-game-mode-btn="none">Не выбрано</button>
         </div>
       </label>
       {% endfor %}
+      </div>
     </div>
 
     <div id="cidr-games-preview-panel" class="cidr-games-preview-panel settings-inline-card-mt" hidden>

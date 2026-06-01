@@ -1268,23 +1268,26 @@ document.addEventListener("DOMContentLoaded", function () {
               const includeList = Array.from(includeSet);
               const excludeList = Array.from(excludeSet);
               setCidrStatus("Проверка игровых маршрутов перед применением...", "info");
-              const includePreview = await runCidrAction({
+              const includePreviewPromise = runCidrAction({
                 action: "preview_games_sync",
                 regions: [],
                 includeGameKeys: includeList,
                 excludeGameKeys: excludeList,
                 includeGameDomains: Boolean(includeGameDomains),
               });
-              let excludePreview = null;
-              if (excludeList.length) {
-                excludePreview = await runCidrAction({
+              const excludePreviewPromise = excludeList.length
+                ? runCidrAction({
                   action: "preview_games_exclude",
                   regions: [],
                   includeGameKeys: excludeList,
                   excludeGameKeys: includeList,
                   includeGameDomains: Boolean(includeGameDomains),
-                });
-              }
+                })
+                : Promise.resolve(null);
+              const [includePreview, excludePreview] = await Promise.all([
+                includePreviewPromise,
+                excludePreviewPromise,
+              ]);
 
               const includeInfo = includePreview?.preview || {};
               const includeOverlapSummary = includeInfo?.overlap_summary || {};
@@ -1308,12 +1311,20 @@ document.addEventListener("DOMContentLoaded", function () {
               throw error;
             }
           },
+          onBatchEstimate: async (gameKeys = []) => {
+            const preview = await runCidrAction({
+              action: "preview_games_stats",
+              regions: [],
+              includeGameKeys: Array.isArray(gameKeys) ? gameKeys : [],
+              silent: true,
+            });
+            return preview;
+          },
           onEstimateGame: async (gameKey) => {
             const preview = await runCidrAction({
-              action: "preview_games_sync",
+              action: "preview_games_stats",
               regions: [],
               includeGameKeys: [gameKey],
-              includeGameDomains: false,
               silent: true,
             });
             return preview;
@@ -1334,33 +1345,26 @@ document.addEventListener("DOMContentLoaded", function () {
             const excludeList = Array.from(excludeSet);
             try {
               setCidrStatus("Синхронизация игровых маршрутов (VPN/DIRECT)...", "info");
-              startCidrProgress("Применение игровых маршрутов...", { simulated: true });
 
-              const includeResult = await runCidrAction({
-                action: "sync_games_hosts",
+              const result = await runCidrAction({
+                action: "sync_games_routes",
                 regions: [],
                 includeGameKeys: includeList,
                 excludeGameKeys: excludeList,
                 includeGameDomains: Boolean(includeGameDomains),
               });
-              const excludeResult = await runCidrAction({
-                action: "sync_games_exclude",
-                regions: [],
-                includeGameKeys: excludeList,
-                excludeGameKeys: includeList,
-                includeGameDomains: Boolean(includeGameDomains),
-              });
 
-              finishCidrProgress({ success: true, stageText: "Игровые маршруты применены" });
-
-              const includeIps = includeResult?.game_ips_filter || {};
-              const excludeIps = excludeResult?.game_ips_filter || {};
+              const includeIps = result?.game_ips_filter || {};
+              const excludeIps = result?.game_exclude_ips_filter || {};
+              const includeHosts = result?.game_hosts_filter || {};
+              const excludeHosts = result?.game_exclude_hosts_filter || {};
               const includeCount = Number(includeIps.cidr_count || 0);
               const excludeCount = Number(excludeIps.cidr_count || 0);
-              const includeGames = Number((includeResult?.game_hosts_filter || {}).selected_game_count || 0);
-              const excludeGames = Number((excludeResult?.game_hosts_filter || {}).selected_game_count || 0);
+              const includeGames = Number(includeHosts.selected_game_count || 0);
+              const excludeGames = Number(excludeHosts.selected_game_count || 0);
+              const changedSuffix = result?.changed ? "" : " (изменений не было)";
               setCidrStatus(
-                `Применено: VPN игр ${includeGames} (CIDR ${includeCount}), DIRECT игр ${excludeGames} (CIDR ${excludeCount})`,
+                `Применено: VPN игр ${includeGames} (CIDR ${includeCount}), DIRECT игр ${excludeGames} (CIDR ${excludeCount})${changedSuffix}`,
                 "success"
               );
               renderCidrMeta();
@@ -1373,9 +1377,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 includeGameDomains: Boolean(includeGameDomains),
                 silent: true,
               });
-              return { result: { includeResult, excludeResult }, previewPayload: includePreview };
+              return { result, previewPayload: includePreview };
             } catch (error) {
-              finishCidrProgress({ success: false, stageText: "Ошибка применения игровых маршрутов" });
               setCidrStatus(`Ошибка применения: ${error.message}`, "error");
               throw error;
             }

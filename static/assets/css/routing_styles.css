@@ -647,6 +647,202 @@
   background: linear-gradient(180deg, rgba(16, 27, 34, 0.85), rgba(11, 20, 26, 0.92));
 }
 
+#game-filters .game-filters-shell--busy {
+  position: relative;
+}
+
+#game-filters .game-filters-shell--busy .cidr-games-grid {
+  pointer-events: none;
+  user-select: none;
+}
+
+#game-filters .cidr-games-grid-wrap {
+  position: relative;
+}
+
+#game-filters .cidr-games-busy-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.72rem;
+  border-radius: 12px;
+  background: rgba(8, 16, 22, 0.68);
+  backdrop-filter: blur(2px);
+  animation: game-filters-overlay-in 0.22s ease;
+}
+
+#game-filters .cidr-games-busy-overlay[hidden] {
+  display: none !important;
+}
+
+#game-filters .cidr-games-busy-overlay__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid rgba(92, 196, 159, 0.28);
+  border-top-color: #5cc49f;
+  animation: game-filters-spin 0.75s linear infinite;
+}
+
+#game-filters .cidr-games-busy-overlay__label {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #d8e9f0;
+  text-align: center;
+  max-width: min(92%, 420px);
+  line-height: 1.35;
+}
+
+#game-filters .cidr-games-progress {
+  border: 1px solid rgba(101, 131, 145, 0.36);
+  border-radius: 12px;
+  background: rgba(20, 31, 39, 0.74);
+  padding: 0.7rem 0.78rem;
+}
+
+#game-filters .cidr-games-progress:not([hidden]) {
+  animation: game-filters-progress-in 0.24s ease;
+}
+
+#game-filters .cidr-games-progress[hidden] {
+  display: none !important;
+}
+
+#game-filters .cidr-games-progress__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  color: #d8e7ef;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+#game-filters .cidr-games-progress__percent {
+  color: #9ec4d4;
+  font-variant-numeric: tabular-nums;
+}
+
+#game-filters .cidr-games-progress__track {
+  margin-top: 0.45rem;
+  width: 100%;
+  height: 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(106, 136, 149, 0.45);
+  background: rgba(14, 24, 30, 0.74);
+  overflow: hidden;
+}
+
+#game-filters .cidr-games-progress__fill {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #5cc49f 0%, #7ea8d6 55%, #e2c06e 100%);
+  background-size: 200% 100%;
+  transition: width 0.35s ease;
+  animation: game-filters-progress-shimmer 1.6s ease-in-out infinite;
+}
+
+#game-filters .cidr-games-progress__stage {
+  display: block;
+  margin-top: 0.42rem;
+  color: #9ab4c0;
+}
+
+#game-filters .cidr-actions-row .button.is-busy {
+  position: relative;
+  opacity: 0.82;
+  cursor: wait;
+  padding-left: 2.15rem;
+}
+
+#game-filters .cidr-actions-row .button.is-busy::before {
+  content: "";
+  position: absolute;
+  left: 0.78rem;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-top-color: rgba(255, 255, 255, 0.92);
+  animation: game-filters-spin 0.75s linear infinite;
+}
+
+#game-filters .cidr-actions-row .save-button.is-busy::before {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+}
+
+@keyframes game-filters-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes game-filters-overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes game-filters-progress-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes game-filters-progress-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes game-filters-metric-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+#game-filters .game-filters-shell--busy .cidr-game-chip__stat .metric-loading {
+  animation: game-filters-metric-pulse 1.1s ease-in-out infinite;
+}
+
+#game-filters.active .cidr-games-progress:not([hidden]) {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  margin: 0;
+  z-index: 1200;
+  box-shadow: 0 12px 26px rgba(2, 8, 12, 0.5);
+  backdrop-filter: blur(4px);
+}
+
 #game-filters .game-filters-head {
   display: flex;
   justify-content: space-between;
@@ -744,7 +940,7 @@
   border: 1px solid rgba(79, 115, 129, 0.34);
   background: rgba(8, 16, 22, 0.75);
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 0.55rem;
 }
 
@@ -752,7 +948,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  min-height: 148px;
+  min-height: 220px;
   border: 1px solid rgba(93, 126, 140, 0.34);
   background: rgba(20, 33, 41, 0.82);
   border-radius: 12px;
@@ -834,10 +1030,108 @@
   background: linear-gradient(180deg, rgba(58, 72, 82, 0.98), rgba(34, 45, 54, 0.98));
 }
 
+#game-filters .cidr-game-chip__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+#game-filters .cidr-game-chip__mode-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.16rem 0.48rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid rgba(111, 133, 145, 0.55);
+  color: #b8ccd6;
+  background: rgba(18, 30, 38, 0.9);
+}
+
+#game-filters .cidr-game-chip__mode-badge.is-include {
+  border-color: rgba(106, 191, 160, 0.75);
+  color: #dff7ec;
+  background: rgba(34, 78, 63, 0.85);
+}
+
+#game-filters .cidr-game-chip__mode-badge.is-exclude {
+  border-color: rgba(217, 169, 106, 0.75);
+  color: #ffe8c7;
+  background: rgba(92, 58, 24, 0.85);
+}
+
+#game-filters .cidr-game-chip__mode-badge.is-none {
+  border-color: rgba(111, 133, 145, 0.55);
+  color: #aebec7;
+  background: rgba(28, 39, 47, 0.85);
+}
+
+#game-filters .cidr-game-chip__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+#game-filters .cidr-game-chip__fact {
+  display: grid;
+  gap: 0.12rem;
+  border: 1px solid rgba(81, 118, 131, 0.28);
+  border-radius: 9px;
+  padding: 0.38rem 0.48rem;
+  background: rgba(12, 22, 28, 0.72);
+}
+
+#game-filters .cidr-game-chip__fact > span {
+  font-size: 0.66rem;
+  color: #8ea6b2;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#game-filters .cidr-game-chip__fact strong {
+  font-size: 0.78rem;
+  color: #e3f2f8;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+#game-filters .cidr-game-chip__stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+#game-filters .cidr-game-chip__stat {
+  display: grid;
+  gap: 0.14rem;
+  border: 1px solid rgba(81, 118, 131, 0.32);
+  border-radius: 9px;
+  padding: 0.42rem 0.48rem;
+  background: rgba(17, 31, 39, 0.78);
+}
+
+#game-filters .cidr-game-chip__stat > span {
+  font-size: 0.67rem;
+  color: #8ea6b2;
+}
+
+#game-filters .cidr-game-chip__stat strong {
+  font-size: 0.92rem;
+  color: #edf7fb;
+}
+
 #game-filters .cidr-game-chip__title {
   color: #e7f4fa;
   font-weight: 600;
   line-height: 1.24;
+  flex: 1;
+}
+
+#game-filters .cidr-game-chip__stat .metric-loading {
+  color: #9fb6c1;
+  font-weight: 600;
 }
 
 #game-filters .cidr-game-chip__sub {
@@ -847,39 +1141,11 @@
 }
 
 #game-filters .cidr-game-chip__stats {
-  display: flex;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-}
-
-#game-filters .cidr-game-chip__stats small {
-  font-size: 0.72rem;
-  color: #88a6b3;
-}
-
-#game-filters .cidr-game-chip__stats strong {
-  color: #d9edf7;
-}
-
-#game-filters .cidr-game-chip__stats .metric-loading {
-  color: #9fb6c1;
-  font-weight: 600;
+  display: none;
 }
 
 #game-filters .cidr-game-chip__meta {
-  margin-top: 0.2rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-#game-filters .cidr-game-chip__meta small {
-  border: 1px solid rgba(95, 124, 137, 0.38);
-  border-radius: 999px;
-  padding: 0.13rem 0.4rem;
-  font-size: 0.7rem;
-  color: #a7c3ce;
-  background: rgba(14, 24, 30, 0.75);
+  display: none;
 }
 
 #game-filters .cidr-actions-row {

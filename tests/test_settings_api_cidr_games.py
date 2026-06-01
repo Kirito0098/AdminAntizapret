@@ -144,7 +144,35 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
         self.assertTrue(payload["success"])
         self.assertIn("game_ips_filter", payload)
 
-    def test_sync_games_exclude_rejects_conflicted_include_exclude_keys(self):
+    def test_sync_games_routes_applies_include_and_exclude(self):
+        response = self.client.post(
+            "/api/cidr-lists",
+            json={
+                "action": "sync_games_routes",
+                "include_game_keys": ["lol"],
+                "exclude_game_keys": ["valorant"],
+                "include_game_domains": False,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertIn("changed", payload)
+        self.assertIn("game_ips_filter", payload)
+        self.assertIn("game_exclude_ips_filter", payload)
+
+    def test_sync_games_hosts_skips_audit_when_unchanged(self):
+        self.client.post(
+            "/api/cidr-lists",
+            json={"action": "sync_games_hosts", "include_game_keys": [], "include_game_domains": False},
+        )
+        first_count = self.log_user_action_event.call_count
+        self.client.post(
+            "/api/cidr-lists",
+            json={"action": "sync_games_hosts", "include_game_keys": [], "include_game_domains": False},
+        )
+        self.assertEqual(self.log_user_action_event.call_count, first_count)
+
         response = self.client.post(
             "/api/cidr-lists",
             json={
@@ -158,6 +186,15 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
         payload = response.get_json()
         self.assertFalse(payload["success"])
         self.assertIn("conflicted_game_keys", payload)
+
+    def test_get_cidr_lists_returns_lol_as_servers_source(self):
+        response = self.client.get("/api/cidr-lists")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        lol = next(item for item in payload["game_filters"] if item["key"] == "lol")
+        self.assertEqual(lol["source_type"], "servers")
+        self.assertGreater(lol["server_ip_count"], 0)
 
 
 if __name__ == "__main__":

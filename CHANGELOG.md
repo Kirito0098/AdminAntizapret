@@ -35,9 +35,21 @@
 - Единая ширина контейнера **как на «Мониторинг сервера»** для **маршрутизации**, **настроек** и **журнала логов** (`routing_styles.css`, `settings_page_shared.css`, `logs_dashboard/base.css`): адаптивные отступы, `safe-area`, без горизонтального overflow на мобильных.
 - Удалён дублирующий блок стилей в **`logs_dashboard/base.css`**.
 
+### Игровые фильтры маршрутизации
+
+- CIDR для игровых фильтров строятся из **игровых IP и ASN** (`server_ips`, RIPE), а не из DNS маркетинговых доменов (Cloudflare/CDN сайтов).
+- Новый модуль **`core/services/cidr/game_server_data.py`**: curated IP шардов и URL источников (LoL Wiki, FFXIV datacenter IPs, Roblox и др.).
+- Приоритет резолва в **`_render_games_ips_block`**: `server_ips` → `asns` → DNS (только fallback с `# WARNING`).
+- Обновлён каталог **~44 игр**, ранее использовавших только DNS-домены: Riot Direct (LoL/Valorant/Wild Rift), Blizzard AS57976, EA AS12222, FFXIV DC IPs и др.
+- API/UI: `source_type: servers`, `server_ip_count`; на карточках — «Игровые IP» / «Игр. IP» вместо «По доменам».
+
 ### Тесты
 
 - Расширены **`tests/test_cidr_db_updater_service.py`**: параллельные источники, retry ASN, fallback-пул, RIPE-only провайдеры (Akamai, DigitalOcean, Cloudflare), отсутствие bgp.tools, dry-run, очистка БД и алерты после `cleared`.
+- **`tests/test_game_catalog_coverage.py`**: каждая игра в каталоге имеет `server_ips` или `asns`; LoL preview без DNS fallback.
+- Ускорена проверка игровых фильтров: кэш RIPE ASN, параллельная загрузка, batch `preview_games_stats` вместо 75 отдельных preview.
+- **Telegram**: одно уведомление при «Применить маршруты» (`sync_games_routes`); TG и журнал только при реальном изменении файлов; текст `VPN: N игр, M CIDR · DIRECT: …` без ложных «игр: 0».
+- **UI**: при «Проверить» и «Применить» — прогресс-бар, оверлей на каталоге и спиннер на активной кнопке.
 
 ## [1.7.10] – 24.05.2026
 

@@ -868,7 +868,77 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertIn("provider", sample)
         self.assertIn("source_type", sample)
         self.assertIn("asn_count", sample)
+        self.assertIn("server_ip_count", sample)
         self.assertIn("tags", sample)
+        lol = next(item for item in filters if item["key"] == "lol")
+        self.assertEqual(lol["source_type"], "servers")
+        self.assertGreater(lol["server_ip_count"], 0)
+        self.assertEqual(lol["network"], "Riot Direct")
+
+    def test_render_games_ips_block_lol_uses_server_ips_not_dns(self):
+        ripe_payload = {
+            "status": "ok",
+            "data": {"prefixes": [{"prefix": "104.160.0.0/16"}]},
+        }
+        with patch.object(
+            cidr_list_updater,
+            "_download_text",
+            return_value=json.dumps(ripe_payload),
+        ) as download_mock, patch.object(
+            cidr_list_updater,
+            "_resolve_game_domains_ipv4_cidrs",
+        ) as dns_mock:
+            block, _, _, cidrs, _, _ = cidr_list_updater._render_games_ips_block(["lol"])
+
+        dns_mock.assert_not_called()
+        download_mock.assert_called_once()
+        self.assertEqual(download_mock.call_args.kwargs.get("timeout"), 10)
+        self.assertIn("104.160.141.3/32", cidrs)
+        self.assertIn("# Source:", block)
+        self.assertIn("wiki.leagueoflegends.com", block)
+        self.assertIn("# Game servers:", block)
+        self.assertIn("# Sources (ASN via RIPE):", block)
+
+    def test_render_games_ips_block_deduplicates_asn_fetches(self):
+        ripe_payload = {
+            "status": "ok",
+            "data": {"prefixes": [{"prefix": "104.160.0.0/16"}]},
+        }
+        with patch.object(
+            cidr_list_updater,
+            "_download_text",
+            return_value=json.dumps(ripe_payload),
+        ) as download_mock:
+            cidr_list_updater._GAME_ASN_CIDRS_CACHE.clear()
+            _, _, _, cidrs, _, per_game = cidr_list_updater._render_games_ips_block(["lol", "valorant"])
+
+        self.assertEqual(download_mock.call_count, 1)
+        self.assertIn("104.160.141.3/32", cidrs)
+        self.assertIn("lol", per_game)
+        self.assertIn("valorant", per_game)
+
+    def test_preview_games_batch_stats_returns_per_game_counts(self):
+        ripe_payload = {
+            "status": "ok",
+            "data": {"prefixes": [{"prefix": "104.160.0.0/16"}]},
+        }
+        with patch.object(
+            cidr_list_updater,
+            "_download_text",
+            return_value=json.dumps(ripe_payload),
+        ):
+            cidr_list_updater._GAME_ASN_CIDRS_CACHE.clear()
+            result = cidr_list_updater.preview_games_batch_stats(include_game_keys=["lol", "valorant"])
+
+        self.assertTrue(result["success"])
+        stats = result["preview"]["per_game_stats"]
+        self.assertGreaterEqual(stats["lol"]["cidr_count"], 1)
+        self.assertGreaterEqual(stats["valorant"]["cidr_count"], 1)
+
+    def test_normalize_server_ips_to_cidrs_adds_host_mask(self):
+        cidrs = cidr_list_updater._normalize_server_ips_to_cidrs(["104.160.141.3", "128.116.0.0/17"])
+        self.assertIn("104.160.141.3/32", cidrs)
+        self.assertIn("128.116.0.0/17", cidrs)
 
     def test_validate_game_filter_keys_returns_invalid_items(self):
         result = cidr_list_updater.validate_game_filter_keys(["lol", "steam", "does_not_exist"])
@@ -884,7 +954,8 @@ class CidrListUpdaterTests(unittest.TestCase):
                 handle.write(
                     f"{cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_START}\n"
                     "# Keys: lol,steam_platform\n"
-                    "# Selected games (2): League of Legends, Steam Platform\n"
+                    "# Games: 2\n"
+                    "# --- League of Legends (lol) ---\n"
                     "203.0.113.10/32\n"
                     f"{cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_END}\n"
                 )
