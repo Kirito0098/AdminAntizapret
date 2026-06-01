@@ -26,12 +26,37 @@ body {
   background-attachment: fixed;
 }
 
+/* Ширина контейнера — как на странице «Мониторинг сервера» */
 .settings-layout.page-unified-wrapper {
-  width: min(1540px, 100%);
-  margin: 1.2rem auto 2rem;
-  padding: 0 max(0.8rem, env(safe-area-inset-left)) 0
-    max(0.8rem, env(safe-area-inset-right));
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0.85rem auto 1.2rem;
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
   box-sizing: border-box;
+  overflow-x: clip;
+}
+
+@media (min-width: 769px) {
+  .settings-layout.page-unified-wrapper {
+    width: min(1360px, 96%);
+    margin: 1.4rem auto 2rem;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+@media (min-width: 1600px) {
+  .settings-layout.page-unified-wrapper {
+    width: min(1720px, 95%);
+  }
+}
+
+@media (min-width: 2160px) {
+  .settings-layout.page-unified-wrapper {
+    width: min(1880px, 94%);
+  }
 }
 
 #update-button-container {

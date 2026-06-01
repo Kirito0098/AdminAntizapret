@@ -10,13 +10,6 @@ body {
   background-attachment: fixed;
 }
 
-.logs-page-wrapper {
-  width: min(1400px, 96%);
-  margin: 1.4rem auto 2rem;
-  display: grid;
-  gap: 0.95rem;
-}
-
 /* Grid-children must have min-width:0 so the grid column can constrain them.
    Without this, a wide table (min-width:1280px) inside any child pushes the
    whole grid container — and thus the page — to 1280px on mobile. */

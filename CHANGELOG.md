@@ -5,18 +5,33 @@
 ### База CIDR и обновление провайдеров
 
 - Переработан пайплайн **`CidrDbUpdaterService`** (`core/services/cidr/db_service.py`): ASN берутся из URL/имён источников и сканирования, а не из статического `as_numbers` в `IP_FILES`; после загрузки префиксов пул ASN записывается в БД (`provider_asn`).
-- Из **`IP_FILES`** удалены жёстко заданные `as_numbers`; в API и таблице провайдеров отображаются **активные ASN из БД** (`/api/cidr-db/status`, `/api/cidr-providers/meta`).
+- Из **`IP_FILES`** удалены жёстко заданные `as_numbers`; **активные ASN** хранятся в БД и отражаются в API (`/api/cidr-db/status`, `/api/cidr-providers/meta`).
 - Источники **`PROVIDER_SOURCES`**: убраны нестабильные **bgp.tools**; для Akamai, DigitalOcean, Hetzner, OVH — RIPE (geo + announced); Cloudflare — только официальный список `ips-v4`.
-- Параллельная загрузка источников провайдера (`CIDR_DB_SOURCE_FETCH_WORKERS`, по умолчанию 4) с сохранением порядка слияния результатов.
-- Загрузка префиксов по ASN: таймаут **`CIDR_DB_ASN_FETCH_TIMEOUT`** (по умолчанию 30 с), до **3 повторов** при сбое, fallback через RIPE **bgp-state**; параллельная выборка ASN без предварительного upsert в БД.
+- Параллельная загрузка источников провайдера (`CIDR_DB_SOURCE_FETCH_WORKERS`, по умолчанию 4) с сохранением порядка слияния результатов; in-memory кэш ответов (`CIDR_DB_SOURCE_CACHE_TTL_SECONDS`, по умолчанию 900 с).
+- Параллельная обработка провайдеров (`CIDR_DB_PROVIDER_WORKERS`) и выборка префиксов по ASN (`CIDR_DB_ASN_FETCH_WORKERS`, по умолчанию 4) без предварительного upsert в БД.
+- Загрузка префиксов по ASN: таймаут **`CIDR_DB_ASN_FETCH_TIMEOUT`** (по умолчанию 30 с), до **3 повторов** при сбое, fallback через RIPE **bgp-state**; лимиты discovery — **`CIDR_DB_ASN_DISCOVERY_MAX_PER_PROVIDER`** / **`CIDR_DB_ASN_DISCOVERY_SCAN_EXTRA_LIMIT`**.
 - Защита от «обнуления» пула: при сбоях ASN и малом кандидате сохраняется предыдущий набор CIDR; порог «здорового» пула — **`CIDR_DB_FALLBACK_MIN_CANDIDATE`** (по умолчанию 500), вместо жёсткого отсечения по 80% падения.
+- Статус **`partial`**: в API и UI — **`partial_reasons_by_source`** (ошибки источников, ASN, fallback).
+- **Dry-run refresh**: `POST /api/cidr-db/refresh` с `dry_run: true` — расчёт без записи в БД, предпросмотр `previous → final` по провайдерам.
+- **Повтор failed**: `retry_failed_mode` (`last` / `selected`) — кнопки «Повторить failed (last)» и «Повторить failed (selected)».
+- Деградация после **очистки БД**: ошибки ASN при большом пуле — уровень `info`; глобальное предупреждение о падении суммарного CIDR не сравнивается с записью журнала со статусом `cleared`.
 
 ### Очистка базы CIDR
 
 - **`POST /api/cidr-db/clear`** — удаление CIDR, ASN, метаданных и снимков ASN для всех провайдеров или выбранных файлов; при полной очистке — журнал `cidr_db_refresh_log`.
 - На вкладке **«Обновление IP-списков»**: кнопки **«Очистить всю БД CIDR»** и **«Очистить выбранных в БД»** с подтверждением и обновлением статуса таблицы.
+- События **`settings_cidr_db_clear`** в журнале, Telegram-оповещениях и **`audit_view_presenter`**.
 
+### Маршрутизация (интерфейс)
 
+- Таблица **«База данных CIDR»**: убрана колонка AS; для статуса **partial** — раскрывающийся список причин по источникам.
+- Баннер предупреждений скрывает уровни `info`/`none`; dry-run refresh показывает блок предпросмотра изменений.
+- Статусы операций CIDR и антифильтра: **успех/ошибка** — toast (`showNotification`), **прогресс** — inline-блок без залипания классов уведомлений (`routing-page-extra.js`, `routing.js`).
+- Поле **DPI-лога**: моноширинный шрифт, увеличенная высота, корректная ширина на узких экранах (`routing_styles.css`).
+
+### Тесты
+
+- Расширены **`tests/test_cidr_db_updater_service.py`**: параллельные источники, retry ASN, fallback-пул, RIPE-only провайдеры (Akamai, DigitalOcean, Cloudflare), отсутствие bgp.tools, dry-run, очистка БД и алерты после `cleared`.
 
 ## [1.7.10] – 24.05.2026
 

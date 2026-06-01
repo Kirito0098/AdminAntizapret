@@ -237,6 +237,7 @@
   .tg-mini-shell,
   .logs-page-wrapper,
   .server-monitor-wrapper.page-unified-wrapper,
+  .routing-wrapper.page-unified-wrapper,
   .main-layout.editfiles-layout {
     margin-top: 0.7rem;
   }
@@ -443,7 +444,8 @@ body.nav-mobile-open.settings-nav-merged #sidebar.settings-page-wrapper {
   .server-monitor-wrapper.page-unified-wrapper,
   .main-layout.editfiles-layout,
   .tg-mini-shell,
-  .settings-layout {
+  .settings-layout,
+  .settings-layout.page-unified-wrapper {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
@@ -649,8 +651,10 @@ body.nav-mobile-open.settings-nav-merged #sidebar.settings-page-wrapper {
   .index-container,
   .logs-page-wrapper,
   .server-monitor-wrapper.page-unified-wrapper,
+  .routing-wrapper.page-unified-wrapper,
   .main-layout.editfiles-layout,
   .settings-layout,
+  .settings-layout.page-unified-wrapper,
   .tg-mini-shell {
     max-width: 1720px;
     margin-inline: auto;
@@ -675,8 +679,10 @@ body.nav-mobile-open.settings-nav-merged #sidebar.settings-page-wrapper {
   .index-container,
   .logs-page-wrapper,
   .server-monitor-wrapper.page-unified-wrapper,
+  .routing-wrapper.page-unified-wrapper,
   .main-layout.editfiles-layout,
   .settings-layout,
+  .settings-layout.page-unified-wrapper,
   .tg-mini-shell {
     max-width: 1880px;
   }
