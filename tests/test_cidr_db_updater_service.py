@@ -162,6 +162,15 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
             )
         )
 
+    def test_should_not_preserve_previous_pool_for_stable_small_provider_without_errors(self):
+        self.assertFalse(
+            CidrDbUpdaterService._should_preserve_previous_pool(
+                previous_cidr_count=15,
+                candidate_cidr_count=15,
+                asn_errors=[],
+            )
+        )
+
     def test_discover_provider_asns_combines_seed_source_and_scan(self):
         svc = CidrDbUpdaterService(db=None)
         sources = [
@@ -265,6 +274,7 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
         models = MagicMock()
         models.CidrDbRefreshLog.side_effect = lambda **kwargs: MagicMock(**kwargs)
         models.ProviderCidr.query.filter_by.return_value.count.return_value = 0
+        models.ProviderAsn.query.filter_by.return_value.count.return_value = 0
         mocked_get_models.return_value = models
 
         db = MagicMock()
@@ -281,6 +291,7 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
                 return_value=(
                     [{"cidr": "173.245.48.0/20", "region": None, "countries": None}],
                     "cloudflare-ips-v4",
+                    [{"name": "cloudflare-ips-v4", "status": "ok", "count": 1, "error": None, "cache_hit": False}],
                 ),
             ),
             patch.object(svc, "_upsert_provider_asns", return_value=[]),
@@ -314,6 +325,7 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
         models = MagicMock()
         models.CidrDbRefreshLog.side_effect = lambda **kwargs: MagicMock(**kwargs)
         models.ProviderCidr.query.filter_by.return_value.count.return_value = 0
+        models.ProviderAsn.query.filter_by.return_value.count.return_value = 0
         mocked_get_models.return_value = models
 
         db = MagicMock()
@@ -336,6 +348,7 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
                 return_value=(
                     [{"cidr": "23.1.0.0/24", "region": None, "countries": ["US"]}],
                     "ripe-as20940-geo, ripe-as20940-announced",
+                    [{"name": "ripe-as20940-announced", "status": "ok", "count": 1, "error": None, "cache_hit": False}],
                 ),
             ),
             patch.object(svc, "_upsert_provider_asns", return_value=[MagicMock(active=True, asn=20940)]),
@@ -365,6 +378,7 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
         models = MagicMock()
         models.CidrDbRefreshLog.side_effect = lambda **kwargs: MagicMock(**kwargs)
         models.ProviderCidr.query.filter_by.return_value.count.return_value = 0
+        models.ProviderAsn.query.filter_by.return_value.count.return_value = 0
         mocked_get_models.return_value = models
 
         db = MagicMock()
@@ -386,6 +400,7 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
                 return_value=(
                     [{"cidr": "104.248.0.0/24", "region": None, "countries": None}],
                     "ripe-as14061-geo, ripe-as46652-announced",
+                    [{"name": "ripe-as14061-geo", "status": "ok", "count": 1, "error": None, "cache_hit": False}],
                 ),
             ),
             patch.object(svc, "_upsert_provider_asns", return_value=[MagicMock(active=True), MagicMock(active=True)]),
@@ -517,6 +532,61 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
         self.assertEqual(result["deleted"]["cidr_db_refresh_log"], 7)
         db.session.add.assert_not_called()
         db.session.commit.assert_called_once()
+
+    def test_download_cidrs_with_meta_uses_ttl_cache_for_repeated_calls(self):
+        svc = CidrDbUpdaterService(db=None)
+        CidrDbUpdaterService._source_cache = {}
+        sources = [{"name": "source-a", "url": "https://example.test/a", "format": "cidr_text"}]
+
+        with (
+            patch("core.services.cidr_db_updater._download_text", return_value="1.1.1.0/24\n") as mocked_download,
+            patch.object(svc, "_current_source_fetch_workers", return_value=1),
+        ):
+            first_items, _, first_details = svc._download_cidrs_with_meta(sources, return_source_details=True)
+            second_items, _, second_details = svc._download_cidrs_with_meta(sources, return_source_details=True)
+
+        self.assertEqual(len(first_items), 1)
+        self.assertEqual(len(second_items), 1)
+        self.assertEqual(mocked_download.call_count, 1)
+        self.assertFalse(first_details[0]["cache_hit"])
+        self.assertTrue(second_details[0]["cache_hit"])
+
+    @patch("core.services.cidr.db_service._get_models")
+    def test_refresh_all_providers_dry_run_skips_db_writes(self, mocked_get_models):
+        models = MagicMock()
+        models.ProviderCidr.query.filter_by.return_value.count.return_value = 0
+        models.ProviderAsn.query.filter_by.return_value.count.return_value = 0
+        mocked_get_models.return_value = models
+
+        db = MagicMock()
+        svc = CidrDbUpdaterService(db=db)
+
+        with (
+            patch.object(svc, "_discover_provider_asns", return_value=([], set(), [])),
+            patch.object(
+                svc,
+                "_download_cidrs_with_meta",
+                return_value=(
+                    [{"cidr": "173.245.48.0/20", "region": None, "countries": None}],
+                    "cloudflare-ips-v4",
+                    [{"name": "cloudflare-ips-v4", "status": "ok", "count": 1, "error": None, "cache_hit": False}],
+                ),
+            ),
+            patch.object(svc, "_upsert_provider_asns") as mocked_upsert_asns,
+            patch.object(svc, "_upsert_provider_cidrs") as mocked_upsert_cidrs,
+            patch.object(svc, "_update_provider_meta") as mocked_update_meta,
+        ):
+            result = svc.refresh_all_providers(
+                selected_files=["cloudflare-ips.txt"],
+                triggered_by="manual:test-dry-run",
+                dry_run=True,
+            )
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["dry_run"])
+        mocked_upsert_asns.assert_not_called()
+        mocked_upsert_cidrs.assert_not_called()
+        mocked_update_meta.assert_not_called()
 
 
 if __name__ == "__main__":

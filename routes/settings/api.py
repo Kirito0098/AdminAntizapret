@@ -515,16 +515,34 @@ def register_settings_api_routes(
         selected_files = payload.get("selected_files") or None
         if isinstance(selected_files, list):
             selected_files = [str(f) for f in selected_files] or None
+        retry_failed_mode = str(payload.get("retry_failed_mode") or "").strip().lower() or None
+        dry_run = bool(payload.get("dry_run", False))
+
+        if retry_failed_mode in {"last", "selected"}:
+            failed_from_last = cidr_db_updater_service.get_last_failed_providers()
+            if retry_failed_mode == "last":
+                selected_files = failed_from_last or []
+            elif retry_failed_mode == "selected":
+                selected_set = set(selected_files or [])
+                selected_files = [name for name in failed_from_last if name in selected_set]
+            if not selected_files:
+                return jsonify({
+                    "success": False,
+                    "message": "Нет failed-провайдеров для повтора в выбранном режиме",
+                }), 400
 
         triggered_by = f"manual:{session.get('username', 'unknown')}"
 
-        task_id = create_cidr_task("cidr_db_refresh", "Обновление CIDR БД запущено в фоне")
+        task_type = "cidr_db_refresh_dry_run" if dry_run else "cidr_db_refresh"
+        task_message = "Dry-run CIDR БД запущен в фоне" if dry_run else "Обновление CIDR БД запущено в фоне"
+        task_id = create_cidr_task(task_type, task_message)
 
         def _runner(progress_callback):
             return cidr_db_updater_service.refresh_all_providers(
                 triggered_by=triggered_by,
                 selected_files=selected_files,
                 progress_callback=progress_callback,
+                dry_run=dry_run,
             )
 
         _start_cidr_task(task_id, _runner)
@@ -541,7 +559,7 @@ def register_settings_api_routes(
             "success": True,
             "queued": True,
             "task_id": task_id,
-            "message": "Обновление CIDR БД запущено в фоне",
+            "message": "Dry-run CIDR БД запущен в фоне" if dry_run else "Обновление CIDR БД запущено в фоне",
             "status_url": url_for("api_cidr_task_status", task_id=task_id),
         }), 202
 
@@ -580,6 +598,7 @@ def register_settings_api_routes(
             return jsonify({"success": False, "message": "Ожидается JSON-объект"}), 400
 
         action = str(payload.get("action") or "generate").strip().lower()
+        dry_run = bool(payload.get("dry_run", False))
         selected = payload.get("regions")
         selected_files = [str(item) for item in selected] if isinstance(selected, list) else None
         region_scopes_raw = payload.get("region_scopes")
@@ -612,7 +631,7 @@ def register_settings_api_routes(
         # from the .env file at runtime (respects the value saved via the UI).
         route_limit = None
 
-        if action == "estimate":
+        if action in {"estimate", "estimate_dry_run"} or dry_run:
             active_task = find_active_cidr_task("cidr_estimate_from_db")
             if active_task:
                 return jsonify({
@@ -623,7 +642,7 @@ def register_settings_api_routes(
                     "status_url": url_for("api_cidr_task_status", task_id=active_task.get("task_id")),
                 }), 202
 
-            task_id = create_cidr_task("cidr_estimate_from_db", "Оценка CIDR из БД запущена")
+            task_id = create_cidr_task("cidr_estimate_from_db", "Dry-run генерации из БД запущен")
 
             def _estimate_runner(progress_callback):
                 return estimate_cidr_matches_from_db(
@@ -648,7 +667,7 @@ def register_settings_api_routes(
                 "success": True,
                 "queued": True,
                 "task_id": task_id,
-                "message": "Оценка CIDR из БД запущена",
+                "message": "Dry-run генерации из БД запущен",
                 "status_url": url_for("api_cidr_task_status", task_id=task_id),
             }), 202
 

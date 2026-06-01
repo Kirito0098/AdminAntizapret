@@ -8,7 +8,9 @@ import json
 import logging
 import os
 import re
+import threading
 import time
+from copy import deepcopy
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -70,6 +72,14 @@ ASN_FETCH_WORKERS = _read_positive_int_env(
 SOURCE_FETCH_WORKERS = _read_positive_int_env(
     "CIDR_DB_SOURCE_FETCH_WORKERS",
     4,
+)
+PROVIDER_FETCH_WORKERS = _read_positive_int_env(
+    "CIDR_DB_PROVIDER_WORKERS",
+    4,
+)
+SOURCE_CACHE_TTL_SECONDS = _read_positive_int_env(
+    "CIDR_DB_SOURCE_CACHE_TTL_SECONDS",
+    900,
 )
 ASN_FETCH_SOURCE_TIMEOUT_SECONDS = _read_positive_int_env(
     "CIDR_DB_ASN_FETCH_TIMEOUT",
@@ -277,6 +287,9 @@ def _extract_cidrs_with_meta(text_data, source_format):
 # ──────────────────────────────────────────────────────────────────────
 
 class CidrDbUpdaterService:
+    _source_cache = {}
+    _source_cache_lock = threading.Lock()
+
     def __init__(self, *, db):
         self.db = db
 
@@ -287,6 +300,15 @@ class CidrDbUpdaterService:
     @staticmethod
     def _current_source_fetch_workers():
         return _read_positive_int_env("CIDR_DB_SOURCE_FETCH_WORKERS", SOURCE_FETCH_WORKERS)
+
+    @staticmethod
+    def _current_provider_fetch_workers():
+        return _read_positive_int_env("CIDR_DB_PROVIDER_WORKERS", PROVIDER_FETCH_WORKERS)
+
+    @staticmethod
+    def _current_source_cache_ttl_seconds():
+        ttl = _read_positive_int_env("CIDR_DB_SOURCE_CACHE_TTL_SECONDS", SOURCE_CACHE_TTL_SECONDS)
+        return max(60, min(ttl, 3600))
 
     @staticmethod
     def _resolve_asn_fetch_workers(total_asn_rows, configured_workers=None):
@@ -302,6 +324,217 @@ class CidrDbUpdaterService:
         workers = min(workers, 32)
         return min(workers, total)
 
+    @staticmethod
+    def _resolve_provider_fetch_workers(total_providers, configured_workers=None):
+        total = max(0, int(total_providers or 0))
+        if total <= 1:
+            return total
+
+        if configured_workers is None:
+            configured_workers = CidrDbUpdaterService._current_provider_fetch_workers()
+
+        workers = max(1, int(configured_workers or 1))
+        workers = min(workers, 16)
+        return min(workers, total)
+
+    @staticmethod
+    def _build_partial_reasons_by_source(source_details, asn_discovery_errors, asn_fetch_errors, fallback_applied):
+        reasons = []
+        for detail in source_details or []:
+            if str(detail.get("status") or "") == "error":
+                reasons.append({
+                    "source": detail.get("name") or "unknown",
+                    "reason": detail.get("error") or "Источник вернул ошибку",
+                })
+        for err in asn_discovery_errors or []:
+            source, _, reason = str(err).partition(":")
+            reasons.append({
+                "source": source.strip() or "asn-discovery",
+                "reason": reason.strip() or str(err),
+            })
+        for err in asn_fetch_errors or []:
+            source, _, reason = str(err).partition(":")
+            reasons.append({
+                "source": source.strip() or "asn-fetch",
+                "reason": reason.strip() or str(err),
+            })
+        if fallback_applied:
+            reasons.append({
+                "source": "fallback",
+                "reason": "Сохранен предыдущий пул CIDR из БД",
+            })
+        return reasons
+
+    def _process_provider_refresh_context(
+        self,
+        *,
+        file_name,
+        sources,
+        prev_cidr_count,
+        prev_asn_count,
+        prev_active_asn_count,
+    ):
+        source_hint_asns = _extract_asns_from_sources(sources)
+        discovered_asns, asn_discovery_sources, asn_discovery_errors = self._discover_provider_asns(
+            file_name,
+            sources,
+            seed_asns=set(),
+            max_asns=ASN_DISCOVERY_MAX_PER_PROVIDER,
+            scan_extra_limit=ASN_DISCOVERY_SCAN_EXTRA_LIMIT,
+        )
+
+        priority_asns = set(source_hint_asns)
+        discovered_asn_values = [
+            int(asn)
+            for asn in discovered_asns
+            if _normalize_asn(asn) is not None
+        ]
+
+        asn_items = []
+        asn_source_names = []
+        asn_fetch_errors = []
+        asn_optional_errors = []
+        asn_fetch_meta = {}
+        total_asn_rows = len(discovered_asn_values)
+        asn_fetch_results = {}
+        worker_count = self._resolve_asn_fetch_workers(total_asn_rows)
+
+        if total_asn_rows > 0 and worker_count > 1:
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                future_to_asn = {
+                    executor.submit(self._download_asn_cidrs_with_meta, asn_value): asn_value
+                    for asn_value in discovered_asn_values
+                }
+                for future in as_completed(future_to_asn):
+                    asn_value = future_to_asn[future]
+                    try:
+                        asn_fetch_results[asn_value] = future.result()
+                    except Exception as exc:
+                        asn_fetch_results[asn_value] = ([], None, str(exc))
+        else:
+            for asn_value in discovered_asn_values:
+                asn_fetch_results[asn_value] = self._download_asn_cidrs_with_meta(asn_value)
+
+        for asn_value in discovered_asn_values:
+            fetched_items, fetched_source, fetched_error = asn_fetch_results.get(
+                asn_value,
+                ([], None, "ASN результат не получен"),
+            )
+            if fetched_error:
+                if asn_value in priority_asns:
+                    asn_fetch_errors.append(f"AS{asn_value}: {fetched_error}")
+                else:
+                    asn_optional_errors.append(f"AS{asn_value}: {fetched_error}")
+                asn_fetch_meta[asn_value] = {
+                    "status": "error",
+                    "prefix_count": 0,
+                    "error": fetched_error,
+                }
+                continue
+
+            asn_items.extend(fetched_items)
+            if fetched_source:
+                asn_source_names.append(fetched_source)
+            asn_fetch_meta[asn_value] = {
+                "status": "ok",
+                "prefix_count": len(fetched_items),
+                "error": None,
+            }
+
+        direct_items, direct_source_used, source_details = self._download_cidrs_with_meta(
+            sources,
+            return_source_details=True,
+        )
+        merged_items = self._merge_cidr_items(direct_items + asn_items)
+        if not merged_items:
+            raise ValueError("Все источники вернули пустой результат")
+
+        candidate_cidr_count = self._count_unique_cidrs(merged_items)
+        asn_errors = asn_discovery_errors + asn_fetch_errors
+        fallback_applied = self._should_preserve_previous_pool(
+            previous_cidr_count=prev_cidr_count,
+            candidate_cidr_count=candidate_cidr_count,
+            asn_errors=asn_errors,
+        )
+
+        if fallback_applied:
+            count = prev_cidr_count
+            asn_count = prev_asn_count
+            active_asn_count = prev_active_asn_count
+        else:
+            count = candidate_cidr_count
+            asn_count = len(discovered_asn_values)
+            active_asn_count = asn_count
+
+        expected_asn_min = len(source_hint_asns)
+        anomaly_level, anomaly_reason = self._compute_provider_anomaly(
+            expected_asn_min=expected_asn_min,
+            active_asn_count=active_asn_count,
+            current_cidr_count=count,
+            previous_cidr_count=prev_cidr_count,
+            asn_discovery_errors=asn_discovery_errors,
+            asn_fetch_errors=asn_fetch_errors,
+        )
+
+        if fallback_applied:
+            anomaly_level, anomaly_reason = self._merge_anomaly_reason(
+                level=anomaly_level,
+                reason=anomaly_reason,
+                extra_level="warning",
+                extra_reason=(
+                    f"Применен safe-fallback: сохранён предыдущий пул CIDR "
+                    f"({prev_cidr_count}, новый расчёт: {candidate_cidr_count})"
+                ),
+            )
+
+        source_chunks = []
+        if direct_source_used:
+            source_chunks.append(direct_source_used)
+        if asn_source_names:
+            source_chunks.append(f"ASN-pool:{len(asn_source_names)}")
+        if asn_discovery_sources:
+            source_chunks.append(f"ASN-discovery:{','.join(sorted(asn_discovery_sources))}")
+        if fallback_applied:
+            source_chunks.append("fallback:previous-db")
+        source_used = "; ".join(chunk for chunk in source_chunks if chunk)
+        provider_status = "partial" if (asn_discovery_errors or asn_fetch_errors or fallback_applied) else "ok"
+        partial_reasons_by_source = self._build_partial_reasons_by_source(
+            source_details,
+            asn_discovery_errors,
+            asn_fetch_errors,
+            fallback_applied,
+        )
+
+        return {
+            "status": provider_status,
+            "cidr_count": count,
+            "candidate_cidr_count": candidate_cidr_count,
+            "source": source_used,
+            "source_details": source_details,
+            "partial_reasons_by_source": partial_reasons_by_source,
+            "asn_count": asn_count,
+            "active_asn_count": active_asn_count,
+            "expected_asn_min": expected_asn_min,
+            "anomaly_level": anomaly_level,
+            "anomaly_reason": anomaly_reason,
+            "asn_errors": asn_errors,
+            "asn_optional_errors": asn_optional_errors,
+            "asn_discovery_errors": asn_discovery_errors,
+            "asn_fetch_errors": asn_fetch_errors,
+            "fallback_applied": fallback_applied,
+            "merged_items": merged_items,
+            "discovered_asns": discovered_asn_values,
+            "asn_fetch_meta": asn_fetch_meta,
+            "dry_run_changes": {
+                "previous_cidr_count": int(prev_cidr_count or 0),
+                "candidate_cidr_count": int(candidate_cidr_count or 0),
+                "final_cidr_count": int(count or 0),
+                "would_insert": max(0, int(candidate_cidr_count or 0) - int(prev_cidr_count or 0)) if not fallback_applied else 0,
+                "would_delete": max(0, int(prev_cidr_count or 0) - int(candidate_cidr_count or 0)) if not fallback_applied else 0,
+                "fallback_applied": bool(fallback_applied),
+            },
+        }
+
     # ── Public API ────────────────────────────────────────────────────
 
     def refresh_all_providers(
@@ -310,6 +543,7 @@ class CidrDbUpdaterService:
         triggered_by="cron",
         selected_files=None,
         progress_callback=None,
+        dry_run=False,
     ):
         """Download CIDRs from all providers and store/update in DB.
 
@@ -318,14 +552,6 @@ class CidrDbUpdaterService:
         from core.services.cidr.provider_sources import PROVIDER_SOURCES
 
         m = _get_models()
-
-        log_entry = m.CidrDbRefreshLog(
-            started_at=datetime.utcnow(),
-            status="running",
-            triggered_by=triggered_by,
-        )
-        self.db.session.add(log_entry)
-        self.db.session.commit()
 
         requested_files = selected_files or list(PROVIDER_SOURCES.keys())
         files_to_update = [name for name in requested_files if name in PROVIDER_SOURCES]
@@ -336,10 +562,6 @@ class CidrDbUpdaterService:
         per_provider = {}
 
         if not files_to_update:
-            log_entry.finished_at = datetime.utcnow()
-            log_entry.status = "error"
-            log_entry.error = "Нет валидных провайдеров для обновления"
-            self.db.session.commit()
             return {
                 "success": False,
                 "status": "error",
@@ -349,230 +571,162 @@ class CidrDbUpdaterService:
                 "per_provider": {},
             }
 
-        total_files = len(files_to_update)
+        log_entry = None
+        if not dry_run:
+            log_entry = m.CidrDbRefreshLog(
+                started_at=datetime.utcnow(),
+                status="running",
+                triggered_by=triggered_by,
+            )
+            self.db.session.add(log_entry)
+            self.db.session.commit()
 
-        for index, file_name in enumerate(files_to_update, start=1):
-            sources = PROVIDER_SOURCES.get(file_name) or []
-            if not sources:
-                continue
+        previous_cidr_counts = {
+            file_name: int(m.ProviderCidr.query.filter_by(provider_key=file_name).count() or 0)
+            for file_name in files_to_update
+        }
+        previous_asn_counts = {
+            file_name: int(m.ProviderAsn.query.filter_by(provider_key=file_name).count() or 0)
+            for file_name in files_to_update
+        }
+        previous_active_asn_counts = {
+            file_name: int(m.ProviderAsn.query.filter_by(provider_key=file_name, active=True).count() or 0)
+            for file_name in files_to_update
+        }
 
-            provider_progress_start = 4 + int(((index - 1) / max(total_files, 1)) * 90)
-            provider_progress_end = 4 + int((index / max(total_files, 1)) * 90)
+        provider_results = {}
+        workers = self._resolve_provider_fetch_workers(len(files_to_update))
+        total_files = max(len(files_to_update), 1)
 
-            source_hint_asns = _extract_asns_from_sources(sources)
-
+        def _emit_progress(pct, stage):
             if progress_callback:
                 try:
-                    progress_callback(provider_progress_start, f"{file_name}: подготовка ASN-пула")
+                    progress_callback(pct, stage)
                 except Exception:
                     pass
 
-            try:
-                discovered_asns, asn_discovery_sources, asn_discovery_errors = self._discover_provider_asns(
-                    file_name,
-                    sources,
-                    seed_asns=set(),
-                    max_asns=ASN_DISCOVERY_MAX_PER_PROVIDER,
-                    scan_extra_limit=ASN_DISCOVERY_SCAN_EXTRA_LIMIT,
-                )
+        _emit_progress(3, "Подготовка обновления провайдеров")
 
-                priority_asns = set(source_hint_asns)
-                discovered_asn_values = [
-                    int(asn)
-                    for asn in discovered_asns
-                    if _normalize_asn(asn) is not None
-                ]
-
-                asn_items = []
-                asn_source_names = []
-                asn_fetch_errors = []
-                asn_optional_errors = []
-                asn_fetch_meta = {}
-                total_asn_rows = len(discovered_asn_values)
-                asn_fetch_results = {}
-                worker_count = self._resolve_asn_fetch_workers(total_asn_rows)
-
-                if total_asn_rows > 0 and worker_count > 1:
-                    with ThreadPoolExecutor(max_workers=worker_count) as executor:
-                        future_to_asn = {
-                            executor.submit(self._download_asn_cidrs_with_meta, asn_value): asn_value
-                            for asn_value in discovered_asn_values
-                        }
-                        for done_index, future in enumerate(as_completed(future_to_asn), start=1):
-                            asn_value = future_to_asn[future]
-                            try:
-                                asn_fetch_results[asn_value] = future.result()
-                            except Exception as exc:
-                                asn_fetch_results[asn_value] = ([], None, str(exc))
-
-                            if progress_callback and total_asn_rows:
-                                try:
-                                    provider_span = max(provider_progress_end - provider_progress_start - 1, 1)
-                                    local_pct = provider_progress_start + int((done_index / max(total_asn_rows, 1)) * provider_span)
-                                    progress_callback(
-                                        local_pct,
-                                        f"{file_name}: загрузка ASN-пула ({done_index}/{total_asn_rows}, потоки={worker_count})",
-                                    )
-                                except Exception:
-                                    pass
-                else:
-                    for asn_index, asn_value in enumerate(discovered_asn_values, start=1):
-                        asn_fetch_results[asn_value] = self._download_asn_cidrs_with_meta(asn_value)
-                        if progress_callback and total_asn_rows:
-                            try:
-                                provider_span = max(provider_progress_end - provider_progress_start - 1, 1)
-                                local_pct = provider_progress_start + int((asn_index / max(total_asn_rows, 1)) * provider_span)
-                                progress_callback(local_pct, f"{file_name}: загрузка AS{asn_value} ({asn_index}/{total_asn_rows})")
-                            except Exception:
-                                pass
-
-                for asn_value in discovered_asn_values:
-                    fetched_items, fetched_source, fetched_error = asn_fetch_results.get(
-                        asn_value,
-                        ([], None, "ASN результат не получен"),
-                    )
-                    if fetched_error:
-                        if asn_value in priority_asns:
-                            asn_fetch_errors.append(f"AS{asn_value}: {fetched_error}")
-                        else:
-                            asn_optional_errors.append(f"AS{asn_value}: {fetched_error}")
-                        asn_fetch_meta[asn_value] = {
-                            "status": "error",
-                            "prefix_count": 0,
-                            "error": fetched_error,
-                        }
+        if workers > 1:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                future_to_provider = {}
+                for index, file_name in enumerate(files_to_update, start=1):
+                    sources = PROVIDER_SOURCES.get(file_name) or []
+                    if not sources:
+                        provider_results[file_name] = {"status": "error", "error": "Пустой список источников"}
                         continue
-
-                    asn_items.extend(fetched_items)
-                    if fetched_source:
-                        asn_source_names.append(fetched_source)
-                    asn_fetch_meta[asn_value] = {
-                        "status": "ok",
-                        "prefix_count": len(fetched_items),
-                        "error": None,
-                    }
-
-                direct_items, direct_source_used = self._download_cidrs_with_meta(sources)
-                merged_items = self._merge_cidr_items(direct_items + asn_items)
-                if not merged_items:
-                    raise ValueError("Все источники вернули пустой результат")
-
-                prev_cidr_count = int(
-                    m.ProviderCidr.query.filter_by(provider_key=file_name).count() or 0
-                )
-                candidate_cidr_count = self._count_unique_cidrs(merged_items)
-                asn_errors = asn_discovery_errors + asn_fetch_errors
-                fallback_applied = self._should_preserve_previous_pool(
-                    previous_cidr_count=prev_cidr_count,
-                    candidate_cidr_count=candidate_cidr_count,
-                    asn_errors=asn_errors,
-                )
-
-                if fallback_applied:
-                    count = prev_cidr_count
-                    asn_count = int(
-                        m.ProviderAsn.query.filter_by(provider_key=file_name).count() or 0
+                    future = executor.submit(
+                        self._process_provider_refresh_context,
+                        file_name=file_name,
+                        sources=sources,
+                        prev_cidr_count=previous_cidr_counts.get(file_name, 0),
+                        prev_asn_count=previous_asn_counts.get(file_name, 0),
+                        prev_active_asn_count=previous_active_asn_counts.get(file_name, 0),
                     )
-                    active_asn_count = int(
-                        m.ProviderAsn.query.filter_by(provider_key=file_name, active=True).count() or 0
+                    future_to_provider[future] = (index, file_name)
+
+                for done_idx, future in enumerate(as_completed(future_to_provider), start=1):
+                    _, file_name = future_to_provider[future]
+                    try:
+                        provider_results[file_name] = future.result()
+                    except Exception as exc:
+                        provider_results[file_name] = {"status": "error", "error": str(exc)}
+                    pct = 5 + int((done_idx / max(len(future_to_provider), 1)) * 70)
+                    _emit_progress(pct, f"Подготовлено провайдеров: {done_idx}/{len(future_to_provider)}")
+        else:
+            for index, file_name in enumerate(files_to_update, start=1):
+                sources = PROVIDER_SOURCES.get(file_name) or []
+                if not sources:
+                    provider_results[file_name] = {"status": "error", "error": "Пустой список источников"}
+                    continue
+                try:
+                    provider_results[file_name] = self._process_provider_refresh_context(
+                        file_name=file_name,
+                        sources=sources,
+                        prev_cidr_count=previous_cidr_counts.get(file_name, 0),
+                        prev_asn_count=previous_asn_counts.get(file_name, 0),
+                        prev_active_asn_count=previous_active_asn_counts.get(file_name, 0),
                     )
-                    asn_rows = []
-                else:
-                    asn_rows = self._upsert_provider_asns(file_name, discovered_asns)
-                    self._apply_provider_asn_runtime_meta(file_name, asn_fetch_meta)
-                    count = self._upsert_provider_cidrs(file_name, merged_items)
-                    asn_count = len(asn_rows)
-                    active_asn_count = len([row for row in asn_rows if row.active])
+                except Exception as exc:
+                    provider_results[file_name] = {"status": "error", "error": str(exc)}
+                pct = 5 + int((index / total_files) * 70)
+                _emit_progress(pct, f"Подготовлено провайдеров: {index}/{total_files}")
 
-                expected_asn_min = len(source_hint_asns)
-                anomaly_level, anomaly_reason = self._compute_provider_anomaly(
-                    expected_asn_min=expected_asn_min,
-                    active_asn_count=active_asn_count,
-                    current_cidr_count=count,
-                    previous_cidr_count=prev_cidr_count,
-                    asn_discovery_errors=asn_discovery_errors,
-                    asn_fetch_errors=asn_fetch_errors,
-                )
+        try:
+            for index, file_name in enumerate(files_to_update, start=1):
+                result = provider_results.get(file_name) or {"status": "error", "error": "Результат не получен"}
+                if "error" in result and result.get("status") == "error":
+                    err_msg = str(result.get("error") or "unknown error")
+                    logger.warning("CIDR DB refresh failed for %s: %s", file_name, err_msg)
+                    if not dry_run:
+                        self._update_provider_meta(
+                            file_name,
+                            cidr_count=None,
+                            source_used=None,
+                            status="error",
+                            error=err_msg,
+                            anomaly_level="critical",
+                            anomaly_reason=err_msg,
+                            commit=False,
+                        )
+                    providers_failed += 1
+                    per_provider[file_name] = {"status": "error", "error": err_msg}
+                    continue
 
-                if fallback_applied:
-                    anomaly_level, anomaly_reason = self._merge_anomaly_reason(
-                        level=anomaly_level,
-                        reason=anomaly_reason,
-                        extra_level="warning",
-                        extra_reason=(
-                            f"Применен safe-fallback: сохранён предыдущий пул CIDR "
-                            f"({prev_cidr_count}, новый расчёт: {candidate_cidr_count})"
-                        ),
-                    )
-
-                source_chunks = []
-                if direct_source_used:
-                    source_chunks.append(direct_source_used)
-                if asn_source_names:
-                    source_chunks.append(f"ASN-pool:{len(asn_source_names)}")
-                if asn_discovery_sources:
-                    source_chunks.append(f"ASN-discovery:{','.join(sorted(asn_discovery_sources))}")
-                if fallback_applied:
-                    source_chunks.append("fallback:previous-db")
-                source_used = "; ".join(chunk for chunk in source_chunks if chunk)
-
-                provider_status = "partial" if (asn_discovery_errors or asn_fetch_errors or fallback_applied) else "ok"
-                self._update_provider_meta(
-                    file_name,
-                    cidr_count=count,
-                    source_used=source_used,
-                    status=provider_status,
-                    error=("; ".join(asn_errors[:6]) if asn_errors else ("safe-fallback to previous CIDR pool" if fallback_applied else None)),
-                    expected_asn_min=expected_asn_min,
-                    asn_count=asn_count,
-                    active_asn_count=active_asn_count,
-                    anomaly_level=anomaly_level,
-                    anomaly_reason=anomaly_reason,
-                )
-                if not fallback_applied and asn_rows:
-                    self._write_provider_asn_snapshots(log_entry.id, file_name, asn_rows)
-
+                provider_status = str(result.get("status") or "ok")
                 providers_updated += 1
                 if provider_status == "partial":
                     providers_partial += 1
+
+                count = int(result.get("cidr_count") or 0)
                 total_cidrs += count
+
+                asn_rows = []
+                if not dry_run and not bool(result.get("fallback_applied")):
+                    asn_rows = self._upsert_provider_asns(file_name, result.get("discovered_asns") or [], commit=False)
+                    self._apply_provider_asn_runtime_meta(file_name, result.get("asn_fetch_meta") or {}, commit=False)
+                    count = self._upsert_provider_cidrs(file_name, result.get("merged_items") or [], commit=False)
+
+                if not dry_run:
+                    self._update_provider_meta(
+                        file_name,
+                        cidr_count=count,
+                        source_used=result.get("source"),
+                        status=provider_status,
+                        error=("; ".join((result.get("asn_errors") or [])[:6]) if (result.get("asn_errors") or []) else ("safe-fallback to previous CIDR pool" if result.get("fallback_applied") else None)),
+                        expected_asn_min=result.get("expected_asn_min"),
+                        asn_count=(len(asn_rows) if asn_rows else result.get("asn_count")),
+                        active_asn_count=(len([row for row in asn_rows if row.active]) if asn_rows else result.get("active_asn_count")),
+                        anomaly_level=result.get("anomaly_level"),
+                        anomaly_reason=result.get("anomaly_reason"),
+                        commit=False,
+                    )
+                    if log_entry is not None and not bool(result.get("fallback_applied")) and asn_rows:
+                        self._write_provider_asn_snapshots(log_entry.id, file_name, asn_rows, commit=False)
+
                 per_provider[file_name] = {
                     "status": provider_status,
                     "cidr_count": count,
-                    "source": source_used,
-                    "asn_count": asn_count,
-                    "active_asn_count": active_asn_count,
-                    "expected_asn_min": expected_asn_min,
-                    "anomaly_level": anomaly_level,
-                    "anomaly_reason": anomaly_reason,
-                    "asn_errors": asn_errors,
-                    "asn_optional_errors": asn_optional_errors,
-                    "fallback_applied": fallback_applied,
-                    "candidate_cidr_count": candidate_cidr_count,
+                    "source": result.get("source"),
+                    "source_details": result.get("source_details") or [],
+                    "partial_reasons_by_source": result.get("partial_reasons_by_source") or [],
+                    "asn_count": int(result.get("asn_count") or 0),
+                    "active_asn_count": int(result.get("active_asn_count") or 0),
+                    "expected_asn_min": int(result.get("expected_asn_min") or 0),
+                    "anomaly_level": result.get("anomaly_level"),
+                    "anomaly_reason": result.get("anomaly_reason"),
+                    "asn_errors": result.get("asn_errors") or [],
+                    "asn_optional_errors": result.get("asn_optional_errors") or [],
+                    "fallback_applied": bool(result.get("fallback_applied")),
+                    "candidate_cidr_count": int(result.get("candidate_cidr_count") or 0),
+                    "dry_run_changes": result.get("dry_run_changes") or {},
                 }
 
-            except Exception as exc:
-                err_msg = str(exc)
-                logger.warning("CIDR DB refresh failed for %s: %s", file_name, err_msg)
-                self._update_provider_meta(
-                    file_name,
-                    cidr_count=None,
-                    source_used=None,
-                    status="error",
-                    error=err_msg,
-                    anomaly_level="critical",
-                    anomaly_reason=err_msg,
-                )
-                providers_failed += 1
-                per_provider[file_name] = {"status": "error", "error": err_msg}
-
-            if progress_callback:
-                try:
-                    result_so_far = per_provider.get(file_name, {})
-                    status_text = result_so_far.get("status", "ok")
-                    progress_callback(provider_progress_end, f"{file_name}: {status_text}, CIDR {result_so_far.get('cidr_count', 0)}")
-                except Exception:
-                    pass
+                pct = 76 + int((index / total_files) * 22)
+                _emit_progress(pct, f"{file_name}: {provider_status}, CIDR {count}")
+        except Exception:
+            self.db.session.rollback()
+            raise
 
         final_status = "ok"
         if providers_failed > 0 and providers_updated == 0:
@@ -580,19 +734,30 @@ class CidrDbUpdaterService:
         elif providers_failed > 0 or providers_partial > 0:
             final_status = "partial"
 
-        log_entry.finished_at = datetime.utcnow()
-        log_entry.status = final_status
-        log_entry.providers_updated = providers_updated
-        log_entry.providers_failed = providers_failed
-        log_entry.total_cidrs = total_cidrs
-        log_entry.details_json = json.dumps(per_provider, ensure_ascii=False)
-        self.db.session.commit()
-
-        if progress_callback:
+        if log_entry is not None:
             try:
-                progress_callback(100, "Обновление CIDR БД завершено")
-            except Exception:
-                pass
+                log_entry.finished_at = datetime.utcnow()
+                log_entry.status = final_status
+                log_entry.providers_updated = providers_updated
+                log_entry.providers_failed = providers_failed
+                log_entry.total_cidrs = total_cidrs
+                log_entry.details_json = json.dumps(per_provider, ensure_ascii=False)
+                self.db.session.commit()
+            except Exception as exc:
+                self.db.session.rollback()
+                logger.warning("CIDR DB refresh failed to persist: %s", exc)
+                return {
+                    "success": False,
+                    "status": "error",
+                    "message": str(exc),
+                    "providers_updated": 0,
+                    "providers_failed": len(files_to_update),
+                    "total_cidrs": 0,
+                    "per_provider": {},
+                    "dry_run": bool(dry_run),
+                }
+
+        _emit_progress(100, "Dry-run завершен" if dry_run else "Обновление CIDR БД завершено")
 
         return {
             "success": final_status in ("ok", "partial"),
@@ -601,6 +766,7 @@ class CidrDbUpdaterService:
             "providers_failed": providers_failed,
             "total_cidrs": total_cidrs,
             "per_provider": per_provider,
+            "dry_run": bool(dry_run),
         }
 
     def get_db_status(self):
@@ -614,6 +780,14 @@ class CidrDbUpdaterService:
             .order_by(m.CidrDbRefreshLog.started_at.desc())
             .first()
         )
+        last_details = {}
+        if last_log and last_log.details_json:
+            try:
+                parsed = json.loads(last_log.details_json or "{}")
+                if isinstance(parsed, dict):
+                    last_details = parsed
+            except (TypeError, ValueError):
+                last_details = {}
         metas = m.ProviderMeta.query.all()
         meta_by_key = {pm.provider_key: pm for pm in metas}
         total_cidrs = sum(pm.cidr_count for pm in metas)
@@ -631,6 +805,7 @@ class CidrDbUpdaterService:
         for provider_key in PROVIDER_SOURCES.keys():
             pm = meta_by_key.get(provider_key)
             if pm is None:
+                detail = last_details.get(provider_key) if isinstance(last_details, dict) else {}
                 providers_info[provider_key] = {
                     "cidr_count": 0,
                     "last_refreshed_at": None,
@@ -643,9 +818,13 @@ class CidrDbUpdaterService:
                     "active_asns": [],
                     "anomaly_level": "none",
                     "anomaly_reason": None,
+                    "source_details": (detail.get("source_details") if isinstance(detail, dict) else []) or [],
+                    "partial_reasons_by_source": (detail.get("partial_reasons_by_source") if isinstance(detail, dict) else []) or [],
+                    "dry_run_changes": (detail.get("dry_run_changes") if isinstance(detail, dict) else {}) or {},
                 }
                 continue
 
+            detail = last_details.get(provider_key) if isinstance(last_details, dict) else {}
             providers_info[provider_key] = {
                 "cidr_count": pm.cidr_count,
                 "last_refreshed_at": pm.last_refreshed_at.isoformat() if pm.last_refreshed_at else None,
@@ -658,6 +837,9 @@ class CidrDbUpdaterService:
                 "active_asns": asn_map.get(provider_key, []),
                 "anomaly_level": pm.anomaly_level or "none",
                 "anomaly_reason": pm.anomaly_reason,
+                "source_details": (detail.get("source_details") if isinstance(detail, dict) else []) or [],
+                "partial_reasons_by_source": (detail.get("partial_reasons_by_source") if isinstance(detail, dict) else []) or [],
+                "dry_run_changes": (detail.get("dry_run_changes") if isinstance(detail, dict) else {}) or {},
             }
 
         alerts = self._build_degradation_alerts(last_log, metas)
@@ -694,6 +876,34 @@ class CidrDbUpdaterService:
                 "triggered_by": entry.triggered_by,
             })
         return result
+
+    def get_last_failed_providers(self):
+        """Return provider keys failed in the most recent non-cleared refresh log."""
+        m = _get_models()
+        log_entry = (
+            m.CidrDbRefreshLog.query
+            .filter(m.CidrDbRefreshLog.status != "cleared")
+            .order_by(m.CidrDbRefreshLog.started_at.desc())
+            .first()
+        )
+        if not log_entry or not log_entry.details_json:
+            return []
+
+        try:
+            details = json.loads(log_entry.details_json or "{}")
+        except (TypeError, ValueError):
+            return []
+
+        if not isinstance(details, dict):
+            return []
+
+        failed = []
+        for provider_key, provider_info in details.items():
+            if not isinstance(provider_info, dict):
+                continue
+            if str(provider_info.get("status") or "") == "error":
+                failed.append(str(provider_key))
+        return sorted(set(failed))
 
     # ── Preset management ─────────────────────────────────────────────
 
@@ -1029,7 +1239,7 @@ class CidrDbUpdaterService:
 
         return list(merged.values())
 
-    def _upsert_provider_asns(self, provider_key, asns):
+    def _upsert_provider_asns(self, provider_key, asns, *, commit=True):
         """Upsert provider ASN pool and deactivate ASN entries not seen in this refresh."""
         m = _get_models()
         now = datetime.utcnow()
@@ -1062,10 +1272,11 @@ class CidrDbUpdaterService:
             if asn not in target_asns:
                 row.active = False
 
-        self.db.session.commit()
+        if commit:
+            self.db.session.commit()
         return sorted((row for row in existing_by_asn.values() if row.active), key=lambda item: item.asn)
 
-    def _apply_provider_asn_runtime_meta(self, provider_key, asn_fetch_meta):
+    def _apply_provider_asn_runtime_meta(self, provider_key, asn_fetch_meta, *, commit=True):
         """Persist per-AS fetch status and prefix counts for the latest refresh attempt."""
         m = _get_models()
         if not asn_fetch_meta:
@@ -1085,9 +1296,10 @@ class CidrDbUpdaterService:
             row.prefix_count = int(meta.get("prefix_count") or 0)
             row.last_seen_at = now
 
-        self.db.session.commit()
+        if commit:
+            self.db.session.commit()
 
-    def _write_provider_asn_snapshots(self, refresh_log_id, provider_key, asn_rows):
+    def _write_provider_asn_snapshots(self, refresh_log_id, provider_key, asn_rows, *, commit=True):
         """Store ASN pool snapshot for refresh history and degradation analysis."""
         m = _get_models()
         if not asn_rows:
@@ -1105,7 +1317,8 @@ class CidrDbUpdaterService:
             for row in asn_rows
         ]
         self.db.session.bulk_save_objects(snapshots)
-        self.db.session.commit()
+        if commit:
+            self.db.session.commit()
 
     @staticmethod
     def _compute_provider_anomaly(
@@ -1169,10 +1382,19 @@ class CidrDbUpdaterService:
         if candidate_cidr_count <= 0:
             return True
 
+        # If the pool is stable and there are no ASN errors, do not trigger
+        # safe-fallback for naturally small providers (e.g. Cloudflare official list).
+        if candidate_cidr_count == previous_cidr_count and not asn_errors:
+            return False
+
         if candidate_cidr_count >= CIDR_FALLBACK_MIN_CANDIDATE and not asn_errors:
             return False
 
         if candidate_cidr_count < CIDR_FALLBACK_MIN_CANDIDATE:
+            # Keep fallback for large historical pools collapsing to a tiny set.
+            # But avoid warning churn for providers that are consistently small.
+            if previous_cidr_count < CIDR_FALLBACK_MIN_CANDIDATE and not asn_errors:
+                return False
             return True
 
         drop_ratio = 1.0 - (float(candidate_cidr_count) / float(previous_cidr_count))
@@ -1237,10 +1459,11 @@ class CidrDbUpdaterService:
         alerts.sort(key=lambda item: severity_order.get(item.get("level"), 9))
         return alerts
 
-    def _download_cidrs_with_meta(self, sources):
+    def _download_cidrs_with_meta(self, sources, *, return_source_details=False):
         """Try each source in order and merge all successful CIDR datasets."""
         all_items = []
         source_names_used = []
+        source_details = []
         errors = []
         source_list = list(sources or [])
         if not source_list:
@@ -1258,23 +1481,57 @@ class CidrDbUpdaterService:
                 timeout = 45
             timeout = max(3, min(timeout, 120))
 
-            text_data = _download_text(source["url"], timeout=timeout)
+            cache_ttl = self._current_source_cache_ttl_seconds()
+            cache_key = f"{source.get('url')}|{fmt}|{timeout}"
+            cache_hit = False
+            now = time.time()
+            with self._source_cache_lock:
+                cached = self._source_cache.get(cache_key)
+                if cached and (now - float(cached.get("ts") or 0)) <= float(cache_ttl):
+                    text_data = deepcopy(cached.get("payload") or "")
+                    cache_hit = True
+                else:
+                    text_data = None
+
+            if text_data is None:
+                text_data = _download_text(source["url"], timeout=timeout)
+                with self._source_cache_lock:
+                    self._source_cache[cache_key] = {"ts": now, "payload": str(text_data or "")}
+
             items = _extract_cidrs_with_meta(text_data, fmt)
             if not items:
                 raise ValueError("Пустой результат")
-            return items
+            return items, cache_hit
 
         if workers <= 1:
             for source in source_list:
                 try:
-                    items = _fetch_single(source)
+                    items, cache_hit = _fetch_single(source)
                     all_items.extend(items)
                     source_names_used.append(source["name"])
+                    source_details.append({
+                        "name": source.get("name"),
+                        "url": source.get("url"),
+                        "status": "ok",
+                        "count": len(items),
+                        "error": None,
+                        "cache_hit": bool(cache_hit),
+                    })
                 except Exception as exc:
-                    errors.append(f"{source['name']}: {exc}")
+                    err_msg = f"{source['name']}: {exc}"
+                    errors.append(err_msg)
+                    source_details.append({
+                        "name": source.get("name"),
+                        "url": source.get("url"),
+                        "status": "error",
+                        "count": 0,
+                        "error": str(exc),
+                        "cache_hit": False,
+                    })
         else:
             success_by_index = {}
             error_by_index = {}
+            cache_hit_by_index = {}
             with ThreadPoolExecutor(max_workers=workers) as executor:
                 future_to_index = {
                     executor.submit(_fetch_single, source): idx
@@ -1284,7 +1541,9 @@ class CidrDbUpdaterService:
                     idx = future_to_index[future]
                     source = source_list[idx]
                     try:
-                        success_by_index[idx] = future.result()
+                        items, cache_hit = future.result()
+                        success_by_index[idx] = items
+                        cache_hit_by_index[idx] = bool(cache_hit)
                     except Exception as exc:
                         error_by_index[idx] = f"{source['name']}: {exc}"
 
@@ -1292,15 +1551,33 @@ class CidrDbUpdaterService:
                 if idx in success_by_index:
                     all_items.extend(success_by_index[idx])
                     source_names_used.append(source["name"])
+                    source_details.append({
+                        "name": source.get("name"),
+                        "url": source.get("url"),
+                        "status": "ok",
+                        "count": len(success_by_index[idx]),
+                        "error": None,
+                        "cache_hit": bool(cache_hit_by_index.get(idx)),
+                    })
                 elif idx in error_by_index:
                     errors.append(error_by_index[idx])
+                    source_details.append({
+                        "name": source.get("name"),
+                        "url": source.get("url"),
+                        "status": "error",
+                        "count": 0,
+                        "error": error_by_index[idx],
+                        "cache_hit": False,
+                    })
 
         if not all_items:
             raise ValueError("; ".join(errors) if errors else "Все источники вернули пустой результат")
 
+        if return_source_details:
+            return all_items, ", ".join(source_names_used), source_details
         return all_items, ", ".join(source_names_used)
 
-    def _upsert_provider_cidrs(self, provider_key, cidr_items):
+    def _upsert_provider_cidrs(self, provider_key, cidr_items, *, commit=True):
         """Replace provider's CIDRs with new data. Returns count of stored CIDRs."""
         m = _get_models()
 
@@ -1333,7 +1610,8 @@ class CidrDbUpdaterService:
         if batch:
             self.db.session.bulk_save_objects(batch)
 
-        self.db.session.commit()
+        if commit:
+            self.db.session.commit()
         return len(seen)
 
     def _update_provider_meta(
@@ -1349,6 +1627,7 @@ class CidrDbUpdaterService:
         active_asn_count=None,
         anomaly_level=None,
         anomaly_reason=None,
+        commit=True,
     ):
         m = _get_models()
         meta = m.ProviderMeta.query.filter_by(provider_key=provider_key).first()
@@ -1372,7 +1651,8 @@ class CidrDbUpdaterService:
         meta.refresh_status = status
         meta.refresh_error = error
         meta.last_refreshed_at = datetime.utcnow()
-        self.db.session.commit()
+        if commit:
+            self.db.session.commit()
 
     # ── Antifilter.download ────────────────────────────────────────────────
 

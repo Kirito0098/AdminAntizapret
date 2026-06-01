@@ -15,6 +15,7 @@
   const dbHistoryList = document.getElementById("cidr-db-history-list");
   const dbMsg = document.getElementById("cidr-db-status-msg");
   const dbAlerts = document.getElementById("cidr-db-alerts");
+  const dbDryRunPreview = document.getElementById("cidr-db-dry-run-preview");
   const dbTableState = { providers: [] };
 
   const catLabel = { cdn: "CDN", cloud: "Облако", hosting: "Хостинг" };
@@ -109,6 +110,10 @@
       const whatHosts = escapeHtml(p.what_hosts || "—");
       const cidrCount = p.cidr_count ? Number(p.cidr_count).toLocaleString("ru-RU") : "—";
       const rowClass = p.anomaly_level && p.anomaly_level !== "none" ? "cidr-db-row--anomaly" : "";
+      const partialReasons = Array.isArray(p.partial_reasons_by_source) ? p.partial_reasons_by_source : [];
+      const partialHtml = (String(p.refresh_status || "") === "partial" && partialReasons.length)
+        ? `<details class="cidr-db-partial-reasons"><summary>Почему partial (${partialReasons.length})</summary><ul>${partialReasons.slice(0, 6).map((item) => `<li><strong>${escapeHtml(item.source || "source")}</strong>: ${escapeHtml(item.reason || "неизвестно")}</li>`).join("")}</ul></details>`
+        : "";
 
       return `<tr class="${rowClass}">
               <td data-label="Провайдер">
@@ -121,7 +126,7 @@
               <td data-label="Категория">${catHtml}</td>
               <td data-label="CIDR в БД" class="cidr-db-num">${cidrCount}</td>
               <td data-label="Обновлено">${fmtDt(p.last_refreshed_at)}</td>
-              <td data-label="Статус"><span class="${stCls}"${errTip}>${escapeHtml(stLbl)}</span>${anomaly}</td>
+              <td data-label="Статус"><span class="${stCls}"${errTip}>${escapeHtml(stLbl)}</span>${anomaly}${partialHtml}</td>
               <td data-label="Что размещено"><span class="cidr-db-what" title="${whatHosts}">${whatHosts}</span></td>
             </tr>`;
     });
@@ -157,6 +162,25 @@
     } catch { return iso; }
   }
 
+  function renderDbDryRunPreview(perProvider) {
+    if (!dbDryRunPreview) return;
+    const entries = Object.entries(perProvider || {});
+    if (!entries.length) {
+      dbDryRunPreview.hidden = true;
+      dbDryRunPreview.textContent = "";
+      return;
+    }
+    const lines = entries.slice(0, 12).map(([key, info]) => {
+      const changes = info?.dry_run_changes || {};
+      const prev = Number(changes.previous_cidr_count || 0);
+      const next = Number(changes.final_cidr_count || info?.cidr_count || 0);
+      const fallback = changes.fallback_applied ? " (fallback)" : "";
+      return `• ${key}: ${prev} → ${next}${fallback}`;
+    });
+    dbDryRunPreview.textContent = ["Dry-run: изменения без записи в БД", ...lines].join("\n");
+    dbDryRunPreview.hidden = false;
+  }
+
   function renderDbStatus(data) {
     if (!dbBadge) return;
     const st = data.last_refresh_status || "never";
@@ -180,6 +204,10 @@
         dbAlerts.className = "notification " + (bannerAlerts.some(a => a.level === "critical") ? "notification-error" : "notification-warning");
         dbAlerts.hidden = false;
       }
+    }
+    if (dbDryRunPreview) {
+      dbDryRunPreview.hidden = true;
+      dbDryRunPreview.textContent = "";
     }
 
     // Expose per-provider CIDR counts for the 900-limit counter
@@ -215,21 +243,28 @@
     }
   }
 
-  async function triggerDbRefresh(selectedFiles) {
+  async function triggerDbRefresh(options = {}) {
+    const selectedFiles = options.selectedFiles || null;
+    const dryRun = !!options.dryRun;
+    const retryFailedMode = options.retryFailedMode || null;
     const section = document.getElementById("cidr-update");
     if (section && section.classList.contains("cidr-busy")) return;
 
-    setDbMsg("Запускаю обновление БД…", "info");
+    setDbMsg(dryRun ? "Запускаю dry-run обновления БД…" : "Запускаю обновление БД…", "info");
     try {
-      if (typeof window._pollCidrTaskExternal === "function") {
+      if (typeof window._pollCidrTaskExternal === "function" && !dryRun) {
         await window._pollCidrTaskExternal([
           {
-            label: "Обновление CIDR БД",
+            label: dryRun ? "Dry-run CIDR БД" : "Обновление CIDR БД",
             start: async () => {
               const r = await fetch("/api/cidr-db/refresh", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-                body: JSON.stringify({ selected_files: selectedFiles || null }),
+                body: JSON.stringify({
+                  selected_files: selectedFiles || null,
+                  dry_run: dryRun,
+                  retry_failed_mode: retryFailedMode,
+                }),
               });
               const d = await r.json();
               if (!d.success) throw new Error(d.message || "Ошибка обновления CIDR БД");
@@ -237,19 +272,27 @@
             },
           },
         ]);
-        await loadDbStatus();
-        setDbMsg("Обновление БД завершено. Детали прогресса показаны в панели операций.", "success");
+        if (!dryRun) {
+          await loadDbStatus();
+          setDbMsg("Обновление БД завершено. Детали прогресса показаны в панели операций.", "success");
+        } else {
+          setDbMsg("Dry-run завершен. Детали прогресса показаны в панели операций.", "success");
+        }
         return;
       }
 
       const r = await fetch("/api/cidr-db/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-        body: JSON.stringify({ selected_files: selectedFiles || null }),
+        body: JSON.stringify({
+          selected_files: selectedFiles || null,
+          dry_run: dryRun,
+          retry_failed_mode: retryFailedMode,
+        }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.message || "Ошибка");
-      setDbMsg("Обновление запущено в фоне. Это займёт 1–3 минуты.", "success");
+      setDbMsg(dryRun ? "Dry-run запущен в фоне. Это займёт 1–3 минуты." : "Обновление запущено в фоне. Это займёт 1–3 минуты.", "success");
 
       const taskId = d.task_id;
       if (!taskId) return;
@@ -265,8 +308,13 @@
           }
           if (td.status === "completed" || td.status === "failed") {
             clearInterval(poll);
-            await loadDbStatus();
-            setDbMsg(td.status === "completed" ? "БД обновлена успешно." : "Обновление завершено с ошибками.", td.status === "completed" ? "success" : "error");
+            if (td.status === "completed" && td.result?.dry_run) {
+              renderDbDryRunPreview(td.result?.per_provider || {});
+              setDbMsg("Dry-run завершен успешно.", "success");
+            } else {
+              await loadDbStatus();
+              setDbMsg(td.status === "completed" ? "БД обновлена успешно." : "Обновление завершено с ошибками.", td.status === "completed" ? "success" : "error");
+            }
           }
         } catch {
           clearInterval(poll);
@@ -277,10 +325,21 @@
     }
   }
 
-  document.getElementById("cidr-db-refresh-all")?.addEventListener("click", () => triggerDbRefresh(null));
+  document.getElementById("cidr-db-refresh-all")?.addEventListener("click", () => triggerDbRefresh({ selectedFiles: null }));
   document.getElementById("cidr-db-refresh-selected")?.addEventListener("click", () => {
     const checked = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
-    triggerDbRefresh(checked.length ? checked : null);
+    triggerDbRefresh({ selectedFiles: checked.length ? checked : null });
+  });
+  document.getElementById("cidr-db-refresh-failed-last")?.addEventListener("click", () => {
+    triggerDbRefresh({ selectedFiles: null, retryFailedMode: "last" });
+  });
+  document.getElementById("cidr-db-refresh-failed-selected")?.addEventListener("click", () => {
+    const checked = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+    triggerDbRefresh({ selectedFiles: checked.length ? checked : [], retryFailedMode: "selected" });
+  });
+  document.getElementById("cidr-db-dry-run-refresh")?.addEventListener("click", () => {
+    const checked = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+    triggerDbRefresh({ selectedFiles: checked.length ? checked : null, dryRun: true });
   });
 
   async function triggerDbClear(selectedFiles) {
@@ -413,6 +472,54 @@
     });
 
     window._pollCidrTaskExternal(steps);
+  });
+
+  document.getElementById("cidr-generate-from-db-dry-run")?.addEventListener("click", async () => {
+    const selectedRegions = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+    const regionScopes = Array.from(document.querySelectorAll(".cidr-scope-checkbox:checked")).map(el => el.value);
+    const includeNonGeo = document.getElementById("cidr-include-non-geo-fallback")?.checked || false;
+    const excludeRu = document.getElementById("cidr-exclude-ru-cidrs")?.checked || false;
+    const strictGeo = document.getElementById("cidr-strict-geo-filter")?.checked || false;
+    const gameKeys = Array.from(document.querySelectorAll(".cidr-game-checkbox:checked")).map(el => el.value);
+    const filterByAntifilter = document.getElementById("cidr-filter-by-antifilter")?.checked || false;
+    const dpiPriorityFiles = Array.isArray(window._cidrDpiPriorityFiles) ? window._cidrDpiPriorityFiles : [];
+    const dpiMandatoryFiles = Array.isArray(window._cidrDpiMandatoryFiles) ? window._cidrDpiMandatoryFiles : [];
+    const dpiPriorityMinBudgetRaw = String(document.getElementById("cidr-dpi-priority-min-budget")?.value || "").trim();
+    const dpiPriorityMinBudget = /^\d+$/.test(dpiPriorityMinBudgetRaw) ? Number(dpiPriorityMinBudgetRaw) : 0;
+
+    if (typeof window._pollCidrTaskExternal !== "function") {
+      window.showNotification?.("Ошибка: интерфейс не готов, обновите страницу", "error");
+      return;
+    }
+
+    window._pollCidrTaskExternal([
+      {
+        label: "Dry-run генерации из БД",
+        start: async () => {
+          const r = await fetch("/api/cidr-db/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+            body: JSON.stringify({
+              action: "estimate_dry_run",
+              dry_run: true,
+              regions: selectedRegions,
+              region_scopes: regionScopes,
+              include_non_geo_fallback: includeNonGeo,
+              exclude_ru_cidrs: excludeRu,
+              strict_geo_filter: strictGeo,
+              include_game_keys: gameKeys,
+              filter_by_antifilter: filterByAntifilter,
+              dpi_priority_files: dpiPriorityFiles,
+              dpi_mandatory_files: dpiMandatoryFiles,
+              dpi_priority_min_budget: dpiPriorityMinBudget,
+            }),
+          });
+          const d = await r.json();
+          if (!d.success) throw new Error(d.message || "Ошибка dry-run");
+          return d.task_id;
+        },
+      },
+    ]);
   });
 
   // ── Antifilter.download ─────────────────────────────────────────────

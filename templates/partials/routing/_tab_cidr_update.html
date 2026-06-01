@@ -121,6 +121,9 @@
       <div class="cidr-actions-row settings-inline-card-mt">
         <button id="cidr-db-refresh-all" type="button" class="button save-button">Обновить всю БД сейчас</button>
         <button id="cidr-db-refresh-selected" type="button" class="button">Обновить выбранных в БД</button>
+        <button id="cidr-db-refresh-failed-last" type="button" class="button">Повторить failed (last)</button>
+        <button id="cidr-db-refresh-failed-selected" type="button" class="button">Повторить failed (selected)</button>
+        <button id="cidr-db-dry-run-refresh" type="button" class="button">Dry-run refresh</button>
         <button id="cidr-db-clear-all" type="button" class="button delete-button">Очистить всю БД CIDR</button>
         <button id="cidr-db-clear-selected" type="button" class="button delete-button">Очистить выбранных в БД</button>
         <button id="cidr-db-toggle-history" type="button" class="button">История обновлений</button>
@@ -134,6 +137,7 @@
       <div id="cidr-db-status-msg" class="notification notification-inline-progress settings-inline-hidden" style="margin-top:.5rem"></div>
       <div id="cidr-db-alerts" class="notification notification-warning settings-inline-hidden"
         style="margin-top:.5rem"></div>
+      <div id="cidr-db-dry-run-preview" class="notification notification-info settings-inline-hidden" style="margin-top:.5rem"></div>
     </div><!-- /cidr-db-body -->
   </div>
 
@@ -456,6 +460,11 @@
               class="button save-button cidr-launch-btn cidr-launch-btn--full"
               title="Сгенерировать файлы из БД без загрузки из интернета">
               ⚡ Применить из БД (без интернета)
+            </button>
+            <button id="cidr-generate-from-db-dry-run" type="button"
+              class="button cidr-launch-btn cidr-launch-btn--full"
+              title="Показать результат генерации из БД без записи файлов">
+              👁 Dry-run генерации из БД
             </button>
           </div>
           <div class="cidr-launch-group">
