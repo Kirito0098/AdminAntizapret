@@ -1,6 +1,23 @@
     <div id="tests" class="content-tab">
       <h2>Тесты системы</h2>
 
+      <div class="info-box tests-purpose-box">
+        <p class="tests-purpose-box__lead">
+          <strong>Для кого и зачем.</strong>
+          Это модульные автотесты (pytest) — инструмент разработки и проверки кода, а не ежедневная
+          операция администратора на рабочем сервере.
+        </p>
+        <ul class="tests-purpose-box__list help-text">
+          <li>Проверяют отдельные части панели: авторизацию, CIDR, IP-защиту, бэкапы, настройки и др.</li>
+          <li>Нужны при разработке, отладке и после обновления — чтобы убедиться, что модули работают как задумано.</li>
+          <li>На продакшене запуск необязателен: успешная работа VPN и панели не зависит от этого раздела.</li>
+          <li>Если тест упал — это не всегда сбой сервиса: часто влияют настройки <code>.env</code>, окружение или версия зависимостей.</li>
+        </ul>
+        <p class="help-text tests-purpose-box__note">
+          Тот же набор доступен в консоли: меню установщика → «Автотесты системы» (<code>script_sh/unit_tests.sh</code>).
+        </p>
+      </div>
+
       <!-- ── Сводка результатов ──────────────────────────────────────── -->
       <div class="tests-summary" id="tests-summary" hidden>
         <div class="tests-summary__stat tests-summary__stat--passed">
@@ -22,8 +39,9 @@
         <div class="tests-action-panel__info">
           <p class="tests-action-panel__title">Запуск тестов</p>
           <p class="tests-action-panel__desc">
-            Запускает pytest по каталогу <code>tests/</code> (ядро, CIDR, IP-защита, авторизация и др.).
-            Названия сгруппированы по разделам; технический ID pytest — во всплывающей подсказке при наведении.
+            Запускает pytest по каталогу <code>tests/</code>. У каждого теста — русское название и описание,
+            что именно проверяется. Технический ID pytest — во всплывающей подсказке на названии.
+            Используйте после обновления панели или при поиске ошибки в конкретном модуле.
           </p>
         </div>
         <button id="tests-run-btn" type="button" class="button save-button tests-run-btn">
@@ -158,12 +176,14 @@
 
       function normalizeTestEntry(entry) {
         if (typeof entry === 'string') {
-          return { id: entry, title: entry, group: '' };
+          return { id: entry, title: entry, description: '', group: '', group_description: '' };
         }
         return {
           id: entry.id || '',
           title: entry.title || entry.id || '',
+          description: entry.description || '',
           group: entry.group || '',
+          group_description: entry.group_description || '',
         };
       }
 
@@ -179,10 +199,22 @@
           var test = normalizeTestEntry(raw);
           if (test.group && test.group !== lastGroup) {
             lastGroup = test.group;
-            var heading = document.createElement('div');
-            heading.className = 'tests-list-group';
-            heading.textContent = test.group;
-            list.appendChild(heading);
+            var headingWrap = document.createElement('div');
+            headingWrap.className = 'tests-list-group';
+
+            var headingTitle = document.createElement('div');
+            headingTitle.className = 'tests-list-group__title';
+            headingTitle.textContent = test.group;
+            headingWrap.appendChild(headingTitle);
+
+            if (test.group_description) {
+              var headingDesc = document.createElement('div');
+              headingDesc.className = 'tests-list-group__desc';
+              headingDesc.textContent = test.group_description;
+              headingWrap.appendChild(headingDesc);
+            }
+
+            list.appendChild(headingWrap);
           }
 
           var item = document.createElement('div');
@@ -197,6 +229,14 @@
           titleEl.title = test.id;
 
           textWrap.appendChild(titleEl);
+
+          if (test.description) {
+            var descEl = document.createElement('span');
+            descEl.className = 'tests-item__desc';
+            descEl.textContent = test.description;
+            textWrap.appendChild(descEl);
+          }
+
           item.appendChild(textWrap);
 
           var badge = document.createElement('span');

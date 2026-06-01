@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""CLI автотестов для adminpanel (без веб-панели)."""
+"""CLI автотестов для adminpanel (без веб-панели).
+
+Модульные pytest-тесты для разработки и проверки после обновлений кода.
+На рабочем сервере запуск необязателен; падение отдельного теста не всегда означает
+поломку панели или VPN (влияют .env, окружение, зависимости).
+"""
 
 from __future__ import annotations
 
@@ -21,6 +26,23 @@ from core.services.system_preflight import (  # noqa: E402
 from tests.user_labels import enrich_test_nodeids  # noqa: E402
 
 TESTS_DIR = os.path.join(ROOT, "tests")
+_TESTS_PURPOSE_LINES = (
+    "Модульные автотесты (pytest) — для разработки и проверки после обновлений.",
+    "Проверяют отдельные части панели: CIDR, авторизацию, бэкапы, настройки и др.",
+    "На рабочем сервере запуск не обязателен; падение теста ≠ поломка VPN или панели.",
+    "«summary» — диагностика окружения + все pytest; «run»/«list» — только pytest.",
+)
+
+
+def print_tests_purpose() -> None:
+    sep = "─" * 50
+    print(sep)
+    print("Зачем нужны автотесты")
+    print(sep)
+    for line in _TESTS_PURPOSE_LINES:
+        print(f"  · {line}")
+    print()
+
 _STATUS_RE = re.compile(r"\s+(PASSED|FAILED|ERROR|SKIPPED)(?:\s+\[|\s*$)")
 _SUMMARY_RE = re.compile(
     r"(?P<passed>\d+) passed"
@@ -70,6 +92,7 @@ def collect_nodeids() -> list[str]:
 
 
 def cmd_list() -> int:
+    print_tests_purpose()
     try:
         nodeids = collect_nodeids()
     except RuntimeError as exc:
@@ -84,8 +107,14 @@ def cmd_list() -> int:
         if group != current_group:
             current_group = group
             print(f"[{group}]")
+            group_desc = item.get("group_description") or ""
+            if group_desc:
+                print(f"  {group_desc}")
         print(f"  {index:3}. {item['title']}")
-        print(f"       {item['id']}")
+        desc = item.get("description") or ""
+        if desc:
+            print(f"       {desc}")
+        print(f"       ID: {item['id']}")
     return 0
 
 
@@ -184,6 +213,7 @@ def cmd_run(nodeids: list[str], *, quiet: bool) -> int:
     if quiet:
         print(f"Запуск {len(nodeids)} тест(ов)…", flush=True)
     else:
+        print_tests_purpose()
         print(f"Запуск {len(nodeids)} тест(ов)…\n", flush=True)
 
     proc = subprocess.run(
@@ -225,6 +255,7 @@ def _preflight_context() -> PreflightContext:
 
 def cmd_summary() -> int:
     """Общий тест: окружение/модули/права + pytest (краткий отчёт)."""
+    print_tests_purpose()
     sep = "─" * 50
     print(sep)
     print("1) Окружение, модули и доступы")
@@ -284,7 +315,9 @@ def _resolve_nodeids_by_index(numbers: list[int], all_nodeids: list[str]) -> lis
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Автотесты AdminAntizapret (pytest)")
+    parser = argparse.ArgumentParser(
+        description="Автотесты AdminAntizapret (pytest): модульные тесты для разработки и проверки после обновлений",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("list", help="Список тестов с понятными названиями")

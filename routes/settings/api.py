@@ -33,7 +33,7 @@ from core.services.settings.cidr_tasks import (
     serialize_cidr_task,
 )
 from core.services.tg_notify import send_tg_message
-from tests.user_labels import enrich_test_nodeids, short_title_for_nodeid
+from tests.user_labels import description_for_nodeid, enrich_test_nodeids, short_title_for_nodeid
 
 
 def _tests_subprocess_env(app_root_dir):
@@ -930,6 +930,7 @@ def register_settings_api_routes(
                         tests_result.append({
                             "id": test_id,
                             "title": short_title_for_nodeid(test_id),
+                            "description": description_for_nodeid(test_id),
                             "status": "passed",
                         })
                         passed += 1
@@ -938,6 +939,7 @@ def register_settings_api_routes(
                         tests_result.append({
                             "id": test_id,
                             "title": short_title_for_nodeid(test_id),
+                            "description": description_for_nodeid(test_id),
                             "status": "failed",
                         })
                         failed += 1
@@ -946,6 +948,7 @@ def register_settings_api_routes(
                         tests_result.append({
                             "id": test_id,
                             "title": short_title_for_nodeid(test_id),
+                            "description": description_for_nodeid(test_id),
                             "status": "error",
                         })
                         errors += 1
@@ -954,6 +957,7 @@ def register_settings_api_routes(
                         tests_result.append({
                             "id": test_id,
                             "title": short_title_for_nodeid(test_id),
+                            "description": description_for_nodeid(test_id),
                             "status": "skipped",
                         })
                         skipped += 1

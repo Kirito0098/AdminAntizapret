@@ -3761,6 +3761,28 @@
 
 /* ═══════════════════════ Tests Tab ══════════════════════════════════════ */
 
+.tests-purpose-box {
+  margin-bottom: 0.85rem;
+  padding: 0.85rem 1rem;
+}
+.tests-purpose-box__lead {
+  margin: 0 0 0.55rem;
+  font-size: 0.86rem;
+  color: #c8dce6;
+  line-height: 1.45;
+}
+.tests-purpose-box__list {
+  margin: 0 0 0.55rem 1.1rem;
+  padding: 0;
+  line-height: 1.45;
+}
+.tests-purpose-box__list li + li {
+  margin-top: 0.28rem;
+}
+.tests-purpose-box__note {
+  margin: 0;
+}
+
 .tests-summary {
   display: flex;
   gap: 0.75rem;
@@ -3860,26 +3882,37 @@
 }
 .tests-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.6rem;
-  padding: 0.48rem 1rem;
+  padding: 0.55rem 1rem;
   border-bottom: 1px solid rgba(40, 60, 75, 0.3);
   transition: background 0.15s;
 }
 .tests-item:last-child { border-bottom: none; }
 .tests-item:hover { background: rgba(30, 48, 62, 0.45); }
 .tests-list-group {
-  padding: 0.65rem 1rem 0.35rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #6a8ea0;
+  padding: 0.65rem 1rem 0.45rem;
   border-top: 1px solid rgba(40, 60, 75, 0.35);
   background: rgba(18, 30, 40, 0.55);
   position: sticky;
   top: 0;
   z-index: 1;
+}
+.tests-list-group__title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6a8ea0;
+}
+.tests-list-group__desc {
+  margin-top: 0.28rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: #6a8494;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
 }
 .tests-list-group:first-child { border-top: none; }
 .tests-item__text {
@@ -3888,12 +3921,17 @@
 }
 .tests-item__title {
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: #c8e4f0;
   font-size: 0.84rem;
+  font-weight: 600;
   line-height: 1.35;
+}
+.tests-item__desc {
+  display: block;
+  margin-top: 0.18rem;
+  color: #7a98a8;
+  font-size: 0.76rem;
+  line-height: 1.42;
 }
 .tests-item__id {
   flex: 1;
@@ -3907,6 +3945,7 @@
 }
 .tests-item__badge {
   flex-shrink: 0;
+  margin-top: 0.1rem;
   padding: 0.14rem 0.52rem;
   border-radius: 99px;
   font-size: 0.72rem;
