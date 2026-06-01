@@ -4,7 +4,7 @@
 
   const state = {
     items: [],
-    selectedKeys: new Set(),
+    modeByGameKey: {},
     isBusy: false,
     onSelectionChanged: null,
     includeDomains: false,
@@ -72,7 +72,15 @@
     };
   };
 
-  const selectedKeysToArray = () => Array.from(state.selectedKeys);
+  const getModeByKey = (key) => {
+    const normalizedKey = String(key || "").trim().toLowerCase();
+    const mode = String(state.modeByGameKey?.[normalizedKey] || "none").trim().toLowerCase();
+    if (mode === "include" || mode === "exclude") return mode;
+    return "none";
+  };
+  const getIncludeKeys = () => state.items.map((item) => item.key).filter((key) => getModeByKey(key) === "include");
+  const getExcludeKeys = () => state.items.map((item) => item.key).filter((key) => getModeByKey(key) === "exclude");
+  const getAssignedKeys = () => state.items.map((item) => item.key).filter((key) => getModeByKey(key) !== "none");
   const getIncludeDomains = () => Boolean(byId("cidr-games-include-domains")?.checked);
 
   const getPerGameStat = (key) => {
@@ -93,23 +101,27 @@
     return num > 10 ? "10+" : String(num);
   };
 
-  const cardMatchesFilters = (card, query, provider, source, onlySelected) => {
+  const detectConflictedKeys = (includeGameKeys, excludeGameKeys) => {
+    const includeSet = new Set((Array.isArray(includeGameKeys) ? includeGameKeys : []).map((key) => String(key || "").trim().toLowerCase()).filter(Boolean));
+    const excludeSet = new Set((Array.isArray(excludeGameKeys) ? excludeGameKeys : []).map((key) => String(key || "").trim().toLowerCase()).filter(Boolean));
+    return Array.from(includeSet).filter((key) => excludeSet.has(key));
+  };
+
+  const cardMatchesFilters = (card, query, provider, onlySelected) => {
     const title = String(card.querySelector(".cidr-game-chip__title")?.textContent || "").trim().toLowerCase();
     const subtitle = String(card.querySelector(".cidr-game-chip__sub")?.textContent || card.dataset.subtitle || "").trim().toLowerCase();
-    const value = String(card.querySelector(".cidr-game-checkbox")?.value || "").trim().toLowerCase();
+    const value = String(card.dataset.gameKey || "").trim().toLowerCase();
     const cardProvider = String(card.dataset.gameProvider || "").trim().toLowerCase();
-    const cardSource = String(card.dataset.gameSource || "dns").trim().toLowerCase();
-    const isChecked = Boolean(card.querySelector(".cidr-game-checkbox")?.checked);
+    const mode = getModeByKey(value);
     if (query && !title.includes(query) && !subtitle.includes(query) && !value.includes(query)) return false;
     if (provider !== "all" && cardProvider !== provider) return false;
-    if (source !== "all" && cardSource !== source) return false;
-    if (onlySelected && !isChecked) return false;
+    if (onlySelected && mode === "none") return false;
     return true;
   };
 
   const updateTopStats = (visibleCount) => {
     const total = state.items.length;
-    const selected = state.selectedKeys.size;
+    const selected = getAssignedKeys().length;
     const selectedEl = byId("cidr-games-selected-count");
     const visibleEl = byId("cidr-games-visible-count");
     const totalEl = byId("cidr-games-total-count");
@@ -122,7 +134,10 @@
 
   const notifySelectionChanged = () => {
     if (typeof state.onSelectionChanged === "function") {
-      state.onSelectionChanged(selectedKeysToArray());
+      state.onSelectionChanged({
+        includeGameKeys: getIncludeKeys(),
+        excludeGameKeys: getExcludeKeys(),
+      });
     }
   };
 
@@ -151,7 +166,7 @@
 
     container.innerHTML = state.items
       .map((item) => {
-        const checked = state.selectedKeys.has(item.key) ? "checked" : "";
+        const mode = getModeByKey(item.key);
         const subtitleHtml = item.subtitle
           ? `<span class="cidr-game-chip__sub">${item.subtitle}</span>`
           : "";
@@ -166,25 +181,24 @@
         const asnMeta = item.asn_count > 0 ? `<small>${item.asn_count} ASN</small>` : "";
         return `
           <label class="cidr-scope-chip cidr-game-chip"
+            data-game-key="${item.key}"
             data-game-provider="${item.provider.toLowerCase()}"
-            data-game-source="${item.source_type}"
             data-subtitle="${item.subtitle}">
-            <input
-              type="checkbox"
-              class="cidr-game-checkbox"
-              value="${item.key}"
-              data-subtitle="${item.subtitle}"
-              data-provider="${item.provider}"
-              data-source="${item.source_type}"
-              ${checked}
-            />
-            <span class="cidr-game-chip__title">${item.title}</span>
-            ${subtitleHtml}
-            ${gameStatsHtml}
-            <span class="cidr-game-chip__meta">
-              ${domainMeta}
-              ${asnMeta}
-            </span>
+            <input type="hidden" class="cidr-game-mode-input" value="${mode}" data-game-key="${item.key}" />
+            <div class="cidr-game-chip__body">
+              <span class="cidr-game-chip__title">${item.title}</span>
+              ${subtitleHtml}
+              ${gameStatsHtml}
+              <span class="cidr-game-chip__meta">
+                ${domainMeta}
+                ${asnMeta}
+              </span>
+            </div>
+            <div class="cidr-game-chip__mode" data-mode="${mode}">
+              <button type="button" class="cidr-game-mode-btn is-include ${mode === "include" ? "is-active" : ""}" data-game-mode-btn="include">VPN</button>
+              <button type="button" class="cidr-game-mode-btn is-exclude ${mode === "exclude" ? "is-active" : ""}" data-game-mode-btn="exclude">DIRECT</button>
+              <button type="button" class="cidr-game-mode-btn is-none ${mode === "none" ? "is-active" : ""}" data-game-mode-btn="none">Не выбрано</button>
+            </div>
           </label>
         `;
       })
@@ -194,12 +208,11 @@
   const applyFilters = () => {
     const query = String(byId("cidr-games-search-input")?.value || "").trim().toLowerCase();
     const provider = String(byId("cidr-games-provider-filter")?.value || "all").trim().toLowerCase();
-    const source = String(byId("cidr-games-source-filter")?.value || "all").trim().toLowerCase();
     const onlySelected = Boolean(byId("cidr-games-only-selected")?.checked);
     const chips = Array.from(document.querySelectorAll("#cidr-game-filters .cidr-game-chip"));
     let visibleCount = 0;
     chips.forEach((chip) => {
-      const matches = cardMatchesFilters(chip, query, provider, source, onlySelected);
+      const matches = cardMatchesFilters(chip, query, provider, onlySelected);
       chip.hidden = !matches;
       if (matches) visibleCount += 1;
     });
@@ -214,54 +227,51 @@
     });
   };
 
+  const setMode = (key, mode) => {
+    const normalizedKey = String(key || "").trim().toLowerCase();
+    if (!normalizedKey) return;
+    const nextMode = mode === "include" || mode === "exclude" ? mode : "none";
+    state.modeByGameKey[normalizedKey] = nextMode;
+  };
+
+  const setModeForKeys = (keys, mode) => {
+    (Array.isArray(keys) ? keys : []).forEach((key) => setMode(key, mode));
+  };
+
   const setSelectedKeys = (keys) => {
     const next = new Set(
       (Array.isArray(keys) ? keys : [])
         .map((key) => String(key || "").trim().toLowerCase())
         .filter(Boolean)
     );
-    state.selectedKeys = next;
-    document.querySelectorAll("#cidr-game-filters .cidr-game-checkbox").forEach((input) => {
-      const key = String(input.value || "").trim().toLowerCase();
-      input.checked = next.has(key);
+    state.items.forEach((item) => {
+      state.modeByGameKey[item.key] = next.has(item.key) ? "include" : "none";
     });
+    renderCards();
     applyFilters();
     notifySelectionChanged();
   };
 
-  const updateSelectionFromDom = () => {
-    const next = new Set();
-    document.querySelectorAll("#cidr-game-filters .cidr-game-checkbox:checked").forEach((input) => {
-      const key = String(input.value || "").trim().toLowerCase();
-      if (key) next.add(key);
+  const setModeMapping = (modeByKey = {}) => {
+    const next = {};
+    state.items.forEach((item) => {
+      const mode = String(modeByKey?.[item.key] || "none").trim().toLowerCase();
+      next[item.key] = mode === "include" || mode === "exclude" ? mode : "none";
     });
-    state.selectedKeys = next;
+    state.modeByGameKey = next;
     updateTopStats();
+    renderCards();
+    applyFilters();
     notifySelectionChanged();
   };
 
-  const setAllSelection = (checked) => {
-    document.querySelectorAll("#cidr-game-filters .cidr-game-checkbox").forEach((input) => {
-      input.checked = Boolean(checked);
+  const resetAllModes = () => {
+    state.items.forEach((item) => {
+      state.modeByGameKey[item.key] = "none";
     });
-    updateSelectionFromDom();
+    renderCards();
     applyFilters();
-  };
-
-  const selectVisible = () => {
-    document.querySelectorAll("#cidr-game-filters .cidr-game-chip:not([hidden]) .cidr-game-checkbox").forEach((input) => {
-      input.checked = true;
-    });
-    updateSelectionFromDom();
-    applyFilters();
-  };
-
-  const invertSelection = () => {
-    document.querySelectorAll("#cidr-game-filters .cidr-game-checkbox").forEach((input) => {
-      input.checked = !input.checked;
-    });
-    updateSelectionFromDom();
-    applyFilters();
+    notifySelectionChanged();
   };
 
   const renderPreview = (payload) => {
@@ -364,7 +374,6 @@
   const setupInteractionHandlers = (callbacks) => {
     byId("cidr-games-search-input")?.addEventListener("input", applyFilters);
     byId("cidr-games-provider-filter")?.addEventListener("change", applyFilters);
-    byId("cidr-games-source-filter")?.addEventListener("change", applyFilters);
     byId("cidr-games-only-selected")?.addEventListener("change", applyFilters);
     byId("cidr-games-include-domains")?.addEventListener("change", () => {
       state.includeDomains = getIncludeDomains();
@@ -372,38 +381,77 @@
       applyFilters();
     });
 
-    byId("cidr-games-select-all")?.addEventListener("click", () => setAllSelection(true));
-    byId("cidr-games-clear-all")?.addEventListener("click", () => setAllSelection(false));
-    byId("cidr-games-select-visible")?.addEventListener("click", selectVisible);
-    byId("cidr-games-invert-selection")?.addEventListener("click", invertSelection);
-
-    byId("cidr-game-filters")?.addEventListener("change", (event) => {
+    byId("cidr-game-filters")?.addEventListener("click", (event) => {
       const target = event.target;
-      if (!target || !target.matches(".cidr-game-checkbox")) return;
-      updateSelectionFromDom();
+      if (!target || !target.matches(".cidr-game-mode-btn")) return;
+      const nextMode = String(target.getAttribute("data-game-mode-btn") || "none").trim().toLowerCase();
+      const card = target.closest(".cidr-game-chip");
+      const key = String(card?.dataset?.gameKey || "").trim().toLowerCase();
+      if (!key) return;
+      setMode(key, nextMode);
+      renderCards();
       applyFilters();
+      notifySelectionChanged();
+    });
+
+    byId("cidr-games-reset-all")?.addEventListener("click", () => {
+      resetAllModes();
     });
 
     byId("cidr-games-preview-sync")?.addEventListener("click", async () => {
       if (typeof callbacks.onPreview !== "function") return;
       try {
         setBusy(true);
-        const result = await callbacks.onPreview(selectedKeysToArray(), {
+        const includeGameKeys = getIncludeKeys();
+        const excludeGameKeys = getExcludeKeys();
+        const conflicted = detectConflictedKeys(includeGameKeys, excludeGameKeys);
+        if (conflicted.length) {
+          throw new Error(`Конфликт назначения: ${conflicted.slice(0, 8).join(", ")}`);
+        }
+        const result = await callbacks.onPreview({
+          includeGameKeys,
+          excludeGameKeys,
           includeGameDomains: getIncludeDomains(),
         });
-        renderPreview(result);
+        if (result?.includePreview) {
+          renderPreview(result.includePreview);
+        } else if (result?.excludePreview) {
+          renderPreview(result.excludePreview);
+        } else {
+          renderPreview(result);
+        }
+      } catch (error) {
+        if (typeof callbacks.onError === "function") {
+          callbacks.onError(error);
+        }
       } finally {
         setBusy(false);
       }
     });
 
-    byId("cidr-sync-games-hosts")?.addEventListener("click", async () => {
-      if (typeof callbacks.onApply !== "function") return;
+    byId("cidr-sync-games-apply")?.addEventListener("click", async () => {
+      if (typeof callbacks.onApplyRoutes !== "function") return;
       try {
         setBusy(true);
-        await callbacks.onApply(selectedKeysToArray(), {
+        const includeGameKeys = getIncludeKeys();
+        const excludeGameKeys = getExcludeKeys();
+        const conflicted = detectConflictedKeys(includeGameKeys, excludeGameKeys);
+        if (conflicted.length) {
+          throw new Error(`Конфликт назначения: ${conflicted.slice(0, 8).join(", ")}`);
+        }
+        const result = await callbacks.onApplyRoutes({
+          includeGameKeys,
+          excludeGameKeys,
           includeGameDomains: getIncludeDomains(),
         });
+        const previewPayload = result?.previewPayload || result?.preview || null;
+        if (previewPayload) {
+          renderPreview(previewPayload);
+        }
+      } catch (error) {
+        if (typeof callbacks.onError === "function") {
+          callbacks.onError(error);
+        }
       } finally {
         setBusy(false);
       }
@@ -439,13 +487,15 @@
     }
   };
 
-  const hydrateSelectedFromDom = () => {
-    const selected = [];
-    document.querySelectorAll("#cidr-game-filters .cidr-game-checkbox:checked").forEach((input) => {
-      const key = String(input.value || "").trim().toLowerCase();
-      if (key) selected.push(key);
+  const hydrateModesFromDom = () => {
+    const next = {};
+    document.querySelectorAll("#cidr-game-filters .cidr-game-mode-input").forEach((input) => {
+      const key = String(input.getAttribute("data-game-key") || "").trim().toLowerCase();
+      if (!key) return;
+      const mode = String(input.value || "none").trim().toLowerCase();
+      next[key] = mode === "include" || mode === "exclude" ? mode : "none";
     });
-    state.selectedKeys = new Set(selected);
+    state.modeByGameKey = next;
   };
 
   const setFilters = (items) => {
@@ -457,15 +507,22 @@
     state.perGameStats = Object.fromEntries(
       Object.entries(cachedStats).filter(([key]) => availableKeys.has(String(key || "").trim().toLowerCase()))
     );
-    const selectedBefore = new Set(state.selectedKeys);
+    const modeBefore = { ...(state.modeByGameKey || {}) };
     renderProviderOptions();
+    state.modeByGameKey = Object.fromEntries(
+      state.items.map((item) => {
+        const mode = String(modeBefore[item.key] || "none").trim().toLowerCase();
+        return [item.key, (mode === "include" || mode === "exclude") ? mode : "none"];
+      })
+    );
     renderCards();
-    if (selectedBefore.size > 0) {
-      setSelectedKeys(Array.from(selectedBefore));
+    if (Object.keys(modeBefore).length > 0) {
+      setModeMapping(modeBefore);
     } else {
-      hydrateSelectedFromDom();
+      hydrateModesFromDom();
     }
     applyFilters();
+    notifySelectionChanged();
     runProgressiveCardEstimates();
   };
 
@@ -474,10 +531,11 @@
       typeof callbacks.onSelectionChanged === "function" ? callbacks.onSelectionChanged : null;
     state.onEstimateGame =
       typeof callbacks.onEstimateGame === "function" ? callbacks.onEstimateGame : null;
-    hydrateSelectedFromDom();
+    hydrateModesFromDom();
     setupInteractionHandlers({
       onPreview: callbacks.onPreview,
-      onApply: callbacks.onApply,
+      onApplyRoutes: callbacks.onApplyRoutes,
+      onError: callbacks.onError,
     });
     setFilters(state.items);
     return {
@@ -485,7 +543,10 @@
       setBusy,
       applyFilters,
       setSelectedKeys,
-      getSelectedKeys: selectedKeysToArray,
+      setModeMapping,
+      getSelectedKeys: getIncludeKeys,
+      getIncludeKeys,
+      getExcludeKeys,
       renderPreview,
     };
   };
@@ -494,7 +555,10 @@
     init,
     setFilters,
     setSelectedKeys,
-    getSelectedKeys: selectedKeysToArray,
+    setModeMapping,
+    getSelectedKeys: getIncludeKeys,
+    getIncludeKeys,
+    getExcludeKeys,
     setBusy,
     applyFilters,
     renderPreview,

@@ -766,6 +766,101 @@ class CidrListUpdaterTests(unittest.TestCase):
             self.assertIn(cidr_list_updater.GAME_FILTER_BLOCK_START, content)
             self.assertIn("riotgames.com", content)
 
+    def test_sync_game_exclude_filter_writes_only_az_exclude_files(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            exclude_hosts_path = os.path.join(tmp_dir, "AZ-Game-exclude-hosts.txt")
+            exclude_ips_path = os.path.join(tmp_dir, "AZ-Game-exclude-ips.txt")
+
+            with open(exclude_hosts_path, "w", encoding="utf-8") as handle:
+                handle.write("keep.exclude.local\n")
+            with open(exclude_ips_path, "w", encoding="utf-8") as handle:
+                handle.write("10.10.10.0/24\n")
+
+            with patch.object(cidr_list_updater, "AZ_GAME_EXCLUDE_HOSTS_FILE", exclude_hosts_path), patch.object(
+                cidr_list_updater, "AZ_GAME_EXCLUDE_IPS_FILE", exclude_ips_path
+            ), patch.object(
+                cidr_list_updater,
+                "_resolve_game_domains_ipv4_cidrs",
+                return_value=(["203.0.113.10/32"], []),
+            ):
+                result = cidr_list_updater.sync_game_exclude_filter(
+                    include_game_keys=["lol"],
+                    include_game_domains=True,
+                )
+
+            self.assertTrue(result["success"])
+            with open(exclude_hosts_path, "r", encoding="utf-8") as handle:
+                hosts_content = handle.read()
+            with open(exclude_ips_path, "r", encoding="utf-8") as handle:
+                ips_content = handle.read()
+
+            self.assertIn(cidr_list_updater.GAME_FILTER_EXCLUDE_BLOCK_START, hosts_content)
+            self.assertIn("riotgames.com", hosts_content)
+            self.assertIn("keep.exclude.local", hosts_content)
+            self.assertIn(cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_START, ips_content)
+            self.assertIn("203.0.113.10/32", ips_content)
+            self.assertIn("10.10.10.0/24", ips_content)
+
+    def test_sync_game_exclude_filter_clears_managed_blocks_on_empty_selection(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            exclude_hosts_path = os.path.join(tmp_dir, "AZ-Game-exclude-hosts.txt")
+            exclude_ips_path = os.path.join(tmp_dir, "AZ-Game-exclude-ips.txt")
+            managed_hosts_block = (
+                f"{cidr_list_updater.GAME_FILTER_EXCLUDE_BLOCK_START}\n"
+                "# games: lol\n"
+                "riotgames.com\n"
+                f"{cidr_list_updater.GAME_FILTER_EXCLUDE_BLOCK_END}\n"
+            )
+            managed_ips_block = (
+                f"{cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_START}\n"
+                "# games: lol\n"
+                "203.0.113.10/32\n"
+                f"{cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_END}\n"
+            )
+            with open(exclude_hosts_path, "w", encoding="utf-8") as handle:
+                handle.write("keep.exclude.local\n\n" + managed_hosts_block)
+            with open(exclude_ips_path, "w", encoding="utf-8") as handle:
+                handle.write("10.10.10.0/24\n\n" + managed_ips_block)
+
+            with patch.object(cidr_list_updater, "AZ_GAME_EXCLUDE_HOSTS_FILE", exclude_hosts_path), patch.object(
+                cidr_list_updater, "AZ_GAME_EXCLUDE_IPS_FILE", exclude_ips_path
+            ):
+                result = cidr_list_updater.sync_game_exclude_filter(
+                    include_game_keys=[],
+                    include_game_domains=False,
+                )
+
+            self.assertTrue(result["success"])
+            with open(exclude_hosts_path, "r", encoding="utf-8") as handle:
+                hosts_content = handle.read()
+            with open(exclude_ips_path, "r", encoding="utf-8") as handle:
+                ips_content = handle.read()
+
+            self.assertIn("keep.exclude.local", hosts_content)
+            self.assertNotIn(cidr_list_updater.GAME_FILTER_EXCLUDE_BLOCK_START, hosts_content)
+            self.assertIn("10.10.10.0/24", ips_content)
+            self.assertNotIn(cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_START, ips_content)
+
+    def test_preview_game_exclude_filter_includes_domains_only_when_enabled(self):
+        with patch.object(
+            cidr_list_updater,
+            "_resolve_game_domains_ipv4_cidrs",
+            return_value=(["198.51.100.10/32"], []),
+        ):
+            with_domains = cidr_list_updater.preview_game_exclude_filter(
+                include_game_keys=["lol"],
+                include_game_domains=True,
+            )
+            without_domains = cidr_list_updater.preview_game_exclude_filter(
+                include_game_keys=["lol"],
+                include_game_domains=False,
+            )
+        self.assertTrue(with_domains["success"])
+        self.assertGreaterEqual(len(with_domains["preview"]["domains_to_add"]), 1)
+        self.assertEqual(without_domains["preview"]["domains_to_add"], [])
+        self.assertIn("per_game_stats", with_domains["preview"])
+        self.assertIn("lol", with_domains["preview"]["per_game_stats"])
+
     def test_get_available_game_filters_contains_provider_and_source_metadata(self):
         filters = cidr_list_updater.get_available_game_filters()
         self.assertTrue(filters)
@@ -780,6 +875,28 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertIn("lol", result["normalized_keys"])
         self.assertIn("steam_platform", result["normalized_keys"])
         self.assertIn("does_not_exist", result["invalid_keys"])
+
+    def test_get_saved_exclude_game_keys_reads_az_game_exclude_files(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            exclude_hosts_path = os.path.join(tmp_dir, "AZ-Game-exclude-hosts.txt")
+            exclude_ips_path = os.path.join(tmp_dir, "AZ-Game-exclude-ips.txt")
+            with open(exclude_ips_path, "w", encoding="utf-8") as handle:
+                handle.write(
+                    f"{cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_START}\n"
+                    "# Keys: lol,steam_platform\n"
+                    "# Selected games (2): League of Legends, Steam Platform\n"
+                    "203.0.113.10/32\n"
+                    f"{cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_END}\n"
+                )
+            with open(exclude_hosts_path, "w", encoding="utf-8") as handle:
+                handle.write("")
+
+            with patch.object(cidr_list_updater, "AZ_GAME_EXCLUDE_IPS_FILE", exclude_ips_path), patch.object(
+                cidr_list_updater, "AZ_GAME_EXCLUDE_HOSTS_FILE", exclude_hosts_path
+            ):
+                saved = cidr_list_updater.get_saved_exclude_game_keys()
+
+            self.assertEqual(saved, ["lol", "steam_platform"])
 
     def test_preview_game_hosts_filter_returns_counts(self):
         with patch.object(

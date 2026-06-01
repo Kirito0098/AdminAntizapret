@@ -56,6 +56,21 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
         self.assertIn("invalid_game_keys", payload)
         self.assertIn("unknown_game", payload["invalid_game_keys"])
 
+    def test_preview_games_sync_rejects_conflicted_include_exclude_keys(self):
+        response = self.client.post(
+            "/api/cidr-lists",
+            json={
+                "action": "preview_games_sync",
+                "include_game_keys": ["lol"],
+                "exclude_game_keys": ["lol"],
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertFalse(payload["success"])
+        self.assertIn("conflicted_game_keys", payload)
+        self.assertIn("lol", payload["conflicted_game_keys"])
+
     def test_preview_games_sync_returns_preview_payload(self):
         response = self.client.post(
             "/api/cidr-lists",
@@ -91,6 +106,58 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
         payload = response.get_json()
         self.assertTrue(payload["success"])
         self.assertIn("game_ips_filter", payload)
+
+    def test_preview_games_exclude_rejects_invalid_keys(self):
+        response = self.client.post(
+            "/api/cidr-lists",
+            json={"action": "preview_games_exclude", "include_game_keys": ["lol", "unknown_game"]},
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertFalse(payload["success"])
+        self.assertIn("invalid_game_keys", payload)
+        self.assertIn("unknown_game", payload["invalid_game_keys"])
+
+    def test_preview_games_exclude_returns_preview_payload(self):
+        response = self.client.post(
+            "/api/cidr-lists",
+            json={"action": "preview_games_exclude", "include_game_keys": ["lol"], "include_game_domains": True},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertIn("preview", payload)
+        self.assertIn("selected_game_count", payload["preview"])
+        self.assertIn("overlap_summary", payload["preview"])
+        self.assertTrue(payload["preview"]["include_game_domains"])
+        self.assertIn("per_game_stats", payload["preview"])
+        self.assertIn("domains_to_add", payload["preview"])
+        self.assertGreaterEqual(len(payload["preview"]["domains_to_add"]), 1)
+
+    def test_sync_games_exclude_supports_include_game_domains_flag(self):
+        response = self.client.post(
+            "/api/cidr-lists",
+            json={"action": "sync_games_exclude", "include_game_keys": ["lol"], "include_game_domains": False},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertIn("game_ips_filter", payload)
+
+    def test_sync_games_exclude_rejects_conflicted_include_exclude_keys(self):
+        response = self.client.post(
+            "/api/cidr-lists",
+            json={
+                "action": "sync_games_exclude",
+                "include_game_keys": ["lol"],
+                "exclude_game_keys": ["lol"],
+                "include_game_domains": False,
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertFalse(payload["success"])
+        self.assertIn("conflicted_game_keys", payload)
 
 
 if __name__ == "__main__":

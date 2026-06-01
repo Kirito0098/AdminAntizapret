@@ -11,23 +11,19 @@
         </p>
       </div>
       <div class="game-filters-stats" aria-live="polite">
-        <span class="game-filters-stat">Выбрано: <strong id="cidr-games-selected-count">{{ saved_game_keys|length }}</strong></span>
-        <span class="game-filters-stat">Показано: <strong id="cidr-games-visible-count">{{ cidr_game_filters|length }}</strong></span>
-        <span class="game-filters-stat">Всего: <strong id="cidr-games-total-count">{{ cidr_game_filters|length }}</strong></span>
+        <span class="game-filters-stat">Выбрано: <strong id="cidr-games-selected-count">{{ saved_game_keys|length
+            }}</strong></span>
+        <span class="game-filters-stat">Показано: <strong id="cidr-games-visible-count">{{ cidr_game_filters|length
+            }}</strong></span>
+        <span class="game-filters-stat">Всего: <strong id="cidr-games-total-count">{{ cidr_game_filters|length
+            }}</strong></span>
       </div>
     </div>
 
     <div class="game-filters-toolbar settings-inline-card-mt">
       <div class="cidr-games-search-wrap">
-        <input
-          id="cidr-games-search-input"
-          type="search"
-          class="cidr-games-search-input"
-          placeholder="Поиск по игре, издателю, ключу..."
-          autocomplete="off"
-          data-game-filter-control="search"
-        />
-        <small id="cidr-games-search-meta" class="help-text">Показано: {{ cidr_game_filters|length }}/{{ cidr_game_filters|length }}</small>
+        <input id="cidr-games-search-input" type="search" class="cidr-games-search-input"
+          placeholder="Поиск по игре, издателю, ключу..." autocomplete="off" data-game-filter-control="search" />
       </div>
 
       <label class="game-filters-select-wrap">
@@ -37,18 +33,9 @@
         </select>
       </label>
 
-      <label class="game-filters-select-wrap">
-        <span>Источник</span>
-        <select id="cidr-games-source-filter" class="cidr-games-select" data-game-filter-control="source">
-          <option value="all">ASN + DNS</option>
-          <option value="asn">Только ASN</option>
-          <option value="dns">Только DNS</option>
-        </select>
-      </label>
-
       <label class="game-filters-toggle">
         <input id="cidr-games-only-selected" type="checkbox" data-game-filter-control="only-selected" />
-        <span>Только выбранные</span>
+        <span>Только назначенные</span>
       </label>
 
       <label class="game-filters-toggle">
@@ -58,66 +45,67 @@
     </div>
 
     <div class="cidr-actions-row settings-inline-card-mt game-filters-actions">
-      <button id="cidr-games-select-all" type="button" class="button" data-game-filter-control="bulk">Выбрать все</button>
-      <button id="cidr-games-clear-all" type="button" class="button" data-game-filter-control="bulk">Снять все</button>
-      <button id="cidr-games-select-visible" type="button" class="button" data-game-filter-control="bulk">Выбрать видимые</button>
-      <button id="cidr-games-invert-selection" type="button" class="button" data-game-filter-control="bulk">Инвертировать</button>
-      <button id="cidr-games-preview-sync" type="button" class="button" data-game-filter-control="preview">Preview</button>
-      <button id="cidr-sync-games-hosts" type="button" class="button save-button" data-game-filter-control="apply">
-        Применить в AZ-Game-include файлы
+      <button id="cidr-games-reset-all" type="button" class="button" data-game-filter-control="reset">
+        Сбросить все
+      </button>
+      <button id="cidr-games-preview-sync" type="button" class="button"
+        data-game-filter-control="preview">Проверить перед применением</button>
+      <button id="cidr-sync-games-apply" type="button" class="button save-button" data-game-filter-control="apply">
+        Применить
       </button>
     </div>
 
-    <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid settings-inline-card-mt" role="group" aria-label="Фильтры по игровым серверам">
+    <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid settings-inline-card-mt" role="group"
+      aria-label="Фильтры по игровым серверам">
       {% for item in cidr_game_filters %}
-      <label
-        class="cidr-scope-chip cidr-game-chip{% if item.key in saved_game_keys %} is-checked{% endif %}"
-        title="{{ item.subtitle }}"
+      <label class="cidr-scope-chip cidr-game-chip{% if item.key in saved_game_keys %} is-checked{% endif %}"
+        title="{{ item.subtitle }}" data-game-key="{{ item.key }}"
         data-game-provider="{{ item.provider or '' }}"
-        data-game-source="{{ item.source_type or 'dns' }}"
-      >
-        <input
-          type="checkbox"
-          class="cidr-game-checkbox"
-          value="{{ item.key }}"
-          data-subtitle="{{ item.subtitle }}"
-          data-provider="{{ item.provider or '' }}"
-          data-source="{{ item.source_type or 'dns' }}"
-          {% if item.key in saved_game_keys %}checked{% endif %}
-        />
-        <span class="cidr-game-chip__title">{{ item.title }}</span>
-        {% if item.subtitle %}
-        <span class="cidr-game-chip__sub">{{ item.subtitle }}</span>
-        {% endif %}
-        <span class="cidr-game-chip__stats">
-          <small>CIDR: <strong>0</strong></small>
-          <small>Пересечения: <strong>0</strong></small>
-        </span>
-        <span class="cidr-game-chip__meta">
-          <small>{{ item.domain_count }} доменов</small>
-          {% if item.asn_count and item.asn_count > 0 %}
-          <small>{{ item.asn_count }} ASN</small>
+        data-game-source="{{ item.source_type or 'dns' }}">
+        <input type="hidden" class="cidr-game-mode-input" value="{{ 'include' if item.key in saved_game_keys else 'none' }}"
+          data-game-key="{{ item.key }}" />
+        <div class="cidr-game-chip__body">
+          <span class="cidr-game-chip__title">{{ item.title }}</span>
+          {% if item.subtitle %}
+          <span class="cidr-game-chip__sub">{{ item.subtitle }}</span>
           {% endif %}
-        </span>
+          <span class="cidr-game-chip__stats">
+            <small>CIDR: <strong>0</strong></small>
+            <small>Пересечения: <strong>0</strong></small>
+          </span>
+          <span class="cidr-game-chip__meta">
+            <small>{{ item.domain_count }} доменов</small>
+            {% if item.asn_count and item.asn_count > 0 %}
+            <small>{{ item.asn_count }} ASN</small>
+            {% endif %}
+          </span>
+        </div>
+        <div class="cidr-game-chip__mode" data-mode="{{ 'include' if item.key in saved_game_keys else 'none' }}">
+          <button type="button" class="cidr-game-mode-btn is-include{% if item.key in saved_game_keys %} is-active{% endif %}"
+            data-game-mode-btn="include">VPN</button>
+          <button type="button" class="cidr-game-mode-btn is-exclude" data-game-mode-btn="exclude">DIRECT</button>
+          <button type="button" class="cidr-game-mode-btn is-none{% if item.key not in saved_game_keys %} is-active{% endif %}"
+            data-game-mode-btn="none">Не выбрано</button>
+        </div>
       </label>
       {% endfor %}
     </div>
 
     <div id="cidr-games-preview-panel" class="cidr-games-preview-panel settings-inline-card-mt" hidden>
       <div class="cidr-games-preview-panel__head">
-        <h4>Preview перед применением</h4>
+        <h4>Проверка перед применением</h4>
         <small id="cidr-games-preview-updated-at" class="help-text"></small>
       </div>
       <div class="cidr-games-preview-panel__stats">
         <div><span>Игр</span><strong id="cidr-games-preview-selected">0</strong></div>
         <div><span>Доменов</span><strong id="cidr-games-preview-domains">0</strong></div>
         <div><span>CIDR</span><strong id="cidr-games-preview-cidrs">0</strong></div>
-        <div><span>Unresolved</span><strong id="cidr-games-preview-unresolved">0</strong></div>
+        <div><span>Неразрешённые</span><strong id="cidr-games-preview-unresolved">0</strong></div>
       </div>
       <div class="cidr-games-preview-panel__stats">
         <div><span>Пересечений</span><strong id="cidr-games-preview-overlap-count">0</strong></div>
         <div><span>Затронуто игр</span><strong id="cidr-games-preview-overlap-games">0</strong></div>
-        <div><span>Домены в apply</span><strong id="cidr-games-preview-domains-enabled">нет</strong></div>
+        <div><span>Домены при применении</span><strong id="cidr-games-preview-domains-enabled">нет</strong></div>
       </div>
       <div id="cidr-games-preview-warnings" class="help-text"></div>
       <div id="cidr-games-preview-overlap-wrap" class="cidr-games-preview-details" hidden>
@@ -129,9 +117,12 @@
         <ul id="cidr-games-preview-domains-list" class="cidr-games-preview-list"></ul>
       </div>
     </div>
+    <p class="help-text settings-inline-card-mt">
+      Для удаления игры из include/exclude переключите её в режим «Не выбрано» и нажмите «Применить».
+    </p>
   </div>
 </div>
 
-    <!-- ═══════════════ 6. Обслуживание ═══════════════ -->
+<!-- ═══════════════ 6. Обслуживание ═══════════════ -->
 
-  </div>
+</div>

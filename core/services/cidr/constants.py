@@ -126,7 +126,19 @@ AZ_GAME_INCLUDE_IPS_FILE = os.getenv(
 # Backward-compatible aliases for modules/tests that still patch GAME_INCLUDE_*.
 GAME_INCLUDE_HOSTS_FILE = AZ_GAME_INCLUDE_HOSTS_FILE
 GAME_INCLUDE_IPS_FILE = AZ_GAME_INCLUDE_IPS_FILE
+AZ_GAME_EXCLUDE_HOSTS_FILE = os.getenv(
+    "CIDR_AZ_GAME_EXCLUDE_HOSTS_FILE",
+    "/root/antizapret/config/AZ-Game-exclude-hosts.txt",
+)
+AZ_GAME_EXCLUDE_IPS_FILE = os.getenv(
+    "CIDR_AZ_GAME_EXCLUDE_IPS_FILE",
+    "/root/antizapret/config/AZ-Game-exclude-ips.txt",
+)
 GAME_FILTER_BLOCK_START = "# BEGIN AdminAntizapret CIDR games include"
 GAME_FILTER_BLOCK_END = "# END AdminAntizapret CIDR games include"
 GAME_FILTER_IP_BLOCK_START = "# BEGIN AdminAntizapret CIDR games include-ips"
 GAME_FILTER_IP_BLOCK_END = "# END AdminAntizapret CIDR games include-ips"
+GAME_FILTER_EXCLUDE_BLOCK_START = "# BEGIN AdminAntizapret CIDR games exclude"
+GAME_FILTER_EXCLUDE_BLOCK_END = "# END AdminAntizapret CIDR games exclude"
+GAME_FILTER_EXCLUDE_IP_BLOCK_START = "# BEGIN AdminAntizapret CIDR games exclude-ips"
+GAME_FILTER_EXCLUDE_IP_BLOCK_END = "# END AdminAntizapret CIDR games exclude-ips"
