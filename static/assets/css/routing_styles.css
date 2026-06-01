@@ -247,7 +247,17 @@
   word-break: normal;
 }
 
-#cidr-update #cidr-dpi-log-input,
+#cidr-update #cidr-dpi-log-input {
+  min-width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 260px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
 #cidr-update .cidr-dpi-actions,
 #cidr-update .cidr-dpi-budget-group,
 #cidr-update .cidr-dpi-budget-row,
