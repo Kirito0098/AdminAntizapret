@@ -1,7 +1,15 @@
 #!/bin/bash
 # Меню автотестов (pytest) — работает без веб-панели.
+# Назначение: модульные тесты для разработки и проверки после обновлений, не ежедневная эксплуатация.
 
 UNIT_TESTS_CLI="$INCLUDE_DIR/unit_tests_cli.py"
+
+_unit_tests_print_purpose() {
+    ui_info "Модульные автотесты (pytest) — для разработки и проверки кода после обновлений."
+    ui_info "Проверяют отдельные модули панели (CIDR, авторизация, бэкапы, настройки и др.)."
+    ui_info "На рабочем сервере запуск не обязателен: падение теста ≠ поломка VPN или панели."
+    ui_info "«Общий тест» — диагностика окружения + все pytest; остальные пункты — только pytest."
+}
 
 _unit_tests_python() {
     if [ -x "$VENV_PATH/bin/python" ]; then
@@ -45,6 +53,7 @@ _unit_tests_invoke() {
 run_unit_tests_all() {
     _unit_tests_check || return 1
     ui_section "Запуск всех автотестов (подробно)"
+    _unit_tests_print_purpose
     ui_info "Каталог: $INSTALL_DIR/tests"
     printf "\n"
     _unit_tests_invoke run --all
@@ -70,6 +79,7 @@ run_unit_tests_summary() {
         return 1
     }
     ui_section "Общий тест системы"
+    _unit_tests_print_purpose
     ui_info "Модули, пакеты, права, конфигурация и автотесты…"
     printf "\n"
     INSTALL_DIR="$INSTALL_DIR" SERVICE_NAME="$SERVICE_NAME" VENV_PATH="$VENV_PATH" \
@@ -89,6 +99,7 @@ run_unit_tests_summary() {
 run_unit_tests_list() {
     _unit_tests_check || return 1
     ui_section "Список автотестов"
+    _unit_tests_print_purpose
     printf "\n"
     _unit_tests_invoke list
 }
@@ -136,6 +147,9 @@ show_unit_tests_menu() {
         _m_top
         _m_title "Автотесты системы"
         _m_sep
+        ui_info "Модульные тесты для разработки и проверки после обновлений (не ежедневная эксплуатация)."
+        printf "\n"
+        _m_sep
         _m_item "1. Общий тест (окружение + pytest)"
         _m_item "2. Запустить все тесты (подробно)"
         _m_item "3. Список тестов (с названиями)"
@@ -144,7 +158,7 @@ show_unit_tests_menu() {
         _m_item "0. Назад"
         _m_bot
         printf "\n"
-        ui_info "Работает без веб-панели (pytest + venv)"
+        ui_info "Работает без веб-панели (pytest + venv). Тот же раздел — Настройки → Тесты системы."
         printf "\n"
 
         read -r -p "  Выберите действие [0-4]: " choice

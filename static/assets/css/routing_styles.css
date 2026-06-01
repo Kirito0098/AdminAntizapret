@@ -1,3 +1,35 @@
+/* Ширина контейнера — как на странице «Мониторинг сервера» */
+.routing-wrapper.page-unified-wrapper {
+  width: 100%;
+  max-width: 100%;
+  margin: 0.85rem auto 1.2rem;
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+  box-sizing: border-box;
+  overflow-x: clip;
+}
+
+@media (min-width: 769px) {
+  .routing-wrapper.page-unified-wrapper {
+    width: min(1360px, 96%);
+    margin: 1.4rem auto 2rem;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+@media (min-width: 1600px) {
+  .routing-wrapper.page-unified-wrapper {
+    width: min(1720px, 95%);
+  }
+}
+
+@media (min-width: 2160px) {
+  .routing-wrapper.page-unified-wrapper {
+    width: min(1880px, 94%);
+  }
+}
+
 .ip-file-item--no-source .toggle-switch {
   opacity: 0.45;
   pointer-events: none;
@@ -147,6 +179,57 @@
   color: #d7e5eb;
 }
 
+/* Всплывающая подсказка у активной кнопки (position задаётся из JS) */
+.cidr-db-action-hint {
+  position: fixed;
+  z-index: 2500;
+  max-width: min(92vw, 320px);
+  margin: 0;
+  padding: 0.58rem 0.78rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(90, 157, 203, 0.45);
+  background: rgba(14, 26, 36, 0.96);
+  color: #d8ebf5;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  box-sizing: border-box;
+  pointer-events: none;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+}
+
+.cidr-db-action-hint[hidden] {
+  display: none !important;
+}
+
+.cidr-db-action-hint::after {
+  content: "";
+  position: absolute;
+  left: var(--hint-arrow-x, 50%);
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+}
+
+.cidr-db-action-hint[data-placement="above"]::after {
+  bottom: -14px;
+  border-top-color: rgba(14, 26, 36, 0.96);
+}
+
+.cidr-db-action-hint[data-placement="below"]::after {
+  top: -14px;
+  border-bottom-color: rgba(14, 26, 36, 0.96);
+}
+
+#cidr-update .cidr-launch-btn[title]:hover::after {
+  bottom: auto;
+  top: calc(100% + 0.35rem);
+  z-index: 1300;
+  white-space: normal;
+  max-width: min(92vw, 340px);
+  text-align: center;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
 #cidr-update .cidr-dpi-actions {
   display: flex;
   align-items: center;
@@ -247,7 +330,17 @@
   word-break: normal;
 }
 
-#cidr-update #cidr-dpi-log-input,
+#cidr-update #cidr-dpi-log-input {
+  min-width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 260px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
 #cidr-update .cidr-dpi-actions,
 #cidr-update .cidr-dpi-budget-group,
 #cidr-update .cidr-dpi-budget-row,
@@ -655,6 +748,14 @@
 
 #cidr-update #cidr-update-status {
   margin-top: 0.8rem;
+}
+
+#cidr-update #cidr-db-status-msg[hidden],
+#cidr-update #cidr-db-alerts[hidden],
+#cidr-update #cidr-db-dry-run-preview[hidden],
+#cidr-update #antifilter-status-msg[hidden],
+#cidr-update #cidr-update-status[hidden] {
+  display: none !important;
 }
 
 #cidr-update .cidr-progress {
@@ -1644,9 +1745,9 @@
 }
 
 #cidr-update .cidr-gen-options__row {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
 }
 
 #cidr-update .cidr-gen-options .toggle-wrapper {

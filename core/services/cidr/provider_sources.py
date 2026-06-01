@@ -14,19 +14,14 @@ from core.services.cidr.constants import (
 PROVIDER_SOURCES = {
     "akamai-ips.txt": [
         {
-            "name": "bgp-tools-nl-akamai",
-            "url": "https://bgp.tools/rir-owner/nl.akamai",
-            "format": "cidr_text_scan",
-        },
-        {
-            "name": "bgp-tools-arin-akamai",
-            "url": "https://bgp.tools/rir-owner/ARIN-AKAMAI",
-            "format": "cidr_text_scan",
-        },
-        {
             "name": "ripe-as20940-geo",
             "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS20940",
             "format": "ripe_geo_json",
+        },
+        {
+            "name": "ripe-as20940-announced",
+            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS20940",
+            "format": "ripe_json",
         },
     ],
     "amazon-ips.txt": [
@@ -37,11 +32,6 @@ PROVIDER_SOURCES = {
         }
     ],
     "digitalocean-ips.txt": [
-        {
-            "name": "bgp-tools-arin-do-13",
-            "url": "https://bgp.tools/rir-owner/ARIN-DO-13",
-            "format": "cidr_text_scan",
-        },
         {
             "name": "ripe-as14061-geo",
             "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS14061",
@@ -67,11 +57,6 @@ PROVIDER_SOURCES = {
     ],
     "hetzner-ips.txt": [
         {
-            "name": "bgp-tools-de-hetzner",
-            "url": "https://bgp.tools/rir-owner/de.hetzner",
-            "format": "cidr_text_scan",
-        },
-        {
             "name": "ripe-as24940-geo",
             "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS24940",
             "format": "ripe_geo_json",
@@ -94,11 +79,6 @@ PROVIDER_SOURCES = {
     ],
     "ovh-ips.txt": [
         {
-            "name": "bgp-tools-fr-ovh",
-            "url": "https://bgp.tools/rir-owner/fr.ovh",
-            "format": "cidr_text_scan",
-        },
-        {
             "name": "ripe-as16276-geo",
             "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS16276",
             "format": "ripe_geo_json",
@@ -114,16 +94,6 @@ PROVIDER_SOURCES = {
             "name": "cloudflare-ips-v4",
             "url": "https://www.cloudflare.com/ips-v4",
             "format": "cidr_text",
-        },
-        {
-            "name": "ripe-as13335-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS13335",
-            "format": "ripe_json",
-        },
-        {
-            "name": "ripe-as209242-announced",
-            "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS209242",
-            "format": "ripe_json",
         },
     ],
     "fastly-ips.txt": [

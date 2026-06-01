@@ -15,6 +15,8 @@
   const dbHistoryList = document.getElementById("cidr-db-history-list");
   const dbMsg = document.getElementById("cidr-db-status-msg");
   const dbAlerts = document.getElementById("cidr-db-alerts");
+  const dbDryRunPreview = document.getElementById("cidr-db-dry-run-preview");
+  const dbActionHint = document.getElementById("cidr-db-action-hint");
   const dbTableState = { providers: [] };
 
   const catLabel = { cdn: "CDN", cloud: "Облако", hosting: "Хостинг" };
@@ -87,16 +89,11 @@
     }
 
     if (!filtered.length) {
-      dbTbody.innerHTML = '<tr><td colspan="7" class="help-text cidr-db-table__placeholder">Нет провайдеров по текущим фильтрам</td></tr>';
+      dbTbody.innerHTML = '<tr><td colspan="6" class="help-text cidr-db-table__placeholder">Нет провайдеров по текущим фильтрам</td></tr>';
       return;
     }
 
     const rowsHtml = filtered.map((p) => {
-      const asList = Array.isArray(p.as_numbers) ? p.as_numbers : [];
-      const asVisible = asList.slice(0, 10);
-      const asHtml = asVisible.map((a) => `<span class="cidr-db-as-badge">${escapeHtml(a)}</span>`).join("")
-        + (asList.length > 10 ? `<span class="cidr-db-as-badge">+${asList.length - 10}</span>` : "");
-
       const cat = p.category || "";
       const catHtml = cat ? `<span class="cidr-db-cat cidr-db-cat--${escapeHtml(cat)}">${escapeHtml(catLabel[cat] || cat)}</span>` : "—";
       const st = String(p.refresh_status || "never");
@@ -107,9 +104,6 @@
       const anomaly = p.anomaly_level && p.anomaly_level !== "none"
         ? `<div class="cidr-db-anomaly" title="${escapeHtml(p.anomaly_reason || "")}">⚠ ${escapeHtml(p.anomaly_level)}</div>`
         : "";
-      const asnMeta = (p.active_asn_count || p.asn_count)
-        ? `<div class="cidr-db-as-meta">ASN: ${Number(p.active_asn_count || 0)}/${Number(p.asn_count || 0)}</div>`
-        : "";
 
       const providerName = escapeHtml(p.name || p.key || "—");
       const providerKey = escapeHtml(p.key || "");
@@ -117,6 +111,10 @@
       const whatHosts = escapeHtml(p.what_hosts || "—");
       const cidrCount = p.cidr_count ? Number(p.cidr_count).toLocaleString("ru-RU") : "—";
       const rowClass = p.anomaly_level && p.anomaly_level !== "none" ? "cidr-db-row--anomaly" : "";
+      const partialReasons = Array.isArray(p.partial_reasons_by_source) ? p.partial_reasons_by_source : [];
+      const partialHtml = (String(p.refresh_status || "") === "partial" && partialReasons.length)
+        ? `<details class="cidr-db-partial-reasons"><summary>Почему partial (${partialReasons.length})</summary><ul>${partialReasons.slice(0, 6).map((item) => `<li><strong>${escapeHtml(item.source || "source")}</strong>: ${escapeHtml(item.reason || "неизвестно")}</li>`).join("")}</ul></details>`
+        : "";
 
       return `<tr class="${rowClass}">
               <td data-label="Провайдер">
@@ -126,11 +124,10 @@
                   <span class="cidr-db-provider-source" title="${sourceUsed}">${sourceUsed}</span>
                 </div>
               </td>
-              <td data-label="AS"><div class="cidr-db-as">${asHtml || "—"}</div>${asnMeta}</td>
               <td data-label="Категория">${catHtml}</td>
               <td data-label="CIDR в БД" class="cidr-db-num">${cidrCount}</td>
               <td data-label="Обновлено">${fmtDt(p.last_refreshed_at)}</td>
-              <td data-label="Статус"><span class="${stCls}"${errTip}>${escapeHtml(stLbl)}</span>${anomaly}</td>
+              <td data-label="Статус"><span class="${stCls}"${errTip}>${escapeHtml(stLbl)}</span>${anomaly}${partialHtml}</td>
               <td data-label="Что размещено"><span class="cidr-db-what" title="${whatHosts}">${whatHosts}</span></td>
             </tr>`;
     });
@@ -140,15 +137,25 @@
 
   function setDbMsg(text, level) {
     if (!dbMsg) return;
+    const normalized = typeof text === "string" ? text.trim() : String(text || "").trim();
     if (level === "success" || level === "error") {
-      if (text) window.showNotification?.(text, level);
+      if (normalized) window.showNotification?.(normalized, level);
       dbMsg.hidden = true;
       dbMsg.textContent = "";
+      dbMsg.style.display = "none";
       return;
     }
-    dbMsg.textContent = text;
-    dbMsg.className = `notification notification-${level || "info"} notification-inline-progress`;
-    dbMsg.hidden = !text;
+    if (!normalized) {
+      dbMsg.hidden = true;
+      dbMsg.textContent = "";
+      dbMsg.style.display = "none";
+      return;
+    }
+    dbMsg.textContent = normalized;
+    dbMsg.classList.remove("notification-success", "notification-info", "notification-warning", "notification-error");
+    dbMsg.classList.add("notification", "notification-inline-progress", `notification-${level || "info"}`);
+    dbMsg.hidden = false;
+    dbMsg.style.display = "block";
   }
 
   function fmtDt(iso) {
@@ -157,6 +164,27 @@
       const d = new Date(iso);
       return d.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
     } catch { return iso; }
+  }
+
+  function renderDbDryRunPreview(perProvider) {
+    if (!dbDryRunPreview) return;
+    const entries = Object.entries(perProvider || {});
+    if (!entries.length) {
+      dbDryRunPreview.hidden = true;
+      dbDryRunPreview.textContent = "";
+      dbDryRunPreview.style.display = "none";
+      return;
+    }
+    const lines = entries.slice(0, 12).map(([key, info]) => {
+      const changes = info?.dry_run_changes || {};
+      const prev = Number(changes.previous_cidr_count || 0);
+      const next = Number(changes.final_cidr_count || info?.cidr_count || 0);
+      const fallback = changes.fallback_applied ? " (fallback)" : "";
+      return `• ${key}: ${prev} → ${next}${fallback}`;
+    });
+    dbDryRunPreview.textContent = ["Dry-run: изменения без записи в БД", ...lines].join("\n");
+    dbDryRunPreview.hidden = false;
+    dbDryRunPreview.style.display = "block";
   }
 
   function renderDbStatus(data) {
@@ -170,17 +198,25 @@
 
     if (dbAlerts) {
       const alerts = Array.isArray(data.alerts) ? data.alerts : [];
-      if (!alerts.length) {
+      const bannerAlerts = alerts.filter((alert) => alert.level !== "none" && alert.level !== "info");
+      if (!bannerAlerts.length) {
         dbAlerts.hidden = true;
+        dbAlerts.style.display = "none";
       } else {
-        const lines = alerts.slice(0, 8).map((alert) => {
+        const lines = bannerAlerts.slice(0, 8).map((alert) => {
           const provider = alert.provider_key ? `[${alert.provider_key}] ` : "";
           return `• ${provider}${alert.message || "Обнаружена деградация"}`;
         });
         dbAlerts.textContent = lines.join("\n");
-        dbAlerts.className = "notification " + (alerts.some(a => a.level === "critical") ? "notification-error" : "notification-warning");
+        dbAlerts.className = "notification " + (bannerAlerts.some(a => a.level === "critical") ? "notification-error" : "notification-warning");
         dbAlerts.hidden = false;
+        dbAlerts.style.display = "block";
       }
+    }
+    if (dbDryRunPreview) {
+      dbDryRunPreview.hidden = true;
+      dbDryRunPreview.textContent = "";
+      dbDryRunPreview.style.display = "none";
     }
 
     // Expose per-provider CIDR counts for the 900-limit counter
@@ -216,21 +252,28 @@
     }
   }
 
-  async function triggerDbRefresh(selectedFiles) {
+  async function triggerDbRefresh(options = {}) {
+    const selectedFiles = options.selectedFiles || null;
+    const dryRun = !!options.dryRun;
+    const retryFailedMode = options.retryFailedMode || null;
     const section = document.getElementById("cidr-update");
     if (section && section.classList.contains("cidr-busy")) return;
 
-    setDbMsg("Запускаю обновление БД…", "info");
+    setDbMsg(dryRun ? "Запускаю dry-run обновления БД…" : "Запускаю обновление БД…", "info");
     try {
-      if (typeof window._pollCidrTaskExternal === "function") {
+      if (typeof window._pollCidrTaskExternal === "function" && !dryRun) {
         await window._pollCidrTaskExternal([
           {
-            label: "Обновление CIDR БД",
+            label: dryRun ? "Dry-run CIDR БД" : "Обновление CIDR БД",
             start: async () => {
               const r = await fetch("/api/cidr-db/refresh", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-                body: JSON.stringify({ selected_files: selectedFiles || null }),
+                body: JSON.stringify({
+                  selected_files: selectedFiles || null,
+                  dry_run: dryRun,
+                  retry_failed_mode: retryFailedMode,
+                }),
               });
               const d = await r.json();
               if (!d.success) throw new Error(d.message || "Ошибка обновления CIDR БД");
@@ -238,19 +281,27 @@
             },
           },
         ]);
-        await loadDbStatus();
-        setDbMsg("Обновление БД завершено. Детали прогресса показаны в панели операций.", "success");
+        if (!dryRun) {
+          await loadDbStatus();
+          setDbMsg("Обновление БД завершено. Детали прогресса показаны в панели операций.", "success");
+        } else {
+          setDbMsg("Dry-run завершен. Детали прогресса показаны в панели операций.", "success");
+        }
         return;
       }
 
       const r = await fetch("/api/cidr-db/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
-        body: JSON.stringify({ selected_files: selectedFiles || null }),
+        body: JSON.stringify({
+          selected_files: selectedFiles || null,
+          dry_run: dryRun,
+          retry_failed_mode: retryFailedMode,
+        }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.message || "Ошибка");
-      setDbMsg("Обновление запущено в фоне. Это займёт 1–3 минуты.", "success");
+      setDbMsg(dryRun ? "Dry-run запущен в фоне. Это займёт 1–3 минуты." : "Обновление запущено в фоне. Это займёт 1–3 минуты.", "success");
 
       const taskId = d.task_id;
       if (!taskId) return;
@@ -266,8 +317,13 @@
           }
           if (td.status === "completed" || td.status === "failed") {
             clearInterval(poll);
-            await loadDbStatus();
-            setDbMsg(td.status === "completed" ? "БД обновлена успешно." : "Обновление завершено с ошибками.", td.status === "completed" ? "success" : "error");
+            if (td.status === "completed" && td.result?.dry_run) {
+              renderDbDryRunPreview(td.result?.per_provider || {});
+              setDbMsg("Dry-run завершен успешно.", "success");
+            } else {
+              await loadDbStatus();
+              setDbMsg(td.status === "completed" ? "БД обновлена успешно." : "Обновление завершено с ошибками.", td.status === "completed" ? "success" : "error");
+            }
           }
         } catch {
           clearInterval(poll);
@@ -278,11 +334,62 @@
     }
   }
 
-  document.getElementById("cidr-db-refresh-all")?.addEventListener("click", () => triggerDbRefresh(null));
+  document.getElementById("cidr-db-refresh-all")?.addEventListener("click", () => triggerDbRefresh({ selectedFiles: null }));
   document.getElementById("cidr-db-refresh-selected")?.addEventListener("click", () => {
     const checked = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
-    triggerDbRefresh(checked.length ? checked : null);
+    triggerDbRefresh({ selectedFiles: checked.length ? checked : null });
   });
+  document.getElementById("cidr-db-refresh-failed-last")?.addEventListener("click", () => {
+    triggerDbRefresh({ selectedFiles: null, retryFailedMode: "last" });
+  });
+  document.getElementById("cidr-db-refresh-failed-selected")?.addEventListener("click", () => {
+    const checked = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+    triggerDbRefresh({ selectedFiles: checked.length ? checked : [], retryFailedMode: "selected" });
+  });
+  document.getElementById("cidr-db-dry-run-refresh")?.addEventListener("click", () => {
+    const checked = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+    triggerDbRefresh({ selectedFiles: checked.length ? checked : null, dryRun: true });
+  });
+
+  async function triggerDbClear(selectedFiles) {
+    const section = document.getElementById("cidr-update");
+    if (section && section.classList.contains("cidr-busy")) return;
+
+    const isAll = !selectedFiles || !selectedFiles.length;
+    const confirmText = isAll
+      ? "Удалить все CIDR, ASN и метаданные провайдеров из БД? Генерация маршрутов потребует повторного обновления из интернета."
+      : `Удалить CIDR, ASN и метаданные для ${selectedFiles.length} выбранных провайдеров? Потребуется повторное обновление из интернета.`;
+    if (!confirm(confirmText)) return;
+
+    setDbMsg("Очищаю БД CIDR…", "info");
+    try {
+      const r = await fetch("/api/cidr-db/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+        body: JSON.stringify({ selected_files: isAll ? null : selectedFiles }),
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.message || "Ошибка очистки CIDR БД");
+
+      window._cidrDbProviderCounts = {};
+      if (typeof window._cidrRenderMeta === "function") window._cidrRenderMeta();
+      await loadDbStatus();
+      setDbMsg(d.message || "БД CIDR очищена", "success");
+    } catch (e) {
+      setDbMsg("Ошибка: " + (e.message || e), "error");
+    }
+  }
+
+  document.getElementById("cidr-db-clear-all")?.addEventListener("click", () => triggerDbClear(null));
+  document.getElementById("cidr-db-clear-selected")?.addEventListener("click", () => {
+    const checked = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+    if (!checked.length) {
+      window.showNotification?.("Выберите провайдеров CIDR для очистки", "error");
+      return;
+    }
+    triggerDbClear(checked);
+  });
+
   document.getElementById("cidr-db-toggle-history")?.addEventListener("click", () => {
     const h = document.getElementById("cidr-db-history");
     if (h) h.hidden = !h.hidden;
@@ -376,6 +483,54 @@
     window._pollCidrTaskExternal(steps);
   });
 
+  document.getElementById("cidr-generate-from-db-dry-run")?.addEventListener("click", async () => {
+    const selectedRegions = Array.from(document.querySelectorAll(".cidr-region-checkbox:checked")).map(el => el.value);
+    const regionScopes = Array.from(document.querySelectorAll(".cidr-scope-checkbox:checked")).map(el => el.value);
+    const includeNonGeo = document.getElementById("cidr-include-non-geo-fallback")?.checked || false;
+    const excludeRu = document.getElementById("cidr-exclude-ru-cidrs")?.checked || false;
+    const strictGeo = document.getElementById("cidr-strict-geo-filter")?.checked || false;
+    const gameKeys = Array.from(document.querySelectorAll(".cidr-game-checkbox:checked")).map(el => el.value);
+    const filterByAntifilter = document.getElementById("cidr-filter-by-antifilter")?.checked || false;
+    const dpiPriorityFiles = Array.isArray(window._cidrDpiPriorityFiles) ? window._cidrDpiPriorityFiles : [];
+    const dpiMandatoryFiles = Array.isArray(window._cidrDpiMandatoryFiles) ? window._cidrDpiMandatoryFiles : [];
+    const dpiPriorityMinBudgetRaw = String(document.getElementById("cidr-dpi-priority-min-budget")?.value || "").trim();
+    const dpiPriorityMinBudget = /^\d+$/.test(dpiPriorityMinBudgetRaw) ? Number(dpiPriorityMinBudgetRaw) : 0;
+
+    if (typeof window._pollCidrTaskExternal !== "function") {
+      window.showNotification?.("Ошибка: интерфейс не готов, обновите страницу", "error");
+      return;
+    }
+
+    window._pollCidrTaskExternal([
+      {
+        label: "Dry-run генерации из БД",
+        start: async () => {
+          const r = await fetch("/api/cidr-db/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+            body: JSON.stringify({
+              action: "estimate_dry_run",
+              dry_run: true,
+              regions: selectedRegions,
+              region_scopes: regionScopes,
+              include_non_geo_fallback: includeNonGeo,
+              exclude_ru_cidrs: excludeRu,
+              strict_geo_filter: strictGeo,
+              include_game_keys: gameKeys,
+              filter_by_antifilter: filterByAntifilter,
+              dpi_priority_files: dpiPriorityFiles,
+              dpi_mandatory_files: dpiMandatoryFiles,
+              dpi_priority_min_budget: dpiPriorityMinBudget,
+            }),
+          });
+          const d = await r.json();
+          if (!d.success) throw new Error(d.message || "Ошибка dry-run");
+          return d.task_id;
+        },
+      },
+    ]);
+  });
+
   // ── Antifilter.download ─────────────────────────────────────────────
   (function () {
     const badge = document.getElementById("antifilter-badge");
@@ -389,15 +544,25 @@
     }
     function setMsg(text, level) {
       if (!msg) return;
+      const normalized = typeof text === "string" ? text.trim() : String(text || "").trim();
       if (level === "success" || level === "error") {
-        if (text) window.showNotification?.(text, level);
+        if (normalized) window.showNotification?.(normalized, level);
         msg.hidden = true;
         msg.textContent = "";
+        msg.style.display = "none";
         return;
       }
-      msg.textContent = text;
-      msg.className = `notification notification-${level || "info"} notification-inline-progress`;
-      msg.hidden = !text;
+      if (!normalized) {
+        msg.hidden = true;
+        msg.textContent = "";
+        msg.style.display = "none";
+        return;
+      }
+      msg.textContent = normalized;
+      msg.classList.remove("notification-success", "notification-info", "notification-warning", "notification-error");
+      msg.classList.add("notification", "notification-inline-progress", `notification-${level || "info"}`);
+      msg.hidden = false;
+      msg.style.display = "block";
     }
 
     async function loadStatus() {
@@ -703,6 +868,91 @@
   // ── Init: load on tab activation ──────────────────────────────────
   let _dbLoaded = false;
   let _presetsLoaded = false;
+
+  function initDbActionHints() {
+    const actionsRow = document.querySelector("#cidr-db-card .cidr-actions-row");
+    if (!actionsRow || !dbActionHint) return;
+
+    document.body.appendChild(dbActionHint);
+
+    let activeHintBtn = null;
+    const viewportPad = 12;
+    const gap = 10;
+
+    function hideDbActionHint() {
+      activeHintBtn = null;
+      dbActionHint.hidden = true;
+      dbActionHint.textContent = "";
+      dbActionHint.style.top = "";
+      dbActionHint.style.left = "";
+      dbActionHint.style.removeProperty("--hint-arrow-x");
+      dbActionHint.removeAttribute("data-placement");
+    }
+
+    function positionDbActionHint(btn) {
+      const btnRect = btn.getBoundingClientRect();
+      const hintRect = dbActionHint.getBoundingClientRect();
+      const spaceAbove = btnRect.top - viewportPad;
+      const spaceBelow = window.innerHeight - btnRect.bottom - viewportPad;
+      const placement = spaceAbove >= hintRect.height + gap || spaceAbove >= spaceBelow ? "above" : "below";
+
+      let top = placement === "above"
+        ? btnRect.top - hintRect.height - gap
+        : btnRect.bottom + gap;
+
+      top = Math.max(viewportPad, Math.min(top, window.innerHeight - hintRect.height - viewportPad));
+
+      let left = btnRect.left + (btnRect.width / 2) - (hintRect.width / 2);
+      left = Math.max(viewportPad, Math.min(left, window.innerWidth - hintRect.width - viewportPad));
+
+      const arrowX = btnRect.left + (btnRect.width / 2) - left;
+
+      dbActionHint.style.top = `${Math.round(top)}px`;
+      dbActionHint.style.left = `${Math.round(left)}px`;
+      dbActionHint.style.setProperty("--hint-arrow-x", `${Math.round(arrowX)}px`);
+      dbActionHint.dataset.placement = placement;
+    }
+
+    function showDbActionHint(btn, text) {
+      const normalized = String(text || "").trim();
+      if (!btn || !normalized) {
+        hideDbActionHint();
+        return;
+      }
+
+      activeHintBtn = btn;
+      dbActionHint.textContent = normalized;
+      dbActionHint.hidden = false;
+      dbActionHint.style.visibility = "hidden";
+      positionDbActionHint(btn);
+      dbActionHint.style.visibility = "visible";
+    }
+
+    function refreshDbActionHintPosition() {
+      if (activeHintBtn && !dbActionHint.hidden) positionDbActionHint(activeHintBtn);
+    }
+
+    actionsRow.addEventListener("mouseover", (event) => {
+      const btn = event.target.closest(".cidr-db-action-btn");
+      if (btn) showDbActionHint(btn, btn.dataset.hint || "");
+    });
+    actionsRow.addEventListener("mouseleave", (event) => {
+      if (!event.relatedTarget || !actionsRow.contains(event.relatedTarget)) hideDbActionHint();
+    });
+
+    actionsRow.addEventListener("focusin", (event) => {
+      const btn = event.target.closest(".cidr-db-action-btn");
+      if (btn) showDbActionHint(btn, btn.dataset.hint || "");
+    });
+    actionsRow.addEventListener("focusout", (event) => {
+      if (!actionsRow.contains(event.relatedTarget)) hideDbActionHint();
+    });
+
+    window.addEventListener("scroll", refreshDbActionHintPosition, true);
+    window.addEventListener("resize", refreshDbActionHintPosition);
+  }
+
+  initDbActionHints();
 
   function onCidrTabActive() {
     if (!_dbLoaded) { _dbLoaded = true; loadDbStatus(); }

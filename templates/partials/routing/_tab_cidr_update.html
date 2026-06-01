@@ -93,18 +93,16 @@
       <div id="cidr-db-providers-table-wrap" class="cidr-db-table-wrap">
         <table class="cidr-db-table" id="cidr-db-providers-table">
           <colgroup>
-            <col style="width:200px">
-            <col style="width:150px">
+            <col style="width:220px">
             <col style="width:90px">
             <col style="width:80px">
             <col style="width:110px">
-            <col style="width:80px">
+            <col style="width:130px">
             <col>
           </colgroup>
           <thead>
             <tr>
               <th scope="col">Провайдер</th>
-              <th scope="col">AS</th>
               <th scope="col">Категория</th>
               <th scope="col">CIDR в БД</th>
               <th scope="col">Обновлено</th>
@@ -114,26 +112,47 @@
           </thead>
           <tbody id="cidr-db-providers-tbody">
             <tr>
-              <td colspan="7" class="help-text cidr-db-table__placeholder">Загрузка…</td>
+              <td colspan="6" class="help-text cidr-db-table__placeholder">Загрузка…</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div class="cidr-actions-row settings-inline-card-mt">
-        <button id="cidr-db-refresh-all" type="button" class="button save-button">Обновить всю БД сейчас</button>
-        <button id="cidr-db-refresh-selected" type="button" class="button">Обновить выбранных в БД</button>
-        <button id="cidr-db-toggle-history" type="button" class="button">История обновлений</button>
+        <button id="cidr-db-refresh-all" type="button" class="button save-button cidr-db-action-btn"
+          data-hint="Загрузить CIDR всех провайдеров из интернета и сохранить в локальную БД">Обновить всю БД
+          сейчас</button>
+        <button id="cidr-db-refresh-selected" type="button" class="button cidr-db-action-btn"
+          data-hint="Загрузить CIDR только для отмеченных в таблице провайдеров">Обновить выбранных в БД</button>
+        <button id="cidr-db-refresh-failed-last" type="button" class="button cidr-db-action-btn"
+          data-hint="Повторно обновить провайдеров, у которых была ошибка при последнем обновлении БД">Повторить
+          ошибочные (последний запуск)</button>
+        <button id="cidr-db-refresh-failed-selected" type="button" class="button cidr-db-action-btn"
+          data-hint="Среди отмеченных провайдеров повторить только те, что завершились с ошибкой при последнем обновлении">Повторить
+          ошибочные (выбранные)</button>
+        <button id="cidr-db-dry-run-refresh" type="button" class="button cidr-db-action-btn"
+          data-hint="Рассчитать изменения CIDR без записи в БД и показать предпросмотр «было → станет»">Пробный запуск
+          обновления</button>
+        <button id="cidr-db-toggle-history" type="button" class="button cidr-db-action-btn"
+          data-hint="Показать или скрыть список последних операций обновления БД">История обновлений</button>
+        <button id="cidr-db-clear-all" type="button" class="button delete-button cidr-db-action-btn"
+          data-hint="Удалить все CIDR, ASN и метаданные провайдеров из БД; потребуется повторная загрузка из интернета">Очистить
+          всю БД CIDR</button>
+        <button id="cidr-db-clear-selected" type="button" class="button delete-button cidr-db-action-btn"
+          data-hint="Удалить CIDR, ASN и метаданные только для отмеченных провайдеров">Очистить выбранных в БД</button>
+
       </div>
+      <div id="cidr-db-action-hint" class="cidr-db-action-hint" hidden aria-live="polite"></div>
 
       <div id="cidr-db-history" hidden style="margin-top:.75rem">
         <h5>История последних обновлений</h5>
         <ul id="cidr-db-history-list" class="cidr-result-list" style="margin-top:.4rem"></ul>
       </div>
 
-      <div id="cidr-db-status-msg" class="notification settings-inline-hidden" style="margin-top:.5rem"></div>
-      <div id="cidr-db-alerts" class="notification notification-warning settings-inline-hidden"
-        style="margin-top:.5rem"></div>
+      <div id="cidr-db-status-msg" class="notification notification-inline-progress" hidden style="margin-top:.5rem">
+      </div>
+      <div id="cidr-db-alerts" class="notification notification-warning" hidden style="margin-top:.5rem"></div>
+      <div id="cidr-db-dry-run-preview" class="notification notification-info" hidden style="margin-top:.5rem"></div>
     </div><!-- /cidr-db-body -->
   </div>
 
@@ -168,7 +187,8 @@
         <button id="antifilter-refresh-btn" type="button" class="button save-button">Обновить антифильтр
           сейчас</button>
       </div>
-      <div id="antifilter-status-msg" class="notification settings-inline-hidden" style="margin-top:.5rem"></div>
+      <div id="antifilter-status-msg" class="notification notification-inline-progress" hidden style="margin-top:.5rem">
+      </div>
     </div><!-- /antifilter-body -->
   </div>
 
@@ -207,7 +227,7 @@
       </div>
       <div class="form-group">
         <label for="cidr-dpi-log-input">Лог DPI checking для расстановки приоритетов</label>
-        <textarea id="cidr-dpi-log-input" class="form-control" rows="4"
+        <textarea id="cidr-dpi-log-input" class="form-control" rows="12"
           placeholder="Вставьте лог DPI checking сюда..."></textarea>
         <small class="help-text">Вставьте сюда фрагмент лога, где перечислены проверяемые провайдеры
           и их приоритеты.</small>
@@ -457,6 +477,11 @@
               title="Сгенерировать файлы из БД без загрузки из интернета">
               ⚡ Применить из БД (без интернета)
             </button>
+            <button id="cidr-generate-from-db-dry-run" type="button"
+              class="button cidr-launch-btn cidr-launch-btn--full"
+              title="Показать результат генерации из БД без записи файлов">
+              👁 Dry-run генерации из БД
+            </button>
           </div>
           <div class="cidr-launch-group">
             <span class="cidr-launch-group__label">Обновить из интернета</span>
@@ -518,7 +543,7 @@
       <ol id="cidr-step-items" class="cidr-step-items"></ol>
     </div>
 
-    <div id="cidr-update-status" class="notification settings-inline-hidden"></div>
+    <div id="cidr-update-status" class="notification notification-inline-progress" hidden></div>
 
     <section id="cidr-result-panel" class="cidr-result-panel settings-inline-card-mt" hidden>
       <div class="cidr-result-panel__head">
