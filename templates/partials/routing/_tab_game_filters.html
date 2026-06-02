@@ -6,14 +6,41 @@
 
     <div class="game-filters-head">
 
-      <div>
+      <div class="game-filters-head__top">
 
-        <h3>Каталог игровых провайдеров</h3>
-
-        <div class="game-filters-intro">
+        <div class="game-filters-head__title-block">
+          <h3>Каталог игровых провайдеров</h3>
           <p class="game-filters-intro__lead">
             Один провайдер — один переключатель. Маршруты всех его игр объединяются автоматически.
           </p>
+        </div>
+
+        <div class="game-filters-stats" aria-live="polite">
+          <div class="game-filters-stat game-filters-stat--routes{% if not game_filter_route_limit_settings.route_limit_enforced %} is-limit-disabled{% endif %}" id="cidr-games-config-routes-stat">
+            <span class="game-filters-stat__label">Маршруты config</span>
+            <span class="game-filters-stat__value">
+              <strong id="cidr-games-config-routes-count">{{ config_include_ips_routes.total_routes }}</strong>
+              <span class="game-filters-stat__sep">/</span>
+              <strong id="cidr-games-config-routes-limit">{% if game_filter_route_limit_settings.route_limit_enforced %}{{ config_include_ips_routes.limit }}{% else %}∞{% endif %}</strong>
+            </span>
+          </div>
+          <div class="game-filters-stat">
+            <span class="game-filters-stat__label">Выбрано</span>
+            <strong class="game-filters-stat__value" id="cidr-games-selected-count">{{ saved_provider_keys|length }}</strong>
+          </div>
+          <div class="game-filters-stat">
+            <span class="game-filters-stat__label">Показано</span>
+            <strong class="game-filters-stat__value" id="cidr-games-visible-count">{{ cidr_provider_filters|length }}</strong>
+          </div>
+          <div class="game-filters-stat">
+            <span class="game-filters-stat__label">Всего</span>
+            <strong class="game-filters-stat__value" id="cidr-games-total-count">{{ cidr_provider_filters|length }}</strong>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="game-filters-intro">
           <div class="game-filters-intro__grid">
             <div class="game-filters-intro__card">
               <span class="game-filters-intro__card-title">Режимы</span>
@@ -117,31 +144,6 @@
               <li>Нужен DIRECT поверх широкого include — сузьте или уберите пересекающиеся строки в <code>config/AP-*-include-ips.txt</code> вручную.</li>
             </ul>
           </div>
-        </div>
-
-      </div>
-
-      <div class="game-filters-stats" aria-live="polite">
-        <div class="game-filters-stat game-filters-stat--routes{% if not game_filter_route_limit_settings.route_limit_enforced %} is-limit-disabled{% endif %}" id="cidr-games-config-routes-stat">
-          <span class="game-filters-stat__label">Маршруты config</span>
-          <span class="game-filters-stat__value">
-            <strong id="cidr-games-config-routes-count">{{ config_include_ips_routes.total_routes }}</strong>
-            <span class="game-filters-stat__sep">/</span>
-            <strong id="cidr-games-config-routes-limit">{% if game_filter_route_limit_settings.route_limit_enforced %}{{ config_include_ips_routes.limit }}{% else %}∞{% endif %}</strong>
-          </span>
-        </div>
-        <div class="game-filters-stat">
-          <span class="game-filters-stat__label">Выбрано</span>
-          <strong class="game-filters-stat__value" id="cidr-games-selected-count">{{ saved_provider_keys|length }}</strong>
-        </div>
-        <div class="game-filters-stat">
-          <span class="game-filters-stat__label">Показано</span>
-          <strong class="game-filters-stat__value" id="cidr-games-visible-count">{{ cidr_provider_filters|length }}</strong>
-        </div>
-        <div class="game-filters-stat">
-          <span class="game-filters-stat__label">Всего</span>
-          <strong class="game-filters-stat__value" id="cidr-games-total-count">{{ cidr_provider_filters|length }}</strong>
-        </div>
       </div>
 
     </div>
