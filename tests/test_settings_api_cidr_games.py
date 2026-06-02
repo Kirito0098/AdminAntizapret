@@ -68,8 +68,8 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         payload = response.get_json()
         self.assertFalse(payload["success"])
-        self.assertIn("conflicted_game_keys", payload)
-        self.assertIn("lol", payload["conflicted_game_keys"])
+        conflicted = payload.get("conflicted_provider_keys") or payload.get("conflicted_game_keys") or []
+        self.assertIn("riot_games", conflicted)
 
     def test_preview_games_sync_returns_preview_payload(self):
         response = self.client.post(
@@ -149,8 +149,8 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
             "/api/cidr-lists",
             json={
                 "action": "sync_games_routes",
-                "include_game_keys": ["lol"],
-                "exclude_game_keys": ["valorant"],
+                "include_provider_keys": ["riot_games"],
+                "exclude_provider_keys": ["valve"],
                 "include_game_domains": False,
             },
         )
@@ -160,6 +160,22 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
         self.assertIn("changed", payload)
         self.assertIn("game_ips_filter", payload)
         self.assertIn("game_exclude_ips_filter", payload)
+
+    def test_sync_games_routes_rejects_same_provider_conflict(self):
+        response = self.client.post(
+            "/api/cidr-lists",
+            json={
+                "action": "sync_games_routes",
+                "include_game_keys": ["lol"],
+                "exclude_game_keys": ["valorant"],
+                "include_game_domains": False,
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertFalse(payload["success"])
+        conflicted = payload.get("conflicted_provider_keys") or payload.get("conflicted_game_keys") or []
+        self.assertIn("riot_games", conflicted)
 
     def test_sync_games_hosts_skips_audit_when_unchanged(self):
         self.client.post(
@@ -187,14 +203,61 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
         self.assertFalse(payload["success"])
         self.assertIn("conflicted_game_keys", payload)
 
-    def test_get_cidr_lists_returns_lol_as_servers_source(self):
+    def test_get_cidr_lists_returns_provider_catalog(self):
         response = self.client.get("/api/cidr-lists")
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
         self.assertTrue(payload["success"])
+        riot = next(item for item in payload["provider_filters"] if item["key"] == "riot_games")
+        self.assertEqual(riot["title"], "Riot Games")
+        self.assertIn("lol", riot["game_keys"])
+        self.assertGreaterEqual(riot["game_count"], 1)
         lol = next(item for item in payload["game_filters"] if item["key"] == "lol")
         self.assertEqual(lol["source_type"], "servers")
         self.assertGreater(lol["server_ip_count"], 0)
+        self.assertIn("game_filter_route_limit_settings", payload)
+        self.assertIn("route_limit_enforced", payload["game_filter_route_limit_settings"])
+
+    def test_set_game_filter_route_limit_requires_risk_ack(self):
+        response = self.client.post(
+            "/api/cidr-lists",
+            json={
+                "action": "set_game_filter_route_limit",
+                "disable_route_limit": True,
+                "route_limit_risk_ack": False,
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        payload = response.get_json()
+        self.assertFalse(payload["success"])
+
+    def test_set_game_filter_route_limit_saves_settings(self):
+        from unittest.mock import patch
+
+        set_env_value = MagicMock()
+        with patch("routes.settings.api.set_env_value", set_env_value), patch(
+            "routes.settings.api.get_game_filter_route_limit_settings",
+            return_value={
+                "disable_route_limit": True,
+                "route_limit_risk_ack": True,
+                "route_limit_enforced": False,
+            },
+        ):
+            response = self.client.post(
+                "/api/cidr-lists",
+                json={
+                    "action": "set_game_filter_route_limit",
+                    "disable_route_limit": True,
+                    "route_limit_risk_ack": True,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertFalse(payload["game_filter_route_limit_settings"]["route_limit_enforced"])
+        set_env_value.assert_any_call("AZ_GAME_DISABLE_CONFIG_ROUTE_LIMIT", "true")
+        set_env_value.assert_any_call("AZ_GAME_CONFIG_ROUTE_LIMIT_RISK_ACK", "true")
 
 
 if __name__ == "__main__":

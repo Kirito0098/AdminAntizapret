@@ -1,159 +1,422 @@
 <div id="game-filters" class="content-tab">
+
   <h2>Игровые серверы</h2>
+
   <div class="card settings-inline-card-mb game-filters-shell">
+
     <div class="game-filters-head">
+
       <div>
+
         <h3>Каталог игровых провайдеров</h3>
-        <p class="help-text">
-          По умолчанию вкладка формирует только игровые IP/CIDR и сохраняет их в
-          <code>AZ-Game-include-ips.txt</code>. Домены можно включить отдельно (опционально),
-          тогда они будут записаны в <code>AZ-Game-include-hosts.txt</code>.
-        </p>
+
+        <div class="game-filters-intro">
+          <p class="game-filters-intro__lead">
+            Один провайдер — один переключатель. Маршруты всех его игр объединяются автоматически.
+          </p>
+          <div class="game-filters-intro__grid">
+            <div class="game-filters-intro__card">
+              <span class="game-filters-intro__card-title">Режимы</span>
+              <ul class="game-filters-intro__list">
+                <li>
+                  <span class="game-filters-intro__tag game-filters-intro__tag--vpn">VPN</span>
+                  трафик через туннель → <code>AZ-Game-include-*</code>
+                </li>
+                <li>
+                  <span class="game-filters-intro__tag game-filters-intro__tag--direct">DIRECT</span>
+                  мимо VPN → <code>AZ-Game-exclude-*</code>
+                </li>
+              </ul>
+            </div>
+            <div class="game-filters-intro__card">
+              <span class="game-filters-intro__card-title">Что пишется в config</span>
+              <ul class="game-filters-intro__list">
+                <li><code>AZ-Game-include-ips.txt</code> — IP/CIDR (по умолчанию)</li>
+                <li><code>AZ-Game-include-hosts.txt</code> — домены, если включена опция</li>
+              </ul>
+            </div>
+          </div>
+          <div class="game-filters-intro__limit{% if not game_filter_route_limit_settings.route_limit_enforced %} is-limit-disabled{% endif %}" id="game-filters-intro-limit">
+            <div class="game-filters-intro__limit-head">
+              <span class="game-filters-intro__limit-title">Лимит OpenVPN / iOS</span>
+              <span class="game-filters-intro__limit-badge" id="game-filters-intro-limit-badge">
+                {% if game_filter_route_limit_settings.route_limit_enforced %}
+                  {{ config_include_ips_routes.limit }} маршрутов
+                {% else %}
+                  лимит отключён
+                {% endif %}
+              </span>
+            </div>
+            <ul class="game-filters-intro__list game-filters-intro__list--compact">
+              <li>Сумма CIDR во всех <code>config/*include-ips.txt</code>: регионы <code>AP-*</code>, базовый <code>include-ips.txt</code>, игровой блок.</li>
+              <li>Счётчик «Маршруты config» — текущая загрузка; при проверке — план после применения.</li>
+              <li>Если провайдер не помещается в остаток бюджета, сети сначала объединяются без пересечений (supernet).</li>
+            </ul>
+            <div class="game-filters-intro__limit-toggles" id="game-filter-route-limit-toggles">
+              <label class="game-filters-intro__toggle">
+                <input
+                  type="checkbox"
+                  id="game-filter-disable-route-limit"
+                  {% if game_filter_route_limit_settings.disable_route_limit %}checked{% endif %}
+                >
+                <span class="game-filters-intro__toggle-text">
+                  Отключить лимит {{ config_include_ips_routes.limit }} маршрутов для игровых фильтров
+                </span>
+              </label>
+              <label class="game-filters-intro__toggle game-filters-intro__toggle--risk">
+                <input
+                  type="checkbox"
+                  id="game-filter-route-limit-risk-ack"
+                  {% if game_filter_route_limit_settings.route_limit_risk_ack %}checked{% endif %}
+                >
+                <span class="game-filters-intro__toggle-text">
+                  Принимаю все риски превышения лимита маршрутов: нестабильность OpenVPN и iOS-клиентов,
+                  неполное покрытие провайдеров, отказ подключения. Ответственность за последствия беру на себя.
+                </span>
+              </label>
+              <p class="game-filters-intro__toggle-hint" id="game-filter-route-limit-hint" hidden>
+                Чтобы отключить лимит, сначала подтвердите принятие рисков.
+              </p>
+            </div>
+            <div class="game-filters-intro__notice game-filters-intro__notice--compress" id="game-filters-intro-compress-notice"{% if not game_filter_route_limit_settings.route_limit_enforced %} hidden{% endif %}>
+              <span class="game-filters-intro__notice-title">Сжатие при нехватке бюджета</span>
+              <p>Если после объединения маршрутов всё ещё больше {{ config_include_ips_routes.limit }}, включается принудительное сжатие: часть CIDR отбрасывается, приоритет у более крупных блоков. Покрытие провайдера может стать неполным — в конфиг могут попасть не те сети, которые вы ожидали. Смотрите предупреждения в «Проверить перед применением» и счётчик «Маршруты config».</p>
+            </div>
+          </div>
+          <div class="game-filters-intro__notice game-filters-intro__notice--punch">
+            <div class="game-filters-intro__notice-head">
+              <span class="game-filters-intro__notice-title">Ограничения include punch</span>
+              <span class="game-filters-intro__notice-badge">DIRECT + широкий include</span>
+            </div>
+            <p class="game-filters-intro__notice-lead">
+              При проверке может появиться: «include punch пропущен для N широких маршрутов (шире /16)».
+              Exclude игры будут добавлены, но <code>AP-*-include-ips.txt</code> не изменится — возможен конфликт VPN (include) и DIRECT (exclude).
+            </p>
+            <ul class="game-filters-intro__list game-filters-intro__list--compact">
+              <li>Автоматический punch (вырезание exclude из include) разрешён только для маршрутов <strong>/16 и уже</strong> (не шире /16).</li>
+              <li>Маршруты шире /16 — типичные блоки CDN (Akamai: /10, /13, /15) — не разбиваются: вычитание маленького exclude из огромной суперсети даёт сотни тысяч фрагментов.</li>
+              <li>Раньше это вызывало зависание «Проверить перед применением» (HTTP 504, 100% CPU, несколько GB RAM) — ограничения добавлены как защита.</li>
+              <li>Дополнительный предохранитель: не более <strong>64 CIDR</strong> на одну операцию split; иначе punch тоже пропускается (<code>patch_too_many_fragments</code>).</li>
+              <li>Exclude-маршруты игры всё равно пишутся в <code>AZ-Game-exclude-ips.txt</code>; include-файл <code>AP-*-include-ips.txt</code> при пропуске не меняется.</li>
+              <li>Нужен DIRECT поверх широкого include — сузьте или уберите пересекающиеся строки в <code>config/AP-*-include-ips.txt</code> вручную.</li>
+            </ul>
+          </div>
+        </div>
+
       </div>
+
       <div class="game-filters-stats" aria-live="polite">
-        <span class="game-filters-stat">Выбрано: <strong id="cidr-games-selected-count">{{ saved_game_keys|length
-            }}</strong></span>
-        <span class="game-filters-stat">Показано: <strong id="cidr-games-visible-count">{{ cidr_game_filters|length
-            }}</strong></span>
-        <span class="game-filters-stat">Всего: <strong id="cidr-games-total-count">{{ cidr_game_filters|length
-            }}</strong></span>
+        <div class="game-filters-stat game-filters-stat--routes{% if not game_filter_route_limit_settings.route_limit_enforced %} is-limit-disabled{% endif %}" id="cidr-games-config-routes-stat">
+          <span class="game-filters-stat__label">Маршруты config</span>
+          <span class="game-filters-stat__value">
+            <strong id="cidr-games-config-routes-count">{{ config_include_ips_routes.total_routes }}</strong>
+            <span class="game-filters-stat__sep">/</span>
+            <strong id="cidr-games-config-routes-limit">{% if game_filter_route_limit_settings.route_limit_enforced %}{{ config_include_ips_routes.limit }}{% else %}∞{% endif %}</strong>
+          </span>
+        </div>
+        <div class="game-filters-stat">
+          <span class="game-filters-stat__label">Выбрано</span>
+          <strong class="game-filters-stat__value" id="cidr-games-selected-count">{{ saved_provider_keys|length }}</strong>
+        </div>
+        <div class="game-filters-stat">
+          <span class="game-filters-stat__label">Показано</span>
+          <strong class="game-filters-stat__value" id="cidr-games-visible-count">{{ cidr_provider_filters|length }}</strong>
+        </div>
+        <div class="game-filters-stat">
+          <span class="game-filters-stat__label">Всего</span>
+          <strong class="game-filters-stat__value" id="cidr-games-total-count">{{ cidr_provider_filters|length }}</strong>
+        </div>
       </div>
+
     </div>
+
+
 
     <div class="game-filters-toolbar settings-inline-card-mt">
+
       <div class="cidr-games-search-wrap">
+
         <input id="cidr-games-search-input" type="search" class="cidr-games-search-input"
-          placeholder="Поиск по игре, издателю, ключу..." autocomplete="off" data-game-filter-control="search" />
+
+          placeholder="Поиск по провайдеру, играм, ключу..." autocomplete="off" data-game-filter-control="search" />
+
       </div>
 
-      <label class="game-filters-select-wrap">
-        <span>Провайдер</span>
-        <select id="cidr-games-provider-filter" class="cidr-games-select" data-game-filter-control="provider">
-          <option value="all">Все провайдеры</option>
-        </select>
-      </label>
+
 
       <label class="game-filters-toggle">
+
         <input id="cidr-games-only-selected" type="checkbox" data-game-filter-control="only-selected" />
+
         <span>Только назначенные</span>
+
       </label>
 
+
+
       <label class="game-filters-toggle">
+
         <input id="cidr-games-include-domains" type="checkbox" data-game-filter-control="include-domains" />
+
         <span>Добавлять домены (опционально)</span>
+
       </label>
+
     </div>
+
+
 
     <div class="cidr-actions-row settings-inline-card-mt game-filters-actions">
+
       <button id="cidr-games-reset-all" type="button" class="button" data-game-filter-control="reset">
+
         Сбросить все
+
       </button>
+
       <button id="cidr-games-preview-sync" type="button" class="button" data-game-filter-control="preview">Проверить
+
         перед применением</button>
+
       <button id="cidr-sync-games-apply" type="button" class="button save-button" data-game-filter-control="apply">
+
         Применить
+
       </button>
+
     </div>
+
+
 
     <div id="cidr-games-progress" class="cidr-games-progress settings-inline-card-mt" hidden aria-live="polite">
+
       <div class="cidr-games-progress__head">
+
         <span id="cidr-games-progress-label" class="cidr-games-progress__label">Выполняется операция...</span>
+
         <span id="cidr-games-progress-percent" class="cidr-games-progress__percent">0%</span>
+
       </div>
+
       <div id="cidr-games-progress-track" class="cidr-games-progress__track" role="progressbar" aria-valuemin="0"
+
         aria-valuemax="100" aria-valuenow="0">
+
         <div id="cidr-games-progress-fill" class="cidr-games-progress__fill"></div>
+
       </div>
+
       <small id="cidr-games-progress-stage" class="cidr-games-progress__stage help-text">Подготовка...</small>
+
     </div>
+
+
 
     <div class="cidr-games-grid-wrap settings-inline-card-mt">
+
       <div id="cidr-games-busy-overlay" class="cidr-games-busy-overlay" hidden aria-hidden="true">
+
         <span class="cidr-games-busy-overlay__spinner" aria-hidden="true"></span>
+
         <span id="cidr-games-busy-overlay-label" class="cidr-games-busy-overlay__label">Выполняется...</span>
+
       </div>
+
       <div id="cidr-game-filters" class="cidr-scope-grid cidr-games-grid" role="group"
-        aria-label="Фильтры по игровым серверам">
-      {% for item in cidr_game_filters %}
-      <label class="cidr-scope-chip cidr-game-chip{% if item.key in saved_game_keys %} is-checked{% endif %}"
-        title="{{ item.subtitle }}" data-game-key="{{ item.key }}" data-game-provider="{{ item.provider or '' }}"
-        data-game-source="{{ item.source_type or 'dns' }}">
+
+        aria-label="Фильтры по игровым провайдерам">
+
+      {% for item in cidr_provider_filters %}
+
+      <label class="cidr-scope-chip cidr-game-chip{% if item.key in saved_provider_keys %} is-checked{% elif item.key in saved_exclude_provider_keys %} is-checked{% endif %}"
+
+        title="{% if item.game_titles %}{{ item.game_titles|join(', ') }}{% else %}{{ item.title }}{% endif %}"
+
+        data-provider-key="{{ item.key }}" data-game-key="{{ item.key }}"
+
+        data-subtitle="{% if item.game_count %} {{ item.game_count }} игр{% endif %}">
+
         <input type="hidden" class="cidr-game-mode-input"
-          value="{{ 'include' if item.key in saved_game_keys else 'none' }}" data-game-key="{{ item.key }}" />
+
+          value="{% if item.key in saved_provider_keys %}include{% elif item.key in saved_exclude_provider_keys %}exclude{% else %}none{% endif %}"
+
+          data-provider-key="{{ item.key }}" data-game-key="{{ item.key }}" />
+
         <div class="cidr-game-chip__body">
+
           <div class="cidr-game-chip__head">
+
             <span class="cidr-game-chip__title">{{ item.title }}</span>
+
             <span
-              class="cidr-game-chip__mode-badge {% if item.key in saved_game_keys %}is-include{% else %}is-none{% endif %}">
-              {% if item.key in saved_game_keys %}VPN{% else %}Не назначено{% endif %}
+
+              class="cidr-game-chip__mode-badge {% if item.key in saved_provider_keys %}is-include{% elif item.key in saved_exclude_provider_keys %}is-exclude{% else %}is-none{% endif %}">
+
+              {% if item.key in saved_provider_keys %}VPN{% elif item.key in saved_exclude_provider_keys %}DIRECT{% else %}Не назначено{% endif %}
+
             </span>
+
           </div>
-          {% if item.subtitle and not item.network %}
-          <span class="cidr-game-chip__sub">{{ item.subtitle }}</span>
+
+          {% if item.game_titles %}
+
+          <span class="cidr-game-chip__sub">{{ item.game_count }} {% if item.game_count == 1 %}игра{% elif item.game_count < 5 %}игры{% else %}игр{% endif %}: {{ item.game_titles|join(', ') }}</span>
+
           {% endif %}
+
           <div class="cidr-game-chip__facts">
+
             <span class="cidr-game-chip__fact">
-              <span>Провайдер</span>
-              <strong>{{ item.provider or 'Unknown' }}</strong>
-            </span>
-            <span class="cidr-game-chip__fact">
+
               <span>Сеть</span>
+
               <strong>{% if item.network %}{{ item.network }}{% elif item.source_type == 'asn' %}RIPE{% else %}По
+
                 доменам{% endif %}</strong>
+
             </span>
+
+            <span class="cidr-game-chip__fact">
+
+              <span>Игр</span>
+
+              <strong>{{ item.game_count }}</strong>
+
+            </span>
+
           </div>
+
           <div class="cidr-game-chip__stats-grid">
+
             <div class="cidr-game-chip__stat"><span>CIDR</span><strong>...</strong></div>
+
             <div class="cidr-game-chip__stat"><span>Пересечения</span><strong>...</strong></div>
+
             <div class="cidr-game-chip__stat"><span>Домены</span><strong>{{ item.domain_count }}</strong></div>
+
           </div>
+
         </div>
-        <div class="cidr-game-chip__mode" data-mode="{{ 'include' if item.key in saved_game_keys else 'none' }}">
+
+        <div class="cidr-game-chip__mode" data-mode="{% if item.key in saved_provider_keys %}include{% elif item.key in saved_exclude_provider_keys %}exclude{% else %}none{% endif %}">
+
           <button type="button"
-            class="cidr-game-mode-btn is-include{% if item.key in saved_game_keys %} is-active{% endif %}"
+
+            class="cidr-game-mode-btn is-include{% if item.key in saved_provider_keys %} is-active{% endif %}"
+
             data-game-mode-btn="include">VPN</button>
-          <button type="button" class="cidr-game-mode-btn is-exclude" data-game-mode-btn="exclude">DIRECT</button>
+
           <button type="button"
-            class="cidr-game-mode-btn is-none{% if item.key not in saved_game_keys %} is-active{% endif %}"
+
+            class="cidr-game-mode-btn is-exclude{% if item.key in saved_exclude_provider_keys %} is-active{% endif %}"
+
+            data-game-mode-btn="exclude">DIRECT</button>
+
+          <button type="button"
+
+            class="cidr-game-mode-btn is-none{% if item.key not in saved_provider_keys and item.key not in saved_exclude_provider_keys %} is-active{% endif %}"
+
             data-game-mode-btn="none">Не выбрано</button>
+
         </div>
+
       </label>
+
       {% endfor %}
+
       </div>
+
     </div>
 
+
+
     <div id="cidr-games-preview-panel" class="cidr-games-preview-panel settings-inline-card-mt" hidden>
+
       <div class="cidr-games-preview-panel__head">
+
         <h4>Проверка перед применением</h4>
+
         <small id="cidr-games-preview-updated-at" class="help-text"></small>
+
       </div>
+
       <div class="cidr-games-preview-panel__stats">
-        <div><span>Игр</span><strong id="cidr-games-preview-selected">0</strong></div>
+
+        <div><span>Провайдеров</span><strong id="cidr-games-preview-selected">0</strong></div>
+
         <div><span>Доменов</span><strong id="cidr-games-preview-domains">0</strong></div>
-        <div><span>CIDR</span><strong id="cidr-games-preview-cidrs">0</strong></div>
+
+        <div><span>К добавлению</span><strong id="cidr-games-preview-cidrs">0</strong></div>
+
         <div><span>Неразрешённые</span><strong id="cidr-games-preview-unresolved">0</strong></div>
+
       </div>
+
       <div class="cidr-games-preview-panel__stats">
-        <div><span>Пересечений</span><strong id="cidr-games-preview-overlap-count">0</strong></div>
-        <div><span>Затронуто игр</span><strong id="cidr-games-preview-overlap-games">0</strong></div>
+
+        <div><span>Через VPN</span><strong id="cidr-games-preview-vpn-covered">0</strong></div>
+
+        <div><span>Частично обрезано</span><strong id="cidr-games-preview-partial-trimmed">0</strong></div>
+
+        <div><span>Include разбито</span><strong id="cidr-games-preview-include-split">0</strong></div>
+
+        <div><span>Затронуто провайдеров</span><strong id="cidr-games-preview-overlap-games">0</strong></div>
+
         <div><span>Домены при применении</span><strong id="cidr-games-preview-domains-enabled">нет</strong></div>
+
       </div>
+
       <div id="cidr-games-preview-warnings" class="help-text"></div>
+
+      <div id="cidr-games-preview-punch-warnings-wrap" class="cidr-games-preview-punch-warnings" hidden>
+
+        <strong>Ограничения include punch</strong>
+
+        <div id="cidr-games-preview-punch-warnings" class="help-text"></div>
+
+      </div>
+
       <div id="cidr-games-preview-overlap-wrap" class="cidr-games-preview-details" hidden>
+
         <h5>Где пересечения</h5>
+
         <ul id="cidr-games-preview-overlap-list" class="cidr-games-preview-list"></ul>
+
       </div>
+
+      <div id="cidr-games-preview-changelog-wrap" class="cidr-games-preview-details" hidden>
+
+        <h5>Журнал изменений</h5>
+
+        <pre id="cidr-games-preview-changelog" class="cidr-games-preview-changelog"></pre>
+
+      </div>
+
       <div id="cidr-games-preview-domains-wrap" class="cidr-games-preview-details" hidden>
+
         <h5>Домены к добавлению</h5>
+
         <ul id="cidr-games-preview-domains-list" class="cidr-games-preview-list"></ul>
+
       </div>
+
     </div>
+
     <p class="help-text settings-inline-card-mt">
-      Для удаления игры из include/exclude переключите её в режим «Не выбрано» и нажмите «Применить».
+
+      Для удаления провайдера из include/exclude переключите его в режим «Не выбрано» и нажмите «Применить».
+
     </p>
+
   </div>
+
 </div>
+
+
 
 <!-- ═══════════════ 6. Обслуживание ═══════════════ -->
 
+
+
 </div>
+

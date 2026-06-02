@@ -2,6 +2,7 @@ import ipaddress
 import json
 import os
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -717,10 +718,16 @@ class CidrListUpdaterTests(unittest.TestCase):
 
             with patch.object(cidr_list_updater, "AZ_GAME_INCLUDE_HOSTS_FILE", include_hosts_path), patch.object(
                 cidr_list_updater, "AZ_GAME_INCLUDE_IPS_FILE", include_ips_path
-            ), patch.object(
-                cidr_list_updater,
-                "_resolve_game_domains_ipv4_cidrs",
-                return_value=(["203.0.113.10/32", "203.0.113.11/32"], []),
+            ), patch(
+                "core.services.cidr.games._collect_item_cidrs",
+                side_effect=lambda item, **kwargs: (
+                    (["203.0.113.10/32", "203.0.113.11/32"], True, [])
+                    if item.get("key") in {"lol", "faceit"}
+                    else ([], True, [])
+                ),
+            ), patch(
+                "core.services.cidr.games._build_overlap_index",
+                return_value=([], []),
             ):
                 result = cidr_list_updater.sync_game_hosts_filter(include_game_keys=["lol", "faceit"])
 
@@ -778,10 +785,12 @@ class CidrListUpdaterTests(unittest.TestCase):
 
             with patch.object(cidr_list_updater, "AZ_GAME_EXCLUDE_HOSTS_FILE", exclude_hosts_path), patch.object(
                 cidr_list_updater, "AZ_GAME_EXCLUDE_IPS_FILE", exclude_ips_path
-            ), patch.object(
-                cidr_list_updater,
-                "_resolve_game_domains_ipv4_cidrs",
-                return_value=(["203.0.113.10/32"], []),
+            ), patch(
+                "core.services.cidr.games._collect_item_cidrs",
+                side_effect=lambda item, **kwargs: (["203.0.113.10/32"], True, []),
+            ), patch(
+                "core.services.cidr.games._build_overlap_index",
+                return_value=([], []),
             ):
                 result = cidr_list_updater.sync_game_exclude_filter(
                     include_game_keys=["lol"],
@@ -859,7 +868,7 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertGreaterEqual(len(with_domains["preview"]["domains_to_add"]), 1)
         self.assertEqual(without_domains["preview"]["domains_to_add"], [])
         self.assertIn("per_game_stats", with_domains["preview"])
-        self.assertIn("lol", with_domains["preview"]["per_game_stats"])
+        self.assertIn("riot_games", with_domains["preview"]["per_game_stats"])
 
     def test_get_available_game_filters_contains_provider_and_source_metadata(self):
         filters = cidr_list_updater.get_available_game_filters()
@@ -887,15 +896,19 @@ class CidrListUpdaterTests(unittest.TestCase):
         ) as download_mock, patch.object(
             cidr_list_updater,
             "_resolve_game_domains_ipv4_cidrs",
-        ) as dns_mock:
-            block, _, _, cidrs, _, _ = cidr_list_updater._render_games_ips_block(["lol"])
+        ) as dns_mock, patch(
+            "core.services.cidr.games._build_overlap_index",
+            return_value=([], []),
+        ):
+            cidr_list_updater._GAME_ASN_CIDRS_CACHE.clear()
+            block, _, _, cidrs, _, _, _, _ = cidr_list_updater._render_games_ips_block(["riot_games"])
 
         dns_mock.assert_not_called()
         download_mock.assert_called_once()
         self.assertEqual(download_mock.call_args.kwargs.get("timeout"), 10)
         self.assertIn("104.160.141.3/32", cidrs)
-        self.assertIn("# Source:", block)
-        self.assertIn("wiki.leagueoflegends.com", block)
+        self.assertIn("# Keys: riot_games", block)
+        self.assertIn("# Games: lol,valorant,wild_rift", block)
         self.assertIn("# Game servers:", block)
         self.assertIn("# Sources (ASN via RIPE):", block)
 
@@ -908,14 +921,17 @@ class CidrListUpdaterTests(unittest.TestCase):
             cidr_list_updater,
             "_download_text",
             return_value=json.dumps(ripe_payload),
-        ) as download_mock:
+        ) as download_mock, patch(
+            "core.services.cidr.games._build_overlap_index",
+            return_value=([], []),
+        ):
             cidr_list_updater._GAME_ASN_CIDRS_CACHE.clear()
-            _, _, _, cidrs, _, per_game = cidr_list_updater._render_games_ips_block(["lol", "valorant"])
+            _, _, _, cidrs, _, per_provider, _, _ = cidr_list_updater._render_games_ips_block(["lol", "valorant"])
 
         self.assertEqual(download_mock.call_count, 1)
         self.assertIn("104.160.141.3/32", cidrs)
-        self.assertIn("lol", per_game)
-        self.assertIn("valorant", per_game)
+        self.assertIn("riot_games", per_provider)
+        self.assertNotIn("valorant", per_provider)
 
     def test_preview_games_batch_stats_returns_per_game_counts(self):
         ripe_payload = {
@@ -932,8 +948,9 @@ class CidrListUpdaterTests(unittest.TestCase):
 
         self.assertTrue(result["success"])
         stats = result["preview"]["per_game_stats"]
-        self.assertGreaterEqual(stats["lol"]["cidr_count"], 1)
-        self.assertGreaterEqual(stats["valorant"]["cidr_count"], 1)
+        self.assertGreaterEqual(stats["riot_games"]["cidr_count"], 1)
+        self.assertIn("per_provider_stats", result["preview"])
+        self.assertGreaterEqual(result["preview"]["per_provider_stats"]["riot_games"]["cidr_count"], 1)
 
     def test_normalize_server_ips_to_cidrs_adds_host_mask(self):
         cidrs = cidr_list_updater._normalize_server_ips_to_cidrs(["104.160.141.3", "128.116.0.0/17"])
@@ -945,6 +962,22 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertIn("lol", result["normalized_keys"])
         self.assertIn("steam_platform", result["normalized_keys"])
         self.assertIn("does_not_exist", result["invalid_keys"])
+
+    def test_validate_provider_filter_keys_migrates_legacy_game_keys(self):
+        result = cidr_list_updater.validate_provider_filter_keys(["lol", "battlefield", "does_not_exist"])
+        self.assertEqual(result["normalized_keys"], ["ea", "riot_games"])
+        self.assertIn("does_not_exist", result["invalid_keys"])
+
+    def test_normalize_provider_filter_keys_expands_to_game_keys(self):
+        game_keys = cidr_list_updater._expand_provider_keys_to_game_keys(["riot_games"])
+        self.assertIn("lol", game_keys)
+        self.assertIn("valorant", game_keys)
+
+    def test_get_available_provider_filters_groups_games(self):
+        providers = cidr_list_updater.get_available_provider_filters()
+        riot = next(item for item in providers if item["key"] == "riot_games")
+        self.assertGreaterEqual(riot["game_count"], 2)
+        self.assertIn("lol", riot["game_keys"])
 
     def test_get_saved_exclude_game_keys_reads_az_game_exclude_files(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -967,7 +1000,7 @@ class CidrListUpdaterTests(unittest.TestCase):
             ):
                 saved = cidr_list_updater.get_saved_exclude_game_keys()
 
-            self.assertEqual(saved, ["lol", "steam_platform"])
+            self.assertEqual(saved, ["riot_games", "valve"])
 
     def test_preview_game_hosts_filter_returns_counts(self):
         with patch.object(
@@ -983,7 +1016,8 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertGreaterEqual(preview["preview"]["cidr_count"], 1)
         self.assertIn("overlap_summary", preview["preview"])
         self.assertIn("per_game_stats", preview["preview"])
-        self.assertIn("lol", preview["preview"]["per_game_stats"])
+        self.assertIn("riot_games", preview["preview"]["per_game_stats"])
+        self.assertEqual(preview["preview"]["selected_provider_keys"], ["riot_games"])
         self.assertEqual(preview["preview"]["domains_to_add"], [])
 
     def test_preview_game_hosts_filter_includes_domains_only_when_enabled(self):
@@ -1003,6 +1037,414 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertTrue(with_domains["success"])
         self.assertGreaterEqual(len(with_domains["preview"]["domains_to_add"]), 1)
         self.assertEqual(without_domains["preview"]["domains_to_add"], [])
+
+    def _reset_overlap_cache(self):
+        cidr_list_updater._OVERLAP_INDEX_CACHE.update(
+            {"signature": None, "entries": None, "starts": None}
+        )
+
+    def _build_test_overlap_index(self, cidrs, file_path="/tmp/include-ips.txt"):
+        entries = []
+        for cidr in cidrs:
+            network = ipaddress.ip_network(cidr, strict=False)
+            entries.append(
+                {
+                    "cidr": cidr,
+                    "file": file_path,
+                    "start": int(network.network_address),
+                    "end": int(network.broadcast_address),
+                }
+            )
+        entries.sort(key=lambda item: item["start"])
+        starts = [entry["start"] for entry in entries]
+        return entries, starts
+
+    def test_trim_cidr_against_vpn_routes_full_cover(self):
+        entries, starts = self._build_test_overlap_index(["10.0.0.0/24"])
+        result = cidr_list_updater._trim_cidr_against_vpn_routes("10.0.0.5/32", entries, starts)
+        self.assertEqual(result["status"], "full")
+        self.assertEqual(result["write_cidrs"], [])
+        self.assertIn("уже идёт через VPN", result["comment"])
+
+    def test_trim_cidr_against_vpn_routes_partial_cover(self):
+        entries, starts = self._build_test_overlap_index(["10.0.0.0/25"])
+        result = cidr_list_updater._trim_cidr_against_vpn_routes("10.0.0.0/24", entries, starts)
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(result["write_cidrs"], ["10.0.0.128/25"])
+        self.assertIn("частично покрыто", result["comment"])
+
+    def test_trim_cidr_against_vpn_routes_no_overlap(self):
+        entries, starts = self._build_test_overlap_index(["10.0.0.0/24"])
+        result = cidr_list_updater._trim_cidr_against_vpn_routes("203.0.113.10/32", entries, starts)
+        self.assertEqual(result["status"], "none")
+        self.assertEqual(result["write_cidrs"], ["203.0.113.10/32"])
+
+    def test_render_games_ips_block_trims_against_existing_vpn_routes(self):
+        self._reset_overlap_cache()
+        overlap_index = self._build_test_overlap_index(["10.0.0.0/24"])
+        per_game = {"lol": ["10.0.0.5/32", "203.0.113.10/32"]}
+        with patch(
+            "core.services.cidr.games._collect_item_cidrs",
+            side_effect=lambda item, **kwargs: (per_game.get(item["key"], []), True, []),
+        ), patch(
+            "core.services.cidr.games._build_overlap_index",
+            return_value=overlap_index,
+        ):
+            block, _, _, cidrs, _, _, summary, _ = cidr_list_updater._render_games_ips_block(["lol"])
+
+        self.assertIn("уже идёт через VPN", block)
+        self.assertIn("203.0.113.10/32", block)
+        self.assertNotIn("\n10.0.0.5/32\n", f"\n{block}\n")
+        self.assertEqual(cidrs, ["203.0.113.10/32"])
+        self.assertEqual(summary["fully_covered_count"], 1)
+        self.assertEqual(summary["routes_written_count"], 1)
+        self.assertEqual(summary["original_cidr_count"], 2)
+
+    def test_sync_games_include_ips_writes_trimmed_routes_only(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            include_ips_path = os.path.join(tmp_dir, "include-ips.txt")
+            az_game_ips_path = os.path.join(tmp_dir, "AZ-Game-include-ips.txt")
+            with open(include_ips_path, "w", encoding="utf-8") as handle:
+                handle.write("10.0.0.0/24\n")
+
+            self._reset_overlap_cache()
+            overlap_index = self._build_test_overlap_index(["10.0.0.0/24"], include_ips_path)
+            per_game = {"lol": ["10.0.0.5/32", "203.0.113.10/32"]}
+
+            with patch.object(cidr_list_updater, "AZ_GAME_INCLUDE_IPS_FILE", az_game_ips_path), patch(
+                "core.services.cidr.games._collect_item_cidrs",
+                side_effect=lambda item, **kwargs: (per_game.get(item["key"], []), True, []),
+            ), patch(
+                "core.services.cidr.games._build_overlap_index",
+                return_value=overlap_index,
+            ):
+                result = cidr_list_updater._sync_games_include_ips(["lol"])
+
+            self.assertTrue(result["success"])
+            self.assertTrue(result["changed"])
+            self.assertEqual(result["cidr_count"], 1)
+            self.assertEqual(result["original_cidr_count"], 2)
+            with open(az_game_ips_path, "r", encoding="utf-8") as handle:
+                content = handle.read()
+            self.assertIn("203.0.113.10/32", content)
+            self.assertIn("уже идёт через VPN", content)
+            self.assertNotIn("\n10.0.0.5/32\n", f"\n{content}\n")
+
+    def test_trim_exclude_cidr_against_include_routes_full_cover(self):
+        entries, starts = self._build_test_overlap_index(["10.0.0.0/24"])
+        result = cidr_list_updater._trim_exclude_cidr_against_include_routes(
+            "10.0.0.5/32", entries, starts
+        )
+        self.assertEqual(result["status"], "full")
+        self.assertEqual(result["write_cidrs"], ["10.0.0.5/32"])
+        self.assertEqual(len(result["include_patches"]), 1)
+        self.assertNotIn("10.0.0.5/32", result["include_patches"][0]["new_cidrs"])
+
+    def test_trim_exclude_cidr_against_include_routes_partial_cover(self):
+        entries, starts = self._build_test_overlap_index(["10.0.0.0/25"])
+        result = cidr_list_updater._trim_exclude_cidr_against_include_routes(
+            "10.0.0.0/24", entries, starts
+        )
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(result["write_cidrs"], ["10.0.0.128/25"])
+        self.assertEqual(result["include_patches"][0]["new_cidrs"], [])
+
+    def test_trim_exclude_cidr_against_include_routes_no_overlap(self):
+        entries, starts = self._build_test_overlap_index(["10.0.0.0/24"])
+        result = cidr_list_updater._trim_exclude_cidr_against_include_routes(
+            "203.0.113.10/32", entries, starts
+        )
+        self.assertEqual(result["status"], "none")
+        self.assertEqual(result["write_cidrs"], ["203.0.113.10/32"])
+        self.assertEqual(result["include_patches"], [])
+
+    def test_render_games_exclude_ips_block_punches_include_routes(self):
+        self._reset_overlap_cache()
+        overlap_index = self._build_test_overlap_index(["10.0.0.0/24"])
+        per_game = {"lol": ["10.0.0.5/32", "203.0.113.10/32"]}
+        with patch(
+            "core.services.cidr.games._collect_item_cidrs",
+            side_effect=lambda item, **kwargs: (per_game.get(item["key"], []), True, []),
+        ), patch(
+            "core.services.cidr.games._build_overlap_index",
+            return_value=overlap_index,
+        ):
+            block, _, _, cidrs, _, _, summary, _ = cidr_list_updater._render_games_ips_block(
+                ["lol"],
+                block_start=cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_START,
+                block_end=cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_END,
+            )
+
+        self.assertIn("10.0.0.5/32", block)
+        self.assertIn("203.0.113.10/32", block)
+        self.assertIn("Include split:", block)
+        self.assertEqual(cidrs, ["10.0.0.5/32", "203.0.113.10/32"])
+        self.assertEqual(summary["include_patches_count"], 1)
+        self.assertEqual(summary["routes_written_count"], 2)
+
+    def test_sync_games_exclude_ips_applies_include_patch_and_trimmed_exclude(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            include_ips_path = os.path.join(tmp_dir, "include-ips.txt")
+            exclude_ips_path = os.path.join(tmp_dir, "AZ-Game-exclude-ips.txt")
+            with open(include_ips_path, "w", encoding="utf-8") as handle:
+                handle.write("10.0.0.0/24\n")
+
+            self._reset_overlap_cache()
+            overlap_index = self._build_test_overlap_index(["10.0.0.0/24"], include_ips_path)
+            per_game = {"lol": ["10.0.0.5/32", "203.0.113.10/32"]}
+
+            with patch.object(cidr_list_updater, "AZ_GAME_EXCLUDE_IPS_FILE", exclude_ips_path), patch(
+                "core.services.cidr.games._collect_item_cidrs",
+                side_effect=lambda item, **kwargs: (per_game.get(item["key"], []), True, []),
+            ), patch(
+                "core.services.cidr.games._build_overlap_index",
+                return_value=overlap_index,
+            ):
+                result = cidr_list_updater._sync_games_exclude_ips(["lol"])
+
+            self.assertTrue(result["success"])
+            self.assertTrue(result["changed"])
+            self.assertEqual(result["cidr_count"], 2)
+            with open(exclude_ips_path, "r", encoding="utf-8") as handle:
+                exclude_content = handle.read()
+            with open(include_ips_path, "r", encoding="utf-8") as handle:
+                include_content = handle.read()
+            self.assertIn("10.0.0.5/32", exclude_content)
+            self.assertIn("203.0.113.10/32", exclude_content)
+            self.assertNotIn("10.0.0.0/24\n", include_content)
+            self.assertNotIn("\n10.0.0.5/32\n", f"\n{include_content}\n")
+
+    def test_subtract_cidrs_from_default_route_completes_fast(self):
+        started = time.time()
+        result = cidr_list_updater._subtract_cidrs("0.0.0.0/0", ["10.0.0.5/32"])
+        elapsed = time.time() - started
+        self.assertIsNotNone(result)
+        self.assertLess(elapsed, 1.0)
+        self.assertLessEqual(len(result), int(getattr(cidr_list_updater, "EXCLUDE_PUNCH_MAX_RESULT_CIDRS", 64)))
+        self.assertNotIn("10.0.0.5/32", result)
+
+    def test_exclude_punch_skips_broad_include_routes(self):
+        entries, starts = self._build_test_overlap_index(["0.0.0.0/0"])
+        result = cidr_list_updater._trim_exclude_cidr_against_include_routes(
+            "10.0.0.5/32", entries, starts
+        )
+        self.assertEqual(result["status"], "full")
+        self.assertEqual(result["write_cidrs"], ["10.0.0.5/32"])
+        self.assertEqual(result["include_patches"], [])
+        self.assertGreaterEqual(int(result.get("include_patches_skipped") or 0), 1)
+
+    def test_preview_game_exclude_filter_with_broad_overlap(self):
+        self._reset_overlap_cache()
+        overlap_index = self._build_test_overlap_index(["10.0.0.0/8", "0.0.0.0/0"])
+        per_game = {"apex_legends": [f"23.79.{i}.0/24" for i in range(25)]}
+        started = time.time()
+        with patch(
+            "core.services.cidr.games._collect_item_cidrs",
+            side_effect=lambda item, **kwargs: (set(per_game.get(item["key"], [])), True, []),
+        ), patch(
+            "core.services.cidr.games._build_overlap_index",
+            return_value=overlap_index,
+        ):
+            result = cidr_list_updater.preview_game_exclude_filter(include_game_keys=["apex_legends"])
+        elapsed = time.time() - started
+        self.assertTrue(result["success"])
+        self.assertLess(elapsed, 2.0)
+        summary = result["preview"]["overlap_summary"]
+        self.assertGreaterEqual(int(summary.get("include_patches_skipped_count") or 0), 1)
+        self.assertEqual(int(summary.get("routes_written_count") or 0), 25)
+
+    def test_overlap_index_excludes_ips_list_catalog_files(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            list_dir = os.path.join(tmp_dir, "list")
+            config_dir = os.path.join(tmp_dir, "config")
+            os.makedirs(list_dir)
+            os.makedirs(config_dir)
+            list_file = os.path.join(list_dir, "akamai-ips.txt")
+            config_file = os.path.join(config_dir, "AP-akamai-include-ips.txt")
+            with open(list_file, "w", encoding="utf-8") as handle:
+                handle.write("10.0.0.0/24\n")
+            with open(config_file, "w", encoding="utf-8") as handle:
+                handle.write("10.0.0.0/24\n")
+
+            self._reset_overlap_cache()
+            with patch.object(cidr_list_updater, "LIST_DIR", list_dir), patch.object(
+                cidr_list_updater, "AZ_GAME_INCLUDE_IPS_FILE", os.path.join(config_dir, "AZ-Game-include-ips.txt")
+            ), patch.object(
+                cidr_list_updater, "AZ_GAME_INCLUDE_HOSTS_FILE", os.path.join(config_dir, "AZ-Game-include-hosts.txt")
+            ):
+                files = cidr_list_updater._iter_overlap_source_files()
+
+            self.assertIn(config_file, files)
+            self.assertNotIn(list_file, files)
+
+    def test_apply_include_patches_skips_ips_list_catalog_files(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            list_file = os.path.join(tmp_dir, "akamai-ips.txt")
+            with open(list_file, "w", encoding="utf-8") as handle:
+                handle.write("10.0.0.0/24\n")
+
+            with patch.object(cidr_list_updater, "LIST_DIR", tmp_dir):
+                result = cidr_list_updater._apply_include_patches_to_files(
+                    [{"file": list_file, "old_cidr": "10.0.0.0/24", "new_cidrs": ["10.0.0.1/24"]}]
+                )
+
+            self.assertTrue(result["success"])
+            self.assertFalse(result["changed"])
+            with open(list_file, "r", encoding="utf-8") as handle:
+                self.assertEqual(handle.read(), "10.0.0.0/24\n")
+
+
+    def test_preview_exclude_filter_includes_full_change_log(self):
+        self._reset_overlap_cache()
+        overlap_index = self._build_test_overlap_index(["10.0.0.0/24"], "/tmp/AP-test-include-ips.txt")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            exclude_ips_path = os.path.join(tmp_dir, "AZ-Game-exclude-ips.txt")
+            with open(
+                exclude_ips_path,
+                "w",
+                encoding="utf-8",
+            ) as handle:
+                handle.write(
+                    f"{cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_START}\n"
+                    "10.0.1.0/24\n"
+                    f"{cidr_list_updater.GAME_FILTER_EXCLUDE_IP_BLOCK_END}\n"
+                )
+            with patch.object(cidr_list_updater, "AZ_GAME_EXCLUDE_IPS_FILE", exclude_ips_path), patch(
+                "core.services.cidr.games._build_overlap_index",
+                return_value=overlap_index,
+            ), patch(
+                "core.services.cidr.games._collect_item_cidrs",
+                return_value=({"10.0.0.5/32", "10.0.2.0/24"}, True, []),
+            ):
+                result = cidr_list_updater.preview_game_exclude_filter(include_game_keys=["apex_legends"])
+
+        self.assertTrue(result["success"])
+        change_log = result["preview"].get("change_log") or {}
+        self.assertEqual(change_log.get("filter_kind"), "exclude")
+        self.assertIn("10.0.1.0/24", change_log.get("current_cidrs") or [])
+        self.assertIn("10.0.0.5/32", change_log.get("planned_cidrs") or [])
+        self.assertIn("10.0.2.0/24", change_log.get("added_cidrs") or [])
+        lines = change_log.get("lines") or []
+        self.assertTrue(any("Сейчас" in line for line in lines))
+        self.assertTrue(any("Итог" in line for line in lines))
+        self.assertTrue(any("Изменения include-файлов" in line for line in lines))
+        trim_details = (result["preview"].get("overlap_summary") or {}).get("trim_details") or []
+        self.assertGreaterEqual(len(trim_details), 2)
+
+
+    def test_preview_exclude_filter_warns_on_broad_include_routes(self):
+        self._reset_overlap_cache()
+        overlap_index = self._build_test_overlap_index(
+            ["104.64.0.0/10"],
+            "/tmp/AP-akamai-include-ips.txt",
+        )
+        with patch(
+            "core.services.cidr.games._build_overlap_index",
+            return_value=overlap_index,
+        ), patch(
+            "core.services.cidr.games._collect_item_cidrs",
+            return_value=({"104.64.10.0/24", "104.64.20.0/24"}, True, []),
+        ):
+            result = cidr_list_updater.preview_game_exclude_filter(include_game_keys=["apex_legends"])
+
+        self.assertTrue(result["success"])
+        summary = result["preview"].get("overlap_summary") or {}
+        skip_summary = summary.get("include_patches_skip_summary") or []
+        self.assertEqual(len(skip_summary), 1)
+        self.assertEqual(skip_summary[0]["old_cidr"], "104.64.0.0/10")
+        self.assertEqual(skip_summary[0]["reason"], "include_route_too_broad")
+        self.assertEqual(skip_summary[0]["overlap_count"], 2)
+        self.assertIn("reason_label", skip_summary[0])
+
+        warnings = result["preview"].get("punch_warnings") or summary.get("punch_warnings") or []
+        self.assertTrue(any("504" in warning for warning in warnings))
+        self.assertTrue(any("/16" in warning for warning in warnings))
+
+        lines = (result["preview"].get("change_log") or {}).get("lines") or []
+        self.assertTrue(any("ВНИМАНИЕ: punch не выполнен" in line for line in lines))
+        self.assertTrue(any("104.64.0.0/10" in line for line in lines))
+        self.assertIn("предупреждения", result.get("message") or "")
+
+    def test_get_config_include_ips_route_stats_counts_config_files(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            include_ips_path = os.path.join(tmp_dir, "include-ips.txt")
+            az_game_ips_path = os.path.join(tmp_dir, "AZ-Game-include-ips.txt")
+            with open(include_ips_path, "w", encoding="utf-8") as handle:
+                handle.write("10.0.0.0/24\n")
+            with open(az_game_ips_path, "w", encoding="utf-8") as handle:
+                handle.write(
+                    f"{cidr_list_updater.GAME_FILTER_IP_BLOCK_START}\n"
+                    "# Keys: riot_games\n"
+                    "10.0.1.0/24\n"
+                    f"{cidr_list_updater.GAME_FILTER_IP_BLOCK_END}\n"
+                )
+            with patch.object(cidr_list_updater, "AZ_GAME_INCLUDE_IPS_FILE", az_game_ips_path):
+                stats = cidr_list_updater.get_config_include_ips_route_stats()
+            self.assertEqual(stats["non_game_routes"], 1)
+            self.assertEqual(stats["game_routes"], 1)
+            self.assertEqual(stats["total_routes"], 2)
+            self.assertEqual(stats["game_budget"], stats["limit"] - 1)
+
+    def test_apply_config_route_budget_collapses_provider_without_overlaps(self):
+        per_provider = {
+            "riot_games": ["10.0.0.0/31", "10.0.0.2/31"],
+        }
+        with patch(
+            "core.services.cidr.games.get_config_include_ips_route_stats",
+            return_value={
+                "limit": 900,
+                "non_game_routes": 899,
+                "game_budget": 1,
+            },
+        ):
+            result, meta = cidr_list_updater._apply_config_route_budget_to_providers(
+                per_provider,
+                ["riot_games"],
+            )
+        self.assertEqual(sum(len(value) for value in result.values()), 1)
+        self.assertEqual(result["riot_games"], ["10.0.0.0/30"])
+        self.assertTrue(meta.get("compression_applied"))
+        self.assertLessEqual(meta.get("total_routes_planned"), 900)
+
+    def test_apply_config_route_budget_skips_when_limit_disabled(self):
+        per_provider = {
+            "riot_games": ["10.0.0.0/31", "10.0.0.2/31"],
+        }
+        with patch(
+            "core.services.cidr.games.get_config_include_ips_route_stats",
+            return_value={
+                "limit": 900,
+                "non_game_routes": 899,
+                "game_budget": 1,
+                "limit_enforced": False,
+            },
+        ):
+            result, meta = cidr_list_updater._apply_config_route_budget_to_providers(
+                per_provider,
+                ["riot_games"],
+            )
+        self.assertEqual(result["riot_games"], ["10.0.0.0/31", "10.0.0.2/31"])
+        self.assertFalse(meta.get("compression_applied"))
+        self.assertFalse(meta.get("limit_enforced"))
+
+    def test_get_game_filter_route_limit_settings_requires_both_flags(self):
+        with patch.dict(os.environ, {}, clear=True):
+            settings = cidr_list_updater.get_game_filter_route_limit_settings()
+            self.assertTrue(settings["route_limit_enforced"])
+
+        with patch.dict(
+            os.environ,
+            {
+                cidr_list_updater.AZ_GAME_DISABLE_CONFIG_ROUTE_LIMIT_ENV: "true",
+                cidr_list_updater.AZ_GAME_CONFIG_ROUTE_LIMIT_RISK_ACK_ENV: "true",
+            },
+            clear=True,
+        ):
+            settings = cidr_list_updater.get_game_filter_route_limit_settings()
+            self.assertFalse(settings["route_limit_enforced"])
+            self.assertTrue(settings["disable_route_limit"])
+            self.assertTrue(settings["route_limit_risk_ack"])
+
 
 if __name__ == "__main__":
     unittest.main()

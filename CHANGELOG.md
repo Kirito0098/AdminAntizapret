@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## [1.7.12] – 02.06.2026
+
+### Игровые фильтры маршрутизации
+
+- CIDR для игровых фильтров строятся из **игровых IP и ASN** (`server_ips`, RIPE), а не из DNS маркетинговых доменов (Cloudflare/CDN сайтов).
+- Новый модуль **`core/services/cidr/game_server_data.py`**: curated IP шардов и URL источников (LoL Wiki, FFXIV datacenter IPs, Roblox и др.).
+- Приоритет резолва в **`_render_games_ips_block`**: `server_ips` → `asns` → DNS (только fallback с `# WARNING`).
+- Каталог переведён на **провайдеров** (~48 карточек вместо ~75 игр): один переключатель на издателя/платформу, CIDR всех его игр объединяются автоматически.
+- Ключи провайдеров (`riot_games`, `steam`, …) пишутся в `# Keys:` блока `AZ-Game-*-ips.txt`; секции в файле — по провайдеру с комментарием `# Games: …`.
+- **Миграция legacy-ключей**: старые game keys (`lol`, `valorant`, …) при чтении/сохранении автоматически приводятся к provider keys; API принимает оба формата (`include_provider_keys` / `include_game_keys`).
+- Конфликт include+exclude на уровне **провайдера** (например, `lol` + `valorant` → `riot_games`).
+- API: `provider_filters`, `saved_provider_keys`, `source_type: servers`, `server_ip_count`, `game_count`; batch **`preview_games_batch_stats`** — одна проверка выбранных провайдеров; кэш RIPE ASN и параллельная загрузка префиксов.
+- **Лимит OpenVPN / iOS (900 маршрутов)**: сумма CIDR во всех `config/*include-ips.txt` (регионы `AP-*`, базовый include, игровой блок); счётчик «Маршруты config» в UI.
+- При нехватке бюджета провайдера: сначала **supernet** без пересечений (`collapse_addresses`, `netaddr.cidr_merge`), затем принудительное **сжатие** до остатка (`_compress_cidrs_to_limit`) — в preview предупреждения о неполном покрытии.
+- **Отключение лимита** (опционально): переключатели в блоке «Каталог игровых провайдеров» + подтверждение рисков; настройки в `.env` (`AZ_GAME_DISABLE_CONFIG_ROUTE_LIMIT`, `AZ_GAME_CONFIG_ROUTE_LIMIT_RISK_ACK`); без обоих флагов сжатие по бюджету остаётся включённым.
+- **Telegram и журнал**: одно уведомление при «Применить» (`sync_games_routes`); события только при реальном изменении файлов; текст `VPN: N игр, M CIDR · DIRECT: …` без ложных «игр: 0»; детали в **`audit_view_presenter`**.
+
+### Интерфейс вкладки «Игровые серверы»
+
+- Переработан каталог: **карточки провайдеров** с режимами **VPN / DIRECT / Не выбрано**, счётчики выбранных и видимых, кнопка «Сбросить все».
+- Блок **«Каталог игровых провайдеров»**: пояснения по режимам VPN/DIRECT, файлам config, лимиту 900, сжатию при нехватке бюджета и ограничениям **include punch** (DIRECT + широкий include).
+- Статистика в шапке: **«Маршруты config»** (`текущее / лимит` или `∞` при отключённом лимите), выбрано, видимо, домены; подсветка при приближении и превышении лимита.
+- Два переключателя в блоке лимита: **отключить лимит 900** и **принятие рисков** (OpenVPN/iOS, неполное покрытие, ответственность администратора); сохранение через `POST /api/cidr-lists` (`action: set_game_filter_route_limit`).
+- Поиск по названию провайдера и ключу; переключатель **«Только назначенные»**.
+- Опция **«Добавлять домены (опционально)»** — по умолчанию только IP/CIDR в `AZ-Game-include-ips.txt`; домены — в `AZ-Game-include-hosts.txt`.
+- На карточках: список игр провайдера, тип сети, CIDR, пересечения, число доменов; кэш статистики карточек в `localStorage` (12 ч).
+- **«Проверить перед применением»**: панель с итогами (провайдеры, CIDR, неразрешённые, пересечения, бюджет маршрутов, списки конфликтов и доменов).
+- Прогресс-бар с этапами, оверлей на сетке каталога и спиннер на активной кнопке; логика в **`routing-game-filters.js`**.
+- **Обрезка по VPN-маршрутам**: при записи в `AZ-Game-include-ips.txt` CIDR, уже покрытые существующими `include-ips` списками, не дублируются — в файле комментарий «уже идёт через VPN»; при частичном пересечении добавляется только непокрытая часть (netaddr).
+- **EXCLUDE и include punch**: при записи в `AZ-Game-exclude-ips.txt` пересекающиеся include-сети **разбиваются in-place** в исходных `include-ips` файлах (`I → I − E`); в exclude попадает непересекающаяся часть или весь CIDR при полном покрытии include. Повторное обновление CIDR БД может перезаписать разбиение; откат include при снятии DIRECT не автоматизируется.
+- **Hotfix exclude preview**: безопасное вычитание CIDR через `ipaddress` (без `list(netaddr.IPSet)` на широких маршрутах); include шире `/16` не патчатся in-place — в preview предупреждение «punch пропущен»; предохранитель **64 CIDR** на операцию split.
+
+### Тесты
+
+- **`tests/test_game_catalog_coverage.py`**: каждая игра в каталоге имеет `server_ips` или `asns`; LoL preview без DNS fallback.
+- **`tests/test_settings_api_cidr_games.py`**, **`tests/test_cidr_list_updater.py`**, **`tests/test_routing_page_context.py`** — провайдерский каталог, миграция ключей, бюджет маршрутов, отключение лимита, batch preview и sync маршрутов.
+
 ## [1.7.11] – 01.06.2026
 
 ### База CIDR и обновление провайдеров
@@ -35,21 +72,15 @@
 - Единая ширина контейнера **как на «Мониторинг сервера»** для **маршрутизации**, **настроек** и **журнала логов** (`routing_styles.css`, `settings_page_shared.css`, `logs_dashboard/base.css`): адаптивные отступы, `safe-area`, без горизонтального overflow на мобильных.
 - Удалён дублирующий блок стилей в **`logs_dashboard/base.css`**.
 
-### Игровые фильтры маршрутизации
+### Вкладка «Тесты»
 
-- CIDR для игровых фильтров строятся из **игровых IP и ASN** (`server_ips`, RIPE), а не из DNS маркетинговых доменов (Cloudflare/CDN сайтов).
-- Новый модуль **`core/services/cidr/game_server_data.py`**: curated IP шардов и URL источников (LoL Wiki, FFXIV datacenter IPs, Roblox и др.).
-- Приоритет резолва в **`_render_games_ips_block`**: `server_ips` → `asns` → DNS (только fallback с `# WARNING`).
-- Обновлён каталог **~44 игр**, ранее использовавших только DNS-домены: Riot Direct (LoL/Valorant/Wild Rift), Blizzard AS57976, EA AS12222, FFXIV DC IPs и др.
-- API/UI: `source_type: servers`, `server_ip_count`; на карточках — «Игровые IP» / «Игр. IP» вместо «По доменам».
+- Информационный блок **«Для кого и зачем»**: pytest — инструмент разработки, не ежедневная операция на продакшене.
+- У каждого теста — **русское название и описание**; технический ID pytest — во всплывающей подсказке; обновлены **`unit_tests_cli.py`** и **`_tab_tests.html`**.
 
 ### Тесты
 
 - Расширены **`tests/test_cidr_db_updater_service.py`**: параллельные источники, retry ASN, fallback-пул, RIPE-only провайдеры (Akamai, DigitalOcean, Cloudflare), отсутствие bgp.tools, dry-run, очистка БД и алерты после `cleared`.
-- **`tests/test_game_catalog_coverage.py`**: каждая игра в каталоге имеет `server_ips` или `asns`; LoL preview без DNS fallback.
-- Ускорена проверка игровых фильтров: кэш RIPE ASN, параллельная загрузка, batch `preview_games_stats` вместо 75 отдельных preview.
-- **Telegram**: одно уведомление при «Применить маршруты» (`sync_games_routes`); TG и журнал только при реальном изменении файлов; текст `VPN: N игр, M CIDR · DIRECT: …` без ложных «игр: 0».
-- **UI**: при «Проверить» и «Применить» — прогресс-бар, оверлей на каталоге и спиннер на активной кнопке.
+- **`tests/test_catalog_data.py`**: каталог метаданных pytest-тестов с русскими подписями.
 
 ## [1.7.10] – 24.05.2026
 

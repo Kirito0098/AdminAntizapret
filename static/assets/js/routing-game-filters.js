@@ -1,5 +1,5 @@
 (function () {
-  const CARD_STATS_CACHE_KEY = "az_game_filters_card_stats_v1";
+  const CARD_STATS_CACHE_KEY = "az_provider_filters_card_stats_v1";
   const CARD_STATS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
   const state = {
@@ -184,16 +184,30 @@
     return normalizeProviderName(parts[0] || raw) || "Unknown";
   };
 
+  const formatGamesSubtitle = (item) => {
+    const gameTitles = Array.isArray(item?.game_titles) ? item.game_titles.filter(Boolean) : [];
+    const gameCount = Number(item?.game_count || gameTitles.length || 0);
+    if (gameCount > 0 && gameTitles.length) {
+      const noun = gameCount === 1 ? "игра" : (gameCount < 5 ? "игры" : "игр");
+      const previewTitles = gameTitles.slice(0, 4).join(", ");
+      const suffix = gameTitles.length > 4 ? "…" : "";
+      return `${gameCount} ${noun}: ${previewTitles}${suffix}`;
+    }
+    return String(item?.subtitle || "").trim();
+  };
+
   const normalizeItem = (item) => {
     const key = String(item?.key || "").trim().toLowerCase();
-    const title = String(item?.title || key || "Игра").trim();
-    const subtitle = String(item?.subtitle || "").trim();
+    const title = String(item?.title || key || "Провайдер").trim();
+    const subtitle = formatGamesSubtitle(item);
+    const gameTitles = Array.isArray(item?.game_titles) ? item.game_titles.map((value) => String(value || "").trim()).filter(Boolean) : [];
+    const gameCount = Number(item?.game_count || gameTitles.length || 0);
     const domainCount = Number(item?.domain_count || 0);
     const asnCount = Number(item?.asn_count || 0);
     const serverIpCount = Number(item?.server_ip_count || 0);
-    const provider = normalizeProviderName(item?.provider) || inferProviderFromSubtitle(subtitle);
+    const provider = normalizeProviderName(item?.provider || title) || title;
     const sourceTypeRaw = String(item?.source_type || "").trim().toLowerCase();
-    const sourceType = sourceTypeRaw === "servers" || sourceTypeRaw === "asn"
+    const sourceType = sourceTypeRaw === "servers" || sourceTypeRaw === "asn" || sourceTypeRaw === "mixed"
       ? sourceTypeRaw
       : (serverIpCount > 0 ? "servers" : (asnCount > 0 ? "asn" : "dns"));
     const tags = Array.isArray(item?.tags)
@@ -203,6 +217,8 @@
       key,
       title,
       subtitle,
+      game_titles: gameTitles,
+      game_count: Number.isFinite(gameCount) ? gameCount : 0,
       domain_count: Number.isFinite(domainCount) ? domainCount : 0,
       asn_count: Number.isFinite(asnCount) ? asnCount : 0,
       server_ip_count: Number.isFinite(serverIpCount) ? serverIpCount : 0,
@@ -252,6 +268,8 @@
     return {
       loading: !hasValue,
       cidr_count: Number(item.cidr_count || 0),
+      routes_count: Number(item.routes_count ?? item.cidr_count ?? 0),
+      covered_count: Number(item.covered_count || 0),
       overlap_count: Number(item.overlap_count || 0),
     };
   };
@@ -269,14 +287,12 @@
     return Array.from(includeSet).filter((key) => excludeSet.has(key));
   };
 
-  const cardMatchesFilters = (card, query, provider, onlySelected) => {
+  const cardMatchesFilters = (card, query, onlySelected) => {
     const title = String(card.querySelector(".cidr-game-chip__title")?.textContent || "").trim().toLowerCase();
     const subtitle = String(card.querySelector(".cidr-game-chip__sub")?.textContent || card.dataset.subtitle || "").trim().toLowerCase();
-    const value = String(card.dataset.gameKey || "").trim().toLowerCase();
-    const cardProvider = String(card.dataset.gameProvider || "").trim().toLowerCase();
+    const value = String(card.dataset.providerKey || card.dataset.gameKey || "").trim().toLowerCase();
     const mode = getModeByKey(value);
-    if (query && !title.includes(query) && !subtitle.includes(query) && !value.includes(query) && !cardProvider.includes(query)) return false;
-    if (provider !== "all" && cardProvider !== provider) return false;
+    if (query && !title.includes(query) && !subtitle.includes(query) && !value.includes(query)) return false;
     if (onlySelected && mode === "none") return false;
     return true;
   };
@@ -294,28 +310,141 @@
     if (searchMeta) searchMeta.textContent = `Показано: ${Number.isFinite(visibleCount) ? visibleCount : total}/${total}`;
   };
 
+  const renderConfigRouteBudget = (stats = {}) => {
+    const countEl = byId("cidr-games-config-routes-count");
+    const limitEl = byId("cidr-games-config-routes-limit");
+    const wrapEl = byId("cidr-games-config-routes-stat");
+    const limit = Number(stats.limit || 900);
+    const limitEnforced = stats.limit_enforced !== false;
+    const total = Number(
+      stats.total_routes_planned ?? stats.total_routes ?? stats.planned_total ?? 0
+    );
+    if (limitEl) limitEl.textContent = limitEnforced ? String(limit) : "∞";
+    if (countEl) countEl.textContent = String(total);
+    if (wrapEl) {
+      wrapEl.classList.toggle("is-limit-disabled", !limitEnforced);
+      wrapEl.classList.toggle("is-over-limit", limitEnforced && total > limit);
+      wrapEl.classList.toggle("is-near-limit", limitEnforced && total <= limit && total > limit * 0.85);
+    }
+  };
+
+  const renderRouteLimitSettings = (settings = {}, stats = {}) => {
+    const disableInput = byId("game-filter-disable-route-limit");
+    const riskInput = byId("game-filter-route-limit-risk-ack");
+    const hintEl = byId("game-filter-route-limit-hint");
+    const introLimit = byId("game-filters-intro-limit");
+    const introBadge = byId("game-filters-intro-limit-badge");
+    const compressNotice = byId("game-filters-intro-compress-notice");
+    const limitEnforced = settings.route_limit_enforced !== false;
+    const limit = Number(stats.limit || 900);
+
+    if (disableInput) disableInput.checked = Boolean(settings.disable_route_limit);
+    if (riskInput) riskInput.checked = Boolean(settings.route_limit_risk_ack);
+    if (hintEl) hintEl.hidden = !(disableInput?.checked && !riskInput?.checked);
+    if (introLimit) introLimit.classList.toggle("is-limit-disabled", !limitEnforced);
+    if (introBadge) {
+      introBadge.textContent = limitEnforced ? `${limit} маршрутов` : "лимит отключён";
+    }
+    if (compressNotice) compressNotice.hidden = !limitEnforced;
+    renderConfigRouteBudget(stats);
+  };
+
+  const getCsrfToken = () =>
+    document.querySelector('input[name="csrf_token"]')?.value ||
+    document.querySelector('meta[name="csrf-token"]')?.content ||
+    "";
+
+  const saveRouteLimitSettings = async ({ disableRouteLimit, routeLimitRiskAck, onError } = {}) => {
+    const response = await fetch("/api/cidr-lists", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({
+        action: "set_game_filter_route_limit",
+        disable_route_limit: Boolean(disableRouteLimit),
+        route_limit_risk_ack: Boolean(routeLimitRiskAck),
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      const message = payload.message || "Не удалось сохранить настройки лимита маршрутов";
+      if (typeof onError === "function") onError(message);
+      throw new Error(message);
+    }
+    renderRouteLimitSettings(
+      payload.game_filter_route_limit_settings || {},
+      payload.config_include_ips_routes || {},
+    );
+    return payload;
+  };
+
+  const setupRouteLimitToggleHandlers = ({ onError } = {}) => {
+    const disableInput = byId("game-filter-disable-route-limit");
+    const riskInput = byId("game-filter-route-limit-risk-ack");
+    if (!disableInput || !riskInput) return;
+
+    let saveTimerId = null;
+    const scheduleSave = () => {
+      if (saveTimerId) window.clearTimeout(saveTimerId);
+      saveTimerId = window.setTimeout(async () => {
+        saveTimerId = null;
+        const disableRouteLimit = Boolean(disableInput.checked);
+        const routeLimitRiskAck = Boolean(riskInput.checked);
+        const hintEl = byId("game-filter-route-limit-hint");
+
+        if (disableRouteLimit && !routeLimitRiskAck) {
+          if (hintEl) hintEl.hidden = false;
+          disableInput.checked = false;
+          return;
+        }
+        if (hintEl) hintEl.hidden = true;
+
+        try {
+          await saveRouteLimitSettings({ disableRouteLimit, routeLimitRiskAck, onError });
+        } catch (_error) {
+          // onError already notified; revert to last server state on next fetch
+        }
+      }, 250);
+    };
+
+    disableInput.addEventListener("change", () => {
+      if (disableInput.checked && !riskInput.checked) {
+        const hintEl = byId("game-filter-route-limit-hint");
+        if (hintEl) hintEl.hidden = false;
+        disableInput.checked = false;
+        return;
+      }
+      scheduleSave();
+    });
+
+    riskInput.addEventListener("change", () => {
+      if (!riskInput.checked && disableInput.checked) {
+        disableInput.checked = false;
+      }
+      const hintEl = byId("game-filter-route-limit-hint");
+      if (hintEl) hintEl.hidden = true;
+      scheduleSave();
+    });
+  };
+
   const notifySelectionChanged = () => {
     if (typeof state.onSelectionChanged === "function") {
+      const includeProviderKeys = getIncludeKeys();
+      const excludeProviderKeys = getExcludeKeys();
       state.onSelectionChanged({
-        includeGameKeys: getIncludeKeys(),
-        excludeGameKeys: getExcludeKeys(),
+        includeProviderKeys,
+        excludeProviderKeys,
+        includeGameKeys: includeProviderKeys,
+        excludeGameKeys: excludeProviderKeys,
       });
     }
   };
 
-  const renderProviderOptions = () => {
-    const providerSelect = byId("cidr-games-provider-filter");
-    if (!providerSelect) return;
-    const selectedValue = String(providerSelect.value || "all").trim().toLowerCase();
-    const providers = Array.from(
-      new Set(state.items.map((item) => normalizeProviderName(item.provider)).filter(Boolean))
-    ).sort((a, b) => a.localeCompare(b, "ru"));
-    providerSelect.innerHTML = [
-      '<option value="all">Все провайдеры</option>',
-      ...providers.map((provider) => `<option value="${provider.toLowerCase()}">${provider}</option>`),
-    ].join("");
-    providerSelect.value = providers.some((p) => p.toLowerCase() === selectedValue) ? selectedValue : "all";
-  };
+  const sortProviderItems = (items) => [...items].sort((left, right) =>
+    String(left.title || left.key || "").localeCompare(String(right.title || right.key || ""), "ru")
+  );
 
   const renderCards = () => {
     const container = byId("cidr-game-filters");
@@ -326,10 +455,10 @@
       return;
     }
 
-    container.innerHTML = state.items
+    container.innerHTML = sortProviderItems(state.items)
       .map((item) => {
         const mode = getModeByKey(item.key);
-        const subtitleHtml = item.subtitle && !item.network
+        const subtitleHtml = item.subtitle
           ? `<span class="cidr-game-chip__sub">${item.subtitle}</span>`
           : "";
         const gameStats = getPerGameStat(item.key);
@@ -337,25 +466,25 @@
         const statsGridHtml = `
           <div class="cidr-game-chip__stats-grid">
             <div class="cidr-game-chip__stat">
-              <span>CIDR</span>
-              <strong class="${gameStats.loading ? "metric-loading" : ""}">${toCompactCount(gameStats.cidr_count, gameStats.loading)}</strong>
+              <span>К добавлению</span>
+              <strong class="${gameStats.loading ? "metric-loading" : ""}">${toCompactCount(gameStats.routes_count ?? gameStats.cidr_count, gameStats.loading)}</strong>
             </div>
             <div class="cidr-game-chip__stat">
-              <span>Пересечения</span>
-              <strong class="${gameStats.loading ? "metric-loading" : ""}">${toCompactCount(gameStats.overlap_count, gameStats.loading)}</strong>
+              <span>${gameStats.covered_count > 0 ? "Через VPN" : "Пересечения"}</span>
+              <strong class="${gameStats.loading ? "metric-loading" : ""}">${toCompactCount(gameStats.covered_count > 0 ? gameStats.covered_count : gameStats.overlap_count, gameStats.loading)}</strong>
             </div>
             <div class="cidr-game-chip__stat">
-              <span>${item.server_ip_count > 0 ? "Игр. IP" : "Домены"}</span>
-              <strong>${item.server_ip_count > 0 ? item.server_ip_count : item.domain_count}</strong>
+              <span>Домены</span>
+              <strong>${item.domain_count}</strong>
             </div>
           </div>
         `;
         return `
           <label class="cidr-scope-chip cidr-game-chip"
+            data-provider-key="${item.key}"
             data-game-key="${item.key}"
-            data-game-provider="${item.provider.toLowerCase()}"
             data-subtitle="${item.subtitle}">
-            <input type="hidden" class="cidr-game-mode-input" value="${mode}" data-game-key="${item.key}" />
+            <input type="hidden" class="cidr-game-mode-input" value="${mode}" data-provider-key="${item.key}" data-game-key="${item.key}" />
             <div class="cidr-game-chip__body">
               <div class="cidr-game-chip__head">
                 <span class="cidr-game-chip__title">${item.title}</span>
@@ -364,12 +493,12 @@
               ${subtitleHtml}
               <div class="cidr-game-chip__facts">
                 <span class="cidr-game-chip__fact">
-                  <span>Провайдер</span>
-                  <strong>${item.provider}</strong>
-                </span>
-                <span class="cidr-game-chip__fact">
                   <span>Сеть</span>
                   <strong>${getNetworkLabel(item)}</strong>
+                </span>
+                <span class="cidr-game-chip__fact">
+                  <span>Игр</span>
+                  <strong>${item.game_count || 0}</strong>
                 </span>
               </div>
               ${statsGridHtml}
@@ -387,13 +516,13 @@
 
   const applyFilters = () => {
     const query = String(byId("cidr-games-search-input")?.value || "").trim().toLowerCase();
-    const provider = String(byId("cidr-games-provider-filter")?.value || "all").trim().toLowerCase();
     const onlySelected = Boolean(byId("cidr-games-only-selected")?.checked);
     const chips = Array.from(document.querySelectorAll("#cidr-game-filters .cidr-game-chip"));
     let visibleCount = 0;
     chips.forEach((chip) => {
-      const matches = cardMatchesFilters(chip, query, provider, onlySelected);
+      const matches = cardMatchesFilters(chip, query, onlySelected);
       chip.hidden = !matches;
+      chip.classList.toggle("is-filter-hidden", !matches);
       if (matches) visibleCount += 1;
     });
     updateTopStats(visibleCount);
@@ -477,19 +606,140 @@
     notifySelectionChanged();
   };
 
+  const mergeChangeLogs = (includeLog, excludeLog) => {
+    if (includeLog && excludeLog) {
+      return {
+        filter_kind: "mixed",
+        sections: [includeLog, excludeLog],
+        lines: [...(includeLog.lines || []), "", ...(excludeLog.lines || [])],
+      };
+    }
+    return includeLog || excludeLog || null;
+  };
+
+  const mergeOverlapSummaries = (includeSummary = {}, excludeSummary = {}) => ({
+    overlap_count: Number(includeSummary.overlap_count || 0) + Number(excludeSummary.overlap_count || 0),
+    overlap_game_keys_count: Number(includeSummary.overlap_game_keys_count || 0) + Number(excludeSummary.overlap_game_keys_count || 0),
+    fully_covered_count: Number(includeSummary.fully_covered_count || 0) + Number(excludeSummary.fully_covered_count || 0),
+    partial_trimmed_count: Number(includeSummary.partial_trimmed_count || 0) + Number(excludeSummary.partial_trimmed_count || 0),
+    routes_written_count: Number(includeSummary.routes_written_count || 0) + Number(excludeSummary.routes_written_count || 0),
+    original_cidr_count: Number(includeSummary.original_cidr_count || 0) + Number(excludeSummary.original_cidr_count || 0),
+    include_patches_count: Number(includeSummary.include_patches_count || 0) + Number(excludeSummary.include_patches_count || 0),
+    include_patches_skipped_count: Number(includeSummary.include_patches_skipped_count || 0) + Number(excludeSummary.include_patches_skipped_count || 0),
+    overlap_examples: [
+      ...(Array.isArray(includeSummary.overlap_examples) ? includeSummary.overlap_examples : []),
+      ...(Array.isArray(excludeSummary.overlap_examples) ? excludeSummary.overlap_examples : []),
+    ],
+    trim_details: [
+      ...(Array.isArray(includeSummary.trim_details) ? includeSummary.trim_details : []),
+      ...(Array.isArray(excludeSummary.trim_details) ? excludeSummary.trim_details : []),
+    ],
+    include_patches: [
+      ...(Array.isArray(includeSummary.include_patches) ? includeSummary.include_patches : []),
+      ...(Array.isArray(excludeSummary.include_patches) ? excludeSummary.include_patches : []),
+    ],
+    include_patches_skip_reasons: [
+      ...(Array.isArray(includeSummary.include_patches_skip_reasons) ? includeSummary.include_patches_skip_reasons : []),
+      ...(Array.isArray(excludeSummary.include_patches_skip_reasons) ? excludeSummary.include_patches_skip_reasons : []),
+    ],
+    include_patches_skip_summary: [
+      ...(Array.isArray(includeSummary.include_patches_skip_summary) ? includeSummary.include_patches_skip_summary : []),
+      ...(Array.isArray(excludeSummary.include_patches_skip_summary) ? excludeSummary.include_patches_skip_summary : []),
+    ],
+    punch_warnings: [
+      ...(Array.isArray(includeSummary.punch_warnings) ? includeSummary.punch_warnings : []),
+      ...(Array.isArray(excludeSummary.punch_warnings) ? excludeSummary.punch_warnings : []),
+    ],
+    punch_limitations: [
+      ...(Array.isArray(includeSummary.punch_limitations) ? includeSummary.punch_limitations : []),
+      ...(Array.isArray(excludeSummary.punch_limitations) ? excludeSummary.punch_limitations : []),
+    ],
+  });
+
+  const mergeGamePreviewPayloads = (includePayload, excludePayload) => {
+    const includePreview = includePayload?.preview || {};
+    const excludePreview = excludePayload?.preview || {};
+    const includeCount = Number(includePreview.selected_provider_count || includePreview.selected_game_count || 0);
+    const excludeCount = Number(excludePreview.selected_provider_count || excludePreview.selected_game_count || 0);
+    if (includeCount > 0 && excludeCount > 0) {
+      return {
+        success: Boolean(includePayload?.success || excludePayload?.success),
+        message: [includePayload?.message, excludePayload?.message].filter(Boolean).join(" · "),
+        preview: {
+          selected_provider_count: includeCount + excludeCount,
+          selected_game_count: includeCount + excludeCount,
+          domain_count: Number(includePreview.domain_count || 0) + Number(excludePreview.domain_count || 0),
+          cidr_count: Number(includePreview.cidr_count || 0) + Number(excludePreview.cidr_count || 0),
+          original_cidr_count: Number(includePreview.original_cidr_count || 0) + Number(excludePreview.original_cidr_count || 0),
+          unresolved_domain_count: Number(includePreview.unresolved_domain_count || 0) + Number(excludePreview.unresolved_domain_count || 0),
+          include_game_domains: Boolean(includePreview.include_game_domains || excludePreview.include_game_domains),
+          domains_to_add: [
+            ...(Array.isArray(includePreview.domains_to_add) ? includePreview.domains_to_add : []),
+            ...(Array.isArray(excludePreview.domains_to_add) ? excludePreview.domains_to_add : []),
+          ],
+          overlap_summary: mergeOverlapSummaries(
+            includePreview.overlap_summary || {},
+            excludePreview.overlap_summary || {},
+          ),
+          change_log: mergeChangeLogs(includePreview.change_log, excludePreview.change_log),
+          punch_warnings: [
+            ...(Array.isArray(includePreview.punch_warnings) ? includePreview.punch_warnings : []),
+            ...(Array.isArray(excludePreview.punch_warnings) ? excludePreview.punch_warnings : []),
+          ],
+          per_game_stats: {
+            ...(includePreview.per_game_stats && typeof includePreview.per_game_stats === "object" ? includePreview.per_game_stats : {}),
+            ...(excludePreview.per_game_stats && typeof excludePreview.per_game_stats === "object" ? excludePreview.per_game_stats : {}),
+          },
+          host_block_preview: [
+            ...(Array.isArray(includePreview.host_block_preview) ? includePreview.host_block_preview : []),
+            ...(Array.isArray(excludePreview.host_block_preview) ? excludePreview.host_block_preview : []),
+          ].slice(0, 20),
+          ips_block_preview: [
+            ...(Array.isArray(includePreview.ips_block_preview) ? includePreview.ips_block_preview : []),
+            ...(Array.isArray(excludePreview.ips_block_preview) ? excludePreview.ips_block_preview : []),
+          ].slice(0, 20),
+          warning: [includePreview.warning, excludePreview.warning, includePayload?.message, excludePayload?.message]
+            .filter(Boolean)
+            .join(" · "),
+        },
+      };
+    }
+    if (excludeCount > 0 && excludePayload) return excludePayload;
+    if (includeCount > 0 && includePayload) return includePayload;
+    if (excludePayload?.preview) return excludePayload;
+    return includePayload || excludePayload || {};
+  };
+
   const renderPreview = (payload) => {
     const panel = byId("cidr-games-preview-panel");
     if (!panel) return;
     const preview = payload?.preview || payload || {};
-    const selectedCount = Number(preview.selected_game_count || preview.selected_count || 0);
+    const selectedCount = Number(
+      preview.selected_provider_count || preview.selected_game_count || preview.selected_count || 0
+    );
     const domainCount = Number(preview.domain_count || 0);
     const cidrCount = Number(preview.cidr_count || 0);
     const unresolvedCount = Number(preview.unresolved_domain_count || 0);
     const warningMessage = String(preview.warning || preview.message || "").trim();
     const overlapSummary = preview?.overlap_summary || {};
+    const includePatchesCount = Number(overlapSummary.include_patches_count || 0);
+    const includePatches = Array.isArray(overlapSummary.include_patches) ? overlapSummary.include_patches : [];
+    const includePatchesSkipped = Number(overlapSummary.include_patches_skipped_count || 0);
+    const includePatchSkipReasons = Array.isArray(overlapSummary.include_patches_skip_summary)
+      ? overlapSummary.include_patches_skip_summary
+      : (Array.isArray(overlapSummary.include_patches_skip_reasons)
+        ? overlapSummary.include_patches_skip_reasons
+        : []);
+    const punchWarnings = Array.isArray(preview?.punch_warnings) && preview.punch_warnings.length
+      ? preview.punch_warnings
+      : (Array.isArray(overlapSummary.punch_warnings) ? overlapSummary.punch_warnings : []);
     const overlapExamples = Array.isArray(overlapSummary.overlap_examples) ? overlapSummary.overlap_examples : [];
     const overlapCount = Number(overlapSummary.overlap_count || 0);
     const overlapGames = Number(overlapSummary.overlap_game_keys_count || 0);
+    const fullyCovered = Number(overlapSummary.fully_covered_count || 0);
+    const partialTrimmed = Number(overlapSummary.partial_trimmed_count || 0);
+    const routesWritten = Number(preview.cidr_count ?? overlapSummary.routes_written_count ?? 0);
+    const originalCidrCount = Number(preview.original_cidr_count ?? overlapSummary.original_cidr_count ?? routesWritten);
     const includeDomains = Boolean(preview.include_game_domains);
     const domainsToAdd = Array.isArray(preview.domains_to_add) ? preview.domains_to_add : [];
     const perGameStats = (preview.per_game_stats && typeof preview.per_game_stats === "object")
@@ -508,44 +758,128 @@
     const unresolvedEl = byId("cidr-games-preview-unresolved");
     const updatedEl = byId("cidr-games-preview-updated-at");
     const warningsEl = byId("cidr-games-preview-warnings");
-    const overlapCountEl = byId("cidr-games-preview-overlap-count");
+    const punchWarningsWrapEl = byId("cidr-games-preview-punch-warnings-wrap");
+    const punchWarningsEl = byId("cidr-games-preview-punch-warnings");
     const overlapGamesEl = byId("cidr-games-preview-overlap-games");
+    const vpnCoveredEl = byId("cidr-games-preview-vpn-covered");
+    const partialTrimmedEl = byId("cidr-games-preview-partial-trimmed");
     const domainsEnabledEl = byId("cidr-games-preview-domains-enabled");
     const overlapWrapEl = byId("cidr-games-preview-overlap-wrap");
     const overlapListEl = byId("cidr-games-preview-overlap-list");
+    const changeLogWrapEl = byId("cidr-games-preview-changelog-wrap");
+    const changeLogEl = byId("cidr-games-preview-changelog");
+    const includeSplitEl = byId("cidr-games-preview-include-split");
     const domainsWrapEl = byId("cidr-games-preview-domains-wrap");
     const domainsListEl = byId("cidr-games-preview-domains-list");
 
     if (selectedEl) selectedEl.textContent = String(selectedCount);
     if (domainsEl) domainsEl.textContent = String(domainCount);
-    if (cidrsEl) cidrsEl.textContent = String(cidrCount);
+    if (cidrsEl) cidrsEl.textContent = String(routesWritten);
     if (unresolvedEl) unresolvedEl.textContent = String(unresolvedCount);
     if (updatedEl) updatedEl.textContent = `Обновлено: ${new Date().toLocaleString()}`;
-    if (overlapCountEl) overlapCountEl.textContent = String(overlapCount);
+    if (vpnCoveredEl) vpnCoveredEl.textContent = String(fullyCovered);
+    if (partialTrimmedEl) partialTrimmedEl.textContent = String(partialTrimmed);
     if (overlapGamesEl) overlapGamesEl.textContent = String(overlapGames);
+    if (includeSplitEl) includeSplitEl.textContent = String(includePatchesCount);
     if (domainsEnabledEl) domainsEnabledEl.textContent = includeDomains ? "да" : "нет";
     if (warningsEl) {
-      const overlapText = overlapCount > 0
-        ? `Пересечения с существующими списками: ${overlapCount}. `
+      const overlapParts = [];
+      if (fullyCovered > 0) overlapParts.push(`уже через VPN: ${fullyCovered}`);
+      if (partialTrimmed > 0) overlapParts.push(`частично обрезано: ${partialTrimmed}`);
+      if (includePatchesCount > 0) overlapParts.push(`include будет разбито: ${includePatchesCount}`);
+      if (includePatchesSkipped > 0) {
+        const broadSkipped = includePatchSkipReasons.filter(
+          (item) => String(item?.reason || "") === "include_route_too_broad",
+        ).length;
+        if (broadSkipped > 0) {
+          overlapParts.push(`punch пропущен (широкие include /16): ${broadSkipped}`);
+        } else {
+          overlapParts.push(`punch пропущен: ${includePatchesSkipped}`);
+        }
+      }
+      if (overlapCount > 0 && !fullyCovered && !partialTrimmed && !includePatchesCount && !includePatchesSkipped) {
+        overlapParts.push(`пересечений: ${overlapCount}`);
+      }
+      const routeBudget = overlapSummary.route_budget || preview.route_budget || {};
+      if (routeBudget.compression_applied) {
+        overlapParts.push(
+          `сжато под лимит config: ${Number(routeBudget.game_routes_before || 0)} → ${Number(routeBudget.game_routes_planned || 0)} игровых маршрутов`
+        );
+      }
+      if (Number(routeBudget.over_limit || 0) > 0) {
+        overlapParts.push(`превышение лимита config include-ips: ${Number(routeBudget.over_limit || 0)}`);
+      }
+      const overlapText = overlapParts.length ? `${overlapParts.join(", ")}. ` : "";
+      const originalSuffix = originalCidrCount > routesWritten
+        ? `Будет добавлено ${routesWritten} маршрутов из ${originalCidrCount} исходных. `
         : "";
-      warningsEl.textContent = `${overlapText}${warningMessage}`.trim();
+      warningsEl.textContent = `${originalSuffix}${overlapText}${warningMessage}`.trim();
+    }
+
+    if (punchWarningsWrapEl && punchWarningsEl) {
+      if (punchWarnings.length) {
+        punchWarningsWrapEl.hidden = false;
+        punchWarningsEl.textContent = punchWarnings.join("\n\n");
+      } else {
+        punchWarningsWrapEl.hidden = true;
+        punchWarningsEl.textContent = "";
+      }
     }
 
     if (overlapWrapEl && overlapListEl) {
-      if (overlapExamples.length) {
+      if (preview?.change_log?.lines?.length) {
+        overlapWrapEl.hidden = true;
+        overlapListEl.innerHTML = "";
+      } else {
+      const patchItems = includePatches.map((patch) => {
+        const file = String(patch?.file || "—").split(/[/\\]/).pop() || String(patch?.file || "—");
+        const oldCidr = String(patch?.old_cidr || "—");
+        const newCidrs = Array.isArray(patch?.new_cidrs) ? patch.new_cidrs : [];
+        const target = newCidrs.length ? newCidrs.join(", ") : "(удалено)";
+        return `<li><code>${file}</code>: <code>${oldCidr}</code> → <code>${target}</code></li>`;
+      });
+      const skipItems = includePatchSkipReasons.slice(0, 10).map((item) => {
+        const file = String(item?.file || "—").split(/[/\\]/).pop() || String(item?.file || "—");
+        const oldCidr = String(item?.old_cidr || "—");
+        const reason = String(item?.reason || "skipped");
+        return `<li><code>${file}</code>: <code>${oldCidr}</code> — punch пропущен (${reason})</li>`;
+      });
+      const exampleItems = overlapExamples
+        .slice(0, 30)
+        .map((item) => {
+          const gameCidr = String(item?.game_cidr || "—");
+          const existingCidr = String(item?.existing_cidr || "—");
+          const file = String(item?.file || "—").split(/[/\\]/).pop() || String(item?.file || "—");
+          const type = String(item?.type || "").trim().toLowerCase();
+          const comment = String(item?.comment || "").trim();
+          const isExclude = comment.includes("include");
+          const typeLabel = type === "full"
+            ? (isExclude ? "полностью в include" : "полностью через VPN")
+            : (type === "partial" ? (isExclude ? "частично в include" : "частично обрезано") : "пересечение");
+          if (comment) {
+            return `<li>${comment.replace(/^#\s*/, "")}</li>`;
+          }
+          return `<li><code>${gameCidr}</code> — ${typeLabel} с <code>${existingCidr}</code> в <code>${file}</code></li>`;
+        });
+      const overlapItems = [...exampleItems, ...patchItems, ...skipItems];
+      if (overlapItems.length) {
         overlapWrapEl.hidden = false;
-        overlapListEl.innerHTML = overlapExamples
-          .slice(0, 30)
-          .map((item) => {
-            const gameCidr = String(item?.game_cidr || "—");
-            const existingCidr = String(item?.existing_cidr || "—");
-            const file = String(item?.file || "—");
-            return `<li><code>${gameCidr}</code> пересекается с <code>${existingCidr}</code> в <code>${file}</code></li>`;
-          })
-          .join("");
+        overlapListEl.innerHTML = overlapItems.join("");
       } else {
         overlapWrapEl.hidden = true;
         overlapListEl.innerHTML = "";
+      }
+      }
+    }
+
+    if (changeLogWrapEl && changeLogEl) {
+      const changeLogLines = Array.isArray(preview?.change_log?.lines) ? preview.change_log.lines : [];
+      if (changeLogLines.length) {
+        changeLogWrapEl.hidden = false;
+        changeLogEl.textContent = changeLogLines.join("\n");
+      } else {
+        changeLogWrapEl.hidden = true;
+        changeLogEl.textContent = "";
       }
     }
 
@@ -564,9 +898,20 @@
 
     renderCards();
     applyFilters();
+    if (overlapSummary.route_budget || preview.route_budget) {
+      renderConfigRouteBudget(overlapSummary.route_budget || preview.route_budget);
+    }
 
     panel.classList.remove("is-success", "is-warning");
-    if (unresolvedCount > 0 || overlapCount > 0) {
+    if (
+      unresolvedCount > 0
+      || overlapCount > 0
+      || fullyCovered > 0
+      || partialTrimmed > 0
+      || includePatchesCount > 0
+      || includePatchesSkipped > 0
+      || punchWarnings.length > 0
+    ) {
       panel.classList.add("is-warning");
     } else {
       panel.classList.add("is-success");
@@ -576,7 +921,6 @@
 
   const setupInteractionHandlers = (callbacks) => {
     byId("cidr-games-search-input")?.addEventListener("input", applyFilters);
-    byId("cidr-games-provider-filter")?.addEventListener("change", applyFilters);
     byId("cidr-games-only-selected")?.addEventListener("change", applyFilters);
     byId("cidr-games-include-domains")?.addEventListener("change", () => {
       state.includeDomains = getIncludeDomains();
@@ -589,7 +933,7 @@
       if (!target || !target.matches(".cidr-game-mode-btn")) return;
       const nextMode = String(target.getAttribute("data-game-mode-btn") || "none").trim().toLowerCase();
       const card = target.closest(".cidr-game-chip");
-      const key = String(card?.dataset?.gameKey || "").trim().toLowerCase();
+      const key = String(card?.dataset?.providerKey || card?.dataset?.gameKey || "").trim().toLowerCase();
       if (!key) return;
       setMode(key, nextMode);
       renderCards();
@@ -621,13 +965,7 @@
           excludeGameKeys,
           includeGameDomains: getIncludeDomains(),
         });
-        if (result?.includePreview) {
-          renderPreview(result.includePreview);
-        } else if (result?.excludePreview) {
-          renderPreview(result.excludePreview);
-        } else {
-          renderPreview(result);
-        }
+        renderPreview(mergeGamePreviewPayloads(result?.includePreview, result?.excludePreview));
         success = true;
       } catch (error) {
         if (typeof callbacks.onError === "function") {
@@ -663,7 +1001,9 @@
           includeGameDomains: getIncludeDomains(),
         });
         const previewPayload = result?.previewPayload || result?.preview || null;
-        if (previewPayload) {
+        if (result?.includePreview || result?.excludePreview) {
+          renderPreview(mergeGamePreviewPayloads(result?.includePreview, result?.excludePreview));
+        } else if (previewPayload) {
           renderPreview(previewPayload);
         }
         success = true;
@@ -704,6 +1044,8 @@
         const overlapCount = Number(perGame.overlap_count || 0);
         state.perGameStats[normalizedKey] = {
           cidr_count: Number.isFinite(cidrCount) ? cidrCount : 0,
+          routes_count: Number.isFinite(Number(perGame.routes_count)) ? Number(perGame.routes_count) : cidrCount,
+          covered_count: Number.isFinite(Number(perGame.covered_count)) ? Number(perGame.covered_count) : 0,
           overlap_count: Number.isFinite(overlapCount) ? overlapCount : 0,
         };
       });
@@ -718,7 +1060,7 @@
   const hydrateModesFromDom = () => {
     const next = {};
     document.querySelectorAll("#cidr-game-filters .cidr-game-mode-input").forEach((input) => {
-      const key = String(input.getAttribute("data-game-key") || "").trim().toLowerCase();
+      const key = String(input.getAttribute("data-provider-key") || input.getAttribute("data-game-key") || "").trim().toLowerCase();
       if (!key) return;
       const mode = String(input.value || "none").trim().toLowerCase();
       next[key] = mode === "include" || mode === "exclude" ? mode : "none";
@@ -736,7 +1078,6 @@
       Object.entries(cachedStats).filter(([key]) => availableKeys.has(String(key || "").trim().toLowerCase()))
     );
     const modeBefore = { ...(state.modeByGameKey || {}) };
-    renderProviderOptions();
     state.modeByGameKey = Object.fromEntries(
       state.items.map((item) => {
         const mode = String(modeBefore[item.key] || "none").trim().toLowerCase();
@@ -767,7 +1108,13 @@
       onApplyRoutes: callbacks.onApplyRoutes,
       onError: callbacks.onError,
     });
-    setFilters(state.items);
+    setupRouteLimitToggleHandlers({ onError: callbacks.onError });
+    const hasDomCatalog = Boolean(document.querySelector("#cidr-game-filters .cidr-game-chip"));
+    if (state.items.length) {
+      setFilters(state.items);
+    } else if (hasDomCatalog) {
+      applyFilters();
+    }
     return {
       setFilters,
       setBusy,
@@ -778,6 +1125,9 @@
       getIncludeKeys,
       getExcludeKeys,
       renderPreview,
+      renderConfigRouteBudget,
+      renderRouteLimitSettings,
+      saveRouteLimitSettings,
     };
   };
 
@@ -792,5 +1142,6 @@
     setBusy,
     applyFilters,
     renderPreview,
+    renderConfigRouteBudget,
   };
 })();
