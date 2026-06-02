@@ -53,28 +53,44 @@
               <li>Если провайдер не помещается в остаток бюджета, сети сначала объединяются без пересечений (supernet).</li>
             </ul>
             <div class="game-filters-intro__limit-toggles" id="game-filter-route-limit-toggles">
-              <label class="game-filters-intro__toggle">
-                <input
-                  type="checkbox"
-                  id="game-filter-disable-route-limit"
-                  {% if game_filter_route_limit_settings.disable_route_limit %}checked{% endif %}
-                >
-                <span class="game-filters-intro__toggle-text">
-                  Отключить лимит {{ config_include_ips_routes.limit }} маршрутов для игровых фильтров
-                </span>
-              </label>
-              <label class="game-filters-intro__toggle game-filters-intro__toggle--risk">
-                <input
-                  type="checkbox"
-                  id="game-filter-route-limit-risk-ack"
-                  {% if game_filter_route_limit_settings.route_limit_risk_ack %}checked{% endif %}
-                >
-                <span class="game-filters-intro__toggle-text">
-                  Принимаю все риски превышения лимита маршрутов: нестабильность OpenVPN и iOS-клиентов,
-                  неполное покрытие провайдеров, отказ подключения. Ответственность за последствия беру на себя.
-                </span>
-              </label>
-              <p class="game-filters-intro__toggle-hint" id="game-filter-route-limit-hint" hidden>
+              <div class="route-limit-toggle-card">
+                <label class="route-limit-toggle-row toggle-wrapper toggle-wrapper--switch-left" for="game-filter-disable-route-limit">
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      class="toggle-input route-limit-disable-input"
+                      id="game-filter-disable-route-limit"
+                      {% if game_filter_route_limit_settings.disable_route_limit %}checked{% endif %}
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                  <span class="route-limit-toggle-row__content">
+                    <span class="route-limit-toggle-row__title">Отключить лимит {{ config_include_ips_routes.limit }} маршрутов</span>
+                    <span class="route-limit-toggle-row__desc">Без сжатия CIDR провайдеров в игровых фильтрах и при генерации IP-списков.</span>
+                  </span>
+                </label>
+              </div>
+              <div class="route-limit-toggle-card route-limit-toggle-card--risk">
+                <label class="route-limit-toggle-row route-limit-toggle-row--risk toggle-wrapper toggle-wrapper--switch-left" for="game-filter-route-limit-risk-ack">
+                  <div class="toggle-switch">
+                    <input
+                      type="checkbox"
+                      class="toggle-input route-limit-risk-ack-input"
+                      id="game-filter-route-limit-risk-ack"
+                      {% if game_filter_route_limit_settings.route_limit_risk_ack %}checked{% endif %}
+                    />
+                    <span class="toggle-slider"></span>
+                  </div>
+                  <span class="route-limit-toggle-row__content">
+                    <span class="route-limit-toggle-row__title">Принимаю риски превышения лимита</span>
+                    <span class="route-limit-toggle-row__desc">
+                      OpenVPN, iOS и Android: нестабильность клиентов, неполное покрытие провайдеров, отказ подключения.
+                      Ответственность за последствия беру на себя.
+                    </span>
+                  </span>
+                </label>
+              </div>
+              <p class="game-filters-intro__toggle-hint route-limit-hint" id="game-filter-route-limit-hint" hidden>
                 Чтобы отключить лимит, сначала подтвердите принятие рисков.
               </p>
             </div>

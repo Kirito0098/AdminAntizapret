@@ -329,104 +329,18 @@
   };
 
   const renderRouteLimitSettings = (settings = {}, stats = {}) => {
-    const disableInput = byId("game-filter-disable-route-limit");
-    const riskInput = byId("game-filter-route-limit-risk-ack");
-    const hintEl = byId("game-filter-route-limit-hint");
-    const introLimit = byId("game-filters-intro-limit");
-    const introBadge = byId("game-filters-intro-limit-badge");
-    const compressNotice = byId("game-filters-intro-compress-notice");
-    const limitEnforced = settings.route_limit_enforced !== false;
-    const limit = Number(stats.limit || 900);
-
-    if (disableInput) disableInput.checked = Boolean(settings.disable_route_limit);
-    if (riskInput) riskInput.checked = Boolean(settings.route_limit_risk_ack);
-    if (hintEl) hintEl.hidden = !(disableInput?.checked && !riskInput?.checked);
-    if (introLimit) introLimit.classList.toggle("is-limit-disabled", !limitEnforced);
-    if (introBadge) {
-      introBadge.textContent = limitEnforced ? `${limit} маршрутов` : "лимит отключён";
+    if (window.AntiZapretRouteLimitOverride?.render) {
+      window.AntiZapretRouteLimitOverride.render(settings, stats);
+      return;
     }
-    if (compressNotice) compressNotice.hidden = !limitEnforced;
     renderConfigRouteBudget(stats);
   };
 
-  const getCsrfToken = () =>
-    document.querySelector('input[name="csrf_token"]')?.value ||
-    document.querySelector('meta[name="csrf-token"]')?.content ||
-    "";
-
-  const saveRouteLimitSettings = async ({ disableRouteLimit, routeLimitRiskAck, onError } = {}) => {
-    const response = await fetch("/api/cidr-lists", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
-      },
-      body: JSON.stringify({
-        action: "set_game_filter_route_limit",
-        disable_route_limit: Boolean(disableRouteLimit),
-        route_limit_risk_ack: Boolean(routeLimitRiskAck),
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok || !payload.success) {
-      const message = payload.message || "Не удалось сохранить настройки лимита маршрутов";
-      if (typeof onError === "function") onError(message);
-      throw new Error(message);
+  const saveRouteLimitSettings = async (options = {}) => {
+    if (window.AntiZapretRouteLimitOverride?.save) {
+      return window.AntiZapretRouteLimitOverride.save(options);
     }
-    renderRouteLimitSettings(
-      payload.game_filter_route_limit_settings || {},
-      payload.config_include_ips_routes || {},
-    );
-    return payload;
-  };
-
-  const setupRouteLimitToggleHandlers = ({ onError } = {}) => {
-    const disableInput = byId("game-filter-disable-route-limit");
-    const riskInput = byId("game-filter-route-limit-risk-ack");
-    if (!disableInput || !riskInput) return;
-
-    let saveTimerId = null;
-    const scheduleSave = () => {
-      if (saveTimerId) window.clearTimeout(saveTimerId);
-      saveTimerId = window.setTimeout(async () => {
-        saveTimerId = null;
-        const disableRouteLimit = Boolean(disableInput.checked);
-        const routeLimitRiskAck = Boolean(riskInput.checked);
-        const hintEl = byId("game-filter-route-limit-hint");
-
-        if (disableRouteLimit && !routeLimitRiskAck) {
-          if (hintEl) hintEl.hidden = false;
-          disableInput.checked = false;
-          return;
-        }
-        if (hintEl) hintEl.hidden = true;
-
-        try {
-          await saveRouteLimitSettings({ disableRouteLimit, routeLimitRiskAck, onError });
-        } catch (_error) {
-          // onError already notified; revert to last server state on next fetch
-        }
-      }, 250);
-    };
-
-    disableInput.addEventListener("change", () => {
-      if (disableInput.checked && !riskInput.checked) {
-        const hintEl = byId("game-filter-route-limit-hint");
-        if (hintEl) hintEl.hidden = false;
-        disableInput.checked = false;
-        return;
-      }
-      scheduleSave();
-    });
-
-    riskInput.addEventListener("change", () => {
-      if (!riskInput.checked && disableInput.checked) {
-        disableInput.checked = false;
-      }
-      const hintEl = byId("game-filter-route-limit-hint");
-      if (hintEl) hintEl.hidden = true;
-      scheduleSave();
-    });
+    throw new Error("Не удалось сохранить настройки лимита маршрутов");
   };
 
   const notifySelectionChanged = () => {
@@ -1108,7 +1022,6 @@
       onApplyRoutes: callbacks.onApplyRoutes,
       onError: callbacks.onError,
     });
-    setupRouteLimitToggleHandlers({ onError: callbacks.onError });
     const hasDomCatalog = Boolean(document.querySelector("#cidr-game-filters .cidr-game-chip"));
     if (state.items.length) {
       setFilters(state.items);

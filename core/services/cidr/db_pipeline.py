@@ -379,6 +379,23 @@ def estimate_cidr_matches_from_db(
 
         ordered_files = list(counts_by_file.keys())
         original_total = sum(int(counts_by_file.get(name) or 0) for name in ordered_files)
+
+        try:
+            from core.services.cidr.games import is_game_filter_config_route_limit_enforced
+
+            limit_enforced = is_game_filter_config_route_limit_enforced()
+        except Exception:  # noqa: BLE001
+            limit_enforced = True
+
+        if not limit_enforced:
+            return dict(counts_by_file), {
+                "strategy": "global_total_route_limit",
+                "limit": int(route_limit),
+                "limit_enforced": False,
+                "original_total_cidr_count": original_total,
+                "compressed_total_cidr_count": original_total,
+            }
+
         if original_total <= int(route_limit):
             return dict(counts_by_file), None
 

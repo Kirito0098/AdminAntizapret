@@ -467,7 +467,7 @@ def register_settings_api_routes(
                         "success": False,
                         "message": (
                             "Чтобы отключить лимит маршрутов, подтвердите принятие рисков "
-                            "превышения лимита OpenVPN/iOS."
+                            "превышения лимита OpenVPN/iOS/Android."
                         ),
                     }
                 ), 400

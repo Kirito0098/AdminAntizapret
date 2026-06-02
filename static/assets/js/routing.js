@@ -405,6 +405,211 @@ document.addEventListener("DOMContentLoaded", function () {
     percent: 0,
   };
   const CIDR_TOTAL_LIMIT_MAX_IOS = 900;
+  const routeLimitOverrideState = {
+    limitEnforced: true,
+    disableRouteLimit: false,
+    routeLimitRiskAck: false,
+  };
+
+  const getRouteLimitCsrfToken = () =>
+    document.querySelector('input[name="csrf_token"]')?.value ||
+    document.querySelector('meta[name="csrf-token"]')?.content ||
+    document.getElementById("cidr-csrf-token")?.value ||
+    "";
+
+  const getEffectiveCidrRouteLimit = () => {
+    const raw = Number(document.getElementById("cidr-total-limit-input")?.value || CIDR_TOTAL_LIMIT_MAX_IOS);
+    if (!Number.isFinite(raw) || raw <= 0) return CIDR_TOTAL_LIMIT_MAX_IOS;
+    return Math.min(raw, CIDR_TOTAL_LIMIT_MAX_IOS);
+  };
+
+  const updateCidrRouteLimitWarning = () => {
+    const warnEl = document.getElementById("cidr-route-limit-warning");
+    const badgeEl = document.getElementById("cidr-route-limit-badge");
+    const panelEl = document.getElementById("cidr-route-limit-panel");
+    if (!warnEl) return;
+
+    const effectiveLimit = getEffectiveCidrRouteLimit();
+    panelEl?.classList.toggle("is-limit-disabled", !routeLimitOverrideState.limitEnforced);
+
+    if (badgeEl) {
+      badgeEl.textContent = routeLimitOverrideState.limitEnforced
+        ? `${effectiveLimit} / ${CIDR_TOTAL_LIMIT_MAX_IOS} маршрутов`
+        : "лимит отключён";
+    }
+
+    if (!routeLimitOverrideState.limitEnforced) {
+      warnEl.hidden = false;
+      warnEl.textContent =
+        "Лимит отключён: CIDR не сжимаются при генерации IP-списков и в игровых фильтрах. " +
+        "OpenVPN, iOS- и Android-клиенты могут отказать при превышении ~900 маршрутов.";
+      warnEl.className = "cidr-route-limit-panel__warn is-info";
+      return;
+    }
+
+    const counts = window._cidrDbProviderCounts;
+    const selected = getSelectedCidrRegions();
+    const estimatedTotal = counts && selected.length
+      ? selected.reduce((sum, key) => sum + (Number(counts[key]) || 0), 0)
+      : 0;
+
+    if (estimatedTotal > effectiveLimit) {
+      warnEl.hidden = false;
+      warnEl.textContent =
+        `Выбранные провайдеры дают ~${estimatedTotal.toLocaleString("ru-RU")} CIDR — больше лимита ${effectiveLimit}. ` +
+        "При генерации списки будут сжаты. Чтобы сохранить все маршруты, подтвердите риски и отключите лимит ниже.";
+      warnEl.className = "cidr-route-limit-panel__warn is-over";
+      return;
+    }
+
+    warnEl.hidden = true;
+    warnEl.textContent = "";
+    warnEl.className = "cidr-route-limit-panel__warn";
+  };
+
+  const renderRouteLimitOverrideSettings = (settings = {}, stats = {}) => {
+    routeLimitOverrideState.limitEnforced = settings.route_limit_enforced !== false;
+    routeLimitOverrideState.disableRouteLimit = Boolean(settings.disable_route_limit);
+    routeLimitOverrideState.routeLimitRiskAck = Boolean(settings.route_limit_risk_ack);
+
+    document.querySelectorAll(".route-limit-disable-input").forEach((input) => {
+      input.checked = routeLimitOverrideState.disableRouteLimit;
+    });
+    document.querySelectorAll(".route-limit-risk-ack-input").forEach((input) => {
+      input.checked = routeLimitOverrideState.routeLimitRiskAck;
+    });
+    document.querySelectorAll(".route-limit-hint").forEach((hintEl) => {
+      hintEl.hidden = !(routeLimitOverrideState.disableRouteLimit && !routeLimitOverrideState.routeLimitRiskAck);
+    });
+
+    const introLimit = document.getElementById("game-filters-intro-limit");
+    const introBadge = document.getElementById("game-filters-intro-limit-badge");
+    const compressNotice = document.getElementById("game-filters-intro-compress-notice");
+    const limit = Number(stats.limit || CIDR_TOTAL_LIMIT_MAX_IOS);
+    if (introLimit) introLimit.classList.toggle("is-limit-disabled", !routeLimitOverrideState.limitEnforced);
+    if (introBadge) {
+      introBadge.textContent = routeLimitOverrideState.limitEnforced
+        ? `${limit} маршрутов`
+        : "лимит отключён";
+    }
+    if (compressNotice) compressNotice.hidden = !routeLimitOverrideState.limitEnforced;
+
+    if (window.AntiZapretGameFilters?.renderConfigRouteBudget) {
+      window.AntiZapretGameFilters.renderConfigRouteBudget(stats);
+    }
+
+    updateCidrRouteLimitWarning();
+    renderCidrMeta();
+  };
+
+  const saveRouteLimitOverrideSettings = async ({ disableRouteLimit, routeLimitRiskAck, onError } = {}) => {
+    const response = await fetch("/api/cidr-lists", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getRouteLimitCsrfToken(),
+      },
+      body: JSON.stringify({
+        action: "set_game_filter_route_limit",
+        disable_route_limit: Boolean(disableRouteLimit),
+        route_limit_risk_ack: Boolean(routeLimitRiskAck),
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      const message = payload.message || "Не удалось сохранить настройки лимита маршрутов";
+      if (typeof onError === "function") onError(message);
+      throw new Error(message);
+    }
+    renderRouteLimitOverrideSettings(
+      payload.game_filter_route_limit_settings || {},
+      payload.config_include_ips_routes || {},
+    );
+    return payload;
+  };
+
+  const setupRouteLimitOverrideControls = ({ onError } = {}) => {
+    const disableInputs = Array.from(document.querySelectorAll(".route-limit-disable-input"));
+    const riskInputs = Array.from(document.querySelectorAll(".route-limit-risk-ack-input"));
+    if (!disableInputs.length || !riskInputs.length) return;
+
+    let saveTimerId = null;
+    const scheduleSave = () => {
+      if (saveTimerId) window.clearTimeout(saveTimerId);
+      saveTimerId = window.setTimeout(async () => {
+        saveTimerId = null;
+        const disableRouteLimit = disableInputs.some((input) => input.checked);
+        const routeLimitRiskAck = riskInputs.some((input) => input.checked);
+
+        if (disableRouteLimit && !routeLimitRiskAck) {
+          disableInputs.forEach((input) => {
+            input.checked = false;
+          });
+          document.querySelectorAll(".route-limit-hint").forEach((hintEl) => {
+            hintEl.hidden = false;
+          });
+          return;
+        }
+
+        document.querySelectorAll(".route-limit-hint").forEach((hintEl) => {
+          hintEl.hidden = true;
+        });
+
+        try {
+          await saveRouteLimitOverrideSettings({ disableRouteLimit, routeLimitRiskAck, onError });
+        } catch (_error) {
+          // onError already notified
+        }
+      }, 250);
+    };
+
+    disableInputs.forEach((input) => {
+      if (input.dataset.routeLimitBound === "1") return;
+      input.dataset.routeLimitBound = "1";
+      input.addEventListener("change", () => {
+        const checked = Boolean(input.checked);
+        disableInputs.forEach((peer) => {
+          peer.checked = checked;
+        });
+        if (checked && !riskInputs.some((peer) => peer.checked)) {
+          disableInputs.forEach((peer) => {
+            peer.checked = false;
+          });
+          document.querySelectorAll(".route-limit-hint").forEach((hintEl) => {
+            hintEl.hidden = false;
+          });
+          return;
+        }
+        scheduleSave();
+      });
+    });
+
+    riskInputs.forEach((input) => {
+      if (input.dataset.routeLimitBound === "1") return;
+      input.dataset.routeLimitBound = "1";
+      input.addEventListener("change", () => {
+        const checked = Boolean(input.checked);
+        riskInputs.forEach((peer) => {
+          peer.checked = checked;
+        });
+        if (!checked) {
+          disableInputs.forEach((peer) => {
+            peer.checked = false;
+          });
+        }
+        document.querySelectorAll(".route-limit-hint").forEach((hintEl) => {
+          hintEl.hidden = true;
+        });
+        scheduleSave();
+      });
+    });
+  };
+
+  window.AntiZapretRouteLimitOverride = {
+    render: renderRouteLimitOverrideSettings,
+    save: saveRouteLimitOverrideSettings,
+  };
+
   const dpiMiniReportState = {
     foundInLog: 0,
     selectedForBuild: 0,
@@ -593,23 +798,28 @@ document.addEventListener("DOMContentLoaded", function () {
       if (counts && Object.keys(counts).length > 0) {
         const selected = getSelectedCidrRegions();
         const total = selected.reduce((sum, key) => sum + (counts[key] || 0), 0);
+        const effectiveLimit = getEffectiveCidrRouteLimit();
         if (total === 0) {
           cidrTotalEl.textContent = "—";
-          cidrTotalEl.className = "cidr-meta-item__value";
+          cidrTotalEl.className = "cidr-meta-chip__val";
+        } else if (!routeLimitOverrideState.limitEnforced) {
+          cidrTotalEl.textContent = `${total.toLocaleString("ru-RU")} / ∞`;
+          cidrTotalEl.className = "cidr-meta-chip__val cidr-meta-chip__val--override";
         } else {
-          cidrTotalEl.textContent = `${total.toLocaleString("ru-RU")} / ${CIDR_TOTAL_LIMIT_MAX_IOS}`;
-          if (total > CIDR_TOTAL_LIMIT_MAX_IOS) {
-            cidrTotalEl.className = "cidr-meta-item__value cidr-meta-item__value--error";
-          } else if (total > CIDR_TOTAL_LIMIT_MAX_IOS * 0.85) {
-            cidrTotalEl.className = "cidr-meta-item__value cidr-meta-item__value--warn";
+          cidrTotalEl.textContent = `${total.toLocaleString("ru-RU")} / ${effectiveLimit}`;
+          if (total > effectiveLimit) {
+            cidrTotalEl.className = "cidr-meta-chip__val cidr-meta-chip__val--error";
+          } else if (total > effectiveLimit * 0.85) {
+            cidrTotalEl.className = "cidr-meta-chip__val cidr-meta-chip__val--warn";
           } else {
-            cidrTotalEl.className = "cidr-meta-item__value cidr-meta-item__value--ok";
+            cidrTotalEl.className = "cidr-meta-chip__val cidr-meta-chip__val--ok";
           }
         }
       } else {
         cidrTotalEl.textContent = "нет данных БД";
-        cidrTotalEl.className = "cidr-meta-item__value";
+        cidrTotalEl.className = "cidr-meta-chip__val";
       }
+      updateCidrRouteLimitWarning();
     }
   };
 
@@ -716,6 +926,17 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    if (meta.limit_enforced === false) {
+      const original = Number(meta.original_total_cidr_count || 0);
+      updateDpiMiniReport({
+        limitValue: Number(meta.limit || fallbackLimit || 0),
+        clippedByLimit: 0,
+        originalTotal: Number.isFinite(original) ? original : 0,
+        compressedTotal: Number.isFinite(original) ? original : 0,
+      });
+      return;
+    }
+
     const original = Number(meta.original_total_cidr_count || 0);
     const compressed = Number(meta.compressed_total_cidr_count || 0);
     const limit = Number(meta.limit || 0);
@@ -732,6 +953,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const buildRouteLimitWarning = (result) => {
     const meta = result?.global_route_optimization;
     if (!meta || typeof meta !== "object") return "";
+
+    if (meta.limit_enforced === false) {
+      return "";
+    }
 
     const droppedMandatory = Array.isArray(meta?.dpi_mandatory?.dropped_mandatory_files)
       ? meta.dpi_mandatory.dropped_mandatory_files
@@ -1015,8 +1240,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (payload.config_include_ips_routes && window.AntiZapretGameFilters?.renderConfigRouteBudget) {
       window.AntiZapretGameFilters.renderConfigRouteBudget(payload.config_include_ips_routes);
     }
-    if (payload.game_filter_route_limit_settings && window.AntiZapretGameFilters?.renderRouteLimitSettings) {
-      window.AntiZapretGameFilters.renderRouteLimitSettings(
+    if (payload.game_filter_route_limit_settings) {
+      renderRouteLimitOverrideSettings(
         payload.game_filter_route_limit_settings,
         payload.config_include_ips_routes || {},
       );
@@ -1285,6 +1510,11 @@ document.addEventListener("DOMContentLoaded", function () {
   const initCidrUpdateControls = () => {
     const section = document.getElementById("cidr-update");
     if (!section) return;
+
+    setupRouteLimitOverrideControls({
+      onError: (message) => setCidrStatus(message, "error"),
+    });
+    updateCidrRouteLimitWarning();
 
     let regionsLoaded = false;
     let gameFiltersController = null;
@@ -1676,6 +1906,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         finishCidrProgress({ success: true, stageText: "Лимит сохранен" });
         setCidrStatus(result?.message || "Лимит CIDR сохранен", "success");
+        updateCidrRouteLimitWarning();
+        renderCidrMeta();
         scheduleCidrEstimateRefresh(50);
       } catch (error) {
         finishCidrProgress({ success: false, stageText: "Ошибка сохранения лимита" });

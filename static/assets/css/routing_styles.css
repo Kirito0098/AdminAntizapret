@@ -1042,34 +1042,93 @@
 #game-filters .game-filters-intro__limit-toggles {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.55rem;
   margin-top: 0.85rem;
   padding-top: 0.85rem;
   border-top: 1px solid rgba(85, 119, 133, 0.25);
 }
 
-#game-filters .game-filters-intro__toggle {
-  display: flex;
+.route-limit-toggle-row.toggle-wrapper--switch-left {
   align-items: flex-start;
-  gap: 0.55rem;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.route-limit-toggle-row .toggle-switch {
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+}
+
+.route-limit-toggle-row__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.route-limit-toggle-row__title {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #d6e8ef;
+}
+
+.route-limit-toggle-row__desc {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.42;
+  color: #8fa8b3;
+}
+
+.route-limit-toggle-row--risk .route-limit-toggle-row__title {
+  color: #ffccbc;
+}
+
+.route-limit-toggle-row--risk .route-limit-toggle-row__desc {
+  color: #e0a898;
+}
+
+.route-limit-toggle-card {
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid rgba(85, 119, 133, 0.28);
+  background: rgba(10, 20, 26, 0.55);
+}
+
+.route-limit-toggle-card--risk {
+  border-color: rgba(255, 183, 77, 0.22);
+  background: linear-gradient(135deg, rgba(42, 28, 20, 0.45), rgba(24, 18, 16, 0.5));
+}
+
+.route-limit-toggle-row__text {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 0.82rem;
   line-height: 1.45;
   color: #b8d0da;
-  cursor: pointer;
 }
 
-#game-filters .game-filters-intro__toggle input {
-  margin-top: 0.2rem;
-  flex: 0 0 auto;
-}
-
-#game-filters .game-filters-intro__toggle--risk {
+.route-limit-toggle-row--risk .route-limit-toggle-row__text {
   color: #ffccbc;
 }
 
 #game-filters .game-filters-intro__toggle-hint {
   margin: 0;
+  padding-left: calc(52px + 0.75rem);
   font-size: 0.78rem;
+  line-height: 1.4;
+  color: #ffab91;
+}
+
+#cidr-update .cidr-route-limit-panel__hint {
+  margin: 0.15rem 0 0;
+  padding-left: calc(52px + 0.75rem);
+  font-size: 0.78rem;
+  line-height: 1.4;
   color: #ffab91;
 }
 
@@ -1088,6 +1147,169 @@
 }
 
 #game-filters .game-filters-stat.is-limit-disabled .game-filters-stat__value {
+  color: #ffb74d;
+}
+
+#cidr-update .cidr-route-limit-panel {
+  margin-top: 1rem;
+  padding: 1rem 1.05rem;
+  border-radius: 12px;
+  border: 1px solid rgba(85, 119, 133, 0.35);
+  background: linear-gradient(160deg, rgba(20, 36, 44, 0.72), rgba(14, 26, 32, 0.82));
+}
+
+#cidr-update .cidr-route-limit-panel.is-limit-disabled {
+  border-color: rgba(255, 183, 77, 0.35);
+  background: linear-gradient(160deg, rgba(36, 28, 16, 0.55), rgba(20, 18, 14, 0.75));
+}
+
+#cidr-update .cidr-route-limit-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+#cidr-update .cidr-route-limit-panel__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e3f0f5;
+}
+
+#cidr-update .cidr-route-limit-panel__badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.28rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(129, 199, 132, 0.35);
+  color: #a5d6a7;
+  background: rgba(20, 40, 28, 0.55);
+  letter-spacing: 0.01em;
+}
+
+#cidr-update .cidr-route-limit-panel.is-limit-disabled .cidr-route-limit-panel__badge {
+  color: #ffb74d;
+  border-color: rgba(255, 183, 77, 0.45);
+  background: rgba(48, 36, 16, 0.55);
+}
+
+#cidr-update .cidr-route-limit-panel__lead {
+  margin: 0 0 0.9rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #9eb4bf;
+}
+
+#cidr-update .cidr-route-limit-panel__value-box {
+  margin: 0 0 0.9rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(85, 119, 133, 0.28);
+  background: rgba(8, 16, 20, 0.45);
+}
+
+#cidr-update .cidr-route-limit-panel__value-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #b8d0da;
+}
+
+#cidr-update .cidr-route-limit-panel__limit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.55rem;
+}
+
+#cidr-update .cidr-route-limit-panel__limit-input {
+  width: 5.5rem;
+  max-width: 5.5rem;
+  min-height: 36px;
+  flex: 0 0 auto;
+  text-align: center;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+#cidr-update .cidr-route-limit-panel__save-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto !important;
+  max-width: max-content;
+  min-height: 36px;
+  height: 36px;
+  min-width: 0;
+  padding: 0 0.85rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid rgba(126, 220, 184, 0.45);
+  background: linear-gradient(140deg, rgba(61, 125, 152, 0.95), rgba(47, 108, 133, 0.95));
+  color: #f7fffb;
+}
+
+#cidr-update .cidr-route-limit-panel__save-btn:hover {
+  filter: brightness(1.06);
+}
+
+#cidr-update .cidr-route-limit-panel__value-hint {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: #7d959f;
+}
+
+#cidr-update .cidr-route-limit-panel__override {
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(85, 119, 133, 0.22);
+}
+
+#cidr-update .cidr-route-limit-panel__override-title {
+  display: block;
+  margin-bottom: 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7a939e;
+}
+
+#cidr-update .cidr-route-limit-panel__warn {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+#cidr-update .cidr-route-limit-panel__warn.is-over {
+  color: #ffccbc;
+  border: 1px solid rgba(255, 138, 101, 0.35);
+  background: rgba(48, 28, 24, 0.55);
+}
+
+#cidr-update .cidr-route-limit-panel__warn.is-info {
+  color: #ffe082;
+  border: 1px solid rgba(255, 183, 77, 0.35);
+  background: rgba(48, 36, 16, 0.55);
+}
+
+#cidr-update .cidr-route-limit-panel__toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+#cidr-update .cidr-meta-chip__val--override {
   color: #ffb74d;
 }
 

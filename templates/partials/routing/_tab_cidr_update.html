@@ -281,6 +281,93 @@
       </div>
     </div>
 
+    <div class="cidr-route-limit-panel{% if not game_filter_route_limit_settings.route_limit_enforced %} is-limit-disabled{% endif %}" id="cidr-route-limit-panel">
+      <div class="cidr-route-limit-panel__head">
+        <span class="cidr-route-limit-panel__title">Лимит OpenVPN / iOS</span>
+        <span class="cidr-route-limit-panel__badge" id="cidr-route-limit-badge">
+          {% if game_filter_route_limit_settings.route_limit_enforced %}
+            {{ cidr_total_limit }} / {{ config_include_ips_routes.limit }} маршрутов
+          {% else %}
+            лимит отключён
+          {% endif %}
+        </span>
+      </div>
+      <p class="cidr-route-limit-panel__lead">
+        При генерации IP-списков суммарное число CIDR сжимается до лимита (по умолчанию 900 для iOS и Android).
+        Счётчик «CIDR» выше — оценка по выбранным провайдерам в БД.
+      </p>
+
+      <div class="cidr-route-limit-panel__value-box">
+        <label class="cidr-route-limit-panel__value-label" for="cidr-total-limit-input">
+          Лимит CIDR (макс. 900)
+        </label>
+        <div class="cidr-route-limit-panel__limit-controls">
+          <input
+            id="cidr-total-limit-input"
+            type="number"
+            min="1"
+            max="900"
+            step="1"
+            class="form-control cidr-route-limit-panel__limit-input"
+            value="{{ cidr_total_limit }}"
+            aria-describedby="cidr-route-limit-value-hint"
+          />
+          <button id="cidr-save-total-limit" type="button" class="button cidr-route-limit-panel__save-btn">Сохранить</button>
+        </div>
+        <small class="cidr-route-limit-panel__value-hint" id="cidr-route-limit-value-hint">
+          Применяется при генерации из БД и обновлении из интернета.
+        </small>
+      </div>
+
+      <p class="cidr-route-limit-panel__warn" id="cidr-route-limit-warning" hidden></p>
+
+      <div class="cidr-route-limit-panel__override">
+        <span class="cidr-route-limit-panel__override-title">Переопределение лимита</span>
+        <div class="cidr-route-limit-panel__toggles">
+          <div class="route-limit-toggle-card">
+            <label class="route-limit-toggle-row toggle-wrapper toggle-wrapper--switch-left" for="cidr-update-disable-route-limit">
+              <div class="toggle-switch">
+                <input
+                  type="checkbox"
+                  class="toggle-input route-limit-disable-input"
+                  id="cidr-update-disable-route-limit"
+                  {% if game_filter_route_limit_settings.disable_route_limit %}checked{% endif %}
+                />
+                <span class="toggle-slider"></span>
+              </div>
+              <span class="route-limit-toggle-row__content">
+                <span class="route-limit-toggle-row__title">Отключить лимит 900 маршрутов</span>
+                <span class="route-limit-toggle-row__desc">Без сжатия при генерации IP-списков и в игровых фильтрах.</span>
+              </span>
+            </label>
+          </div>
+          <div class="route-limit-toggle-card route-limit-toggle-card--risk">
+            <label class="route-limit-toggle-row route-limit-toggle-row--risk toggle-wrapper toggle-wrapper--switch-left" for="cidr-update-route-limit-risk-ack">
+              <div class="toggle-switch">
+                <input
+                  type="checkbox"
+                  class="toggle-input route-limit-risk-ack-input"
+                  id="cidr-update-route-limit-risk-ack"
+                  {% if game_filter_route_limit_settings.route_limit_risk_ack %}checked{% endif %}
+                />
+                <span class="toggle-slider"></span>
+              </div>
+              <span class="route-limit-toggle-row__content">
+                <span class="route-limit-toggle-row__title">Принимаю риски превышения лимита</span>
+                <span class="route-limit-toggle-row__desc">
+                  OpenVPN, iOS и Android: нестабильность клиентов, неполное покрытие провайдеров, отказ подключения.
+                  Ответственность за последствия беру на себя.
+                </span>
+              </span>
+            </label>
+          </div>
+          <p class="cidr-route-limit-panel__hint route-limit-hint" id="cidr-route-limit-hint" hidden>
+            Чтобы отключить лимит, сначала подтвердите принятие рисков.
+          </p>
+        </div>
+      </div>
+    </div>
+
     <input type="hidden" id="cidr-csrf-token" value="{{ csrf_token() }}" />
 
     <div class="cidr-control-grid">
@@ -502,28 +589,6 @@
           </div>
         </div>
 
-        <!-- Лимит iOS -->
-        <details class="cidr-advanced-details settings-inline-card-mt">
-          <summary class="cidr-advanced-summary">
-            <svg class="cidr-advanced-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none"
-              aria-hidden="true">
-              <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                stroke-linejoin="round" />
-            </svg>
-            Дополнительные параметры
-          </summary>
-          <div class="cidr-advanced-body">
-            <div class="form-group">
-              <label for="cidr-total-limit-input">Лимит CIDR на iOS (максимум 900)</label>
-              <div class="cidr-actions-row" style="margin-top:.4rem">
-                <input id="cidr-total-limit-input" type="number" min="1" max="900" step="1" class="form-control"
-                  value="{{ cidr_total_limit }}" style="max-width:120px" />
-                <button id="cidr-save-total-limit" type="button" class="button">Сохранить</button>
-              </div>
-            </div>
-
-          </div>
-        </details>
       </section>
     </div>
 

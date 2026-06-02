@@ -1427,6 +1427,21 @@ class CidrListUpdaterTests(unittest.TestCase):
         self.assertFalse(meta.get("compression_applied"))
         self.assertFalse(meta.get("limit_enforced"))
 
+    def test_apply_total_route_limit_skips_when_limit_disabled(self):
+        entries = [
+            {"file": "cloudflare.txt", "cidrs": ["10.0.0.0/24", "10.0.1.0/24"]},
+            {"file": "google.txt", "cidrs": ["10.0.2.0/24", "10.0.3.0/24"]},
+        ]
+        with patch(
+            "core.services.cidr.games.is_game_filter_config_route_limit_enforced",
+            return_value=False,
+        ):
+            adjusted, meta = cidr_list_updater._apply_total_route_limit(entries, 2)
+        self.assertEqual(len(adjusted[0]["cidrs"]), 2)
+        self.assertEqual(len(adjusted[1]["cidrs"]), 2)
+        self.assertFalse(meta.get("limit_enforced"))
+        self.assertEqual(meta.get("compressed_total_cidr_count"), 4)
+
     def test_get_game_filter_route_limit_settings_requires_both_flags(self):
         with patch.dict(os.environ, {}, clear=True):
             settings = cidr_list_updater.get_game_filter_route_limit_settings()
