@@ -25,7 +25,7 @@ def register_server_monitor_routes(
         return collect_interface_groups()
 
     @app.route("/server_monitor", methods=["GET"])
-    @auth_manager.login_required
+    @auth_manager.admin_required
     def server_monitor():
         return render_template(
             "server_monitor.html",
@@ -33,7 +33,7 @@ def register_server_monitor_routes(
         )
 
     @app.route("/api/bw")
-    @auth_manager.login_required
+    @auth_manager.admin_required
     def api_bw():
         iface = resolve_bw_iface(
             request.args.get("iface"),
@@ -46,7 +46,7 @@ def register_server_monitor_routes(
         return jsonify(payload), status
 
     @app.route("/api/system-info")
-    @auth_manager.login_required
+    @auth_manager.admin_required
     def api_system_info():
         try:
             accurate = request.args.get("accurate") in ("1", "true", "yes")
@@ -65,6 +65,10 @@ def register_server_monitor_routes(
         try:
             if "username" not in session:
                 ws.close(code=1008, message="Unauthorized")
+                return
+
+            if not auth_manager.is_current_user_admin():
+                ws.close(code=1008, message="Forbidden")
                 return
 
             while True:

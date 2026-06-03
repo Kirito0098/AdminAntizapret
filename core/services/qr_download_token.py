@@ -1,7 +1,7 @@
 import hashlib
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import request, session, url_for
 
@@ -52,7 +52,7 @@ class QrDownloadTokenService:
         pin_raw = (get_env_value("QR_DOWNLOAD_PIN", "") or "").strip()
         pin_hash = hashlib.sha256(pin_raw.encode("utf-8")).hexdigest() if pin_raw else None
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         token = secrets.token_urlsafe(24)
         token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
 

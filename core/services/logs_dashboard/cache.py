@@ -1,5 +1,7 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
+
+from core.services.time_utils import as_utc
 
 
 class LogsDashboardCacheService:
@@ -31,7 +33,7 @@ class LogsDashboardCacheService:
             row = self.logs_dashboard_cache_model(cache_key="main")
 
         row.payload_json = json.dumps(payload, ensure_ascii=False)
-        row.generated_at = datetime.utcnow()
+        row.generated_at = datetime.now(timezone.utc)
         row.last_error = (last_error or "").strip()[:255] or None
         self.db.session.add(row)
         self.db.session.commit()
@@ -172,10 +174,10 @@ class LogsDashboardCacheService:
 
     def get_logs_dashboard_data_cached(self, created_by_username=None):
         payload, row = self.load_logs_dashboard_cache_payload()
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if payload is not None and row is not None and row.generated_at is not None:
-            age_seconds = max(int((now - row.generated_at).total_seconds()), 0)
+            age_seconds = max(int((now - as_utc(row.generated_at)).total_seconds()), 0)
             is_stale = age_seconds > self.logs_dashboard_cache_ttl_seconds
             refresh_task = self.get_logs_dashboard_refresh_task()
 

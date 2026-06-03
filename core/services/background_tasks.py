@@ -1,7 +1,7 @@
 import os
 import secrets
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
 from flask import jsonify, url_for
@@ -64,7 +64,7 @@ class BackgroundTaskService:
         self.update_background_task(
             task_id,
             status="running",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             message="Задача выполняется",
         )
 
@@ -74,7 +74,7 @@ class BackgroundTaskService:
             self.update_background_task(
                 task_id,
                 status="completed",
-                finished_at=datetime.utcnow(),
+                finished_at=datetime.now(timezone.utc),
                 message=(result.get("message") or "Задача выполнена")[:255],
                 output=self.trim_background_task_text(result.get("output", "")),
                 error=None,
@@ -84,12 +84,16 @@ class BackgroundTaskService:
             try:
                 with self.app.app_context():
                     self.db.session.rollback()
-            except Exception:
-                pass
+            except Exception as rollback_exc:
+                self.app.logger.warning(
+                    "Откат сессии после ошибки фоновой задачи %s не удался: %s",
+                    task_id,
+                    rollback_exc,
+                )
             self.update_background_task(
                 task_id,
                 status="failed",
-                finished_at=datetime.utcnow(),
+                finished_at=datetime.now(timezone.utc),
                 message="Задача завершилась с ошибкой",
                 error=self.trim_background_task_text(str(e)),
             )

@@ -40,6 +40,18 @@ except ImportError:
 #Импорт файла с параметрами
 from utils.ip_restriction import ip_restriction
 from config.antizapret_params import ANTIZAPRET_PARAMS
+from config.app_paths import (
+    CLIENT_CONNECT_BAN_CHECK_BLOCK,
+    CLIENT_NAME_PATTERN,
+    CONFIG_PATHS,
+    GROUP_FOLDERS,
+    MAX_CERT_EXPIRE,
+    MIN_CERT_EXPIRE,
+    OPENVPN_BANNED_CLIENTS_FILE,
+    OPENVPN_CLIENT_CONNECT_SCRIPT,
+    OPENVPN_FOLDERS,
+    RESULT_DIR_FILES,
+)
 from ips import ip_manager
 from routes.route_wiring import register_all_routes
 from core.models import (
@@ -103,11 +115,12 @@ from core.services import (
     register_current_user_context_processor,
 )
 from utils.wg_awg_runtime_enforcer import WgAwgRuntimeEnforcer
-from core.services.session_security import build_session_security_config
+from core.bootstrap import create_app, _get_client_ip
 from core.services.http_security import (
     apply_security_headers,
     build_robots_txt,
     build_security_txt,
+    get_csp_nonce,
     get_panel_branding,
 )
 
@@ -126,38 +139,10 @@ load_dotenv(dotenv_path=ENV_FILE_PATH)
 
 port = int(os.getenv("APP_PORT", "5050"))
 
-app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY")
-if not app.secret_key:
-    raise ValueError("SECRET_KEY is not set in .env!")
-app.config.update(build_session_security_config(os.environ))
-
-csrf = CSRFProtect(app)
-sock = Sock(app)
-ip_restriction.init_app(app)
-def _rate_limit_key_func():
-    forwarded_for = (request.headers.get("X-Forwarded-For", "") or "").split(",", 1)[0].strip()
-    if forwarded_for:
-        return forwarded_for
-    return request.remote_addr or "127.0.0.1"
-
-
-limiter = None
-if Limiter is not None:
-    limiter = Limiter(
-        key_func=_rate_limit_key_func,
-        app=app,
-        default_limits=[],
-        storage_uri="memory://",
-    )
-
-#   hostname/public_download/
-RESULT_DIR_FILES = {
-    "keenetic": "keenetic-wireguard-routes.txt",
-    "mikrotik": "mikrotik-wireguard-routes.txt",
-    "ips": "route-ips.txt",
-    "tplink": "tp-link-openvpn-routes.txt"
-}
+# Application factory: создание Flask-приложения и инициализация расширений
+# (SQLAlchemy, CSRF, WebSocket, rate limiter, WAL-режим SQLite) вынесены в
+# core/bootstrap.py. Объект `app` остаётся атрибутом модуля для Gunicorn (app:app).
+app, sock, csrf, limiter = create_app()
 
 _runtime_state_lock = RLock()
 _runtime_state = {
@@ -228,50 +213,6 @@ def _is_valid_cron_expression(expr):
     token_pattern = re.compile(r"^[0-9*/,\-]+$")
     return all(token_pattern.fullmatch(part or "") for part in parts)
 
-OPENVPN_FOLDERS = [
-    "/root/antizapret/client/openvpn/antizapret",
-    "/root/antizapret/client/openvpn/antizapret-tcp",
-    "/root/antizapret/client/openvpn/antizapret-udp",
-    "/root/antizapret/client/openvpn/vpn",
-    "/root/antizapret/client/openvpn/vpn-tcp",
-    "/root/antizapret/client/openvpn/vpn-udp",
-]
-
-GROUP_FOLDERS = {
-    'GROUP_UDP\\TCP': [OPENVPN_FOLDERS[0], OPENVPN_FOLDERS[3]],  # UDP AND tcp
-    'GROUP_UDP':  [OPENVPN_FOLDERS[2], OPENVPN_FOLDERS[5]],  # UDP only
-    'GROUP_TCP':  [OPENVPN_FOLDERS[1], OPENVPN_FOLDERS[4]],  # TCP only
-}
-
-CONFIG_PATHS = {
-    "openvpn": GROUP_FOLDERS["GROUP_UDP\\TCP"],
-    "wg": [
-        "/root/antizapret/client/wireguard/antizapret",
-        "/root/antizapret/client/wireguard/vpn",
-    ],
-    "amneziawg": [
-        "/root/antizapret/client/amneziawg/antizapret",
-        "/root/antizapret/client/amneziawg/vpn",
-    ],
-    "antizapret_result": [
-        "/root/antizapret/result"
-    ],
-}
-
-OPENVPN_BANNED_CLIENTS_FILE = "/etc/openvpn/server/banned_clients"
-OPENVPN_CLIENT_CONNECT_SCRIPT = "/etc/openvpn/server/scripts/client-connect.sh"
-CLIENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
-
-CLIENT_CONNECT_BAN_CHECK_BLOCK = (
-    "BANNED=\"/etc/openvpn/server/banned_clients\"\n\n"
-    "if [ -f \"$BANNED\" ]; then\n"
-    "    if grep -q \"^$common_name$\" \"$BANNED\"; then\n"
-    "        echo \"Client $common_name banned\" >&2\n"
-    "        exit 1\n"
-    "    fi\n"
-    "fi\n"
-)
-
 openvpn_banlist_service = OpenVPNBanlistService(
     banned_clients_file=OPENVPN_BANNED_CLIENTS_FILE,
     client_connect_script=OPENVPN_CLIENT_CONNECT_SCRIPT,
@@ -313,31 +254,6 @@ def build_conf_access_groups(conf_paths, config_type):
 
 def collect_all_configs_for_access(config_type):
     return config_access_service.collect_all_configs_for_access(config_type)
-
-MIN_CERT_EXPIRE = 1
-MAX_CERT_EXPIRE = 3650
-
-# Настройка БД
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "connect_args": {"timeout": 30},
-}
-db.init_app(app)
-
-# Включаем WAL-режим SQLite — позволяет читать БД во время длинных write-транзакций
-from sqlalchemy import event as _sa_event
-from sqlalchemy.engine import Engine as _SAEngine
-import sqlite3 as _sqlite3
-
-@_sa_event.listens_for(_SAEngine, "connect")
-def _set_sqlite_wal(dbapi_conn, _conn_record):
-    if isinstance(dbapi_conn, _sqlite3.Connection):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA busy_timeout=30000")
-        cursor.close()
-
 
 # Инициализация классов
 script_executor = ScriptExecutor(
@@ -646,6 +562,13 @@ register_current_user_context_processor(app, session, User)
 @app.context_processor
 def _inject_panel_branding():
     return get_panel_branding(os.environ)
+
+
+@app.context_processor
+def _inject_csp_nonce():
+    # Прокидываем per-request CSP nonce в шаблоны (атрибут nonce="..." на inline
+    # <script>). Тот же nonce попадает в заголовок Content-Security-Policy.
+    return {"csp_nonce": get_csp_nonce()}
 
 
 @app.after_request
@@ -1250,24 +1173,24 @@ if not _SKIP_APP_BOOTSTRAP:
     try:
         with app.app_context():
             _openvpn_reconcile_all_policies()
-    except Exception as e:
+    except Exception:
         try:
             with app.app_context():
                 db.session.rollback()
-        except Exception:
-            pass
-        app.logger.warning(f"Не удалось применить OpenVPN политики при запуске: {e}")
+        except Exception as rollback_exc:
+            app.logger.warning("Откат сессии после ошибки OpenVPN-политик не удался: %s", rollback_exc)
+        app.logger.exception("Не удалось применить OpenVPN политики при запуске")
 
     try:
         with app.app_context():
             _wg_reconcile_all_policies(apply_runtime=True)
-    except Exception as e:
+    except Exception:
         try:
             with app.app_context():
                 db.session.rollback()
-        except Exception:
-            pass
-        app.logger.warning(f"Не удалось применить WG/AWG политики при запуске: {e}")
+        except Exception as rollback_exc:
+            app.logger.warning("Откат сессии после ошибки WG/AWG-политик не удался: %s", rollback_exc)
+        app.logger.exception("Не удалось применить WG/AWG политики при запуске")
 
 
 def _is_wireguard_peer_active(latest_handshake_ts):

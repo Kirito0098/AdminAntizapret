@@ -1,4 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+from core.services.time_utils import as_utc
 
 from sqlalchemy import case
 
@@ -71,7 +73,7 @@ class TrafficPersistenceService:
 
     def persist_traffic_snapshot(self, status_rows, retry_on_integrity=True):
         """Сохраняет дельту трафика из текущего снимка *-status.log в БД."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         sessions_by_key = {
             row.session_key: row
@@ -213,7 +215,7 @@ class TrafficPersistenceService:
         return "WireGuard" if normalized == "wireguard" else "OpenVPN"
 
     def ensure_protocol_traffic_stats_backfilled(self, now=None):
-        now = now or datetime.utcnow()
+        now = now or datetime.now(timezone.utc)
         sample_total_expr = self.user_traffic_sample_model.delta_received + self.user_traffic_sample_model.delta_sent
         protocol_total_expr = self.user_traffic_stat_protocol_model.total_received + self.user_traffic_stat_protocol_model.total_sent
 
@@ -255,7 +257,7 @@ class TrafficPersistenceService:
             self.app.logger.warning("Не удалось выполнить авто-бэкфилл user_traffic_stat_protocol: %s", exc)
 
         users = self.user_traffic_stat_protocol_model.query.all()
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         active_names = set(active_names or set())
         active_protocol_identities = {
             ((name or "").strip(), self.normalize_traffic_protocol_type(protocol, fallback="openvpn"))
@@ -419,7 +421,7 @@ class TrafficPersistenceService:
         db_age_seconds = None
         if latest_db_dt:
             try:
-                db_age_seconds = max(int((now - latest_db_dt).total_seconds()), 0)
+                db_age_seconds = max(int((now - as_utc(latest_db_dt)).total_seconds()), 0)
             except Exception:
                 db_age_seconds = None
 

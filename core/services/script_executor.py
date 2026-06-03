@@ -1,4 +1,3 @@
-import shlex
 import subprocess
 
 
@@ -11,8 +10,9 @@ class ScriptExecutor:
         if not option.isdigit():
             raise ValueError("Некорректный параметр option")
 
-        safe_client_name = shlex.quote(client_name)
-        command = ["./client.sh", option, safe_client_name]
+        # argv-list передаётся в subprocess с shell=False, поэтому shlex.quote()
+        # здесь не нужен — кавычки стали бы частью самого аргумента.
+        command = ["./client.sh", option, client_name]
 
         if cert_expire and str(option) == "1":
             if not cert_expire.isdigit() or not (

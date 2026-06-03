@@ -1,4 +1,7 @@
+import re
 import subprocess
+import threading
+import time
 
 from flask import jsonify, render_template, request, session, url_for
 
@@ -12,6 +15,27 @@ from core.services.wg_access_policy import EXPIRED_REQUIRES_EXTEND_CODE, Expired
 from core.services.request_user import get_current_user
 from utils.wg_runtime_subprocess import trigger_wg_policy_sync_background
 from tg_mini.session import has_telegram_mini_session
+
+
+# Полная синхронизация политик на каждый GET / создаёт лишнюю нагрузку и
+# гонки при частых запросах. На read-path выполняем reconcile не чаще, чем
+# раз в INDEX_RECONCILE_TTL_SECONDS. Мутирующие операции (POST) синхронизируют
+# политики напрямую и этим TTL не ограничены.
+INDEX_RECONCILE_TTL_SECONDS = 45
+
+_index_reconcile_lock = threading.Lock()
+_index_reconcile_last_ts = 0.0
+
+
+def _should_run_index_reconcile():
+    """Debounce для read-path reconcile. Возвращает True не чаще TTL."""
+    global _index_reconcile_last_ts
+    now = time.monotonic()
+    with _index_reconcile_lock:
+        if now - _index_reconcile_last_ts < INDEX_RECONCILE_TTL_SECONDS:
+            return False
+        _index_reconcile_last_ts = now
+        return True
 
 
 def register_index_routes(
@@ -41,7 +65,13 @@ def register_index_routes(
     log_telegram_audit_event,
     log_user_action_event,
     send_tg_admin_notification=None,
+    client_name_pattern=None,
 ):
+    # Имя клиента передаётся в client.sh и в WG/AWG политики — валидируем его
+    # тем же паттерном, что и остальные роуты (см. config_routes).
+    if client_name_pattern is None:
+        client_name_pattern = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
     def _has_telegram_mini_session() -> bool:
         return has_telegram_mini_session(session)
 
@@ -83,17 +113,21 @@ def register_index_routes(
     def index():
         if request.method == "GET":
             idx_user = get_current_user(user_model)
-            try:
-                openvpn_reconcile_all_policies()
-            except Exception as e:
-                db.session.rollback()
-                app.logger.warning("Не удалось синхронизировать OpenVPN политики при загрузке index: %s", e)
-            try:
-                wg_reconcile_all_policies(apply_runtime=False)
-                trigger_wg_policy_sync_background()
-            except Exception as e:
-                db.session.rollback()
-                app.logger.warning("Не удалось синхронизировать WG/AWG политики при загрузке index: %s", e)
+            # Тяжёлый reconcile выполняем с TTL-debounce, чтобы частые GET /
+            # не создавали лишнюю нагрузку и гонки. Корректность не страдает:
+            # мутирующие POST-операции синхронизируют политики напрямую.
+            if _should_run_index_reconcile():
+                try:
+                    openvpn_reconcile_all_policies()
+                except Exception as e:
+                    db.session.rollback()
+                    app.logger.warning("Не удалось синхронизировать OpenVPN политики при загрузке index: %s", e)
+                try:
+                    wg_reconcile_all_policies(apply_runtime=False)
+                    trigger_wg_policy_sync_background()
+                except Exception as e:
+                    db.session.rollback()
+                    app.logger.warning("Не удалось синхронизировать WG/AWG политики при загрузке index: %s", e)
             context = build_index_get_context(
                 session=session,
                 group_folders=group_folders,
@@ -122,6 +156,17 @@ def register_index_routes(
                         {
                             "success": False,
                             "message": "Не указаны обязательные параметры.",
+                        }
+                    ),
+                    400,
+                )
+
+            if not client_name_pattern.fullmatch(client_name):
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": "Некорректное имя клиента.",
                         }
                     ),
                     400,
@@ -218,6 +263,7 @@ def register_index_routes(
                 500,
             )
         except Exception as e:
+            app.logger.exception("Ошибка обработки POST / (option=%s)", request.form.get("option"))
             return jsonify({"success": False, "message": f"Ошибка: {str(e)}"}), 500
 
     @app.route("/api/wg/client-access", methods=["POST"])
@@ -230,6 +276,9 @@ def register_index_routes(
 
         if not client_name:
             return jsonify({"success": False, "message": "Не указано имя клиента."}), 400
+
+        if not client_name_pattern.fullmatch(client_name):
+            return jsonify({"success": False, "message": "Некорректное имя клиента."}), 400
 
         try:
             if action == "temp_block":

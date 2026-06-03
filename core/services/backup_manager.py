@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import tarfile
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
@@ -406,17 +407,64 @@ class BackupManagerService:
             ),
         }
 
+    def _validate_archive_member(self, member):
+        """Отклоняем потенциально опасные member'ы до распаковки.
+
+        Запрещаем symlink/hardlink, device/char/fifo-файлы, абсолютные пути
+        и пути с '..' — чтобы распаковка не могла выйти за staging или
+        перезаписать произвольные файлы через ссылки.
+        """
+        member_name = member.name or ""
+        if not member_name:
+            raise RuntimeError("Бэкап содержит member без имени")
+        if member.issym() or member.islnk():
+            raise RuntimeError("Бэкап содержит ссылки (symlink/hardlink) — отклонено")
+        if member.isdev() or member.ischr() or member.isblk() or member.isfifo():
+            raise RuntimeError("Бэкап содержит device/fifo-файлы — отклонено")
+        if member_name.startswith("/") or ".." in Path(member_name).parts:
+            raise RuntimeError("Бэкап содержит недопустимые пути")
+        # Дополнительная защита: имя не должно резолвиться за пределы корня.
+        target_path = os.path.abspath(os.path.join("/", member_name))
+        if os.path.commonpath([target_path, "/"]) != "/":
+            raise RuntimeError("Бэкап содержит путь вне корня")
+        return target_path
+
     def _safe_extract_archive_to_root(self, archive_path):
-        with tarfile.open(archive_path, "r:gz") as tar:
-            members = tar.getmembers()
-            for member in members:
-                member_name = member.name or ""
-                if member_name.startswith("/") or ".." in Path(member_name).parts:
-                    raise RuntimeError("Бэкап содержит недопустимые пути")
-                target_path = os.path.abspath(os.path.join("/", member_name))
-                if os.path.commonpath([target_path, "/"]) != "/":
-                    raise RuntimeError("Бэкап содержит путь вне корня")
-            tar.extractall(path="/")
+        """Безопасное восстановление: распаковка в staging, затем копирование.
+
+        Вместо tar.extractall(path="/") сначала проверяем все member'ы,
+        распаковываем только обычные файлы/каталоги во временный staging,
+        а затем контролируемо копируем их на штатные места. Staging чистится
+        в finally.
+        """
+        staging_dir = tempfile.mkdtemp(prefix="az-restore-", dir="/var/tmp")
+        try:
+            with tarfile.open(archive_path, "r:gz") as tar:
+                safe_members = []
+                for member in tar.getmembers():
+                    self._validate_archive_member(member)
+                    if member.isfile() or member.isdir():
+                        safe_members.append(member)
+                    else:
+                        raise RuntimeError(
+                            f"Бэкап содержит неподдерживаемый тип записи: {member.name}"
+                        )
+                # Member'ы уже проверены вручную; дополнительно применяем
+                # стандартный фильтр 'data' (Python 3.12+) как defense-in-depth.
+                tar.extractall(path=staging_dir, members=safe_members, filter="data")
+
+                for member in safe_members:
+                    if not member.isfile():
+                        continue
+                    relative_name = member.name.lstrip("/")
+                    source_path = os.path.join(staging_dir, relative_name)
+                    target_path = os.path.abspath(os.path.join("/", relative_name))
+                    if os.path.commonpath([target_path, "/"]) != "/":
+                        raise RuntimeError("Бэкап содержит путь вне корня")
+                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                    shutil.copy2(source_path, target_path)
+        finally:
+            shutil.rmtree(staging_dir, ignore_errors=True)
 
     def _service_control(self, action, *, allow_failure):
         cmd = ["systemctl", action, self.service_name]

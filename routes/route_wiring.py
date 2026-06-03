@@ -61,6 +61,8 @@ def register_all_routes(app, sock, deps):
         set_public_download_enabled=g("_set_public_download_enabled"),
         log_telegram_audit_event=g("_log_telegram_audit_event"),
         log_user_action_event=g("_log_user_action_event"),
+        limiter=g("limiter"),
+        get_client_ip=g("_get_client_ip"),
     )
 
     register_edit_files_routes(
@@ -165,6 +167,7 @@ def register_all_routes(app, sock, deps):
         log_telegram_audit_event=g("_log_telegram_audit_event"),
         log_user_action_event=g("_log_user_action_event"),
         send_tg_admin_notification=g("_send_tg_admin_notification"),
+        client_name_pattern=g("CLIENT_NAME_PATTERN"),
     )
 
     register_server_monitor_routes(

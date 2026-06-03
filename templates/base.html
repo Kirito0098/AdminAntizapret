@@ -20,7 +20,7 @@
 <body
   class="{% if endpoint in ['index', 'edit_files', 'server_monitor', 'logs_dashboard', 'settings'] %}index-page-dark{% endif %}{% if endpoint == 'server_monitor' %} server-monitor-page{% endif %}{% if endpoint == 'settings' %} settings-nav-merged{% endif %}">
 
-  <script id="base-flash-messages" type="application/json">
+  <script id="base-flash-messages" type="application/json" nonce="{{ csp_nonce }}">
     {{ get_flashed_messages(with_categories=True) | tojson }}
   </script>
 
@@ -131,9 +131,10 @@
   </div>
 
   <script src="{{ url_for('static', filename='assets/js/notifications.js') }}"></script>
+  <script src="{{ url_for('static', filename='assets/js/csp_handlers.js') }}"></script>
   {% block scripts %}{% endblock %}
 
-  <script>
+  <script nonce="{{ csp_nonce }}">
     (function () {
       const nav = document.querySelector(".navigation");
       const toggle = nav && nav.querySelector(".nav-mobile-toggle");
@@ -196,7 +197,7 @@
     })();
   </script>
 
-  <script>
+  <script nonce="{{ csp_nonce }}">
     (function () {
       const flashPayload = document.getElementById("base-flash-messages");
       if (!flashPayload) {
@@ -238,7 +239,7 @@
   </script>
 
   {% if current_user %}
-  <script>
+  <script nonce="{{ csp_nonce }}">
     (function () {
       const heartbeatIntervalMs = 60000;
 

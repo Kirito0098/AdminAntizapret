@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 class PeerInfoCacheService:
@@ -20,7 +20,7 @@ class PeerInfoCacheService:
     def persist_peer_info_cache(self, event_rows):
         """Сохраняет версию/платформу клиентов в БД, чтобы UI мог брать данные из кэша."""
         best_rows = {}
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         for event in event_rows:
             profile = event.get("profile") or ""
@@ -125,7 +125,7 @@ class PeerInfoCacheService:
         if self.openvpn_peer_info_history_retention_seconds <= 0:
             return 0
 
-        cutoff = datetime.utcnow() - timedelta(seconds=self.openvpn_peer_info_history_retention_seconds)
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=self.openvpn_peer_info_history_retention_seconds)
         deleted = self.openvpn_peer_info_history_model.query.filter(
             self.openvpn_peer_info_history_model.observed_at < cutoff
         ).delete(synchronize_session=False)
@@ -135,7 +135,7 @@ class PeerInfoCacheService:
         """Возвращает map (profile, client_name, ip) -> последняя версия/платформа из БД."""
         query = self.openvpn_peer_info_cache_model.query
         if self.openvpn_peer_info_cache_ttl_seconds > 0 and not include_stale:
-            cutoff = datetime.utcnow() - timedelta(seconds=self.openvpn_peer_info_cache_ttl_seconds)
+            cutoff = datetime.now(timezone.utc) - timedelta(seconds=self.openvpn_peer_info_cache_ttl_seconds)
             query = query.filter(self.openvpn_peer_info_cache_model.last_seen_at >= cutoff)
 
         rows = query.order_by(self.openvpn_peer_info_cache_model.last_event_rank.desc()).all()
@@ -155,7 +155,7 @@ class PeerInfoCacheService:
         """Возвращает map (profile, client_name, ip) -> последнее значение из истории peer info."""
         query = self.openvpn_peer_info_history_model.query
         if self.openvpn_peer_info_history_retention_seconds > 0 and not include_stale:
-            cutoff = datetime.utcnow() - timedelta(seconds=self.openvpn_peer_info_history_retention_seconds)
+            cutoff = datetime.now(timezone.utc) - timedelta(seconds=self.openvpn_peer_info_history_retention_seconds)
             query = query.filter(self.openvpn_peer_info_history_model.observed_at >= cutoff)
 
         rows = query.order_by(

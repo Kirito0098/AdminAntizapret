@@ -1,5 +1,5 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js"></script>
-<script>
+<script nonce="{{ csp_nonce }}">
   window.__logsDashboardBootstrap = {
     openvpnLoggingEnabled: {{ (openvpn_logging_enabled | default(false)) | tojson }},
     groupedStatusRows: {{ (grouped_status_rows | default([])) | tojson }},

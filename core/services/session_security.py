@@ -93,7 +93,11 @@ def build_session_security_config(environ: Mapping[str, str]) -> dict[str, Any]:
         "REMEMBER_COOKIE_SECURE": session_cookie_secure,
         "REMEMBER_COOKIE_DURATION": timedelta(days=remember_me_days),
         "PERMANENT_SESSION_LIFETIME": timedelta(days=session_lifetime_days),
-        "SESSION_REFRESH_EACH_REQUEST": False,
+        # Продлеваем cookie постоянной (remember-me) сессии при активности:
+        # Flask пересылает её на каждый запрос, обновляя Max-Age (sliding
+        # expiration в пределах PERMANENT_SESSION_LIFETIME). На непостоянные
+        # (session.permanent=False) сессии не влияет. auth_sid не ротируется.
+        "SESSION_REFRESH_EACH_REQUEST": True,
         "REMEMBER_ME_DAYS": remember_me_days,
         "WTF_CSRF_SSL_STRICT": parse_bool_env(
             environ.get("WTF_CSRF_SSL_STRICT"),

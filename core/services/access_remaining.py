@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from core.services.time_utils import as_utc
+
 _EXPIRES_AT_FORMATS = (
     "%Y-%m-%d %H:%M:%S",
     "%Y-%m-%d %H:%M UTC",
@@ -31,8 +33,10 @@ def format_access_remaining(expires_at, *, now=None):
     if expires_dt is None:
         return None
 
-    now_dt = now or datetime.utcnow()
-    delta = expires_dt - now_dt
+    # now может прийти naive (как в тестах) — приводим оба операнда к aware UTC,
+    # чтобы вычитание не падало при смешении naive/aware datetime.
+    now_dt = as_utc(now) if now is not None else datetime.now(timezone.utc)
+    delta = as_utc(expires_dt) - now_dt
     total_seconds = int(delta.total_seconds())
     if total_seconds <= 0:
         return "срок истёк"

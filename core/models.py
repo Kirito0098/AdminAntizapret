@@ -1,10 +1,19 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
 db = SQLAlchemy()
+
+
+def _utcnow():
+    """Timezone-aware UTC now для колоночных default/onupdate.
+
+    Заменяет устаревший _utcnow. Значение пишется в naive-колонки
+    db.DateTime и читается обратно как naive UTC (tzinfo отбрасывается).
+    """
+    return datetime.now(timezone.utc)
 
 
 class User(db.Model):
@@ -49,7 +58,7 @@ class QrDownloadToken(db.Model):
     config_type = db.Column(db.String(20), nullable=False)
     config_name = db.Column(db.String(255), nullable=False)
     created_by_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
     expires_at = db.Column(db.DateTime, nullable=False, index=True)
     max_downloads = db.Column(db.Integer, nullable=False, default=1)
     download_count = db.Column(db.Integer, nullable=False, default=0)
@@ -68,7 +77,7 @@ class QrDownloadAuditLog(db.Model):
     remote_addr = db.Column(db.String(64), nullable=True)
     user_agent = db.Column(db.String(255), nullable=True)
     details = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
 
 
 class TelegramMiniAuditLog(db.Model):
@@ -83,7 +92,7 @@ class TelegramMiniAuditLog(db.Model):
     details = db.Column(db.String(255), nullable=True)
     remote_addr = db.Column(db.String(64), nullable=True)
     user_agent = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
 
 
 class UserActionLog(db.Model):
@@ -99,7 +108,7 @@ class UserActionLog(db.Model):
     details = db.Column(db.String(255), nullable=True)
     remote_addr = db.Column(db.String(64), nullable=True)
     user_agent = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
 
 
 class ViewerConfigAccess(db.Model):
@@ -126,9 +135,9 @@ class UserTrafficStat(db.Model):
     total_received_antizapret = db.Column(db.BigInteger, nullable=False, default=0)
     total_sent_antizapret = db.Column(db.BigInteger, nullable=False, default=0)
     total_sessions = db.Column(db.Integer, nullable=False, default=0)
-    first_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    first_seen_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
 
 class UserTrafficStatProtocol(db.Model):
@@ -144,9 +153,9 @@ class UserTrafficStatProtocol(db.Model):
     total_received_antizapret = db.Column(db.BigInteger, nullable=False, default=0)
     total_sent_antizapret = db.Column(db.BigInteger, nullable=False, default=0)
     total_sessions = db.Column(db.Integer, nullable=False, default=0)
-    first_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    first_seen_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
     __table_args__ = (
         db.UniqueConstraint(
@@ -170,7 +179,7 @@ class TrafficSessionState(db.Model):
     last_bytes_received = db.Column(db.BigInteger, nullable=False, default=0)
     last_bytes_sent = db.Column(db.BigInteger, nullable=False, default=0)
     is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
-    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
     ended_at = db.Column(db.DateTime, nullable=True)
 
 
@@ -183,7 +192,7 @@ class UserTrafficSample(db.Model):
     protocol_type = db.Column(db.String(20), nullable=False, default="openvpn", index=True)
     delta_received = db.Column(db.BigInteger, nullable=False, default=0)
     delta_sent = db.Column(db.BigInteger, nullable=False, default=0)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
 
     __table_args__ = (
         db.Index(
@@ -211,8 +220,8 @@ class OpenVPNPeerInfoCache(db.Model):
     version = db.Column(db.String(128), nullable=True)
     platform = db.Column(db.String(64), nullable=True)
     last_event_rank = db.Column(db.BigInteger, nullable=False, default=0, index=True)
-    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
     __table_args__ = (
         db.UniqueConstraint(
@@ -235,7 +244,7 @@ class OpenVPNPeerInfoHistory(db.Model):
     version = db.Column(db.String(128), nullable=True)
     platform = db.Column(db.String(64), nullable=True)
     event_rank = db.Column(db.BigInteger, nullable=False, default=0, index=True)
-    observed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    observed_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
 
     __table_args__ = (
         db.UniqueConstraint(
@@ -256,7 +265,7 @@ class WireGuardPeerCache(db.Model):
     peer_public_key = db.Column(db.String(128), nullable=False, index=True)
     client_name = db.Column(db.String(255), nullable=False, index=True)
     allowed_ips = db.Column(db.String(255), nullable=True)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
     __table_args__ = (
         db.UniqueConstraint(
@@ -280,7 +289,7 @@ class WgAccessPolicy(db.Model):
     block_until = db.Column(db.DateTime, nullable=True, index=True)
     expires_at = db.Column(db.DateTime, nullable=True, index=True)
     updated_by = db.Column(db.String(80), nullable=True)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
 
 class OpenVpnAccessPolicy(db.Model):
@@ -295,7 +304,7 @@ class OpenVpnAccessPolicy(db.Model):
     block_days = db.Column(db.Integer, nullable=True)
     block_until = db.Column(db.DateTime, nullable=True, index=True)
     updated_by = db.Column(db.String(80), nullable=True)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
 
 class ActiveWebSession(db.Model):
@@ -306,8 +315,8 @@ class ActiveWebSession(db.Model):
     username = db.Column(db.String(80), nullable=False, index=True)
     remote_addr = db.Column(db.String(64), nullable=True)
     user_agent = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
 
 
 class BackgroundTask(db.Model):
@@ -320,7 +329,7 @@ class BackgroundTask(db.Model):
     message = db.Column(db.String(255), nullable=True)
     output = db.Column(db.Text, nullable=True)
     error = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
     started_at = db.Column(db.DateTime, nullable=True)
     finished_at = db.Column(db.DateTime, nullable=True)
 
@@ -340,8 +349,8 @@ class LogsDashboardCache(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     cache_key = db.Column(db.String(32), unique=True, nullable=False, index=True)
     payload_json = db.Column(db.Text, nullable=True)
-    generated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    generated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
     last_error = db.Column(db.String(255), nullable=True)
 
 
@@ -353,7 +362,7 @@ class ProviderCidr(db.Model):
     cidr = db.Column(db.String(50), nullable=False)
     region_scope = db.Column(db.String(64), nullable=True, index=True)
     country_codes = db.Column(db.String(255), nullable=True)
-    refreshed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    refreshed_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
 
     __table_args__ = (
         db.UniqueConstraint("provider_key", "cidr", name="uq_provider_cidr_key_cidr"),
@@ -389,8 +398,8 @@ class ProviderAsn(db.Model):
     status = db.Column(db.String(16), nullable=False, default="ok")
     error = db.Column(db.String(512), nullable=True)
     prefix_count = db.Column(db.Integer, nullable=False, default=0)
-    discovered_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    last_seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    discovered_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    last_seen_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
 
     __table_args__ = (
         db.UniqueConstraint("provider_key", "asn", name="uq_provider_asn_key_asn"),
@@ -407,7 +416,7 @@ class ProviderAsnSnapshot(db.Model):
     asn = db.Column(db.Integer, nullable=False, index=True)
     status = db.Column(db.String(16), nullable=False, default="ok")
     prefix_count = db.Column(db.Integer, nullable=False, default=0)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
 
     __table_args__ = (
         db.UniqueConstraint("refresh_log_id", "provider_key", "asn", name="uq_provider_asn_snapshot"),
@@ -419,7 +428,7 @@ class CidrDbRefreshLog(db.Model):
     __tablename__ = "cidr_db_refresh_log"
 
     id = db.Column(db.Integer, primary_key=True)
-    started_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    started_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
     finished_at = db.Column(db.DateTime, nullable=True)
     status = db.Column(db.String(16), nullable=False, default="running")
     providers_updated = db.Column(db.Integer, nullable=False, default=0)
@@ -441,8 +450,8 @@ class CidrPreset(db.Model):
     providers_json = db.Column(db.Text, nullable=False, default="[]")
     settings_json = db.Column(db.Text, nullable=True)
     sort_order = db.Column(db.Integer, nullable=False, default=0)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 
 
 class AntifilterCidr(db.Model):

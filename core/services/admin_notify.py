@@ -1,6 +1,6 @@
 import threading
 import psutil
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from core.services.audit_view_presenter import (
     _mini_protocol_label,
@@ -512,7 +512,7 @@ class AdminNotifyService:
 
                 cpu = psutil.cpu_percent(interval=1)
                 ram = psutil.virtual_memory().percent
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 cooldown = timedelta(minutes=cooldown_min)
 
                 with self._monitor_lock:

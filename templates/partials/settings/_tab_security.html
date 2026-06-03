@@ -67,7 +67,8 @@
                 <label class="toggle-wrapper security-master-toggle__switch" title="Выключить IP-ограничения">
                   <div class="toggle-switch">
                     <input type="checkbox" class="toggle-input" checked
-                      onchange="if (!confirm('Выключить IP ограничения и разрешить доступ всем?')) { this.checked = true; return; } this.form.submit();" />
+                      data-toggle-confirm="Выключить IP ограничения и разрешить доступ всем?"
+                      data-toggle-mode="off-confirm" />
                     <span class="toggle-slider"></span>
                   </div>
                 </label>
@@ -80,7 +81,8 @@
                 <label class="toggle-wrapper security-master-toggle__switch" title="Включить только для текущего IP">
                   <div class="toggle-switch">
                     <input type="checkbox" class="toggle-input"
-                      onchange="if (!this.checked) return; if (!confirm('Включить IP ограничения только для текущего IP {{ quick_toggle_ip }}?')) { this.checked = false; return; } this.form.submit();" />
+                      data-toggle-confirm="Включить IP ограничения только для текущего IP {{ quick_toggle_ip }}?"
+                      data-toggle-mode="on-confirm" />
                     <span class="toggle-slider"></span>
                   </div>
                 </label>
@@ -120,7 +122,7 @@
                       {% endif %}
                     </td>
                     <td class="security-ip-table__actions-col">
-                      <form method="POST" onsubmit="return confirm('Удалить IP {{ ip }}?')"
+                      <form method="POST" data-confirm-submit="Удалить IP {{ ip }}?"
                         class="settings-inline-form-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                         <input type="hidden" name="ip_to_remove" value="{{ ip }}" />
@@ -175,7 +177,7 @@
                       {% endif %}
                     </td>
                     <td class="security-ip-table__actions-col">
-                      <form method="POST" onsubmit="return confirm('Удалить временный доступ для {{ row.ip }}?')"
+                      <form method="POST" data-confirm-submit="Удалить временный доступ для {{ row.ip }}?"
                         class="settings-inline-form-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                         <input type="hidden" name="ip_to_remove" value="{{ row.ip }}" />
@@ -309,7 +311,7 @@
             </form>
             {% if ip_scanner_has_firewall_entries %}
             <form method="POST" action="{{ url_for('settings') }}" class="security-clear-bans-form"
-              onsubmit="return confirm('Снять все баны и записи паузы (файл и iptables)?');">
+              data-confirm-submit="Снять все баны и записи паузы (файл и iptables)?">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
               <input type="hidden" name="ip_action" value="clear_scanner_bans" />
               <button type="submit" class="button small security-btn-muted">
@@ -378,7 +380,7 @@
                       <td><span class="security-ban-remaining">{{ ban.remaining_seconds }} сек</span></td>
                       <td>
                         <form method="POST" class="settings-inline-form-inline"
-                          onsubmit="return confirm('Разблокировать {{ ban.ip }} на сервере (iptables)?');">
+                          data-confirm-submit="Разблокировать {{ ban.ip }} на сервере (iptables)?">
                           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                           <input type="hidden" name="ip_action" value="unban_scanner_ip" />
                           <input type="hidden" name="ip_to_unban" value="{{ ban.ip }}" />

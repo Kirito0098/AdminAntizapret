@@ -1,4 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+from core.services.time_utils import as_utc
 
 EXPIRED_REQUIRES_EXTEND_MESSAGE = (
     "Клиент отключён по истечении срока действия. Для разблокировки продлите срок WG/AWG."
@@ -63,15 +65,15 @@ class WgAccessPolicyService:
         return results
 
     def _now(self):
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
     def _is_access_expired(self, row, now=None):
         if row is None:
             return False
-        expires_at = row.expires_at
+        expires_at = as_utc(row.expires_at)
         if not expires_at:
             return False
-        now = now or self._now()
+        now = as_utc(now) or self._now()
         return expires_at <= now
 
     def normalize_client_name(self, client_name):
@@ -97,8 +99,9 @@ class WgAccessPolicyService:
 
         now = self._now()
         base_dt = now
-        if extend and row.expires_at and row.expires_at > now:
-            base_dt = row.expires_at
+        existing_expiry = as_utc(row.expires_at)
+        if extend and existing_expiry and existing_expiry > now:
+            base_dt = existing_expiry
         row.expires_at = base_dt + timedelta(days=int(days))
         row.updated_by = (actor_username or "").strip() or None
         self.db.session.commit()
@@ -169,14 +172,14 @@ class WgAccessPolicyService:
         if not target_dt:
             return None
         try:
-            return (target_dt - now).days
+            return (as_utc(target_dt) - as_utc(now)).days
         except Exception:
             return None
 
     def _resolve_effective_state(self, row, now=None):
-        now = now or self._now()
-        expires_at = row.expires_at
-        block_until = row.block_until
+        now = as_utc(now) or self._now()
+        expires_at = as_utc(row.expires_at)
+        block_until = as_utc(row.block_until)
         permanent_blocked = bool(row.is_permanent_blocked)
         expired = bool(expires_at and expires_at <= now)
         temp_blocked = bool(row.is_temp_blocked and (block_until is None or block_until > now))
@@ -204,7 +207,7 @@ class WgAccessPolicyService:
         }
 
     def _cleanup_expired_temp_block(self, row, now):
-        if row.is_temp_blocked and row.block_until and row.block_until <= now:
+        if row.is_temp_blocked and row.block_until and as_utc(row.block_until) <= as_utc(now):
             row.is_temp_blocked = False
             row.block_started_at = None
             row.block_days = None

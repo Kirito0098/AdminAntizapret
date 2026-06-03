@@ -11,7 +11,7 @@ class SessionSecurityConfigTests(unittest.TestCase):
         self.assertFalse(config["REMEMBER_COOKIE_SECURE"])
         self.assertEqual(config["REMEMBER_COOKIE_SAMESITE"], "Lax")
         self.assertEqual(config["SESSION_COOKIE_PATH"], "/")
-        self.assertFalse(config["SESSION_REFRESH_EACH_REQUEST"])
+        self.assertTrue(config["SESSION_REFRESH_EACH_REQUEST"])
         self.assertFalse(config["WTF_CSRF_SSL_STRICT"])
         self.assertEqual(config["SESSION_COOKIE_SAMESITE"], "Lax")
 

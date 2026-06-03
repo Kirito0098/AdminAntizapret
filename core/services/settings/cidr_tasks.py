@@ -1,6 +1,6 @@
 import secrets
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 CIDR_TASKS = {}
@@ -9,7 +9,7 @@ CIDR_TASK_RETENTION = timedelta(hours=2)
 
 
 def _cidr_now_utc():
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def _cleanup_cidr_tasks():

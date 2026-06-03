@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import re
 import subprocess
@@ -285,7 +285,7 @@ class NetworkStatusCollectorService:
                 out_rows.append(row)
             return out_rows
 
-        now_dt = datetime.utcnow()
+        now_dt = datetime.now(timezone.utc)
         snapshot_time = now_dt.strftime("%Y-%m-%d %H:%M:%S")
 
         parsed_peers = []

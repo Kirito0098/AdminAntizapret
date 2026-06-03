@@ -1,7 +1,9 @@
 import hashlib
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
+
+from core.services.time_utils import as_utc
 
 from flask import (
     abort,
@@ -55,9 +57,28 @@ def register_config_routes(
     set_public_download_enabled,
     log_telegram_audit_event,
     log_user_action_event,
+    limiter=None,
+    get_client_ip=None,
 ) -> None:
     def _has_telegram_mini_session() -> bool:
         return has_telegram_mini_session(session)
+
+    def _public_download_limit(fn):
+        """Отдельный rate limit на публичный эндпоинт скачивания."""
+        if limiter is None:
+            return fn
+        return limiter.limit("30 per minute")(fn)
+
+    def _resolve_client_ip() -> str:
+        if callable(get_client_ip):
+            try:
+                return get_client_ip() or "unknown"
+            except Exception:
+                pass
+        return (
+            (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",", 1)[0].strip()
+            or "unknown"
+        )
 
     @app.route("/api/openvpn/client-block", methods=["POST"])
     @auth_manager.admin_required
@@ -163,7 +184,7 @@ def register_config_routes(
         if not token or len(token) < 16:
             abort(404)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
         def _render_pin_page(error=None, remaining=0, status_code=200):
             response = make_response(
@@ -181,7 +202,7 @@ def register_config_routes(
                 log_qr_event("download_not_found", details="token_not_found")
                 abort(410, description="Ссылка истекла или уже использована")
 
-            if token_row.expires_at < now:
+            if as_utc(token_row.expires_at) < now:
                 log_qr_event("download_expired", token_row=token_row, details="token_expired")
                 abort(410, description="Ссылка истекла или уже использована")
 
@@ -278,18 +299,31 @@ def register_config_routes(
             download_name=download_name,
         )
     @app.route("/public_download/<router>")
+    @_public_download_limit
     def public_download(router):
+        client_ip = _resolve_client_ip()
         if not get_public_download_enabled():
+            app.logger.info(
+                "public_download отклонён (выключено): ip=%s router=%s", client_ip, router
+            )
             abort(404)
         filename = result_dir_files.get(router)
         if not filename:
+            app.logger.info(
+                "public_download отклонён (неизвестный router): ip=%s router=%s",
+                client_ip,
+                router,
+            )
             abort(404)
 
+        app.logger.info(
+            "public_download: ip=%s router=%s file=%s", client_ip, router, filename
+        )
         log_user_action_event(
             "config_download",
             target_type="public",
             target_name=filename,
-            details=f"channel=public router={router}",
+            details=f"channel=public router={router} ip={client_ip}",
         )
 
         return send_from_directory("/root/antizapret/result", filename, as_attachment=True)

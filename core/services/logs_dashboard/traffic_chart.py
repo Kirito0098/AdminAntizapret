@@ -32,7 +32,7 @@ def fetch_user_traffic_chart(
         bool(client_protocols) and "WireGuard" in client_protocols and "OpenVPN" not in client_protocols
     )
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     since_dt = None
     bucket = "day"
 

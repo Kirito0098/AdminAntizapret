@@ -1,5 +1,49 @@
 # CHANGELOG
 
+## [1.8.0] – 03.06.2026
+
+### Безопасность
+
+- **Валидация имени клиента** перед вызовом `client.sh`: на `POST /` и `POST /api/wg/client-access` проверка `CLIENT_NAME_PATTERN` (`^[A-Za-z0-9_-]{1,64}$`); при несовпадении — `400`, скрипт не запускается (`routes/index/routes.py`, проброс паттерна из `routes/route_wiring.py`).
+- **`ScriptExecutor`**: убран лишний `shlex.quote()` при передаче имени в argv-list (`subprocess` без `shell=True`) — кавычки больше не попадают в аргумент (`core/services/script_executor.py`).
+- **Rate limiting и IP клиента**: ключ Flask-Limiter строится через единый `_get_client_ip()` с учётом `TRUSTED_PROXY_IPS` (как в `IPRestriction.get_client_ip()`), а не из первого значения `X-Forwarded-For` без проверки — закрыт обход лимитов подменой заголовка (`core/bootstrap.py`, `app.py`).
+- **`POST /api/tests/run`**: whitelist pytest nodeid (`^tests/[\w./-]+(::[\w\[\].\-]+)*$`); отклоняются значения с `-` в начале (флаги pytest) и с `..` (path traversal); вынесено в `routes/settings/api_tests.py`.
+- **RBAC**: страницы **«Мониторинг сервера»** и **«Журнал логов»**, API `/api/bw`, `/api/system-info` и WebSocket `/ws/monitor` — только для **admin** (`@admin_required`); в WS дополнительно `auth_manager.is_current_user_admin()` (`routes/server_monitor/routes.py`, `routes/logs_dashboard/routes.py`, `core/services/auth_manager.py`).
+- **`GET /public_download/<router>`**: отдельный лимит **30/min** по IP (через унифицированный client IP), логирование обращений (IP, router) при отказе и успехе; поведение при `PUBLIC_DOWNLOAD_ENABLED=false` без изменений (`routes/config_routes.py`).
+- **Восстановление бэкапа**: распаковка во **staging** (`tempfile.mkdtemp` в `/var/tmp`) с контролируемым копированием на места вместо `tar.extractall("/")`; до распаковки отклоняются symlink/hardlink, device-файлы, абсолютные пути и `..` (`core/services/backup_manager.py`).
+
+### Устойчивость и эксплуатация
+
+- **Rate limiter backend**: `RATELIMIT_STORAGE_URI` (по умолчанию `memory://`); предупреждение в лог при in-memory storage и при отсутствии Flask-Limiter — для production рекомендуется Redis (`core/bootstrap.py`).
+- **Главная страница**: тяжёлый reconcile политик OpenVPN/WG на `GET /` — не чаще **45 с** (debounce в памяти процесса); мутирующие `POST` синхронизируют политики без ограничения TTL (`routes/index/routes.py`, константа `INDEX_RECONCILE_TTL_SECONDS`).
+- **Время в UTC**: отказ от `datetime.utcnow()` — везде `datetime.now(timezone.utc)`; хелпер **`core/services/time_utils.py::as_utc()`** для сравнения naive-значений из БД с aware-метками (политики доступа, QR-токены, трафик, кэши, модели).
+- **Сессии**: `SESSION_REFRESH_EACH_REQUEST = True` — продление cookie при активности в пределах `PERMANENT_SESSION_LIFETIME` (`core/services/session_security.py`).
+- **Логирование**: `app.logger.exception` / `warning` в широких `except` при старте reconcile, фоновых задачах и `POST /` на главной (`app.py`, `core/services/background_tasks.py`, `routes/index/routes.py`).
+
+### Архитектура приложения
+
+- **Application factory**: создание Flask-приложения вынесено в **`create_app()`** (`core/bootstrap.py`) — конфиг сессий, CSRF, WebSocket, SQLite WAL, rate limiter; **`config/app_paths.py`** — пути AntiZapret, `CONFIG_PATHS`, `CLIENT_NAME_PATTERN` и связанные константы; `app.py` сокращён и по-прежнему экспортирует **`app`** для Gunicorn (`app:app`).
+- **CIDR — модули**: каталог игровых фильтров — **`core/services/cidr/games_catalog.py`**; парсинг CIDR/ASN из ответов провайдеров — **`core/services/cidr/db_extract.py`**; публичные имена сохранены через реэкспорт из `games.py` и `db_service.py`.
+- **Settings API**: обработчики разнесены по доменам — **`routes/settings/api_misc.py`**, **`api_cidr_db.py`**, **`api_tests.py`**, общие хелперы **`_api_shared.py`**; точка входа **`routes/settings/api.py`** и сигнатура `register_settings_api_routes` без изменений (совместимость с тестами, патчащими `routes.settings.api.*`).
+
+### Content-Security-Policy (CSP)
+
+- **script-src** без `'unsafe-inline'`: per-request **nonce** в заголовке и шаблонах (`core/services/http_security.py`, context processor).
+- Inline-обработчики `on*` заменены на **`data-*`** и делегирование в **`static/assets/js/csp_handlers.js`** (`data-confirm-submit`, `data-confirm-click` и др.).
+- Обновлены шаблоны: `base.html`, `login.html`, `index.html`, partials настроек, мониторинга, журнала, tg-mini (`open.html`, `blocked.html`).
+- **style-src** по-прежнему с `'unsafe-inline'` (широкое использование inline `style=""` в шаблонах; перевод на nonce/hash отложен).
+
+### CI и разработка
+
+- **GitHub Actions** (`.github/workflows/ci.yml`): на push/PR — `ruff check .`, **`pytest tests/`** (297 тестов), **bandit** (совещательно, `continue-on-error`); на runner доустанавливаются `iptables` и `ipset` для `test_site_diagnostics`.
+- **`requirements-dev.txt`**: pytest, ruff, bandit; **`pytest` убран** из production `requirements.txt`.
+- **`ruff.toml`**: правила E/F/I, мягкий старт с ignore легаси-шума; исключены `venv`, `static`, кэши.
+- **`.env.example`**: шаблон всех переменных окружения (секреты, Telegram, rate limit, CIDR, бэкапы, Gunicorn и др.) с комментариями.
+
+### Тесты
+
+- Полный прогон: **297 passed**; обновлены **`tests/test_session_security.py`** (дефолт `SESSION_REFRESH_EACH_REQUEST`) и **`tests/test_settings_page_context.py`** (timezone-aware сравнение в моке).
+
 ## [1.7.12] – 02.06.2026
 
 ### Игровые фильтры маршрутизации
