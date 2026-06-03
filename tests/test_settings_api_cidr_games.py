@@ -1,8 +1,12 @@
+import os
+import shutil
+import tempfile
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from flask import Flask
 
+from core.services import cidr_list_updater
 from routes.settings.api import register_settings_api_routes
 
 
@@ -42,12 +46,39 @@ def _register_routes(app, log_user_action_event):
 
 class SettingsApiCidrGamesTests(unittest.TestCase):
     def setUp(self):
+        self._tmpdir = tempfile.mkdtemp(prefix="settings-api-games-")
+        self._config_dir = os.path.join(self._tmpdir, "config")
+        os.makedirs(self._config_dir, exist_ok=True)
+        self._game_paths = {
+            "AZ_GAME_INCLUDE_IPS_FILE": os.path.join(self._config_dir, "AZ-Game-include-ips.txt"),
+            "AZ_GAME_INCLUDE_HOSTS_FILE": os.path.join(self._config_dir, "AZ-Game-include-hosts.txt"),
+            "AZ_GAME_EXCLUDE_IPS_FILE": os.path.join(self._config_dir, "AZ-Game-exclude-ips.txt"),
+            "AZ_GAME_EXCLUDE_HOSTS_FILE": os.path.join(self._config_dir, "AZ-Game-exclude-hosts.txt"),
+            "GAME_INCLUDE_IPS_FILE": os.path.join(self._config_dir, "AZ-Game-include-ips.txt"),
+            "GAME_INCLUDE_HOSTS_FILE": os.path.join(self._config_dir, "AZ-Game-include-hosts.txt"),
+        }
+        for path in self._game_paths.values():
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("# test baseline\n")
+
+        self._path_patchers = [
+            patch.object(cidr_list_updater, key, value)
+            for key, value in self._game_paths.items()
+        ]
+        for patcher in self._path_patchers:
+            patcher.start()
+
         self.app = Flask(__name__)
         self.app.config["TESTING"] = True
         self.log_user_action_event = MagicMock()
         route_mocks = _register_routes(self.app, self.log_user_action_event)
         self.set_env_value = route_mocks["set_env_value"]
         self.client = self.app.test_client()
+
+    def tearDown(self):
+        for patcher in getattr(self, "_path_patchers", []):
+            patcher.stop()
+        shutil.rmtree(getattr(self, "_tmpdir", ""), ignore_errors=True)
 
     def test_preview_games_sync_rejects_invalid_keys(self):
         response = self.client.post(

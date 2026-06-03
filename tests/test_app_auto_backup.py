@@ -57,7 +57,7 @@ class AppAutoBackupTests(unittest.TestCase):
             "archive_name": "backup-1.2.3.4.tar.gz",
         }
 
-        with patch.dict(
+        with patch.object(app_auto_backup, "APP_ROOT", self.app_root), patch.dict(
             os.environ,
             {
                 "APP_BACKUP_ENABLED": "true",

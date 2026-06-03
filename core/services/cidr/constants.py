@@ -3,7 +3,9 @@ import os
 import re
 import time
 
-BASE_DIR = "/opt/AdminAntizapret"
+# Корень репозитория (для CI и dev-клонов вне /opt/AdminAntizapret).
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+BASE_DIR = os.path.abspath(os.environ.get("ADMIN_ANTIZAPRET_ROOT", _PROJECT_ROOT))
 LIST_DIR = os.path.join(BASE_DIR, "ips", "list")
 BASELINE_DIR = os.path.join(LIST_DIR, "_baseline")
 RUNTIME_BACKUP_ROOT = os.path.join(BASE_DIR, "ips", "runtime_backups")

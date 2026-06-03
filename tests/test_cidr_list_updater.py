@@ -418,12 +418,16 @@ class CidrListUpdaterTests(unittest.TestCase):
             },
         ]
 
-        adjusted, meta = cidr_list_updater._apply_total_route_limit(
-            entries,
-            10,
-            dpi_priority_files=["google-ips.txt"],
-            dpi_priority_min_budget=6,
-        )
+        with patch(
+            "core.services.cidr.games.is_game_filter_config_route_limit_enforced",
+            return_value=True,
+        ):
+            adjusted, meta = cidr_list_updater._apply_total_route_limit(
+                entries,
+                10,
+                dpi_priority_files=["google-ips.txt"],
+                dpi_priority_min_budget=6,
+            )
 
         self.assertIsNotNone(meta)
         self.assertIn("dpi_priority", meta)
@@ -447,11 +451,15 @@ class CidrListUpdaterTests(unittest.TestCase):
             },
         ]
 
-        adjusted, meta = cidr_list_updater._apply_total_route_limit(
-            entries,
-            2,
-            dpi_mandatory_files=["cdn77-ips.txt"],
-        )
+        with patch(
+            "core.services.cidr.games.is_game_filter_config_route_limit_enforced",
+            return_value=True,
+        ):
+            adjusted, meta = cidr_list_updater._apply_total_route_limit(
+                entries,
+                2,
+                dpi_mandatory_files=["cdn77-ips.txt"],
+            )
 
         self.assertIsNotNone(meta)
         self.assertIn("dpi_mandatory", meta)
@@ -611,6 +619,9 @@ class CidrListUpdaterTests(unittest.TestCase):
                 cidr_list_updater,
                 "_download_text",
                 side_effect=[payload_a, payload_b],
+            ), patch(
+                "core.services.cidr.games.is_game_filter_config_route_limit_enforced",
+                return_value=True,
             ):
                 result = cidr_list_updater.update_cidr_files(
                     selected_files=selected_files,
@@ -633,7 +644,11 @@ class CidrListUpdaterTests(unittest.TestCase):
             {"file": "google-ips.txt", "cidrs": ["10.20.0.0/24"]},
         ]
 
-        adjusted, meta = cidr_list_updater._apply_total_route_limit(entries, 1)
+        with patch(
+            "core.services.cidr.games.is_game_filter_config_route_limit_enforced",
+            return_value=True,
+        ):
+            adjusted, meta = cidr_list_updater._apply_total_route_limit(entries, 1)
 
         self.assertIsNotNone(meta)
         self.assertEqual(meta["limit"], 1)
