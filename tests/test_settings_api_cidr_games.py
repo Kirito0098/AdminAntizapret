@@ -13,6 +13,8 @@ class _AuthManagerStub:
 
 
 def _register_routes(app, log_user_action_event):
+    set_env_value = MagicMock()
+    get_env_value = MagicMock(return_value="900")
     register_settings_api_routes(
         app,
         auth_manager=_AuthManagerStub(),
@@ -22,8 +24,8 @@ def _register_routes(app, log_user_action_event):
         ip_manager=MagicMock(),
         enqueue_background_task=MagicMock(),
         task_restart_service=MagicMock(),
-        set_env_value=MagicMock(),
-        get_env_value=MagicMock(return_value="900"),
+        set_env_value=set_env_value,
+        get_env_value=get_env_value,
         to_bool=MagicMock(),
         is_valid_cron_expression=MagicMock(return_value=True),
         ensure_nightly_idle_restart_cron=MagicMock(),
@@ -35,6 +37,7 @@ def _register_routes(app, log_user_action_event):
         log_user_action_event=log_user_action_event,
         cidr_db_updater_service=MagicMock(),
     )
+    return {"set_env_value": set_env_value, "get_env_value": get_env_value}
 
 
 class SettingsApiCidrGamesTests(unittest.TestCase):
@@ -42,7 +45,8 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
         self.app = Flask(__name__)
         self.app.config["TESTING"] = True
         self.log_user_action_event = MagicMock()
-        _register_routes(self.app, self.log_user_action_event)
+        route_mocks = _register_routes(self.app, self.log_user_action_event)
+        self.set_env_value = route_mocks["set_env_value"]
         self.client = self.app.test_client()
 
     def test_preview_games_sync_rejects_invalid_keys(self):
@@ -234,14 +238,16 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
     def test_set_game_filter_route_limit_saves_settings(self):
         from unittest.mock import patch
 
-        set_env_value = MagicMock()
-        with patch("routes.settings.api.set_env_value", set_env_value), patch(
+        with patch(
             "routes.settings.api.get_game_filter_route_limit_settings",
             return_value={
                 "disable_route_limit": True,
                 "route_limit_risk_ack": True,
                 "route_limit_enforced": False,
             },
+        ), patch(
+            "routes.settings.api.get_config_include_ips_route_stats",
+            return_value={"total_routes": 657, "limit": 900},
         ):
             response = self.client.post(
                 "/api/cidr-lists",
@@ -256,8 +262,8 @@ class SettingsApiCidrGamesTests(unittest.TestCase):
         payload = response.get_json()
         self.assertTrue(payload["success"])
         self.assertFalse(payload["game_filter_route_limit_settings"]["route_limit_enforced"])
-        set_env_value.assert_any_call("AZ_GAME_DISABLE_CONFIG_ROUTE_LIMIT", "true")
-        set_env_value.assert_any_call("AZ_GAME_CONFIG_ROUTE_LIMIT_RISK_ACK", "true")
+        self.set_env_value.assert_any_call("AZ_GAME_DISABLE_CONFIG_ROUTE_LIMIT", "true")
+        self.set_env_value.assert_any_call("AZ_GAME_CONFIG_ROUTE_LIMIT_RISK_ACK", "true")
 
 
 if __name__ == "__main__":
