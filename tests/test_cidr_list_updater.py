@@ -1,6 +1,7 @@
 import ipaddress
 import json
 import os
+import shutil
 import tempfile
 import time
 import unittest
@@ -8,8 +9,59 @@ from unittest.mock import patch
 
 from core.services import cidr_list_updater
 
+# Успешный ответ sync_game_hosts_filter для update_cidr_files / db_pipeline
+# (на CI нет доступа к /root/antizapret — без заглушки update падает до загрузки провайдеров).
+_GAME_SYNC_STUB = {
+    "success": True,
+    "message": "test-stub",
+    "game_hosts_filter": {"success": True, "changed": False},
+    "game_ips_filter": {"success": True, "changed": False},
+}
+
 
 class CidrListUpdaterTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._tmpdir = tempfile.mkdtemp(prefix="cidr-list-updater-")
+        cls._config_dir = os.path.join(cls._tmpdir, "config")
+        os.makedirs(cls._config_dir, exist_ok=True)
+        cls._game_path_values = {
+            "AZ_GAME_INCLUDE_IPS_FILE": os.path.join(cls._config_dir, "AZ-Game-include-ips.txt"),
+            "AZ_GAME_INCLUDE_HOSTS_FILE": os.path.join(cls._config_dir, "AZ-Game-include-hosts.txt"),
+            "AZ_GAME_EXCLUDE_IPS_FILE": os.path.join(cls._config_dir, "AZ-Game-exclude-ips.txt"),
+            "AZ_GAME_EXCLUDE_HOSTS_FILE": os.path.join(cls._config_dir, "AZ-Game-exclude-hosts.txt"),
+            "GAME_INCLUDE_IPS_FILE": os.path.join(cls._config_dir, "AZ-Game-include-ips.txt"),
+            "GAME_INCLUDE_HOSTS_FILE": os.path.join(cls._config_dir, "AZ-Game-include-hosts.txt"),
+            "LEGACY_GAME_INCLUDE_IPS_FILE": os.path.join(cls._config_dir, "include-ips.txt"),
+            "LEGACY_GAME_INCLUDE_HOSTS_FILE": os.path.join(cls._config_dir, "include-hosts.txt"),
+        }
+        for path in cls._game_path_values.values():
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("# test baseline\n")
+
+        cls._path_patchers = [
+            patch.object(cidr_list_updater, key, value)
+            for key, value in cls._game_path_values.items()
+        ]
+        cls._sync_patchers = [
+            patch(
+                "core.services.cidr.file_pipeline.sync_game_hosts_filter",
+                return_value=dict(_GAME_SYNC_STUB),
+            ),
+            patch(
+                "core.services.cidr.db_pipeline.sync_game_hosts_filter",
+                return_value=dict(_GAME_SYNC_STUB),
+            ),
+        ]
+        for patcher in cls._path_patchers + cls._sync_patchers:
+            patcher.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        for patcher in getattr(cls, "_sync_patchers", []) + getattr(cls, "_path_patchers", []):
+            patcher.stop()
+        shutil.rmtree(getattr(cls, "_tmpdir", ""), ignore_errors=True)
+
     def test_extract_cidrs_from_bgp_tools_raw_allocations_section(self):
         payload = """
         # de.hetzner Announced Allocations
