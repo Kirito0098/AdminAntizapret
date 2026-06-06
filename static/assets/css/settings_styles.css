@@ -784,15 +784,6 @@
   padding: 0.5rem;
 }
 
-.settings-inline-hidden {
-  display: none;
-}
-
-.settings-inline-hidden-mt {
-  display: none;
-  margin-top: 1rem;
-}
-
 .settings-inline-form-inline {
   display: inline;
 }

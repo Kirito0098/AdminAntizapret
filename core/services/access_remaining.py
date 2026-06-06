@@ -27,6 +27,16 @@ def _parse_expires_at(value):
     return None
 
 
+def is_access_expired(expires_at, *, now=None):
+    """Return True if access expired, False if still valid, None if unknown."""
+    expires_dt = _parse_expires_at(expires_at)
+    if expires_dt is None:
+        return None
+
+    now_dt = as_utc(now) if now is not None else datetime.now(timezone.utc)
+    return as_utc(expires_dt) <= now_dt
+
+
 def format_access_remaining(expires_at, *, now=None):
     """Return human-readable remaining access time or None if unknown."""
     expires_dt = _parse_expires_at(expires_at)

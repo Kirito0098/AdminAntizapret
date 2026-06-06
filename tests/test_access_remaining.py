@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timedelta
 
-from core.services.access_remaining import format_access_remaining
+from core.services.access_remaining import format_access_remaining, is_access_expired
 
 
 class AccessRemainingTests(unittest.TestCase):
@@ -47,6 +47,16 @@ class AccessRemainingTests(unittest.TestCase):
         now = datetime(2026, 5, 19, 10, 0, 0)
         expires = "2026-05-19 15:00 UTC"
         self.assertEqual(format_access_remaining(expires, now=now), "5 ч.")
+
+    def test_is_access_expired_future_within_one_day(self):
+        now = datetime(2026, 5, 19, 10, 0, 0)
+        expires = now + timedelta(hours=23, minutes=59)
+        self.assertFalse(is_access_expired(expires, now=now))
+
+    def test_is_access_expired_past(self):
+        now = datetime(2026, 5, 19, 10, 0, 0)
+        expires = now - timedelta(hours=2)
+        self.assertTrue(is_access_expired(expires, now=now))
 
 
 if __name__ == "__main__":

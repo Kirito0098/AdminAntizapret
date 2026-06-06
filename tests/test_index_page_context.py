@@ -1,6 +1,6 @@
 import os
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from core.services.index import (
@@ -39,10 +39,14 @@ class IndexPageContextTests(unittest.TestCase):
         self.assertIsNone(grouped["client2"]["antizapret"])
 
     def test_build_index_kpi_counts_expiring_and_expired(self):
+        future_expires_at = (
+            datetime.now(timezone.utc) + timedelta(hours=23, minutes=59)
+        ).strftime("%Y-%m-%d %H:%M UTC")
         cert_expiry = {
             "alice": {"days_left": 45},
             "bob": {"days_left": 10},
             "carol": {"days_left": 0},
+            "fresh-1day": {"days_left": 0, "expires_at": future_expires_at},
             "dave": {"days_left": -3},
             "eve": {"days_left": None},
         }
@@ -54,7 +58,7 @@ class IndexPageContextTests(unittest.TestCase):
             wg_awg_count=2,
         )
 
-        self.assertEqual(kpi["expiring_count"], 1)
+        self.assertEqual(kpi["expiring_count"], 2)
         self.assertEqual(kpi["expired_count"], 2)
         self.assertEqual(kpi["openvpn_clients_count"], 4)
         self.assertEqual(kpi["wg_awg_clients_count"], 2)
@@ -136,14 +140,19 @@ class IndexPageContextTests(unittest.TestCase):
         self.assertEqual(len(context["blocked_entries"]), 2)
 
     def test_build_client_table_rows_cert_state(self):
+        future_expires_at = (
+            datetime.now(timezone.utc) + timedelta(hours=23, minutes=59)
+        ).strftime("%Y-%m-%d %H:%M UTC")
         grouped = {
             "active-user": {"vpn": "/x/vpn-active-user-udp.ovpn", "antizapret": None},
             "warn-user": {"vpn": "/x/vpn-warn-user-udp.ovpn", "antizapret": None},
+            "one-day-user": {"vpn": "/x/vpn-one-day-user-udp.ovpn", "antizapret": None},
             "dead-user": {"vpn": "/x/vpn-dead-user-udp.ovpn", "antizapret": None},
         }
         cert_expiry = {
             "active-user": {"days_left": 90, "expires_at": "2026-12-01 00:00:00"},
             "warn-user": {"days_left": 15, "expires_at": "2026-06-01 00:00:00"},
+            "one-day-user": {"days_left": 0, "expires_at": future_expires_at},
             "dead-user": {"days_left": -1, "expires_at": "2025-01-01 00:00:00"},
         }
         admin = SimpleNamespace(role="admin", is_admin=lambda: True)
@@ -165,6 +174,9 @@ class IndexPageContextTests(unittest.TestCase):
 
         self.assertEqual(by_name["active-user"]["cert_state"], "active")
         self.assertEqual(by_name["warn-user"]["cert_state"], "expiring")
+        self.assertEqual(by_name["one-day-user"]["cert_state"], "expiring")
+        self.assertEqual(by_name["one-day-user"]["access_days_left"], 0)
+        self.assertIn("ч.", by_name["one-day-user"]["access_remaining_text"])
         self.assertEqual(by_name["dead-user"]["cert_state"], "expired")
         self.assertTrue(by_name["active-user"]["show_cert_meta"])
 

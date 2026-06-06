@@ -153,6 +153,55 @@ class OpenVpnAccessPolicyServiceTests(unittest.TestCase):
         self.assertIsNone(state["reason"])
         self.assertNotIn("dave", self.banlist)
 
+    def test_increasing_traffic_limit_unblocks_client(self):
+        self.consumed_by_client["dave"] = 2048
+        with self.app.app_context():
+            self.service.set_traffic_limit_bytes("dave", 1024, actor_username="admin")
+            self.assertTrue(self.service.reconcile_client_policy("dave")["state"]["is_blocked"])
+            self.service.set_traffic_limit_bytes("dave", 4096, actor_username="admin")
+            result = self.service.reconcile_client_policy("dave")
+            state = result["state"]
+
+        self.assertFalse(state["is_blocked"])
+        self.assertIsNone(state["reason"])
+        self.assertNotIn("dave", self.banlist)
+
+    def test_reconcile_all_does_not_import_stale_traffic_banlist(self):
+        self.consumed_by_client["dave"] = 500
+        with self.app.app_context():
+            self.service.set_traffic_limit_bytes("dave", 4096, actor_username="admin")
+            self.banlist.add("dave")
+            row = OpenVpnAccessPolicy.query.filter_by(client_name="dave").first()
+            row.block_reason = "traffic_limit"
+            db.session.commit()
+
+            self.service.reconcile_all()
+            row = OpenVpnAccessPolicy.query.filter_by(client_name="dave").first()
+            state = self.service._resolve_effective_state(row)
+
+        self.assertFalse(row.is_permanent_blocked)
+        self.assertFalse(state["is_blocked"])
+        self.assertNotIn("dave", self.banlist)
+
+    def test_increasing_traffic_limit_clears_wrong_permanent_block(self):
+        self.consumed_by_client["dave"] = 500
+        with self.app.app_context():
+            self.service.set_traffic_limit_bytes("dave", 4096, actor_username="admin")
+            row = OpenVpnAccessPolicy.query.filter_by(client_name="dave").first()
+            row.is_permanent_blocked = True
+            row.block_reason = "manual_permanent"
+            row.block_started_at = datetime.utcnow()
+            self.banlist.add("dave")
+            db.session.commit()
+
+            self.service.set_traffic_limit_bytes("dave", 8192, actor_username="admin")
+            row = OpenVpnAccessPolicy.query.filter_by(client_name="dave").first()
+            state = self.service._resolve_effective_state(row)
+
+        self.assertFalse(row.is_permanent_blocked)
+        self.assertFalse(state["is_blocked"])
+        self.assertNotIn("dave", self.banlist)
+
 
 if __name__ == "__main__":
     unittest.main()

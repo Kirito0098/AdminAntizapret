@@ -642,3 +642,13 @@ body {
   background: rgba(30, 41, 48, 0.7) !important;
 }
 
+/* Inline status placeholders — shared by /settings and /routing */
+.settings-inline-hidden {
+  display: none;
+}
+
+.settings-inline-hidden-mt {
+  display: none;
+  margin-top: 1rem;
+}
+

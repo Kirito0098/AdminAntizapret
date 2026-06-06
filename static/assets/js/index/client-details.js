@@ -194,11 +194,18 @@ async function initializeIndexTrafficMiniSummary(force = false) {
                     ? `Не удалось загрузить сводку: ${error.message}`
                     : 'Не удалось загрузить сводку трафика.';
             }
+            if (typeof window.syncAllClientCardStats === 'function') {
+                window.syncAllClientCardStats(payload, { payloadReady: true });
+            }
             return;
         }
     }
 
     renderIndexTrafficMiniSummary(payload);
+
+    if (typeof window.syncAllClientCardStats === 'function') {
+        window.syncAllClientCardStats(payload, { payloadReady: true });
+    }
 }
 
 function escapeHtml(value) {
@@ -218,7 +225,9 @@ function initializeClientDetailsModal() {
     modal.dataset.bound = '1';
 
     const modalTitle = document.getElementById('clientDetailsTitleMain');
+    const modalChips = document.getElementById('clientDetailsChipsMain');
     const modalSummary = document.getElementById('clientDetailsSummaryMain');
+    const modalRestrictions = document.getElementById('clientDetailsRestrictionsMain');
     const modalTrafficQuick = document.getElementById('clientDetailsTrafficQuickMain');
     const modalTrafficMeta = document.getElementById('clientDetailsTrafficMetaMain');
     const modalConnections = document.getElementById('clientDetailsConnectionsMain');
@@ -254,6 +263,148 @@ function initializeClientDetailsModal() {
         const rowSelector = `.client-row[data-client-name="${escapedName}"]`;
         const activePane = document.querySelector('.tab-pane.active');
         return (activePane && activePane.querySelector(rowSelector)) || document.querySelector(rowSelector);
+    }
+
+    function renderDetailsStatPill(key, value, extraClass = '') {
+        const safeKey = escapeHtml(key);
+        const safeValue = escapeHtml(value);
+        const className = extraClass ? `client-details-stat-pill ${extraClass}` : 'client-details-stat-pill';
+        return `<span class="${className}"><span class="client-details-stat-pill-k">${safeKey}</span><span class="client-details-stat-pill-v">${safeValue}</span></span>`;
+    }
+
+    function renderDetailsPlaceholder(text, isLoading = false) {
+        const loadingClass = isLoading ? ' is-loading' : '';
+        return `<div class="client-details-placeholder${loadingClass}">${escapeHtml(text)}</div>`;
+    }
+
+    function renderHeaderChips(row) {
+        if (!modalChips) {
+            return;
+        }
+
+        if (!row) {
+            modalChips.innerHTML = '';
+            return;
+        }
+
+        const isBlocked = row.dataset.blocked === '1';
+        const protocolLabel = getProtocolLabel(row.dataset.protocol);
+        const chips = [
+            `<span class="client-details-chip client-details-chip--protocol">${escapeHtml(protocolLabel)}</span>`,
+            `<span class="client-details-chip ${isBlocked ? 'is-blocked' : 'is-active'}">${isBlocked ? 'Заблокирован' : 'Активен'}</span>`,
+        ];
+
+        const accessExpiresAt = formatRestrictionDate(row.dataset.accessExpiresAt || row.dataset.wgExpiresAt);
+        if (accessExpiresAt) {
+            const accessRemaining = typeof window.formatAccessRemaining === 'function'
+                ? window.formatAccessRemaining(row.dataset.accessExpiresAt || row.dataset.wgExpiresAt || '')
+                : null;
+            if (accessRemaining === 'срок истёк') {
+                chips.push('<span class="client-details-chip is-expired">Срок истёк</span>');
+            } else if (accessRemaining) {
+                chips.push(`<span class="client-details-chip is-expiring">${escapeHtml(accessRemaining)}</span>`);
+            }
+        }
+
+        if (row.dataset.trafficLimitExceeded === '1') {
+            chips.push('<span class="client-details-chip is-traffic-limit">Лимит превышен</span>');
+        }
+
+        modalChips.innerHTML = chips.join('');
+    }
+
+    function renderSummaryGrid(connectedItem, trafficItem) {
+        if (!modalSummary) {
+            return;
+        }
+
+        const pills = [];
+
+        if (trafficItem) {
+            pills.push(renderDetailsStatPill(
+                'Статус',
+                trafficItem.is_active ? 'Онлайн' : 'Оффлайн',
+                trafficItem.is_active ? 'is-online' : 'is-offline',
+            ));
+            pills.push(renderDetailsStatPill('1 день', trafficItem.traffic_1d_human || '—'));
+            pills.push(renderDetailsStatPill('7 дней', trafficItem.traffic_7d_human || '—'));
+            pills.push(renderDetailsStatPill('30 дней', trafficItem.traffic_30d_human || '—'));
+        }
+
+        const sessions = connectedItem.sessions != null ? String(connectedItem.sessions) : '—';
+        const profiles = connectedItem.profiles || '—';
+        const rx = connectedItem.bytes_received_human || '—';
+        const tx = connectedItem.bytes_sent_human || '—';
+        const total = connectedItem.total_bytes_human || '—';
+
+        pills.push(renderDetailsStatPill('Сессий', sessions));
+        pills.push(renderDetailsStatPill('Профили', profiles));
+        pills.push(renderDetailsStatPill('Rx', rx));
+        pills.push(renderDetailsStatPill('Tx', tx));
+        pills.push(renderDetailsStatPill('Итого', total));
+
+        modalSummary.innerHTML = `<div class="client-details-summary-pills">${pills.join('')}</div>`;
+    }
+
+    function renderTrafficStats(trafficItem) {
+        if (!modalTrafficQuick) {
+            return;
+        }
+
+        if (!trafficItem) {
+            modalTrafficQuick.innerHTML = renderDetailsPlaceholder('В БД пока нет накопленной статистики по этому клиенту.');
+            return;
+        }
+
+        const pills = [
+            renderDetailsStatPill(
+                'Статус',
+                trafficItem.is_active ? 'Онлайн' : 'Оффлайн',
+                trafficItem.is_active ? 'is-online' : 'is-offline',
+            ),
+            renderDetailsStatPill('1 день', trafficItem.traffic_1d_human || '—'),
+            renderDetailsStatPill('7 дней', trafficItem.traffic_7d_human || '—'),
+            renderDetailsStatPill('30 дней', trafficItem.traffic_30d_human || '—'),
+            renderDetailsStatPill('VPN', trafficItem.total_bytes_vpn_human || '—'),
+            renderDetailsStatPill('Antizapret', trafficItem.total_bytes_antizapret_human || '—'),
+        ];
+
+        modalTrafficQuick.innerHTML = `<div class="client-details-traffic-pills">${pills.join('')}</div>`;
+    }
+
+    function renderTrafficMeta(metaParts) {
+        if (!modalTrafficMeta) {
+            return;
+        }
+
+        if (!metaParts.length) {
+            modalTrafficMeta.innerHTML = '';
+            return;
+        }
+
+        modalTrafficMeta.innerHTML = metaParts
+            .map((part, index) => {
+                const isLimit = index === metaParts.length - 1 && /лимит/i.test(part);
+                const limitClass = isLimit ? ' client-details-meta-item--limit' : '';
+                return `<span class="client-details-meta-item${limitClass}">${escapeHtml(part)}</span>`;
+            })
+            .join('');
+        modalTrafficMeta.classList.remove('is-loading');
+    }
+
+    function renderRestrictionsForClient(clientName) {
+        if (!modalRestrictions) {
+            return;
+        }
+
+        const row = getClientRowByName(clientName);
+        if (!row) {
+            modalRestrictions.innerHTML = renderDetailsPlaceholder('Ограничения для этого клиента недоступны.');
+            return;
+        }
+
+        modalRestrictions.innerHTML = '';
+        modalRestrictions.appendChild(renderRestrictionsPanel(row));
     }
 
     function getChartRangeDays(range) {
@@ -1353,10 +1504,7 @@ function initializeClientDetailsModal() {
             `);
         }
 
-        panel.innerHTML = `
-            <div class="client-restrictions-panel-title">Текущие ограничения</div>
-            <div class="client-restrictions-grid">${cards.join('')}</div>
-        `;
+        panel.innerHTML = `<div class="client-restrictions-grid">${cards.join('')}</div>`;
 
         return panel;
     }
@@ -1380,8 +1528,6 @@ function initializeClientDetailsModal() {
             modalActions.innerHTML = '<div class="client-details-actions-note">Действия для этого клиента недоступны.</div>';
             return;
         }
-
-        modalActions.appendChild(renderRestrictionsPanel(row));
 
         const downloadVpnUrl = row.dataset.downloadVpnUrl || '';
         const downloadAzUrl = row.dataset.downloadAzUrl || '';
@@ -2228,11 +2374,13 @@ function initializeClientDetailsModal() {
         }
 
         if (typeof Chart === 'undefined') {
-            modalTrafficMeta.textContent = 'График недоступен: библиотека Chart.js не загружена';
+            modalTrafficMeta.classList.remove('is-loading');
+            modalTrafficMeta.innerHTML = renderDetailsPlaceholder('График недоступен: библиотека Chart.js не загружена');
             return;
         }
 
-        modalTrafficMeta.textContent = 'Загрузка...';
+        modalTrafficMeta.classList.add('is-loading');
+        modalTrafficMeta.innerHTML = renderDetailsPlaceholder('Загрузка графика...', true);
 
         try {
             const url = `/api/user-traffic-chart?client=${encodeURIComponent(currentClientName)}&range=${encodeURIComponent(currentRange)}`;
@@ -2302,12 +2450,13 @@ function initializeClientDetailsModal() {
                 datasets.push({
                     label: limitDisplay.label,
                     data: labels.map(() => limitDisplay.value),
-                    borderColor: getThemeColor('--theme-chart-limit-border', '#ff9800'),
-                    backgroundColor: 'rgba(255,152,0,0.06)',
-                    borderWidth: 2,
-                    borderDash: [10, 6],
+                    borderColor: getThemeColor('--theme-chart-limit-border', '#ffb74d'),
+                    backgroundColor: 'rgba(255,183,77,0.1)',
+                    borderWidth: 2.6,
+                    borderDash: [8, 5],
                     fill: false,
                     pointRadius: 0,
+                    pointHoverRadius: 0,
                 });
             }
 
@@ -2362,16 +2511,18 @@ function initializeClientDetailsModal() {
                 }
             });
 
-            let metaText =
-                `VPN: ${data.total_vpn_human || humanBytes(data.total_vpn)} | ` +
-                `Antizapret: ${data.total_antizapret_human || humanBytes(data.total_antizapret)} | ` +
-                `Итого: ${data.total_human || humanBytes(data.total)}`;
+            const metaParts = [
+                `VPN: ${data.total_vpn_human || humanBytes(data.total_vpn)}`,
+                `Antizapret: ${data.total_antizapret_human || humanBytes(data.total_antizapret)}`,
+                `Итого: ${data.total_human || humanBytes(data.total)}`,
+            ];
             if (limitDisplay) {
-                metaText += ` | ${limitDisplay.label}`;
+                metaParts.push(limitDisplay.label);
             }
-            modalTrafficMeta.textContent = metaText;
+            renderTrafficMeta(metaParts);
         } catch (error) {
-            modalTrafficMeta.textContent = `Не удалось загрузить график: ${error.message}`;
+            modalTrafficMeta.classList.remove('is-loading');
+            modalTrafficMeta.innerHTML = renderDetailsPlaceholder(`Не удалось загрузить график: ${error.message}`);
         }
     }
 
@@ -2379,26 +2530,8 @@ function initializeClientDetailsModal() {
         const connectedItem = payload.connected[name] || {};
         const trafficItem = payload.traffic[name] || null;
 
-        const sessions = connectedItem.sessions != null ? connectedItem.sessions : '-';
-        const profiles = connectedItem.profiles || '-';
-        const rx = connectedItem.bytes_received_human || '-';
-        const tx = connectedItem.bytes_sent_human || '-';
-        const total = connectedItem.total_bytes_human || '-';
-
-        if (modalSummary) {
-            modalSummary.textContent = `Сессий: ${sessions} | Профили: ${profiles} | Rx: ${rx} | Tx: ${tx} | Итого: ${total}`;
-        }
-
-        if (modalTrafficQuick) {
-            if (trafficItem) {
-                const statusText = trafficItem.is_active ? 'Онлайн' : 'Оффлайн';
-                modalTrafficQuick.textContent =
-                    `Статус: ${statusText} | 1 день: ${trafficItem.traffic_1d_human} | 7 дней: ${trafficItem.traffic_7d_human} | 30 дней: ${trafficItem.traffic_30d_human} | VPN: ${trafficItem.total_bytes_vpn_human} | Antizapret: ${trafficItem.total_bytes_antizapret_human}`;
-            } else {
-                modalTrafficQuick.textContent = 'В БД пока нет накопленной статистики по этому клиенту.';
-            }
-        }
-
+        renderSummaryGrid(connectedItem, trafficItem);
+        renderTrafficStats(trafficItem);
         renderConnections(name);
     }
 
@@ -2415,14 +2548,27 @@ function initializeClientDetailsModal() {
             modalTitle.textContent = name;
         }
 
+        const row = getClientRowByName(name);
+        renderHeaderChips(row);
+
         if (modalSummary) {
-            modalSummary.textContent = 'Загрузка сведений о клиенте...';
+            modalSummary.innerHTML = renderDetailsPlaceholder('Загрузка сведений...', true);
         }
 
         if (modalTrafficQuick) {
-            modalTrafficQuick.textContent = 'Загрузка статистики...';
+            modalTrafficQuick.innerHTML = renderDetailsPlaceholder('Загрузка статистики...', true);
         }
 
+        if (modalTrafficMeta) {
+            modalTrafficMeta.classList.add('is-loading');
+            modalTrafficMeta.innerHTML = renderDetailsPlaceholder('Загрузка графика...', true);
+        }
+
+        if (modalConnections) {
+            modalConnections.innerHTML = renderDetailsPlaceholder('Загрузка подключений...', true);
+        }
+
+        renderRestrictionsForClient(name);
         renderActions(name);
         setActiveRangeButtons();
         setModalOpen(true);
@@ -2433,10 +2579,10 @@ function initializeClientDetailsModal() {
                 payload = await loadIndexClientDetailsPayload();
             } catch (error) {
                 if (modalSummary) {
-                    modalSummary.textContent = `Не удалось загрузить сведения: ${error.message}`;
+                    modalSummary.innerHTML = renderDetailsPlaceholder(`Не удалось загрузить сведения: ${error.message}`);
                 }
                 if (modalTrafficQuick) {
-                    modalTrafficQuick.textContent = 'Повторите попытку позже.';
+                    modalTrafficQuick.innerHTML = renderDetailsPlaceholder('Повторите попытку позже.');
                 }
                 if (modalConnections) {
                     modalConnections.innerHTML = '<div class="client-details-note">Данные подключений недоступны.</div>';

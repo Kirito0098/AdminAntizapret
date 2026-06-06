@@ -1,3 +1,22 @@
+def _build_visible_client_name_lookup(visible_client_names):
+    lookup = {}
+    for raw_name in visible_client_names or []:
+        name = (raw_name or "").strip()
+        if not name:
+            continue
+        lookup.setdefault(name.lower(), name)
+    return lookup
+
+
+def _resolve_visible_client_name(common_name, visible_name_lookup):
+    name = (common_name or "").strip()
+    if not name:
+        return ""
+    if not visible_name_lookup:
+        return name
+    return visible_name_lookup.get(name.lower(), "")
+
+
 def build_client_details_payload(
     visible_client_names,
     *,
@@ -7,26 +26,27 @@ def build_client_details_payload(
     logger=None,
 ):
     client_details_payload = {"connected": {}, "traffic": {}}
+    visible_name_lookup = _build_visible_client_name_lookup(visible_client_names)
 
     try:
         dashboard_data = get_logs_dashboard_data_cached(created_by_username=session_username)
         connected_clients = dashboard_data.get("connected_clients", []) or []
         persisted_traffic_rows = dashboard_data.get("persisted_traffic_rows", []) or []
 
-        if visible_client_names:
+        if visible_name_lookup:
             connected_clients = [
                 item
                 for item in connected_clients
-                if (item.get("common_name") or "") in visible_client_names
+                if _resolve_visible_client_name(item.get("common_name"), visible_name_lookup)
             ]
             persisted_traffic_rows = [
                 row
                 for row in persisted_traffic_rows
-                if (row.get("common_name") or "") in visible_client_names
+                if _resolve_visible_client_name(row.get("common_name"), visible_name_lookup)
             ]
 
         for item in connected_clients:
-            name = (item.get("common_name") or "").strip()
+            name = _resolve_visible_client_name(item.get("common_name"), visible_name_lookup)
             if not name:
                 continue
             client_details_payload["connected"][name] = {
@@ -40,7 +60,7 @@ def build_client_details_payload(
             }
 
         for row in persisted_traffic_rows:
-            name = (row.get("common_name") or "").strip()
+            name = _resolve_visible_client_name(row.get("common_name"), visible_name_lookup)
             if not name:
                 continue
 

@@ -107,7 +107,7 @@ class OpenVpnAccessPolicyService:
         row.traffic_limit_period_days = period_days
         row.updated_by = (actor_username or "").strip() or None
         self.db.session.commit()
-        self.reconcile_client_policy(client_name)
+        self.reconcile_client_policy(client_name, traffic_limit_changed=True)
         return row
 
     def clear_traffic_limit(self, client_name, *, actor_username=None):
@@ -119,7 +119,7 @@ class OpenVpnAccessPolicyService:
         row.traffic_limit_period_days = None
         row.updated_by = (actor_username or "").strip() or None
         self.db.session.commit()
-        self.reconcile_client_policy(client_name)
+        self.reconcile_client_policy(client_name, traffic_limit_changed=True)
         return row
 
     def clear_block(self, client_name, *, actor_username=None):
@@ -192,23 +192,64 @@ class OpenVpnAccessPolicyService:
             return True
         return False
 
-    def _sync_banlist_from_policy(self):
+    def _cleanup_traffic_limit_reconcile(self, row, traffic_state, *, traffic_limit_changed=False):
+        traffic_exceeded = bool(traffic_state.get("traffic_limit_exceeded"))
+        changed = False
+
+        if traffic_exceeded:
+            if (
+                row.is_permanent_blocked
+                and not row.is_temp_blocked
+                and not (row.updated_by or "").strip()
+            ):
+                row.is_permanent_blocked = False
+                row.block_started_at = None
+                row.block_days = None
+                row.block_until = None
+                changed = True
+            return changed
+
+        if row.block_reason == "traffic_limit":
+            row.block_started_at = None
+            row.block_days = None
+            row.block_until = None
+            changed = True
+
+        if (
+            traffic_limit_changed
+            and not traffic_exceeded
+            and row.is_permanent_blocked
+            and not row.is_temp_blocked
+        ):
+            row.is_permanent_blocked = False
+            row.block_started_at = None
+            row.block_days = None
+            row.block_until = None
+            changed = True
+
+        return changed
+
+    def _sync_banlist_from_policy(self, *, traffic_limit_changed_clients=None):
         self.ensure_client_connect_ban_check_block()
         now = self._now()
         rows = self.policy_model.query.all()
         changed = False
         blocked_clients = set()
+        traffic_limit_changed_clients = {
+            self.normalize_client_name(name)
+            for name in (traffic_limit_changed_clients or [])
+            if (name or "").strip()
+        }
         for row in rows:
             if self._cleanup_expired_temp_block(row, now):
                 changed = True
             traffic_state = self._resolve_traffic_state(row)
-            if bool(traffic_state.get("traffic_limit_exceeded")) and row.is_permanent_blocked and not row.is_temp_blocked:
-                if not (row.updated_by or "").strip():
-                    row.is_permanent_blocked = False
-                    row.block_started_at = None
-                    row.block_days = None
-                    row.block_until = None
-                    changed = True
+            if self._cleanup_traffic_limit_reconcile(
+                row,
+                traffic_state,
+                traffic_limit_changed=row.client_name in traffic_limit_changed_clients,
+            ):
+                changed = True
             state = self._resolve_effective_state(row, now=now)
             if row.block_reason != state["reason"]:
                 row.block_reason = state["reason"]
@@ -220,11 +261,13 @@ class OpenVpnAccessPolicyService:
         self.write_banned_clients(blocked_clients)
         return blocked_clients
 
-    def reconcile_client_policy(self, client_name):
+    def reconcile_client_policy(self, client_name, *, traffic_limit_changed=False):
         normalized = self.normalize_client_name(client_name)
         if not normalized:
             return None
-        self._sync_banlist_from_policy()
+        self._sync_banlist_from_policy(
+            traffic_limit_changed_clients=[normalized] if traffic_limit_changed else None,
+        )
         row = self.policy_model.query.filter_by(client_name=normalized).first()
         if row is None:
             return None
@@ -239,6 +282,10 @@ class OpenVpnAccessPolicyService:
                 continue
             traffic_state = self._resolve_traffic_state(row)
             if bool(traffic_state.get("traffic_limit_exceeded")):
+                continue
+            if row.block_reason == "traffic_limit":
+                continue
+            if row.traffic_limit_bytes is not None and not bool(traffic_state.get("traffic_limit_exceeded")):
                 continue
             if not row.is_temp_blocked and not row.is_permanent_blocked:
                 row.is_permanent_blocked = True

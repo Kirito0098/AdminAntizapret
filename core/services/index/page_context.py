@@ -3,7 +3,7 @@ import re
 from collections import OrderedDict
 from datetime import datetime, timezone
 
-from core.services.access_remaining import format_access_remaining
+from core.services.access_remaining import format_access_remaining, is_access_expired
 from core.services.time_utils import as_utc
 
 _CLIENT_NAME_SUFFIX_RE = re.compile(r"-(?:udp|tcp|wg|am)$", re.IGNORECASE)
@@ -123,7 +123,18 @@ def group_config_files_by_client(file_paths):
     return grouped
 
 
-def _resolve_cert_state(cert_info):
+def _cert_is_expired(cert_days, cert_expires_at, *, now=None):
+    if cert_days is not None and cert_days < 0:
+        return True
+
+    expired_by_date = is_access_expired(cert_expires_at, now=now)
+    if expired_by_date is not None:
+        return expired_by_date
+
+    return cert_days is not None and cert_days <= 0
+
+
+def _resolve_cert_state(cert_info, *, now=None):
     if not cert_info:
         return "active", None, None
 
@@ -132,7 +143,7 @@ def _resolve_cert_state(cert_info):
 
     if cert_days is None:
         return "active", None, cert_expires_at
-    if cert_days <= 0:
+    if _cert_is_expired(cert_days, cert_expires_at, now=now):
         return "expired", cert_days, cert_expires_at
     if cert_days <= 30:
         return "expiring", cert_days, cert_expires_at
@@ -378,10 +389,10 @@ def build_index_kpi(
 
     if cert_expiry:
         for cert_info in cert_expiry.values():
-            cert_days = cert_info.get("days_left")
-            if cert_days is not None and cert_days <= 0:
+            cert_state, _, _ = _resolve_cert_state(cert_info)
+            if cert_state == "expired":
                 expired_count += 1
-            elif cert_days is not None and cert_days <= 30:
+            elif cert_state == "expiring":
                 expiring_count += 1
 
     return {

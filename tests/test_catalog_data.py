@@ -132,6 +132,14 @@ TEST_ENTRIES: dict[str, dict[str, str]] = {
         "title": 'Остаток доступа: 10 дней',
         "description": 'При сроке больше суток возвращается краткая строка в днях («10 дн.»), без часов и минут.',
     },
+    'tests/test_access_remaining.py::AccessRemainingTests::test_is_access_expired_future_within_one_day': {
+        "title": 'Истечение доступа: <24 ч впереди',
+        "description": 'is_access_expired возвращает False, если expires_at в будущем, даже при остатке меньше суток.',
+    },
+    'tests/test_access_remaining.py::AccessRemainingTests::test_is_access_expired_past': {
+        "title": 'Истечение доступа: срок прошёл',
+        "description": 'is_access_expired возвращает True для прошедшей даты истечения.',
+    },
     'tests/test_admin_notify.py::AdminNotifyTextTests::test_client_ban_legacy_blocked_flags': {
         "title": 'Уведомление: legacy blocked=0/1',
         "description": 'Старые details blocked=1 интерпретируются как постоянная блокировка; blocked=0 — как разблокировка.',
