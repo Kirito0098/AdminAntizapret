@@ -3,10 +3,11 @@
 
 This is a lightweight replacement for utils/traffic_sync.py.
 
-It intentionally does NOT import app.py for the traffic snapshot itself.
-It reads OpenVPN status logs and `wg show all dump`, persists traffic deltas
-directly into SQLite, then optionally runs a lightweight traffic-limit reconcile
-via utils.traffic_limit_reconcile (ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP).
+It intentionally does NOT import app.py, Flask, SQLAlchemy, routes, schedulers,
+or the full services bundle for the traffic snapshot itself. It reads OpenVPN status
+logs and `wg show all dump`, persists traffic deltas directly into SQLite, then
+optionally runs a lightweight traffic-limit reconcile via utils.traffic_limit_reconcile
+(ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP).
 
 Default DB path matches Flask-SQLAlchemy sqlite:///users.db:
     /opt/AdminAntizapret/instance/users.db
