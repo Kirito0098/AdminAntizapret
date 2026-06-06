@@ -10,7 +10,7 @@ itsdangerous==2.2.0
 Jinja2==3.1.6
 MarkupSafe==3.0.2
 netaddr>=0.10.1
-Pillow==11.0.0
+Pillow==12.2.0
 psutil==7.2.2
 python-dotenv==1.2.2
 qrcode==7.4.2
