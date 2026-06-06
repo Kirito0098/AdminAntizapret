@@ -93,6 +93,29 @@ class FeatureTogglesServiceTests(unittest.TestCase):
         self.assertEqual(app_group["disabled_count"], 1)
         self.assertEqual(app_group["total_count"], len(app_group["items"]))
 
+    def test_apply_feature_toggle_settings_skips_env_on_cron_failure(self):
+        scheduler = MagicMock()
+        scheduler.traffic_sync_enabled = True
+        scheduler.wg_policy_sync_enabled = True
+        scheduler.runtime_backup_cleanup_enabled = True
+        set_env_value = MagicMock()
+
+        ok, message = apply_feature_toggle_settings(
+            form_values={item.key: item.default for item in FEATURE_TOGGLES}
+            | {"traffic_sync": False},
+            set_env_value=set_env_value,
+            runtime_set=MagicMock(),
+            maintenance_scheduler_service=scheduler,
+            ensure_traffic_sync_cron=MagicMock(return_value=(False, "cron failed")),
+            ensure_wg_policy_sync_cron=MagicMock(return_value=(True, "wg ok")),
+            ensure_runtime_backup_cleanup_cron=MagicMock(return_value=(True, "cleanup ok")),
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(message, "cron failed")
+        set_env_value.assert_not_called()
+        self.assertTrue(scheduler.traffic_sync_enabled)
+
     def test_apply_feature_toggle_settings_updates_scheduler_and_cron(self):
         scheduler = MagicMock()
         scheduler.traffic_sync_enabled = True
@@ -177,8 +200,10 @@ class FeatureGuardsTests(unittest.TestCase):
             self.assertEqual(blocked[1], 403)
 
     def test_check_index_post_option_blocks_openvpn(self):
-        with patch("core.services.feature_guards.jsonify") as jsonify:
-            jsonify.return_value = {"success": False}
+        from flask import Flask
+
+        app = Flask(__name__)
+        with app.test_request_context("/"):
             blocked = check_index_post_option(
                 "1",
                 get_env_value=lambda key, default=None: {
@@ -186,6 +211,12 @@ class FeatureGuardsTests(unittest.TestCase):
                 }.get(key, default),
             )
         self.assertIsNotNone(blocked)
+        payload, status_code = blocked
+        body = payload.get_json()
+        self.assertEqual(status_code, 403)
+        self.assertFalse(body["success"])
+        self.assertIn("message", body)
+        self.assertNotIn("error", body)
 
     def test_check_index_post_option_allows_wg_when_one_protocol_enabled(self):
         self.assertIsNone(
@@ -257,6 +288,30 @@ class FeatureTogglesPostHandlerTests(unittest.TestCase):
         flash.assert_called_once_with("Настройки модулей сохранены", "success")
         log_user_action_event.assert_called_once()
         self.assertTrue(any(call.args[0] == "TRAFFIC_SYNC_ENABLED" for call in set_env_value.call_args_list))
+
+    def test_handle_feature_toggles_settings_returns_reload_redirect(self):
+        flash = MagicMock()
+        scheduler = MagicMock()
+        form = {"feature_toggles_action": "save"}
+        for item in FEATURE_TOGGLES:
+            form[f"feature_toggle_{item.key}"] = "true"
+
+        redirect_target = handle_feature_toggles_settings(
+            form,
+            flash=flash,
+            to_bool=lambda value, default=False: str(value).lower() == "true",
+            set_env_value=MagicMock(),
+            runtime_set=MagicMock(),
+            maintenance_scheduler_service=scheduler,
+            ensure_traffic_sync_cron=MagicMock(return_value=(True, "ok")),
+            ensure_wg_policy_sync_cron=MagicMock(return_value=(True, "ok")),
+            ensure_runtime_backup_cleanup_cron=MagicMock(return_value=(True, "ok")),
+            ensure_app_backup_cron=MagicMock(return_value=(True, "ok")),
+            log_user_action_event=MagicMock(),
+            redirect_url="/settings",
+        )
+
+        self.assertEqual(redirect_target, "/settings?feature_toggles_saved=1#feature-toggles")
 
 
 class FeatureTogglesTemplateTests(unittest.TestCase):

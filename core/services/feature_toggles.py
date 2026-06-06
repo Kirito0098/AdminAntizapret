@@ -644,6 +644,31 @@ def build_feature_toggles_page_groups(*, get_env_value) -> list[dict]:
     return result
 
 
+def _snapshot_scheduler_flags(maintenance_scheduler_service) -> dict[str, bool]:
+    return {
+        "traffic_sync_enabled": maintenance_scheduler_service.traffic_sync_enabled,
+        "wg_policy_sync_enabled": maintenance_scheduler_service.wg_policy_sync_enabled,
+        "runtime_backup_cleanup_enabled": maintenance_scheduler_service.runtime_backup_cleanup_enabled,
+    }
+
+
+def _apply_scheduler_flags(maintenance_scheduler_service, *, form_values: dict[str, bool]) -> None:
+    for item in FEATURE_TOGGLES:
+        enabled = bool(form_values.get(item.key, item.default))
+        if item.env_key == "TRAFFIC_SYNC_ENABLED":
+            maintenance_scheduler_service.traffic_sync_enabled = enabled
+        elif item.env_key == "WG_POLICY_SYNC_ENABLED":
+            maintenance_scheduler_service.wg_policy_sync_enabled = enabled
+        elif item.env_key == "RUNTIME_BACKUP_CLEANUP_ENABLED":
+            maintenance_scheduler_service.runtime_backup_cleanup_enabled = enabled
+
+
+def _restore_scheduler_flags(maintenance_scheduler_service, snapshot: dict[str, bool]) -> None:
+    maintenance_scheduler_service.traffic_sync_enabled = snapshot["traffic_sync_enabled"]
+    maintenance_scheduler_service.wg_policy_sync_enabled = snapshot["wg_policy_sync_enabled"]
+    maintenance_scheduler_service.runtime_backup_cleanup_enabled = snapshot["runtime_backup_cleanup_enabled"]
+
+
 def apply_feature_toggle_settings(
     *,
     form_values: dict[str, bool],
@@ -654,25 +679,28 @@ def apply_feature_toggle_settings(
     ensure_wg_policy_sync_cron,
     ensure_runtime_backup_cleanup_cron,
     ensure_app_backup_cron=None,
+    get_backup_settings=None,
 ) -> tuple[bool, str]:
-    changed: list[str] = []
+    intended = {
+        item.key: bool(form_values.get(item.key, item.default)) for item in FEATURE_TOGGLES
+    }
+    changed = [f"{key}={'вкл' if enabled else 'выкл'}" for key, enabled in intended.items()]
 
-    for item in FEATURE_TOGGLES:
-        enabled = bool(form_values.get(item.key, item.default))
-        env_value = "true" if enabled else "false"
-        set_env_value(item.env_key, env_value)
-        runtime_set(item.env_key, enabled)
-        changed.append(f"{item.key}={'вкл' if enabled else 'выкл'}")
+    scheduler_snapshot = _snapshot_scheduler_flags(maintenance_scheduler_service)
+    backup_runtime_snapshot = None
+    if callable(get_backup_settings):
+        backup_runtime_snapshot = get_backup_settings()
 
-        if item.env_key == "TRAFFIC_SYNC_ENABLED":
-            maintenance_scheduler_service.traffic_sync_enabled = enabled
-        elif item.env_key == "WG_POLICY_SYNC_ENABLED":
-            maintenance_scheduler_service.wg_policy_sync_enabled = enabled
-        elif item.env_key == "RUNTIME_BACKUP_CLEANUP_ENABLED":
-            maintenance_scheduler_service.runtime_backup_cleanup_enabled = enabled
-        elif item.env_key == "FEATURE_BACKUPS_ENABLED" and not enabled:
-            set_env_value("APP_BACKUP_ENABLED", "false")
-            runtime_set("APP_BACKUP_ENABLED", False)
+    _apply_scheduler_flags(maintenance_scheduler_service, form_values=intended)
+    backup_runtime_touched = False
+    if not intended.get("backups", True):
+        runtime_set("APP_BACKUP_ENABLED", False)
+        backup_runtime_touched = True
+
+    def _rollback_preview_state() -> None:
+        _restore_scheduler_flags(maintenance_scheduler_service, scheduler_snapshot)
+        if backup_runtime_touched and backup_runtime_snapshot is not None:
+            runtime_set("APP_BACKUP_ENABLED", bool(backup_runtime_snapshot.get("enabled", False)))
 
     cron_messages: list[str] = []
     for ensure_fn, label in (
@@ -682,14 +710,25 @@ def apply_feature_toggle_settings(
     ):
         ok, message = ensure_fn()
         if not ok:
+            _rollback_preview_state()
             return False, message
         cron_messages.append(f"{label}: {message}")
 
     if ensure_app_backup_cron is not None:
         ok, message = ensure_app_backup_cron()
         if not ok:
+            _rollback_preview_state()
             return False, message
         cron_messages.append(f"авто-бэкап: {message}")
+
+    for item in FEATURE_TOGGLES:
+        enabled = intended[item.key]
+        env_value = "true" if enabled else "false"
+        set_env_value(item.env_key, env_value)
+        runtime_set(item.env_key, enabled)
+        if item.env_key == "FEATURE_BACKUPS_ENABLED" and not enabled:
+            set_env_value("APP_BACKUP_ENABLED", "false")
+            runtime_set("APP_BACKUP_ENABLED", False)
 
     details = ", ".join(changed)
     if cron_messages:

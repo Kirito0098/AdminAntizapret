@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Code review fixes (модули, Safe Browsing, API)
+
+- **`get_env_value` в роутах**: `routes/index/routes.py` и `routes/auth_routes.py` читают `.env` через инжектируемый `get_env_value` (как `feature_guards`), а не `os.getenv` — согласованность при multi-worker.
+- **JSON-ошибки модулей**: `feature_guards.py` возвращает `message` вместо `error`; `page-core.js` и `client-details.js` читают `payload.message || payload.error`.
+- **Сохранение модулей**: `apply_feature_toggle_settings` сначала валидирует/обновляет cron на preview-состоянии, затем пишет `.env`; при ошибке cron откат scheduler/runtime без записи в `.env`.
+- **UI модулей**: после успешного сохранения — redirect с `feature_toggles_saved=1` и reload для синхронизации меню; подтверждение при отключении `security`, `backups`, `traffic_sync`.
+- **Safe Browsing / noindex**: `http_security.py` — `noindex` для `/`, `/settings`, админ-разделов и `/api/`; `robots.txt` синхронизирован (`Disallow: /` и ключевые пути).
+- **`safe_browsing_status_cli.py`**: User-Agent, проверка HTTP status, retry с backoff, типизированные исключения вместо bare `except Exception`.
+
 ### Скрипты и веб-панель — выравнивание логики
 
 - **Резервное копирование (`backup_functions.sh`)**: `--backup` / `--restore` делегируют в `BackupManagerService` через `script_sh/backup_cli.py` (venv): компоненты db, env, data; остановка/запуск `admin-antizapret` при создании и восстановлении; подтверждение перед restore.

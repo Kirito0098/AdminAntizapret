@@ -1307,7 +1307,7 @@ async function updateClientBlockState(clientName, shouldBlock) {
     }
 
     if (!response.ok || !payload || !payload.success) {
-        const msg = payload && payload.message ? payload.message : `HTTP error! status: ${response.status}`;
+        const msg = payload && (payload.message || payload.error) ? (payload.message || payload.error) : `HTTP error! status: ${response.status}`;
         throw new Error(msg);
     }
 
@@ -1479,8 +1479,8 @@ function initializeOneTimeLinkButtons() {
                 }
 
                 if (!response.ok || !payload || !payload.success || !payload.download_url) {
-                    const message = payload && payload.message
-                        ? payload.message
+                    const message = payload && (payload.message || payload.error)
+                        ? (payload.message || payload.error)
                         : `Не удалось создать ссылку (HTTP ${response.status})`;
                     throw new Error(message);
                 }

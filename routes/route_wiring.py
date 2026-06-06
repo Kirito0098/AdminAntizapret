@@ -22,6 +22,7 @@ def register_all_routes(app, sock, deps):
         limiter=g("limiter"),
         db=g("db"),
         user_model=g("User"),
+        get_env_value=g("_get_env_value"),
         touch_active_web_session=g("_touch_active_web_session"),
         remove_active_web_session=g("_remove_active_web_session"),
         log_telegram_audit_event=g("_log_telegram_audit_event"),
@@ -152,6 +153,7 @@ def register_all_routes(app, sock, deps):
     register_index_routes(
         app,
         auth_manager=g("auth_manager"),
+        get_env_value=g("_get_env_value"),
         db=g("db"),
         user_model=g("User"),
         config_file_handler=g("config_file_handler"),

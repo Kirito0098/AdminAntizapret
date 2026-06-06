@@ -581,6 +581,55 @@ document.querySelectorAll(".maintenance-recipient-chip__input").forEach((input) 
   syncChipState();
 });
 
+(function initFeatureToggleReload() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("feature_toggles_saved") !== "1") {
+    return;
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.delete("feature_toggles_saved");
+  url.hash = "feature-toggles";
+  window.location.replace(url.pathname + (url.search || "") + url.hash);
+})();
+
+(function initFeatureToggleCriticalConfirm() {
+  const form = document.querySelector(".feature-toggles-form");
+  if (!form) return;
+
+  const criticalModules = {
+    security: "Безопасность",
+    backups: "Резервные копии",
+    traffic_sync: "Синхронизация трафика",
+  };
+
+  form.addEventListener(
+    "submit",
+    (event) => {
+      const disabling = [];
+      Object.entries(criticalModules).forEach(([key, label]) => {
+        const enabledRadio = form.querySelector(
+          `input[name="feature_toggle_${key}"][value="true"]`
+        );
+        const selected = form.querySelector(`input[name="feature_toggle_${key}"]:checked`);
+        if (enabledRadio?.defaultChecked && selected?.value === "false") {
+          disabling.push(label);
+        }
+      });
+      if (disabling.length === 0) {
+        return;
+      }
+      const modulesList = disabling.map((label) => `«${label}»`).join(", ");
+      const confirmed = window.confirm(
+        `Отключить критичные модули ${modulesList}? Это может ограничить защиту, бэкапы или учёт трафика.`
+      );
+      if (!confirmed) {
+        event.preventDefault();
+      }
+    },
+    true
+  );
+})();
+
 (function initFeatureToggleCards() {
   const root = document.getElementById("feature-toggles");
   if (!root) return;

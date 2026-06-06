@@ -102,7 +102,7 @@ def process_settings_post(form, *, session, flash, redirect_url, **deps):
         log_user_action_event=deps["log_user_action_event"],
         get_env_value=deps["get_env_value"],
     )
-    handle_feature_toggles_settings(
+    feature_toggles_redirect = handle_feature_toggles_settings(
         form,
         flash=flash,
         to_bool=deps["to_bool"],
@@ -113,8 +113,12 @@ def process_settings_post(form, *, session, flash, redirect_url, **deps):
         ensure_wg_policy_sync_cron=deps["ensure_wg_policy_sync_cron"],
         ensure_runtime_backup_cleanup_cron=deps["ensure_runtime_backup_cleanup_cron"],
         ensure_app_backup_cron=deps["ensure_app_backup_cron"],
+        get_backup_settings=deps.get("get_backup_settings"),
         log_user_action_event=deps["log_user_action_event"],
+        redirect_url=redirect_url,
     )
+    if feature_toggles_redirect:
+        return feature_toggles_redirect
     handle_restart_service(
         form,
         flash=flash,

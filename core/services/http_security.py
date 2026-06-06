@@ -15,13 +15,21 @@ except Exception:  # pragma: no cover - defensive
         return False
 
 NOINDEX_PATH_PREFIXES = (
+    "/",
     "/login",
+    "/settings",
+    "/routing",
+    "/server_monitor",
+    "/logs_dashboard",
+    "/edit-files",
+    "/feature-disabled",
     "/tg-mini",
     "/qr_download/",
     "/public_download/",
     "/captcha.png",
     "/auth/",
     "/ip-blocked",
+    "/api/",
 )
 
 _CSP_NONCE_ATTR = "_csp_nonce"
@@ -102,7 +110,14 @@ def apply_security_headers(response, path: str, nonce: str | None = None) -> Non
 
 def build_robots_txt() -> str:
     return """User-agent: *
+Disallow: /
 Disallow: /login
+Disallow: /settings
+Disallow: /routing
+Disallow: /server_monitor
+Disallow: /logs_dashboard
+Disallow: /edit-files
+Disallow: /feature-disabled
 Disallow: /qr_download/
 Disallow: /public_download/
 Disallow: /generate_one_time_download/
@@ -111,6 +126,7 @@ Disallow: /captcha.png
 Disallow: /auth/
 Disallow: /ip-blocked
 Disallow: /tg-mini
+Disallow: /api/
 """
 
 

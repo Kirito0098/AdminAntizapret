@@ -56,7 +56,7 @@ def _blocked_payload(*, module_key: str, as_json: bool):
     label = _module_label(module_key)
     message = f'Раздел «{label}» отключён администратором.'
     if as_json:
-        return jsonify({"success": False, "error": message, "feature_disabled": module_key}), 403
+        return jsonify({"success": False, "message": message, "feature_disabled": module_key}), 403
     return (
         render_template(
             "feature_disabled.html",

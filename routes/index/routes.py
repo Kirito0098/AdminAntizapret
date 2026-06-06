@@ -1,4 +1,3 @@
-import os
 import re
 import subprocess
 import threading
@@ -71,6 +70,7 @@ def register_index_routes(
     app,
     *,
     auth_manager,
+    get_env_value,
     db,
     user_model,
     config_file_handler,
@@ -149,15 +149,14 @@ def register_index_routes(
             # не создавали лишнюю нагрузку и гонки. Корректность не страдает:
             # мутирующие POST-операции синхронизируют политики напрямую.
             if _should_run_index_reconcile():
-                _env_get = lambda key, default="": os.getenv(key, default)
-                if is_app_module_enabled("openvpn", get_env_value=_env_get):
+                if is_app_module_enabled("openvpn", get_env_value=get_env_value):
                     try:
                         openvpn_reconcile_all_policies()
                     except Exception as e:
                         db.session.rollback()
                         app.logger.warning("Не удалось синхронизировать OpenVPN политики при загрузке index: %s", e)
-                if is_app_module_enabled("wireguard", get_env_value=_env_get) or is_app_module_enabled(
-                    "amneziawg", get_env_value=_env_get
+                if is_app_module_enabled("wireguard", get_env_value=get_env_value) or is_app_module_enabled(
+                    "amneziawg", get_env_value=get_env_value
                 ):
                     try:
                         wg_reconcile_all_policies(apply_runtime=False)
@@ -176,7 +175,7 @@ def register_index_routes(
                 wg_build_status_map=wg_build_status_map,
                 url_for=url_for,
                 human_bytes=human_bytes,
-                get_env_value=lambda key, default="": os.getenv(key, default),
+                get_env_value=get_env_value,
             )
             context["service_statuses"] = collect_grouped_service_statuses()
             return render_template("index.html", **context)
@@ -187,7 +186,7 @@ def register_index_routes(
 
         blocked = check_index_post_option(
             request.form.get("option"),
-            get_env_value=lambda key, default="": os.getenv(key, default),
+            get_env_value=get_env_value,
         )
         if blocked is not None:
             return blocked

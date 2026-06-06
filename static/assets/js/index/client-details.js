@@ -65,7 +65,7 @@ async function loadIndexClientDetailsPayload(force = false) {
             }
 
             if (payload.success === false) {
-                throw new Error(payload.message || 'Ошибка загрузки данных клиента');
+                throw new Error(payload.message || payload.error || 'Ошибка загрузки данных клиента');
             }
 
             const raw = payload.payload || payload;
@@ -544,8 +544,8 @@ function initializeClientDetailsModal() {
         }
 
         if (!response.ok || !payload || !payload.success || !payload.download_url) {
-            const message = payload && payload.message
-                ? payload.message
+            const message = payload && (payload.message || payload.error)
+                ? (payload.message || payload.error)
                 : `Не удалось создать ссылку (HTTP ${response.status})`;
             throw new Error(message);
         }
@@ -603,7 +603,7 @@ function initializeClientDetailsModal() {
             payload = null;
         }
         if (!response.ok || !payload || !payload.success) {
-            const msg = payload && payload.message ? payload.message : `HTTP error! status: ${response.status}`;
+            const msg = payload && (payload.message || payload.error) ? (payload.message || payload.error) : `HTTP error! status: ${response.status}`;
             const error = new Error(msg);
             error.errorCode = payload && payload.error_code ? payload.error_code : null;
             throw error;
@@ -955,7 +955,7 @@ function initializeClientDetailsModal() {
             payload = null;
         }
         if (!response.ok || !payload || !payload.success) {
-            const msg = payload && payload.message ? payload.message : `HTTP error! status: ${response.status}`;
+            const msg = payload && (payload.message || payload.error) ? (payload.message || payload.error) : `HTTP error! status: ${response.status}`;
             throw new Error(msg);
         }
         return payload;
@@ -1932,8 +1932,8 @@ function initializeClientDetailsModal() {
                         }
 
                         if (!response.ok || !payload || !payload.success) {
-                            const message = payload && payload.message
-                                ? payload.message
+                            const message = payload && (payload.message || payload.error)
+                                ? (payload.message || payload.error)
                                 : `Не удалось продлить сертификат (HTTP ${response.status})`;
                             throw new Error(message);
                         }
@@ -2201,8 +2201,8 @@ function initializeClientDetailsModal() {
                         }
 
                         if (!response.ok || !payload || !payload.success) {
-                            const message = payload && payload.message
-                                ? payload.message
+                            const message = payload && (payload.message || payload.error)
+                                ? (payload.message || payload.error)
                                 : `Не удалось удалить профиль (HTTP ${response.status})`;
                             throw new Error(message);
                         }

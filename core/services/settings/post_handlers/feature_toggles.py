@@ -13,7 +13,9 @@ def handle_feature_toggles_settings(
     ensure_wg_policy_sync_cron,
     ensure_runtime_backup_cleanup_cron,
     ensure_app_backup_cron=None,
+    get_backup_settings=None,
     log_user_action_event,
+    redirect_url=None,
 ):
     if form.get("feature_toggles_action") != "save":
         return None
@@ -34,10 +36,11 @@ def handle_feature_toggles_settings(
         ensure_wg_policy_sync_cron=ensure_wg_policy_sync_cron,
         ensure_runtime_backup_cleanup_cron=ensure_runtime_backup_cleanup_cron,
         ensure_app_backup_cron=ensure_app_backup_cron,
+        get_backup_settings=get_backup_settings,
     )
     if not ok:
         flash(details, "error")
-        return None
+        return redirect_url
 
     for item in FEATURE_TOGGLES:
         env_value = "true" if form_values[item.key] else "false"
@@ -50,4 +53,7 @@ def handle_feature_toggles_settings(
         details=details,
     )
     flash("Настройки модулей сохранены", "success")
+    if redirect_url:
+        separator = "&" if "?" in redirect_url else "?"
+        return f"{redirect_url}{separator}feature_toggles_saved=1#feature-toggles"
     return None
