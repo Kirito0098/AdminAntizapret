@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Улучшено
+
+- **Runtime CLI (`traffic_sync`, `wg_awg_runtime_apply`)**: переписаны без импорта полного `app.py` для сбора/записи трафика и WG/AWG block/unblock; после cron sync сохранена автосверка лимитов трафика через `utils/traffic_limit_reconcile.py` (`ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP`, флаг `--no-reconcile`, env `TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC`).
+
 ### Исправлено
 
 - **Подробные сообщения progress bar**: фоновые задачи (doall, перезапуск, обновление, бэкапы) и CIDR-операции показывают понятные этапы на русском — «Akamai: загрузка префиксов AS20940 (3 из 15)…», «Резервная копия: архивирование…», «AntiZapret: пересоздание профилей клиентов…»; `BackgroundTaskService` и `pollBackgroundTaskWithProgress` подставляют описание по `task_type`, если backend ещё не прислал детальный `progress_stage`.
