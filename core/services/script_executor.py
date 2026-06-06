@@ -1,10 +1,22 @@
+import os
 import subprocess
 
 
 class ScriptExecutor:
-    def __init__(self, min_cert_expire=1, max_cert_expire=3650):
+    def __init__(
+        self,
+        min_cert_expire=1,
+        max_cert_expire=3650,
+        client_sh_cwd=None,
+    ):
         self.min_cert_expire = min_cert_expire
         self.max_cert_expire = max_cert_expire
+        self.client_sh_cwd = os.path.abspath(
+            client_sh_cwd
+            or os.environ.get("APP_BACKUP_AZ_INSTALL_DIR")
+            or os.environ.get("ANTIZAPRET_INSTALL_DIR")
+            or "/root/antizapret"
+        )
 
     def run_bash_script(self, option, client_name, cert_expire=None):
         if not option.isdigit():
@@ -23,6 +35,7 @@ class ScriptExecutor:
 
         result = subprocess.run(
             command,
+            cwd=self.client_sh_cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

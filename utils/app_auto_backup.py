@@ -13,7 +13,11 @@ from core.services.backup_telegram_job import (  # noqa: E402
 
 
 def main():
-    result = run_backup_job(APP_ROOT, trigger="auto", require_auto_enabled=True)
+    try:
+        result = run_backup_job(APP_ROOT, trigger="auto", require_auto_enabled=True)
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
     if result.get("skipped"):
         return 0
     return 0

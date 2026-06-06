@@ -255,11 +255,7 @@ def build_conf_access_groups(conf_paths, config_type):
 def collect_all_configs_for_access(config_type):
     return config_access_service.collect_all_configs_for_access(config_type)
 
-# Инициализация классов
-script_executor = ScriptExecutor(
-    min_cert_expire=MIN_CERT_EXPIRE,
-    max_cert_expire=MAX_CERT_EXPIRE,
-)
+# Инициализация классов (script_executor — после runtime_settings, см. ниже)
 config_file_handler = ConfigFileHandler(CONFIG_PATHS)
 config_access_service = ConfigAccessService(
     config_file_handler=config_file_handler,
@@ -656,6 +652,12 @@ _runtime_set(
 _runtime_set(
     "RUNTIME_BACKUP_CLEANUP_ENABLED",
     runtime_settings["RUNTIME_BACKUP_CLEANUP_ENABLED"],
+)
+
+script_executor = ScriptExecutor(
+    min_cert_expire=MIN_CERT_EXPIRE,
+    max_cert_expire=MAX_CERT_EXPIRE,
+    client_sh_cwd=runtime_settings["APP_BACKUP_AZ_INSTALL_DIR"],
 )
 
 

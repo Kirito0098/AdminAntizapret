@@ -86,11 +86,8 @@ PY
     return 1
 }
 
-SECRET_KEY=$(generate_secret_key)
-if [ -z "$SECRET_KEY" ]; then
-    ui_fail "Не удалось сгенерировать SECRET_KEY." >&2
-    exit 1
-fi
+# SECRET_KEY задаётся в .env только при первой настройке (ssl_setup.sh)
+SECRET_KEY=""
 
 # ─── Проверка занятости порта ─────────────────────
 check_port() {
@@ -389,20 +386,20 @@ auto_update() {
     ui_info "Проверка обновлений..."
     cd "$INSTALL_DIR" || return 1
 
-    if ! git fetch origin main; then
+    if ! git fetch origin main --quiet; then
         check_error "Не удалось получить обновления из origin/main"
     fi
 
     if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
         ui_info "Найдены обновления. Установка..."
-        git pull origin main
-        check_error "Не удалось выполнить git pull"
+        git reset --hard origin/main --quiet
+        check_error "Не удалось выполнить git reset --hard origin/main"
+        git clean -fd --quiet
+        check_error "Не удалось выполнить git clean -fd"
         ensure_env_defaults
         "$VENV_PATH/bin/pip" install -q -r requirements.txt
         check_error "Не удалось обновить Python-зависимости"
-        systemctl restart "$SERVICE_NAME"
-        check_error "Не удалось перезапустить сервис"
-        ui_ok "Обновление завершено"
+        ui_ok "Обновление завершено. Перезапустите службу: $0 --restart"
     else
         ui_ok "Система актуальна"
     fi

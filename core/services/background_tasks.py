@@ -201,8 +201,9 @@ class BackgroundTaskService:
         }
 
     def task_restart_service(self) -> dict[str, str]:
+        adminpanel_sh = os.path.join(self.app_root, "script_sh", "adminpanel.sh")
         stdout, stderr = self.run_checked_command(
-            ["/opt/AdminAntizapret/script_sh/adminpanel.sh", "--restart"],
+            [adminpanel_sh, "--restart"],
             timeout=120,
         )
         combined = "\n".join(part for part in [stdout, stderr] if part).strip()

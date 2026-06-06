@@ -1,100 +1,84 @@
 #!/bin/bash
 
-append_if_exists() {
-    local -n _arr_ref=$1
-    shift
-    local path
-    for path in "$@"; do
-        [ -e "$path" ] || continue
-        _arr_ref+=("$path")
-    done
+# Резервное копирование через BackupManagerService (как в веб-панели)
+BACKUP_CLI="$INSTALL_DIR/script_sh/backup_cli.py"
+
+_backup_python() {
+    if [ -x "$VENV_PATH/bin/python3" ]; then
+        printf '%s\n' "$VENV_PATH/bin/python3"
+        return 0
+    fi
+    if command -v python3 >/dev/null 2>&1; then
+        printf '%s\n' "python3"
+        return 0
+    fi
+    return 1
+}
+
+_run_backup_cli() {
+    local python_bin
+
+    if [ ! -f "$BACKUP_CLI" ]; then
+        ui_fail "Не найден модуль резервного копирования: $BACKUP_CLI"
+        return 1
+    fi
+    if ! python_bin=$(_backup_python); then
+        ui_fail "Python3 не найден (нужен venv или python3 в PATH)"
+        return 1
+    fi
+    "$python_bin" "$BACKUP_CLI" "$@"
 }
 
 # Создание резервной копии
 create_backup() {
-    local backup_dir="/var/backups/antizapret"
-    local timestamp
-    timestamp=$(date +%Y%m%d_%H%M%S)
-    local backup_file="$backup_dir/full_backup_${timestamp}.tar.gz"
-    local backup_meta="$backup_dir/full_backup_${timestamp}.meta.txt"
-    local backup_items=()
+    local archive_path
 
-    log "Создание резервной копии: $backup_file"
-    ui_info "Создание резервной копии..."
-    mkdir -p "$backup_dir"
+    log "Создание резервной копии через BackupManagerService"
+    ui_info "Создание резервной копии (db, env, data)..."
 
-    append_if_exists backup_items \
-        "$DB_FILE" \
-        "$DB_FILE-wal" \
-        "$DB_FILE-shm" \
-        "$INSTALL_DIR/users.db" \
-        "$INSTALL_DIR/users.db-wal" \
-        "$INSTALL_DIR/users.db-shm" \
-        "$INSTALL_DIR/instance/site.db" \
-        "$INSTALL_DIR/instance/site.db-wal" \
-        "$INSTALL_DIR/instance/site.db-shm"
-
-    if [ "${#backup_items[@]}" -eq 0 ]; then
-        ui_fail "Нет данных для резервного копирования"
-        return 1
-    fi
-
-    {
-        printf 'backup_created_at=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-        printf 'backup_scope=data-only\n'
-        printf 'service_name=%s\n' "$SERVICE_NAME"
-        printf 'db_file=%s\n' "$DB_FILE"
-        printf 'data_items_count=%d\n' "${#backup_items[@]}"
-    } > "$backup_meta"
-
-    if ! tar -czf "$backup_file" "${backup_items[@]}" 2>/dev/null; then
-        ui_fail "Не удалось создать архив резервной копии"
-        rm -f "$backup_file"
-        return 1
-    fi
-
-    if ! tar -tzf "$backup_file" >/dev/null; then
-        ui_fail "Резервная копия повреждена"
-        rm -f "$backup_file"
+    if ! archive_path=$(_run_backup_cli create --install-dir "$INSTALL_DIR" --trigger manual); then
+        ui_fail "Не удалось создать резервную копию"
         return 1
     fi
 
     ui_ok "Резервная копия создана:"
-    printf "  ${DIM}%s${NC}\n" "$backup_file"
-    printf "  ${DIM}Восстановление: %s --restore %s${NC}\n" "$0" "$backup_file"
+    printf "  ${DIM}%s${NC}\n" "$archive_path"
+    printf "  ${DIM}Восстановление: %s --restore %s${NC}\n" "$0" "$archive_path"
     press_any_key
 }
 
 # Восстановление из резервной копии
 restore_backup() {
     local backup_file="$1"
+    local backup_label
+
+    if [ -z "$backup_file" ]; then
+        ui_fail "Не указан файл резервной копии"
+        return 1
+    fi
 
     if [ ! -f "$backup_file" ]; then
         ui_fail "Файл резервной копии не найден: $backup_file"
         return 1
     fi
 
+    backup_label=$(basename "$backup_file")
     log "Восстановление из: $backup_file"
-    ui_info "Восстановление из резервной копии..."
-
-    systemctl stop "$SERVICE_NAME" 2>/dev/null || true
-
-    if ! tar -xzf "$backup_file" -C /; then
-        ui_fail "Не удалось распаковать резервную копию"
+    ui_warn "Восстановление перезапишет текущие данные панели (БД, .env, data/)."
+    ui_warn "Служба $SERVICE_NAME будет остановлена на время восстановления."
+    if ! ui_confirm "Продолжить восстановление из ${backup_label}?"; then
+        ui_info "Восстановление отменено"
         return 1
     fi
 
-    if systemctl list-unit-files 2>/dev/null | grep -q "^${SERVICE_NAME}\.service"; then
-        systemctl start "$SERVICE_NAME" 2>/dev/null || true
-        if ! systemctl is-active --quiet "$SERVICE_NAME"; then
-            ui_warn "Данные восстановлены, но сервис не запустился"
-            ui_info "Проверьте: journalctl -u $SERVICE_NAME -n 100 --no-pager"
-            return 1
-        fi
-    else
-        ui_warn "Сервис $SERVICE_NAME не найден. Установите проект и повторите восстановление."
+    ui_info "Восстановление из резервной копии..."
+    if _run_backup_cli restore --install-dir "$INSTALL_DIR" "$backup_file"; then
+        log "Восстановление завершено"
+        ui_ok "Данные восстановлены"
+        return 0
     fi
 
-    log "Восстановление завершено"
-    ui_ok "Данные восстановлены"
+    ui_fail "Не удалось восстановить данные из резервной копии"
+    ui_info "Проверьте: journalctl -u $SERVICE_NAME -n 100 --no-pager"
+    return 1
 }

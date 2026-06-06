@@ -86,6 +86,14 @@ class AppAutoBackupTests(unittest.TestCase):
 
         self.assertEqual(send_tg_document_mock.call_count, 4)
 
+    def test_main_returns_nonzero_on_failure(self):
+        with patch.object(
+            app_auto_backup,
+            "run_backup_job",
+            side_effect=RuntimeError("backup failed"),
+        ):
+            self.assertEqual(app_auto_backup.main(), 1)
+
     def test_run_backup_job_test_mode_forces_telegram(self):
         panel_archive = os.path.join(self.tmp_dir, "panel.tar.gz")
         with open(panel_archive, "wb") as fh:

@@ -51,6 +51,12 @@ class MaintenanceSchedulerBackupTests(unittest.TestCase):
         written_lines = service.write_crontab_lines.call_args.args[0]
         self.assertFalse(any("# app-backup" in line for line in written_lines))
 
+    def test_app_backup_command_logs_to_file(self):
+        service = self._build_service(enabled=True)
+        command = service.app_backup_command()
+        self.assertIn("/opt/AdminAntizapret/logs/app_auto_backup.log", command)
+        self.assertNotIn("/dev/null", command)
+
 
 if __name__ == "__main__":
     unittest.main()

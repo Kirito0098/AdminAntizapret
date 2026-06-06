@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Скрипты и веб-панель — выравнивание логики
+
+- **Резервное копирование (`backup_functions.sh`)**: `--backup` / `--restore` делегируют в `BackupManagerService` через `script_sh/backup_cli.py` (venv): компоненты db, env, data; остановка/запуск `admin-antizapret` при создании и восстановлении; подтверждение перед restore.
+- **`adminpanel.sh --update`**: как в веб-панели — `git reset --hard origin/main` + `git clean -fd` вместо `git pull`; без автоперезапуска службы (подсказка `--restart`).
+- **`SECRET_KEY`**: больше не генерируется при каждом запуске `adminpanel.sh`; `ssl_setup.sh` записывает ключ в `.env` только если его ещё нет.
+- **`background_tasks` / `ScriptExecutor`**: путь к `adminpanel.sh` через `app_root`; `client.sh` запускается с `cwd=ANTIZAPRET_INSTALL_DIR`.
+- **`app_auto_backup.py`**: ненулевой exit code при ошибке бэкапа.
+- **Cron**: вывод задач планировщика (`traffic_sync`, `wg_policy_sync`, `app_auto_backup`, nightly restart) пишется в `{app_root}/logs/*.log` вместо `/dev/null`.
+
 ### Telegram Mini App
 
 - **Mobile UX/UI**: улучшена мобильная вёрстка mini app — sticky tab bar, safe-area insets для Telegram WebView, collapsible шапка и фильтры, компактные карточки клиентов с «Ещё действия», bottom-sheet модалки, touch targets ≥44px, empty/loading states (`app.html`, `base.html`, `tg_mini_app.css`, `tg_mini_app.js`).
