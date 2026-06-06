@@ -1,6 +1,6 @@
 # AdminAntizapret 🚀
 
-![Version](https://img.shields.io/badge/version-1.8.2-blue)
+![Version](https://img.shields.io/badge/version-1.9.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Stars](https://img.shields.io/github/stars/Kirito0098/AdminAntizapret?style=social)
 ![Forks](https://img.shields.io/github/forks/Kirito0098/AdminAntizapret?style=social)
@@ -89,7 +89,8 @@ AdminAntizapret - веб-панель для [AntiZapret-VPN](https://github.com
 - системные метрики и сетевые графики (`vnStat`);
 - журнал действий и события по изменениям настроек;
 - бэкапы вручную и по расписанию, восстановление и опциональная отправка архивов в Telegram;
-- ночной перезапуск при простое и сервисные фоновые задачи.
+- ночной перезапуск при простое и сервисные фоновые задачи;
+- ускоренные cron-скрипты синхронизации трафика и WG/AWG block/unblock (`traffic_sync`, `wg_awg_runtime_apply`) — без тяжёлого импорта `app.py`; подробнее в [PR #38](https://github.com/Kirito0098/AdminAntizapret/pull/38).
 
 ## 🤖 Telegram
 
@@ -302,8 +303,9 @@ sudo /opt/AdminAntizapret/script_sh/adminpanel.sh --ip-add-temp 203.0.113.10 12h
 ## 🙏 Благодарности
 
 - [GubernievS](https://github.com/GubernievS) за [AntiZapret-VPN](https://github.com/GubernievS/AntiZapret-VPN);
-- [MagicRaven01](https://github.com/MagicRaven01) за развитие мониторинга и конфигурации;
-- [CarolusFuchs](https://github.com/CarolusFuchs) за улучшения интерфейса, QR и оптимизацию кода.
+- [MagicRaven01](https://github.com/MagicRaven01) за мониторинг ресурсов сервера и рефакторинг конфигурации ([PR #10](https://github.com/Kirito0098/AdminAntizapret/pull/10), [PR #17](https://github.com/Kirito0098/AdminAntizapret/pull/17), [PR #18](https://github.com/Kirito0098/AdminAntizapret/pull/18));
+- [CarolusFuchs](https://github.com/CarolusFuchs) за QR-коды, улучшения интерфейса, HTTPS и оптимизацию кода ([PR #8](https://github.com/Kirito0098/AdminAntizapret/pull/8), [PR #9](https://github.com/Kirito0098/AdminAntizapret/pull/9), [PR #20](https://github.com/Kirito0098/AdminAntizapret/pull/20), [PR #21](https://github.com/Kirito0098/AdminAntizapret/pull/21));
+- [JIEgOKOJI](https://github.com/JIEgOKOJI) за ускорение runtime CLI-скриптов `traffic_sync` и `wg_awg_runtime_apply` ([PR #38](https://github.com/Kirito0098/AdminAntizapret/pull/38)).
 
 ## 💖 Поддержка проекта
 

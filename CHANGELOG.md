@@ -2,9 +2,11 @@
 
 ## [Unreleased]
 
+## [1.9.0] – 06.06.2026
+
 ### Улучшено
 
-- **Runtime CLI (`traffic_sync`, `wg_awg_runtime_apply`)**: переписаны без импорта полного `app.py` для сбора/записи трафика и WG/AWG block/unblock; после cron sync сохранена автосверка лимитов трафика через `utils/traffic_limit_reconcile.py` (`ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP`, флаг `--no-reconcile`, env `TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC`).
+- **Runtime CLI (`traffic_sync`, `wg_awg_runtime_apply`)** — слияние [PR #38](https://github.com/Kirito0098/AdminAntizapret/pull/38): скрипты переписаны без импорта полного `app.py` для сбора/записи трафика и WG/AWG block/unblock. На слабых VPS ускорение заметное: `wg_awg_runtime_apply` unblock ~10 с → ~1.3 с, block ~11 с → ~0.8 с; `traffic_sync` ~15 с → ~0.5 с; RAM ~70 MB → ~16–18 MB. Автор оптимизации: [**@JIEgOKOJI**](https://github.com/JIEgOKOJI). В `Testing` сохранена автосверка лимитов трафика после cron sync через `utils/traffic_limit_reconcile.py` (`ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP`, флаг `--no-reconcile`, env `TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC`).
 
 ### Исправлено
 
