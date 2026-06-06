@@ -31,6 +31,7 @@ def _get_models():
     return _models
 
 
+from core.services.cidr.display_names import cidr_provider_display_name
 from core.services.cidr.download import _download_text as _download_cidr_text
 from core.services.cidr.parsers import _extract_bgp_tools_ipv4, _normalize_single_cidr
 
@@ -150,24 +151,31 @@ class _CidrRefreshProgressTracker:
         self._emit(pct, stage)
 
     def start_provider(self, file_name):
+        display_name = cidr_provider_display_name(file_name)
         with self._lock:
             self._active[file_name] = 0.0
-        self._maybe_emit(f"{file_name}: подготовка", force=True)
+        self._maybe_emit(f"{display_name}: подготовка к загрузке…", force=True)
 
     def provider_progress(self, file_name, fraction, detail):
         frac = max(0.0, min(1.0, float(fraction)))
+        display_name = cidr_provider_display_name(file_name)
         with self._lock:
             if file_name in self._active:
                 self._active[file_name] = frac
-        self._maybe_emit(f"{file_name}: {detail}")
+        detail_text = str(detail or "").strip() or "выполняется…"
+        self._maybe_emit(f"{display_name}: {detail_text}")
 
     def finish_provider(self, file_name):
+        display_name = cidr_provider_display_name(file_name)
         with self._lock:
             self._active.pop(file_name, None)
             self._completed += 1
             done = self._completed
             total = self._total
-        self._maybe_emit(f"Загружено провайдеров: {done}/{total}", force=True)
+        self._maybe_emit(
+            f"{display_name}: загрузка завершена ({done} из {total} провайдеров)",
+            force=True,
+        )
 
 
 def _download_text_impl(url, timeout=45):
@@ -284,7 +292,7 @@ class CidrDbUpdaterService:
             except Exception:
                 pass
 
-        _report(0.05, "обнаружение ASN")
+        _report(0.05, "поиск автономных систем (ASN)…")
         source_hint_asns = _extract_asns_from_sources(sources)
         discovered_asns, asn_discovery_sources, asn_discovery_errors = self._discover_provider_asns(
             file_name,
@@ -311,9 +319,9 @@ class CidrDbUpdaterService:
         worker_count = self._resolve_asn_fetch_workers(total_asn_rows)
 
         if total_asn_rows:
-            _report(0.12, f"найдено ASN: {total_asn_rows}")
+            _report(0.12, f"найдено {total_asn_rows} автономных систем…")
         else:
-            _report(0.35, "ASN не требуются, загрузка источников")
+            _report(0.35, "загрузка прямых источников…")
 
         if total_asn_rows > 0 and worker_count > 1:
             completed_asn = 0
@@ -330,12 +338,18 @@ class CidrDbUpdaterService:
                         asn_fetch_results[asn_value] = ([], None, str(exc))
                     completed_asn += 1
                     frac = 0.12 + 0.58 * (completed_asn / total_asn_rows)
-                    _report(frac, f"RIPE AS{asn_value} ({completed_asn}/{total_asn_rows})")
+                    _report(
+                        frac,
+                        f"загрузка префиксов AS{asn_value} ({completed_asn} из {total_asn_rows})…",
+                    )
         else:
             for asn_index, asn_value in enumerate(discovered_asn_values, start=1):
                 asn_fetch_results[asn_value] = self._download_asn_cidrs_with_meta(asn_value)
                 frac = 0.12 + 0.58 * (asn_index / total_asn_rows)
-                _report(frac, f"RIPE AS{asn_value} ({asn_index}/{total_asn_rows})")
+                _report(
+                    frac,
+                    f"загрузка префиксов AS{asn_value} ({asn_index} из {total_asn_rows})…",
+                )
 
         for asn_value in discovered_asn_values:
             fetched_items, fetched_source, fetched_error = asn_fetch_results.get(
@@ -363,12 +377,12 @@ class CidrDbUpdaterService:
                 "error": None,
             }
 
-        _report(0.78, "загрузка прямых источников")
+        _report(0.78, "загрузка прямых источников…")
         direct_items, direct_source_used, source_details = self._download_cidrs_with_meta(
             sources,
             return_source_details=True,
         )
-        _report(0.95, "объединение CIDR")
+        _report(0.95, "объединение и проверка CIDR…")
         merged_items = self._merge_cidr_items(direct_items + asn_items)
         if not merged_items:
             raise ValueError("Все источники вернули пустой результат")
@@ -512,7 +526,7 @@ class CidrDbUpdaterService:
                 except Exception:
                     pass
 
-        _emit_progress(1, "Подготовка: чтение текущих данных БД")
+        _emit_progress(1, "Подготовка: чтение текущих данных из БД…")
 
         previous_cidr_counts = {
             file_name: int(m.ProviderCidr.query.filter_by(provider_key=file_name).count() or 0)
@@ -533,7 +547,7 @@ class CidrDbUpdaterService:
 
         progress_tracker = _CidrRefreshProgressTracker(total_files, _emit_progress)
 
-        _emit_progress(3, f"Загрузка {total_files} провайдер(ов) из источников")
+        _emit_progress(3, f"Загрузка данных {total_files} провайдер(ов) из внешних источников…")
 
         if workers > 1:
             with ThreadPoolExecutor(max_workers=workers) as executor:

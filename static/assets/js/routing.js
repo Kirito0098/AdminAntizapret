@@ -1454,7 +1454,11 @@ document.addEventListener("DOMContentLoaded", function () {
       const result = await pollCidrTask(queued.task_id, {
         onProgress: (task) => {
           const percent = Number(task.progress_percent || 0);
-          const stageText = String(task.progress_stage || task.message || "Выполняется операция");
+          const stageText = String(
+            (typeof window.resolveBackgroundTaskStage === "function"
+              ? window.resolveBackgroundTaskStage(task, progressLabel || "Выполняется операция…")
+              : null) || task.progress_stage || task.message || "Выполняется операция…"
+          );
           renderCidrProgress({ percent, stageText });
         },
       });
@@ -2672,7 +2676,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let failed = false;
 
     startCidrProgress(steps[0].label + "…", { simulated: false });
-    renderCidrProgress({ percent: 2, stageText: "Подготовка…" });
+    renderCidrProgress({ percent: 2, stageText: "Подготовка последовательности операций…" });
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
@@ -2713,7 +2717,11 @@ document.addEventListener("DOMContentLoaded", function () {
               ? Math.max(0, Math.min(1, rawProgress / 100))
               : 0.5;
             const globalPct = pctStart + Math.round(localFrac * (pctEnd - pctStart));
-            const stageText = String(task.progress_stage || task.message || step.label);
+            const stageText = String(
+              (typeof window.resolveBackgroundTaskStage === "function"
+                ? window.resolveBackgroundTaskStage(task, step.label)
+                : null) || task.progress_stage || task.message || step.label
+            );
             renderCidrProgress({ percent: globalPct, stageText });
             _cidrStepUpdate(i, "active", `Шаг ${i + 1} из ${steps.length}: ${stageText}`);
           },

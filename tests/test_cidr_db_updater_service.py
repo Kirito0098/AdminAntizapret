@@ -668,8 +668,8 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertGreaterEqual(len(progress_events), 4)
         stages = [stage for _, stage in progress_events]
-        self.assertTrue(any("RIPE AS" in stage for stage in stages))
-        self.assertTrue(any("akamai-ips.txt" in stage for stage in stages))
+        self.assertTrue(any("Akamai" in stage for stage in stages))
+        self.assertTrue(any("AS20940" in stage for stage in stages))
         percents = [pct for pct, _ in progress_events]
         self.assertGreater(max(percents), min(percents))
         self.assertEqual(progress_events[-1][0], 100)

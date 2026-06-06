@@ -273,6 +273,61 @@ async function pollBackgroundTask(taskId, options = {}) {
   throw new Error("Превышено время ожидания фоновой задачи");
 }
 
+const BACKGROUND_TASK_STAGE_FALLBACKS = {
+  run_doall: "AntiZapret: применение изменений…",
+  restart_service: "Перезапуск службы AdminAntizapret…",
+  update_system: "Обновление кода и зависимостей…",
+  app_backup_create: "Резервная копия: создание архива…",
+  app_backup_restore: "Восстановление из резервной копии…",
+  app_backup_test_tg: "Резервная копия: отправка в Telegram…",
+  logs_dashboard_refresh: "Обновление панели логов…",
+  cidr_db_refresh: "Обновление CIDR в базе данных…",
+  cidr_db_refresh_dry_run: "Проверка обновления CIDR (dry-run)…",
+  cidr_generate: "Генерация маршрутов из базы данных…",
+  cidr_estimate: "Оценка генерации маршрутов…",
+  cidr_update: "Обновление CIDR-файлов…",
+  cidr_rollback: "Откат CIDR-файлов…",
+};
+
+const GENERIC_BACKGROUND_TASK_STAGES = new Set([
+  "Запуск…",
+  "Готово",
+  "Ошибка",
+  "Ошибка выполнения",
+  "Выполняется операция",
+  "Выполняется операция…",
+  "Задача выполняется",
+  "Задача выполняется…",
+  "Подготовка...",
+  "Подготовка…",
+  "Подготовка к выполнению…",
+  "Ожидание запуска...",
+  "Ожидание запуска задачи…",
+]);
+
+const GENERIC_BACKGROUND_TASK_MESSAGES = new Set([
+  "Задача выполняется",
+  "Задача выполняется…",
+  "Задача поставлена в очередь",
+]);
+
+function resolveBackgroundTaskStage(task, fallbackTitle) {
+  const stage = String(task?.progress_stage || "").trim();
+  const message = String(task?.message || "").trim();
+  const taskType = String(task?.task_type || "").trim();
+
+  if (stage && !GENERIC_BACKGROUND_TASK_STAGES.has(stage)) {
+    return stage;
+  }
+  if (message && !GENERIC_BACKGROUND_TASK_MESSAGES.has(message)) {
+    return message;
+  }
+  if (taskType && BACKGROUND_TASK_STAGE_FALLBACKS[taskType]) {
+    return BACKGROUND_TASK_STAGE_FALLBACKS[taskType];
+  }
+  return fallbackTitle || stage || message || "Выполняется операция…";
+}
+
 async function pollBackgroundTaskWithProgress(taskId, options = {}) {
   const title = options.title || "Выполняется операция…";
   const useSimulated = options.simulated !== false;
@@ -294,7 +349,7 @@ async function pollBackgroundTaskWithProgress(taskId, options = {}) {
         }
         updateTaskProgress({
           percent: hasRealProgress ? pct : undefined,
-          stage: task.progress_stage || task.message || title,
+          stage: resolveBackgroundTaskStage(task, title),
         });
         if (typeof options.onProgress === "function") {
           options.onProgress(task);
@@ -310,6 +365,7 @@ async function pollBackgroundTaskWithProgress(taskId, options = {}) {
 
 window.pollBackgroundTask = pollBackgroundTask;
 window.pollBackgroundTaskWithProgress = pollBackgroundTaskWithProgress;
+window.resolveBackgroundTaskStage = resolveBackgroundTaskStage;
 window.showTaskProgress = showTaskProgress;
 window.hideTaskProgress = hideTaskProgress;
 

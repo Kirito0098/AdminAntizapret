@@ -103,7 +103,7 @@ def _create_cidr_task_db(task_id: str, task_type: str, message: str) -> str:
             status="queued",
             message=str(message or "Задача поставлена в очередь")[:255],
             progress_percent=0,
-            progress_stage="Ожидание запуска...",
+            progress_stage="Ожидание запуска задачи…",
         )
         _db.session.add(task)
         _db.session.commit()
@@ -210,7 +210,7 @@ def _create_cidr_task_memory(task_id: str, task_type: str, message: str) -> str:
         "status": "queued",
         "message": str(message or "Задача поставлена в очередь"),
         "progress_percent": 0,
-        "progress_stage": "Ожидание запуска...",
+        "progress_stage": "Ожидание запуска задачи…",
         "error": None,
         "result": None,
         "created_at": now,
@@ -261,7 +261,7 @@ def make_start_cidr_task(app):
 
         def _progress_callback(percent, stage):
             pct = max(0, min(99, int(percent)))
-            stage_str = str(stage or "Выполняется операция")
+            stage_str = str(stage or "Выполняется операция…")
             now = time.monotonic()
             with progress_lock:
                 if (
@@ -285,7 +285,7 @@ def make_start_cidr_task(app):
                 task_id,
                 status="running",
                 progress_percent=1,
-                progress_stage="Подготовка...",
+                progress_stage="Подготовка к выполнению…",
                 started_at=_cidr_now_utc(),
             )
             try:
@@ -307,7 +307,7 @@ def make_start_cidr_task(app):
                     task_id,
                     status="completed",
                     progress_percent=100,
-                    progress_stage="Операция завершена",
+                    progress_stage="Операция успешно завершена",
                     message=str(result.get("message") or "Операция завершена")[:255],
                     error=None,
                     finished_at=_cidr_now_utc(),

@@ -311,7 +311,11 @@
           const td = await tr.json();
           if (td.status === "running") {
             const pct = Number(td.progress_percent || 0);
-            const stage = String(td.progress_stage || td.message || "Выполняется");
+            const stage = String(
+              (typeof window.resolveBackgroundTaskStage === "function"
+                ? window.resolveBackgroundTaskStage(td, "Обновление CIDR в базе данных…")
+                : null) || td.progress_stage || td.message || "Выполняется…"
+            );
             setDbMsg(`Обновление БД: ${pct}% — ${stage}`, "info");
             return;
           }

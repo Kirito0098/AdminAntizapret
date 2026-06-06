@@ -361,8 +361,13 @@ document.addEventListener("DOMContentLoaded", function () {
         const data = await resp.json();
 
         if (data.queued && data.task_id) {
-          if (els.progressLabel) els.progressLabel.textContent = "Выполняется обновление…";
-          const task = await pollBackgroundTask(data.task_id, { timeoutMs: 1200000 });
+          if (els.progressLabel) els.progressLabel.textContent = "Обновление: загрузка изменений…";
+          const pollFn = window.pollBackgroundTaskWithProgress || pollBackgroundTask;
+          const task = await pollFn(data.task_id, {
+            timeoutMs: 1200000,
+            title: "Обновление кода и зависимостей…",
+            simulated: false,
+          });
           const ok = task.status === "completed";
           if (els.progressFill) els.progressFill.style.width = "100%";
           window.showNotification?.(

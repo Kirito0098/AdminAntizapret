@@ -4,6 +4,8 @@
 
 ### Исправлено
 
+- **Подробные сообщения progress bar**: фоновые задачи (doall, перезапуск, обновление, бэкапы) и CIDR-операции показывают понятные этапы на русском — «Akamai: загрузка префиксов AS20940 (3 из 15)…», «Резервная копия: архивирование…», «AntiZapret: пересоздание профилей клиентов…»; `BackgroundTaskService` и `pollBackgroundTaskWithProgress` подставляют описание по `task_type`, если backend ещё не прислал детальный `progress_stage`.
+
 - **Глобальный progress bar для фоновых задач**: `pollBackgroundTaskWithProgress` в `settings_page_common.js` — плавающая полоса прогресса на страницах настроек, редактора файлов и маршрутизации; подключено к doall, сохранению файлов, бэкапам и применению AntiZapret; API `/api/tasks` отдаёт `progress_percent` / `progress_stage`.
 - **CIDR DB / прогресс UI**: во время длительной загрузки провайдеров (RIPE, Akamai и др.) прогресс больше не «залипает» на «Подготовка обновления провайдеров» (~3–5%): backend пишет в `BackgroundTask` текущий провайдер, этап (обнаружение ASN, RIPE AS{n}, прямые источники) и долю выполнения; poll в `routing.js` отображает обновлённые `progress_stage` / `progress_percent`.
 - **CIDR DB / RIPE (Akamai AS20940)**: увеличены таймауты и добавлен retry (до 3 попыток) при загрузке источников провайдера; `akamai-ips.txt` — сначала `announced-prefixes`, затем `bgp-state` как fallback, geo MaxMind последним; кэш ответов пишется только после успешного парсинга (пустые/битые ответы RIPE не «залипают» на 15 мин). Переменные: `CIDR_DB_SOURCE_FETCH_TIMEOUT` (по умолчанию 90 с), `CIDR_DB_SOURCE_FETCH_RETRIES` (3).

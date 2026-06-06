@@ -220,13 +220,17 @@ def handle_backup_test_telegram(
 
     task_id = None
     try:
-        def _task_test_backup_tg():
+        def _task_test_backup_tg(progress_updater=None):
+            if progress_updater:
+                progress_updater(10, "Резервная копия: создание архива для Telegram…")
             result = run_backup_job(
                 app_root,
                 trigger="test",
                 require_auto_enabled=False,
                 send_telegram=True,
             )
+            if progress_updater:
+                progress_updater(85, "Резервная копия: отправка в Telegram…")
             return {
                 "message": f"Создание бэкапа и отправка в Telegram завершены: {result.get('summary', '')}",
                 "output": result.get("summary", ""),
@@ -274,11 +278,15 @@ def handle_backup_create(
 
     task_id = None
     try:
-        def _task_create_backup():
+        def _task_create_backup(progress_updater=None):
+            if progress_updater:
+                progress_updater(10, "Резервная копия: подготовка файлов…")
             result = backup_manager_service.create_backup(
                 selected_components=selected_components,
                 trigger="manual",
             )
+            if progress_updater:
+                progress_updater(90, "Резервная копия: сохранение метаданных…")
             return {
                 "message": f"Бэкап создан: {result.get('archive_name', '')}",
                 "output": str(result.get("archive_path", "")),
@@ -324,8 +332,12 @@ def handle_backup_restore(
         return None
 
     try:
-        def _task_restore_backup():
+        def _task_restore_backup(progress_updater=None):
+            if progress_updater:
+                progress_updater(15, "Восстановление: остановка службы…")
             result = backup_manager_service.restore_backup(backup_file_name)
+            if progress_updater:
+                progress_updater(85, "Восстановление: запуск службы…")
             return {
                 "message": "Восстановление из бэкапа завершено",
                 "output": str(result.get("archive_path", "")),
