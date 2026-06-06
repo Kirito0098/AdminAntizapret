@@ -22,6 +22,12 @@ from sqlalchemy import case
 from werkzeug.exceptions import HTTPException
 
 from core.services.request_user import get_current_user
+from core.services.traffic_limit import (
+    TRAFFIC_LIMIT_EXCEEDED_CODE,
+    TrafficLimitExceededError,
+    parse_traffic_limit_bytes,
+    parse_traffic_limit_period_days,
+)
 from tg_mini.services.config_delivery import build_short_download_name
 from tg_mini.session import has_telegram_mini_session
 
@@ -42,7 +48,10 @@ def register_config_routes(
     openvpn_set_temp_block_days,
     openvpn_set_permanent_block,
     openvpn_clear_block,
+    openvpn_set_traffic_limit_bytes,
+    openvpn_clear_traffic_limit,
     openvpn_reconcile_client_policy,
+    human_bytes,
     get_config_type,
     resolve_config_file,
     create_one_time_download_url,
@@ -87,6 +96,9 @@ def register_config_routes(
         blocked_raw = (request.form.get("blocked", "").strip().lower())
         action = (request.form.get("action", "").strip().lower())
         days_raw = (request.form.get("days", "").strip())
+        limit_value_raw = (request.form.get("limit_value", "").strip())
+        limit_unit = (request.form.get("limit_unit", "mb").strip().lower())
+        limit_period_days_raw = (request.form.get("limit_period_days", "").strip())
 
         if not client_name_pattern.fullmatch(client_name):
             return jsonify({"success": False, "message": "Некорректный CN клиента."}), 400
@@ -129,6 +141,26 @@ def register_config_routes(
                 message = "Блокировка снята."
                 action_event = "openvpn_client_block_toggle"
                 details_text = "action=unblock"
+            elif action == "set_traffic_limit":
+                limit_bytes = parse_traffic_limit_bytes(limit_value_raw, limit_unit)
+                limit_period_days = parse_traffic_limit_period_days(limit_period_days_raw)
+                row = openvpn_set_traffic_limit_bytes(
+                    client_name,
+                    limit_bytes,
+                    period_days=limit_period_days,
+                    actor_username=session.get("username"),
+                )
+                message = "Лимит трафика OpenVPN установлен."
+                action_event = "openvpn_client_traffic_limit_set"
+                details_text = f"limit_bytes={limit_bytes} period_days={limit_period_days}"
+            elif action == "clear_traffic_limit":
+                row = openvpn_clear_traffic_limit(
+                    client_name,
+                    actor_username=session.get("username"),
+                )
+                message = "Лимит трафика OpenVPN снят."
+                action_event = "openvpn_client_traffic_limit_clear"
+                details_text = "action=clear_traffic_limit"
             else:
                 return jsonify({"success": False, "message": "Неизвестное действие."}), 400
 
@@ -161,9 +193,37 @@ def register_config_routes(
                     "blocked_days_left": state.get("blocked_days_left"),
                     "block_duration_days": state.get("block_duration_days"),
                     "message": message,
+                    "traffic_limit_bytes": state.get("traffic_limit_bytes"),
+                    "traffic_limit_period_days": state.get("traffic_limit_period_days"),
+                    "traffic_limit_period_label": state.get("traffic_limit_period_label"),
+                    "traffic_limit_unblock_at": state.get("traffic_limit_unblock_at"),
+                    "traffic_limit_unblock_label": state.get("traffic_limit_unblock_label"),
+                    "traffic_consumed_bytes": state.get("traffic_consumed_bytes"),
+                    "traffic_bytes_left": state.get("traffic_bytes_left"),
+                    "traffic_limit_exceeded": bool(state.get("traffic_limit_exceeded")),
+                    "traffic_limit_human": human_bytes(state.get("traffic_limit_bytes"))
+                    if state.get("traffic_limit_bytes")
+                    else None,
+                    "traffic_consumed_human": human_bytes(state.get("traffic_consumed_bytes"))
+                    if state.get("traffic_consumed_bytes") is not None
+                    else None,
+                    "traffic_bytes_left_human": human_bytes(state.get("traffic_bytes_left"))
+                    if state.get("traffic_bytes_left") is not None
+                    else None,
                 }
             )
         except ValueError as e:
+            if isinstance(e, TrafficLimitExceededError):
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": str(e),
+                            "error_code": TRAFFIC_LIMIT_EXCEEDED_CODE,
+                        }
+                    ),
+                    409,
+                )
             return jsonify({"success": False, "message": str(e)}), 400
         except PermissionError:
             return jsonify({"success": False, "message": "Нет прав на запись banned_clients."}), 500

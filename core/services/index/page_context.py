@@ -205,6 +205,27 @@ def _build_blocked_entries(
     return entries
 
 
+def _traffic_row_fields(state, human_bytes=None):
+    state = state or {}
+    limit_bytes = state.get("traffic_limit_bytes")
+    consumed_bytes = int(state.get("traffic_consumed_bytes") or 0)
+    left_bytes = state.get("traffic_bytes_left")
+    format_bytes = human_bytes or (lambda value: str(value))
+    return {
+        "traffic_limit_bytes": limit_bytes,
+        "traffic_limit_period_days": state.get("traffic_limit_period_days"),
+        "traffic_limit_period_label": state.get("traffic_limit_period_label"),
+        "traffic_limit_unblock_at": state.get("traffic_limit_unblock_at"),
+        "traffic_limit_unblock_label": state.get("traffic_limit_unblock_label"),
+        "traffic_consumed_bytes": consumed_bytes,
+        "traffic_bytes_left": left_bytes,
+        "traffic_limit_exceeded": bool(state.get("traffic_limit_exceeded")),
+        "traffic_limit_human": format_bytes(limit_bytes) if limit_bytes else None,
+        "traffic_consumed_human": format_bytes(consumed_bytes),
+        "traffic_bytes_left_human": format_bytes(left_bytes) if left_bytes is not None else None,
+    }
+
+
 def build_client_table_rows(
     protocol,
     grouped_files,
@@ -215,6 +236,7 @@ def build_client_table_rows(
     openvpn_policy_status_by_client,
     wg_policy_status_by_client,
     url_for,
+    human_bytes=None,
 ):
     config = _PROTOCOL_TABLE_CONFIG[protocol]
     is_admin = bool(current_user and current_user.is_admin())
@@ -248,7 +270,7 @@ def build_client_table_rows(
         wg_blocked_days_left = wg_state.get("blocked_days_left")
         if wg_blocked_days_left is None:
             wg_blocked_days_left = _resolve_access_days_left(wg_block_until_dt)
-        wg_block_mode = wg_state.get("block_mode") or ("temp" if wg_block_reason == "manual_temp" else ("expired" if wg_block_reason == "expired" else ("permanent" if wg_block_reason == "manual_permanent" else "none")))
+        wg_block_mode = wg_state.get("block_mode") or ("temp" if wg_block_reason == "manual_temp" else ("expired" if wg_block_reason == "expired" else ("traffic_limit" if wg_block_reason == "traffic_limit" else ("permanent" if wg_block_reason == "manual_permanent" else "none"))))
         wg_block_duration_days = wg_state.get("block_duration_days")
 
         if protocol == "openvpn":
@@ -271,6 +293,9 @@ def build_client_table_rows(
             block_duration_days = wg_block_duration_days
 
         access_remaining_text = format_access_remaining(access_expires_at_raw)
+
+        policy_state = ovpn_state if protocol == "openvpn" else wg_state
+        traffic_fields = _traffic_row_fields(policy_state, human_bytes)
 
         show_cert_meta = is_admin and config["supports_cert_meta"]
         if show_cert_meta:
@@ -333,6 +358,7 @@ def build_client_table_rows(
                 if is_admin
                 else None
             ),
+            **traffic_fields,
         }
         rows.append(row)
 
@@ -395,6 +421,7 @@ def build_index_get_context(
     extract_client_name_from_config_file,
     wg_build_status_map,
     url_for,
+    human_bytes=None,
 ):
     (
         group,
@@ -462,6 +489,7 @@ def build_index_get_context(
         "openvpn_policy_status_by_client": openvpn_policy_status_by_client,
         "wg_policy_status_by_client": wg_policy_status_by_client,
         "url_for": url_for,
+        "human_bytes": human_bytes,
     }
 
     return {

@@ -307,6 +307,10 @@ class DatabaseMigrationService:
                             ),
                             "block_started_at": "ALTER TABLE wg_access_policy ADD COLUMN block_started_at DATETIME",
                             "block_days": "ALTER TABLE wg_access_policy ADD COLUMN block_days INTEGER",
+                            "traffic_limit_bytes": "ALTER TABLE wg_access_policy ADD COLUMN traffic_limit_bytes BIGINT",
+                            "traffic_limit_period_days": (
+                                "ALTER TABLE wg_access_policy ADD COLUMN traffic_limit_period_days INTEGER"
+                            ),
                         }
                         for col_name, alter_sql in wg_policy_missing.items():
                             if col_name not in wg_policy_cols:
@@ -370,7 +374,17 @@ class DatabaseMigrationService:
                         conn.commit()
 
                 if insp.has_table("openvpn_access_policy"):
+                    ovpn_policy_cols = {c["name"] for c in insp.get_columns("openvpn_access_policy")}
                     with self.db.engine.connect() as conn:
+                        ovpn_policy_missing = {
+                            "traffic_limit_bytes": "ALTER TABLE openvpn_access_policy ADD COLUMN traffic_limit_bytes BIGINT",
+                            "traffic_limit_period_days": (
+                                "ALTER TABLE openvpn_access_policy ADD COLUMN traffic_limit_period_days INTEGER"
+                            ),
+                        }
+                        for col_name, alter_sql in ovpn_policy_missing.items():
+                            if col_name not in ovpn_policy_cols:
+                                conn.execute(text(alter_sql))
                         conn.execute(
                             text(
                                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_openvpn_access_policy_client_name "

@@ -935,6 +935,7 @@ _TG_NOTIFY_EVENT_LABELS = {
     "user_create": "добавление пользователя",
     "user_delete": "удаление пользователя",
     "client_ban": "блокировка клиента",
+    "traffic_limit": "лимит трафика",
     "settings_change": "изменение настроек",
     "high_cpu": "высокая нагрузка CPU",
     "high_ram": "высокая нагрузка RAM",

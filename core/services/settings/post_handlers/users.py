@@ -56,7 +56,7 @@ def handle_users_settings(
                 "login_success", "login_failed", "tg_unlinked",
                 "config_create", "config_delete",
                 "user_create", "user_delete",
-                "client_ban", "settings_change",
+                "client_ban", "traffic_limit", "settings_change",
                 "high_cpu", "high_ram",
             ]
             events = {k: (form.get(f"tg_e_{k}") == "1") for k in _ev_keys}

@@ -266,6 +266,7 @@ def register_settings_misc_api_routes(
             ("user_create",     "Добавление пользователя"),
             ("user_delete",     "Удаление пользователя"),
             ("client_ban",      "Блокировка / разблокировка клиента"),
+            ("traffic_limit",   "Лимит трафика (блок / авторазблокировка)"),
             ("settings_change", "Изменение настроек"),
             ("high_cpu",        "Высокая нагрузка CPU"),
             ("high_ram",        "Высокая нагрузка RAM"),

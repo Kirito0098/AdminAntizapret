@@ -247,6 +247,70 @@ function initializeClientDetailsModal() {
         return `${size.toFixed(precision)} ${units[idx]}`;
     }
 
+    function getClientRowByName(clientName) {
+        const escapedName = (window.CSS && typeof window.CSS.escape === 'function')
+            ? window.CSS.escape(clientName)
+            : String(clientName || '').replace(/"/g, '\\"');
+        const rowSelector = `.client-row[data-client-name="${escapedName}"]`;
+        const activePane = document.querySelector('.tab-pane.active');
+        return (activePane && activePane.querySelector(rowSelector)) || document.querySelector(rowSelector);
+    }
+
+    function getChartRangeDays(range) {
+        const normalized = (range || '7d').toLowerCase();
+        if (normalized === '1h') {
+            return 1 / 24;
+        }
+        if (normalized === '1d' || normalized === '24h') {
+            return 1;
+        }
+        if (normalized === '7d') {
+            return 7;
+        }
+        if (normalized === '30d') {
+            return 30;
+        }
+        return null;
+    }
+
+    function getChartTrafficLimitDisplay(limitBytes, limitPeriodDays, chartRange) {
+        const parsedLimit = Number(limitBytes || 0);
+        if (!Number.isFinite(parsedLimit) || parsedLimit < 1) {
+            return null;
+        }
+
+        const periodDays = Number(limitPeriodDays || 0);
+        const hasPeriod = Number.isFinite(periodDays) && periodDays > 0;
+        const rangeDays = getChartRangeDays(chartRange);
+        const periodLabel = hasPeriod
+            ? (periodDays === 1
+                ? 'за сутки (календарный день)'
+                : (periodDays === 7
+                    ? 'за неделю (пн–вс)'
+                    : (periodDays === 30 ? 'за месяц' : `${periodDays} дн.`)))
+            : 'всё время';
+
+        if (!hasPeriod || rangeDays === null) {
+            return {
+                value: parsedLimit,
+                label: `Лимит: ${humanBytes(parsedLimit)} / ${periodLabel}`,
+            };
+        }
+
+        const effectiveLimit = Math.round(parsedLimit * Math.min(rangeDays, periodDays) / periodDays);
+        if (rangeDays < periodDays) {
+            return {
+                value: effectiveLimit,
+                label: `Лимит: ${humanBytes(parsedLimit)} / ${periodLabel} (≈${humanBytes(effectiveLimit)} за период графика)`,
+            };
+        }
+
+        return {
+            value: parsedLimit,
+            label: `Лимит: ${humanBytes(parsedLimit)} / ${periodLabel}`,
+        };
+    }
+
     const trafficLabelFormatters = {
         minute5: new Intl.DateTimeFormat(undefined, {
             hour: '2-digit',
@@ -338,14 +402,37 @@ function initializeClientDetailsModal() {
         await copyTextToClipboard(payload.download_url);
     }
 
-    async function updateWgClientAccess(clientName, action, days = null) {
+    async function updateWgClientAccess(clientName, action, options = null) {
         const csrfInput = document.getElementById('csrf-token-value');
         const csrfToken = csrfInput ? csrfInput.value : '';
         const formData = new FormData();
         formData.append('client_name', clientName);
         formData.append('action', action);
+
+        let days = null;
+        let limitValue = null;
+        let limitUnit = null;
+        let limitPeriodDays = null;
+        if (typeof options === 'number' || typeof options === 'string') {
+            days = options;
+        } else if (options && typeof options === 'object') {
+            days = options.days ?? null;
+            limitValue = options.limitValue ?? null;
+            limitUnit = options.limitUnit ?? null;
+            limitPeriodDays = options.limitPeriodDays ?? null;
+        }
+
         if (days !== null && days !== undefined && String(days).trim() !== '') {
             formData.append('days', String(days).trim());
+        }
+        if (limitValue !== null && limitValue !== undefined && String(limitValue).trim() !== '') {
+            formData.append('limit_value', String(limitValue).trim());
+        }
+        if (limitUnit !== null && limitUnit !== undefined && String(limitUnit).trim() !== '') {
+            formData.append('limit_unit', String(limitUnit).trim());
+        }
+        if (limitPeriodDays !== null && limitPeriodDays !== undefined && String(limitPeriodDays).trim() !== '') {
+            formData.append('limit_period_days', String(limitPeriodDays).trim());
         }
         if (csrfToken) {
             formData.append('csrf_token', csrfToken);
@@ -371,6 +458,152 @@ function initializeClientDetailsModal() {
             throw error;
         }
         return payload;
+    }
+
+    async function requestTrafficLimitInput(clientName, protocolLabel, row = null) {
+        const defaultPeriodDays = (row && row.dataset.trafficLimitPeriodDays) ? row.dataset.trafficLimitPeriodDays : '7';
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'quick-action-modal';
+            modal.innerHTML = `
+                <div class="quick-action-backdrop"></div>
+                <div class="quick-action-dialog traffic-limit-dialog" role="dialog" aria-modal="true" aria-labelledby="trafficLimitTitle">
+                    <button type="button" class="quick-action-close" aria-label="Закрыть">×</button>
+                    <div class="traffic-limit-header">
+                        <div class="traffic-limit-icon" aria-hidden="true">📊</div>
+                        <div class="traffic-limit-header-text">
+                            <h4 id="trafficLimitTitle">Лимит трафика ${protocolLabel}</h4>
+                            <p class="quick-action-message">Максимальный объём трафика за выбранный период</p>
+                        </div>
+                    </div>
+                    <div class="traffic-limit-client-badge">${clientName}</div>
+                    <form class="quick-action-form traffic-limit-form">
+                        <div class="traffic-limit-fields">
+                            <div class="traffic-limit-field">
+                                <label class="quick-action-label" for="trafficLimitValue">Объём</label>
+                                <input id="trafficLimitValue" name="trafficLimitValue" type="number" inputmode="decimal" min="0.01" step="any" value="10" placeholder="10" />
+                            </div>
+                            <div class="traffic-limit-field traffic-limit-field-unit">
+                                <label class="quick-action-label" for="trafficLimitUnit">Единица</label>
+                                <div class="traffic-limit-select-wrap">
+                                    <select id="trafficLimitUnit" name="trafficLimitUnit" class="traffic-limit-select">
+                                        <option value="mb">MB</option>
+                                        <option value="gb" selected>GB</option>
+                                        <option value="tb">TB</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="traffic-limit-field traffic-limit-field-period">
+                                <label class="quick-action-label" for="trafficLimitPeriod">Период</label>
+                                <div class="traffic-limit-select-wrap">
+                                    <select id="trafficLimitPeriod" name="trafficLimitPeriod" class="traffic-limit-select">
+                                        <option value="1"${defaultPeriodDays === '1' ? ' selected' : ''}>За сутки (календарный день)</option>
+                                        <option value="7"${defaultPeriodDays === '7' ? ' selected' : ''}>За неделю (пн–вс)</option>
+                                        <option value="30"${defaultPeriodDays === '30' ? ' selected' : ''}>За месяц</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="traffic-limit-presets" role="group" aria-label="Быстрый выбор лимита">
+                            <button type="button" class="traffic-limit-preset" data-value="1" data-unit="gb">1 GB</button>
+                            <button type="button" class="traffic-limit-preset" data-value="10" data-unit="gb">10 GB</button>
+                            <button type="button" class="traffic-limit-preset" data-value="50" data-unit="gb">50 GB</button>
+                            <button type="button" class="traffic-limit-preset" data-value="100" data-unit="gb">100 GB</button>
+                        </div>
+                        <p class="traffic-limit-hint">При превышении лимита клиент будет автоматически заблокирован до конца выбранного периода; в начале нового периода блокировка снимается.</p>
+                        <div class="quick-action-error" aria-live="polite"></div>
+                        <div class="quick-action-actions traffic-limit-actions">
+                            <button type="button" class="download-button quick-action-cancel">Отмена</button>
+                            <button type="submit" class="btn-primary quick-action-submit">Установить</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+
+            const form = modal.querySelector('.quick-action-form');
+            const valueInput = modal.querySelector('#trafficLimitValue');
+            const unitSelect = modal.querySelector('#trafficLimitUnit');
+            const periodSelect = modal.querySelector('#trafficLimitPeriod');
+            const errorNode = modal.querySelector('.quick-action-error');
+            const closeButton = modal.querySelector('.quick-action-close');
+            const cancelButton = modal.querySelector('.quick-action-cancel');
+            const backdrop = modal.querySelector('.quick-action-backdrop');
+            const presetButtons = modal.querySelectorAll('.traffic-limit-preset');
+
+            const syncPresetState = () => {
+                const currentValue = Number.parseFloat((valueInput.value || '').trim());
+                const currentUnit = (unitSelect.value || 'gb').trim().toLowerCase();
+                presetButtons.forEach((presetButton) => {
+                    const presetValue = Number.parseFloat(presetButton.dataset.value || '');
+                    const presetUnit = (presetButton.dataset.unit || '').trim().toLowerCase();
+                    const isActive = Number.isFinite(currentValue)
+                        && currentValue === presetValue
+                        && currentUnit === presetUnit;
+                    presetButton.classList.toggle('is-active', isActive);
+                });
+            };
+
+            presetButtons.forEach((presetButton) => {
+                presetButton.addEventListener('click', () => {
+                    valueInput.value = presetButton.dataset.value || '';
+                    unitSelect.value = presetButton.dataset.unit || 'gb';
+                    errorNode.textContent = '';
+                    syncPresetState();
+                    valueInput.focus();
+                });
+            });
+
+            valueInput.addEventListener('input', syncPresetState);
+            unitSelect.addEventListener('change', syncPresetState);
+
+            let resolved = false;
+            const cleanup = (value = null) => {
+                if (resolved) {
+                    return;
+                }
+                resolved = true;
+                document.removeEventListener('keydown', onKeyDown);
+                document.body.classList.remove('quick-action-modal-open');
+                modal.remove();
+                resolve(value);
+            };
+
+            const onKeyDown = (event) => {
+                if (event.key === 'Escape') {
+                    cleanup(null);
+                }
+            };
+
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const limitValue = Number.parseFloat((valueInput.value || '').trim());
+                const limitUnit = (unitSelect.value || 'mb').trim().toLowerCase();
+                const limitPeriodDays = (periodSelect && periodSelect.value) ? periodSelect.value.trim() : '7';
+                if (!Number.isFinite(limitValue) || limitValue <= 0) {
+                    errorNode.textContent = 'Укажите положительное значение лимита.';
+                    return;
+                }
+                if (!['1', '7', '30'].includes(limitPeriodDays)) {
+                    errorNode.textContent = 'Период лимита должен быть 1, 7 или 30 дней.';
+                    return;
+                }
+                cleanup({ limitValue: String(limitValue), limitUnit, limitPeriodDays });
+            });
+
+            if (closeButton) closeButton.addEventListener('click', () => cleanup(null));
+            if (cancelButton) cancelButton.addEventListener('click', () => cleanup(null));
+            if (backdrop) backdrop.addEventListener('click', () => cleanup(null));
+
+            document.body.appendChild(modal);
+            document.body.classList.add('quick-action-modal-open');
+            document.addEventListener('keydown', onKeyDown);
+            requestAnimationFrame(() => {
+                modal.classList.add('is-open');
+                syncPresetState();
+                valueInput.focus();
+                valueInput.select();
+            });
+        });
     }
 
     function notifyWgAccessResult(payload, defaultSuccessMessage) {
@@ -521,14 +754,37 @@ function initializeClientDetailsModal() {
         });
     }
 
-    async function updateOpenVpnClientAccess(clientName, action, days = null) {
+    async function updateOpenVpnClientAccess(clientName, action, options = null) {
         const csrfInput = document.getElementById('csrf-token-value');
         const csrfToken = csrfInput ? csrfInput.value : '';
         const formData = new FormData();
         formData.append('client_name', clientName);
         formData.append('action', action);
+
+        let days = null;
+        let limitValue = null;
+        let limitUnit = null;
+        let limitPeriodDays = null;
+        if (typeof options === 'number' || typeof options === 'string') {
+            days = options;
+        } else if (options && typeof options === 'object') {
+            days = options.days ?? null;
+            limitValue = options.limitValue ?? null;
+            limitUnit = options.limitUnit ?? null;
+            limitPeriodDays = options.limitPeriodDays ?? null;
+        }
+
         if (days !== null && days !== undefined && String(days).trim() !== '') {
             formData.append('days', String(days).trim());
+        }
+        if (limitValue !== null && limitValue !== undefined && String(limitValue).trim() !== '') {
+            formData.append('limit_value', String(limitValue).trim());
+        }
+        if (limitUnit !== null && limitUnit !== undefined && String(limitUnit).trim() !== '') {
+            formData.append('limit_unit', String(limitUnit).trim());
+        }
+        if (limitPeriodDays !== null && limitPeriodDays !== undefined && String(limitPeriodDays).trim() !== '') {
+            formData.append('limit_period_days', String(limitPeriodDays).trim());
         }
         if (csrfToken) {
             formData.append('csrf_token', csrfToken);
@@ -918,6 +1174,193 @@ function initializeClientDetailsModal() {
         });
     }
 
+    function getBlockReasonText(blockMode, blockReason) {
+        const reason = String(blockReason || '').toLowerCase();
+        const mode = String(blockMode || 'none').toLowerCase();
+        const labels = {
+            manual_temp: 'Временная блокировка администратором',
+            manual_permanent: 'Бессрочная блокировка (вручную)',
+            expired: 'Срок действия профиля истёк',
+            traffic_limit: 'Превышен лимит трафика',
+        };
+
+        if (labels[reason]) {
+            return labels[reason];
+        }
+        if (labels[mode]) {
+            return labels[mode];
+        }
+        if (mode === 'temp') {
+            return 'Временная блокировка';
+        }
+        if (mode === 'permanent') {
+            return 'Бессрочная блокировка';
+        }
+        return null;
+    }
+
+    function formatRestrictionDate(value) {
+        const raw = String(value || '').trim();
+        if (!raw) {
+            return null;
+        }
+        return raw.split(' ')[0];
+    }
+
+    function getProtocolLabel(protocol) {
+        const normalized = String(protocol || '').toLowerCase();
+        if (normalized === 'openvpn') {
+            return 'OpenVPN';
+        }
+        if (normalized === 'wireguard' || normalized === 'amneziawg') {
+            return 'WG / AWG';
+        }
+        return protocol || '—';
+    }
+
+    function renderRestrictionsPanel(row) {
+        const panel = document.createElement('div');
+        panel.className = 'client-restrictions-panel';
+
+        const isBlocked = row.dataset.blocked === '1';
+        const blockMode = (row.dataset.blockMode || 'none').toLowerCase();
+        const blockReason = row.dataset.blockReason || row.dataset.wgBlockReason || '';
+        const blockedUntil = formatRestrictionDate(row.dataset.blockedUntil || row.dataset.wgBlockUntil);
+        const blockedDaysLeft = Number.parseInt(row.dataset.blockedDaysLeft || row.dataset.wgBlockedDaysLeft || '', 10);
+        const blockDurationDays = Number.parseInt(row.dataset.blockDurationDays || row.dataset.wgBlockDurationDays || '', 10);
+        const accessExpiresAt = formatRestrictionDate(row.dataset.accessExpiresAt || row.dataset.wgExpiresAt);
+        const accessRemaining = typeof window.formatAccessRemaining === 'function'
+            ? window.formatAccessRemaining(row.dataset.accessExpiresAt || row.dataset.wgExpiresAt || '')
+            : null;
+        const protocolLabel = getProtocolLabel(row.dataset.protocol);
+
+        const trafficLimitHuman = row.dataset.trafficLimitHuman || '';
+        const trafficLimitPeriodLabel = row.dataset.trafficLimitPeriodLabel || '';
+        const trafficConsumedHuman = row.dataset.trafficConsumedHuman || '0 B';
+        const trafficBytesLeftHuman = row.dataset.trafficBytesLeftHuman || '';
+        const trafficLimitExceeded = row.dataset.trafficLimitExceeded === '1';
+        const trafficLimitUnblockLabel = row.dataset.trafficLimitUnblockLabel || '';
+        const limitBytes = Number(row.dataset.trafficLimitBytes || 0);
+        const consumedBytes = Number(row.dataset.trafficConsumedBytes || 0);
+        const trafficPercent = limitBytes > 0
+            ? Math.min(100, Math.round((consumedBytes / limitBytes) * 1000) / 10)
+            : 0;
+
+        let trafficProgressClass = 'is-normal';
+        if (trafficLimitExceeded || trafficPercent >= 100) {
+            trafficProgressClass = 'is-exceeded';
+        } else if (trafficPercent >= 85) {
+            trafficProgressClass = 'is-warning';
+        }
+
+        let displayBlockMode = blockMode;
+        let displayBlockReasonText = getBlockReasonText(blockMode, blockReason);
+        if (blockMode === 'temp') {
+            displayBlockMode = 'temp';
+            displayBlockReasonText = getBlockReasonText('temp', blockReason);
+        } else if (trafficLimitExceeded && trafficLimitHuman) {
+            displayBlockMode = 'traffic_limit';
+            displayBlockReasonText = 'Превышен лимит трафика';
+        }
+
+        const cards = [];
+
+        cards.push(`
+            <div class="client-restriction-card client-restriction-card--status ${isBlocked ? 'is-blocked' : 'is-active'}">
+                <div class="client-restriction-label">Статус доступа</div>
+                <div class="client-restriction-value">
+                    <span class="client-restriction-badge">${isBlocked ? 'Заблокирован' : 'Активен'}</span>
+                </div>
+                <div class="client-restriction-meta">${escapeHtml(protocolLabel)}</div>
+            </div>
+        `);
+
+        let accessValue = accessExpiresAt ? `до ${escapeHtml(accessExpiresAt)}` : 'не ограничен';
+        let accessMeta = accessRemaining
+            ? (accessRemaining === 'срок истёк' ? 'Срок истёк' : `Осталось ${escapeHtml(accessRemaining)}`)
+            : (accessExpiresAt ? 'Срок не определён' : 'Бессрочный доступ');
+        cards.push(`
+            <div class="client-restriction-card">
+                <div class="client-restriction-label">Срок доступа</div>
+                <div class="client-restriction-value">${accessValue}</div>
+                <div class="client-restriction-meta">${accessMeta}</div>
+            </div>
+        `);
+
+        if (isBlocked && displayBlockReasonText) {
+            let blockMetaParts = [];
+            if (displayBlockMode === 'temp') {
+                if (Number.isFinite(blockDurationDays) && blockDurationDays > 0) {
+                    blockMetaParts.push(`Срок: ${blockDurationDays} дн.`);
+                } else if (Number.isFinite(blockedDaysLeft) && blockedDaysLeft >= 0) {
+                    blockMetaParts.push(`Осталось ${blockedDaysLeft} дн.`);
+                }
+                if (blockedUntil) {
+                    blockMetaParts.push(`до ${escapeHtml(blockedUntil)}`);
+                }
+            } else if (displayBlockMode === 'traffic_limit') {
+                if (trafficLimitHuman) {
+                    blockMetaParts.push(`Лимит: ${escapeHtml(trafficLimitHuman)}${trafficLimitPeriodLabel ? ` / ${escapeHtml(trafficLimitPeriodLabel)}` : ''}`);
+                }
+                if (trafficLimitUnblockLabel) {
+                    blockMetaParts.push(escapeHtml(trafficLimitUnblockLabel));
+                }
+            } else if (displayBlockMode === 'permanent') {
+                blockMetaParts.push('Снятие только вручную');
+            }
+
+            cards.push(`
+                <div class="client-restriction-card client-restriction-card--block">
+                    <div class="client-restriction-label">Причина блокировки</div>
+                    <div class="client-restriction-value">${escapeHtml(displayBlockReasonText)}</div>
+                    ${blockMetaParts.length ? `<div class="client-restriction-meta">${blockMetaParts.join(' · ')}</div>` : ''}
+                </div>
+            `);
+        } else if (!isBlocked) {
+            cards.push(`
+                <div class="client-restriction-card client-restriction-card--clear">
+                    <div class="client-restriction-label">Блокировка</div>
+                    <div class="client-restriction-value">Не активна</div>
+                    <div class="client-restriction-meta">Клиент может подключаться</div>
+                </div>
+            `);
+        }
+
+        if (trafficLimitHuman) {
+            cards.push(`
+                <div class="client-restriction-card client-restriction-card--traffic ${trafficLimitExceeded ? 'is-exceeded' : ''}">
+                    <div class="client-restriction-label">Лимит трафика</div>
+                    <div class="client-restriction-value">
+                        ${escapeHtml(trafficLimitHuman)}${trafficLimitPeriodLabel ? ` <span class="client-restriction-period">/ ${escapeHtml(trafficLimitPeriodLabel)}</span>` : ''}
+                    </div>
+                    <div class="client-restriction-progress ${trafficProgressClass}" aria-hidden="true">
+                        <span class="client-restriction-progress-bar" style="width: ${trafficPercent}%"></span>
+                    </div>
+                    <div class="client-restriction-meta">
+                        Использовано ${escapeHtml(trafficConsumedHuman)}${trafficBytesLeftHuman ? ` · осталось ${escapeHtml(trafficBytesLeftHuman)}` : ''}
+                        ${trafficLimitExceeded ? ' · <strong>превышен</strong>' : ` · ${trafficPercent}%`}
+                        ${trafficLimitExceeded && trafficLimitUnblockLabel ? `<br>${escapeHtml(trafficLimitUnblockLabel)}` : ''}
+                    </div>
+                </div>
+            `);
+        } else {
+            cards.push(`
+                <div class="client-restriction-card client-restriction-card--traffic-empty">
+                    <div class="client-restriction-label">Лимит трафика</div>
+                    <div class="client-restriction-value">Не задан</div>
+                    <div class="client-restriction-meta">Ограничение по объёму не установлено</div>
+                </div>
+            `);
+        }
+
+        panel.innerHTML = `
+            <div class="client-restrictions-panel-title">Текущие ограничения</div>
+            <div class="client-restrictions-grid">${cards.join('')}</div>
+        `;
+
+        return panel;
+    }
+
     function renderActions(clientName) {
         if (!modalActions) {
             return;
@@ -938,6 +1381,8 @@ function initializeClientDetailsModal() {
             return;
         }
 
+        modalActions.appendChild(renderRestrictionsPanel(row));
+
         const downloadVpnUrl = row.dataset.downloadVpnUrl || '';
         const downloadAzUrl = row.dataset.downloadAzUrl || '';
         const qrVpnUrl = row.dataset.qrVpnUrl || '';
@@ -953,16 +1398,65 @@ function initializeClientDetailsModal() {
 
         const groupTitles = {
             manage: 'Управление',
+            'manage-block': 'Блокировка',
+            'manage-traffic': 'Лимит трафика',
+            'manage-access': 'Срок действия',
+            'manage-danger': 'Удаление',
             download: 'Скачать',
-            qr: 'QR',
+            qr: 'QR-коды',
             links: 'Одноразовые ссылки',
         };
 
         const groupNodes = {};
+        let manageParentSection = null;
+        let manageSubgroupsContainer = null;
+
+        const ensureManageParent = () => {
+            if (manageParentSection) {
+                return;
+            }
+
+            manageParentSection = document.createElement('div');
+            manageParentSection.className = 'client-details-actions-group client-details-actions-group--parent';
+
+            const parentTitle = document.createElement('div');
+            parentTitle.className = 'client-details-actions-group-title client-details-actions-group-title--parent';
+            parentTitle.textContent = groupTitles.manage;
+
+            manageSubgroupsContainer = document.createElement('div');
+            manageSubgroupsContainer.className = 'client-details-actions-subgroups';
+
+            manageParentSection.appendChild(parentTitle);
+            manageParentSection.appendChild(manageSubgroupsContainer);
+            modalActions.appendChild(manageParentSection);
+        };
 
         const ensureGroupNode = (groupKey) => {
             if (groupNodes[groupKey]) {
                 return groupNodes[groupKey];
+            }
+
+            const isManageSubgroup = groupKey.startsWith('manage-');
+
+            if (isManageSubgroup) {
+                ensureManageParent();
+
+                const subgroup = document.createElement('div');
+                subgroup.className = 'client-details-actions-subgroup';
+
+                const title = document.createElement('div');
+                title.className = 'client-details-actions-subgroup-title';
+                title.textContent = groupTitles[groupKey] || 'Действия';
+
+                const buttons = document.createElement('div');
+                buttons.className = 'client-details-actions-group-buttons';
+
+                subgroup.appendChild(title);
+                subgroup.appendChild(buttons);
+                manageSubgroupsContainer.appendChild(subgroup);
+
+                groupNodes[groupKey] = buttons;
+                return buttons;
             }
 
             const section = document.createElement('div');
@@ -983,11 +1477,53 @@ function initializeClientDetailsModal() {
             return buttons;
         };
 
-        const makeActionButton = ({ label, onClick, groupKey = 'manage' }) => {
+        const setActionButtonBusy = (button, busy) => {
+            if (!button) {
+                return;
+            }
+            button.disabled = !!busy;
+            button.classList.toggle('is-busy', !!busy);
+            button.setAttribute('aria-busy', busy ? 'true' : 'false');
+        };
+
+        const makeActionButton = ({
+            label,
+            icon,
+            title,
+            subtitle,
+            variant = 'neutral',
+            onClick,
+            groupKey = 'manage-block',
+        }) => {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = 'download-button client-details-action-btn';
-            button.textContent = label;
+            button.className = `download-button client-details-action-btn client-details-action-btn--${variant}`;
+
+            let displayIcon = icon || '';
+            let displayTitle = title || '';
+            let displaySubtitle = subtitle || '';
+
+            if (label && !displayTitle) {
+                const labelMatch = String(label).match(/^(\S+)\s+(.+)$/u);
+                if (labelMatch) {
+                    displayIcon = displayIcon || labelMatch[1];
+                    displayTitle = labelMatch[2];
+                } else {
+                    displayTitle = String(label);
+                }
+            }
+
+            if (!displayIcon) {
+                displayIcon = '•';
+            }
+
+            button.innerHTML = `
+                <span class="client-details-action-icon" aria-hidden="true">${displayIcon}</span>
+                <span class="client-details-action-text">
+                    <span class="client-details-action-title">${displayTitle}</span>
+                    ${displaySubtitle ? `<span class="client-details-action-subtitle">${displaySubtitle}</span>` : ''}
+                </span>
+            `;
             button.addEventListener('click', onClick);
             const groupButtons = ensureGroupNode(groupKey);
             groupButtons.appendChild(button);
@@ -1004,8 +1540,11 @@ function initializeClientDetailsModal() {
             const openvpnBlocked = row.dataset.blocked === '1';
 
             addActionButton({
-                label: '⛔ Временная блокировка OpenVPN',
-                groupKey: 'manage',
+                icon: '⛔',
+                title: 'Временная блокировка',
+                subtitle: 'OpenVPN',
+                variant: 'danger',
+                groupKey: 'manage-block',
                 onClick: async (event) => {
                     const button = event.currentTarget;
                     const inputValue = await showActionModal({
@@ -1023,9 +1562,7 @@ function initializeClientDetailsModal() {
                         return;
                     }
 
-                    const originalText = button.textContent;
-                    button.disabled = true;
-                    button.textContent = '...';
+                    setActionButtonBusy(button, true);
                     try {
                         const payload = await updateOpenVpnClientAccess(clientName, 'temp_block', inputValue);
                         if (typeof window.applyOpenVpnAccessPayloadToClientRows === 'function') {
@@ -1039,16 +1576,18 @@ function initializeClientDetailsModal() {
                     } catch (error) {
                         showNotification(error.message || 'Не удалось изменить статус OpenVPN', 'error');
                     } finally {
-                        button.disabled = false;
-                        button.textContent = originalText;
+                        setActionButtonBusy(button, false);
                     }
                 }
             });
 
             if (!openvpnBlocked) {
                 addActionButton({
-                    label: '⛔ Блокировать до ручной разблокировки',
-                    groupKey: 'manage',
+                    icon: '⛔',
+                    title: 'Бессрочная блокировка',
+                    subtitle: 'до ручной разблокировки',
+                    variant: 'danger',
+                    groupKey: 'manage-block',
                     onClick: async (event) => {
                         const button = event.currentTarget;
                         const confirmed = await showActionModal({
@@ -1062,9 +1601,7 @@ function initializeClientDetailsModal() {
                             return;
                         }
 
-                        const originalText = button.textContent;
-                        button.disabled = true;
-                        button.textContent = '...';
+                        setActionButtonBusy(button, true);
                         try {
                             const payload = await updateOpenVpnClientAccess(clientName, 'permanent_block');
                             if (typeof window.applyOpenVpnAccessPayloadToClientRows === 'function') {
@@ -1078,8 +1615,7 @@ function initializeClientDetailsModal() {
                         } catch (error) {
                             showNotification(error.message || 'Не удалось заблокировать клиента', 'error');
                         } finally {
-                            button.disabled = false;
-                            button.textContent = originalText;
+                            setActionButtonBusy(button, false);
                         }
                     }
                 });
@@ -1087,13 +1623,14 @@ function initializeClientDetailsModal() {
 
             if (openvpnBlocked) {
                 addActionButton({
-                    label: '🔓 Снять блокировку OpenVPN',
-                    groupKey: 'manage',
+                    icon: '🔓',
+                    title: 'Снять блокировку',
+                    subtitle: 'OpenVPN',
+                    variant: 'success',
+                    groupKey: 'manage-block',
                     onClick: async (event) => {
                         const button = event.currentTarget;
-                        const originalText = button.textContent;
-                        button.disabled = true;
-                        button.textContent = '...';
+                        setActionButtonBusy(button, true);
                         try {
                             const payload = await updateOpenVpnClientAccess(clientName, 'unblock');
                             if (typeof window.applyOpenVpnAccessPayloadToClientRows === 'function') {
@@ -1105,10 +1642,13 @@ function initializeClientDetailsModal() {
                             renderActions(clientName);
                             showNotification(payload.message || 'Блокировка снята', 'success');
                         } catch (error) {
-                            showNotification(error.message || 'Не удалось снять блокировку', 'error');
+                            if (error.errorCode === 'traffic_limit_exceeded') {
+                                showNotification(error.message || 'Клиент заблокирован по лимиту трафика', 'warning');
+                            } else {
+                                showNotification(error.message || 'Не удалось снять блокировку', 'error');
+                            }
                         } finally {
-                            button.disabled = false;
-                            button.textContent = originalText;
+                            setActionButtonBusy(button, false);
                         }
                     }
                 });
@@ -1120,10 +1660,85 @@ function initializeClientDetailsModal() {
              */
         }
 
+        if (canManage) {
+            const hasTrafficLimit = Boolean(row.dataset.trafficLimitBytes || row.dataset.trafficLimitHuman);
+            addActionButton({
+                icon: '📊',
+                title: hasTrafficLimit ? 'Изменить лимит' : 'Установить лимит',
+                subtitle: 'трафик · OpenVPN',
+                variant: 'info',
+                groupKey: 'manage-traffic',
+                onClick: async (event) => {
+                    const button = event.currentTarget;
+                    const limitInput = await requestTrafficLimitInput(clientName, 'OpenVPN', row);
+                    if (!limitInput) {
+                        return;
+                    }
+                    setActionButtonBusy(button, true);
+                    try {
+                        const payload = await updateOpenVpnClientAccess(clientName, 'set_traffic_limit', limitInput);
+                        if (typeof window.applyOpenVpnAccessPayloadToClientRows === 'function') {
+                            window.applyOpenVpnAccessPayloadToClientRows(clientName, payload);
+                        } else {
+                            row.dataset.blocked = payload.is_blocked ? '1' : '0';
+                            syncClientBlockedBadge(row);
+                        }
+                        renderActions(clientName);
+                        showNotification(payload.message || 'Лимит трафика OpenVPN обновлён', 'success');
+                    } catch (error) {
+                        showNotification(error.message || 'Не удалось установить лимит трафика', 'error');
+                    } finally {
+                        setActionButtonBusy(button, false);
+                    }
+                }
+            });
+
+            if (hasTrafficLimit) {
+                addActionButton({
+                    icon: '📊',
+                    title: 'Снять лимит',
+                    subtitle: 'трафик · OpenVPN',
+                    variant: 'info',
+                    groupKey: 'manage-traffic',
+                    onClick: async (event) => {
+                        const button = event.currentTarget;
+                        const confirmed = await showActionModal({
+                            title: 'Снять лимит трафика OpenVPN',
+                            message: `Снять лимит трафика для клиента "${clientName}"?`,
+                            mode: 'confirm',
+                            confirmLabel: 'Снять',
+                            cancelLabel: 'Отмена',
+                        });
+                        if (!confirmed) {
+                            return;
+                        }
+                        setActionButtonBusy(button, true);
+                        try {
+                            const payload = await updateOpenVpnClientAccess(clientName, 'clear_traffic_limit');
+                            if (typeof window.applyOpenVpnAccessPayloadToClientRows === 'function') {
+                                window.applyOpenVpnAccessPayloadToClientRows(clientName, payload);
+                            } else {
+                                row.dataset.blocked = payload.is_blocked ? '1' : '0';
+                                syncClientBlockedBadge(row);
+                            }
+                            renderActions(clientName);
+                            showNotification(payload.message || 'Лимит трафика OpenVPN снят', 'success');
+                        } catch (error) {
+                            showNotification(error.message || 'Не удалось снять лимит трафика', 'error');
+                        } finally {
+                            setActionButtonBusy(button, false);
+                        }
+                    }
+                });
+            }
+        }
+
         if (canManage && row.dataset.protocol === 'openvpn') {
             addActionButton({
-                label: '♻ Продлить сертификат',
-                groupKey: 'manage',
+                icon: '♻',
+                title: 'Продлить сертификат',
+                variant: 'primary',
+                groupKey: 'manage-access',
                 onClick: async (event) => {
                     const button = event.currentTarget;
                     if (!button) {
@@ -1141,9 +1756,7 @@ function initializeClientDetailsModal() {
                         return;
                     }
 
-                    const originalText = button.textContent;
-                    button.disabled = true;
-                    button.textContent = '...';
+                    setActionButtonBusy(button, true);
 
                     try {
                         const formData = new FormData();
@@ -1185,8 +1798,7 @@ function initializeClientDetailsModal() {
                     } catch (error) {
                         showNotification(error.message || 'Ошибка продления сертификата', 'error');
                     } finally {
-                        button.disabled = false;
-                        button.textContent = originalText;
+                        setActionButtonBusy(button, false);
                     }
                 }
             });
@@ -1194,8 +1806,11 @@ function initializeClientDetailsModal() {
 
         if (canWgManage) {
             addActionButton({
-                label: '⛔ Временная блокировка WG/AWG',
-                groupKey: 'manage',
+                icon: '⛔',
+                title: 'Временная блокировка',
+                subtitle: 'WG / AWG',
+                variant: 'danger',
+                groupKey: 'manage-block',
                 onClick: async (event) => {
                     const button = event.currentTarget;
                     const inputValue = await showActionModal({
@@ -1213,9 +1828,7 @@ function initializeClientDetailsModal() {
                         return;
                     }
 
-                    const originalText = button.textContent;
-                    button.disabled = true;
-                    button.textContent = '...';
+                    setActionButtonBusy(button, true);
                     try {
                         const payload = await updateWgClientAccess(clientName, 'temp_block', inputValue);
                         if (typeof window.applyWgAccessPayloadToClientRows === 'function') {
@@ -1231,16 +1844,18 @@ function initializeClientDetailsModal() {
                     } catch (error) {
                         showNotification(error.message || 'Не удалось изменить статус WG/AWG', 'error');
                     } finally {
-                        button.disabled = false;
-                        button.textContent = originalText;
+                        setActionButtonBusy(button, false);
                     }
                 }
             });
 
             if (!isBlocked) {
                 addActionButton({
-                    label: '⛔ Блокировать до ручной разблокировки',
-                    groupKey: 'manage',
+                    icon: '⛔',
+                    title: 'Бессрочная блокировка',
+                    subtitle: 'до ручной разблокировки',
+                    variant: 'danger',
+                    groupKey: 'manage-block',
                     onClick: async (event) => {
                         const button = event.currentTarget;
                         const confirmed = await showActionModal({
@@ -1254,9 +1869,7 @@ function initializeClientDetailsModal() {
                             return;
                         }
 
-                        const originalText = button.textContent;
-                        button.disabled = true;
-                        button.textContent = '...';
+                        setActionButtonBusy(button, true);
                         try {
                             const payload = await updateWgClientAccess(clientName, 'permanent_block');
                             if (typeof window.applyWgAccessPayloadToClientRows === 'function') {
@@ -1272,18 +1885,20 @@ function initializeClientDetailsModal() {
                         } catch (error) {
                             showNotification(error.message || 'Не удалось заблокировать клиента', 'error');
                         } finally {
-                            button.disabled = false;
-                            button.textContent = originalText;
+                            setActionButtonBusy(button, false);
                         }
                     }
                 });
             }
 
             const blockMode = (row.dataset.blockMode || 'none').toLowerCase();
-            if (blockMode === 'temp' || blockMode === 'permanent' || blockMode === 'expired') {
+            if (blockMode === 'temp' || blockMode === 'permanent' || blockMode === 'expired' || blockMode === 'traffic_limit') {
                 addActionButton({
-                    label: '🔓 Снять блокировку WG/AWG',
-                    groupKey: 'manage',
+                    icon: '🔓',
+                    title: 'Снять блокировку',
+                    subtitle: 'WG / AWG',
+                    variant: 'success',
+                    groupKey: 'manage-block',
                     onClick: async (event) => {
                         const button = event.currentTarget;
                         if (isWgAccessExpired(row)) {
@@ -1291,9 +1906,7 @@ function initializeClientDetailsModal() {
                             return;
                         }
 
-                        const originalText = button.textContent;
-                        button.disabled = true;
-                        button.textContent = '...';
+                        setActionButtonBusy(button, true);
                         try {
                             const payload = await updateWgClientAccess(clientName, 'unblock');
                             await applyWgAccessPayload(clientName, row, payload);
@@ -1301,32 +1914,94 @@ function initializeClientDetailsModal() {
                         } catch (error) {
                             if (error.errorCode === 'expired_requires_extend') {
                                 await showExpiredWgExtendModal(clientName, row);
+                            } else if (error.errorCode === 'traffic_limit_exceeded') {
+                                showNotification(error.message || 'Клиент заблокирован по лимиту трафика', 'warning');
                             } else {
                                 showNotification(error.message || 'Не удалось снять блокировку', 'error');
                             }
                         } finally {
-                            button.disabled = false;
-                            button.textContent = originalText;
+                            setActionButtonBusy(button, false);
+                        }
+                    }
+                });
+            }
+
+            const hasTrafficLimit = Boolean(row.dataset.trafficLimitBytes || row.dataset.trafficLimitHuman);
+            addActionButton({
+                icon: '📊',
+                title: hasTrafficLimit ? 'Изменить лимит' : 'Установить лимит',
+                subtitle: 'трафик · WG / AWG',
+                variant: 'info',
+                groupKey: 'manage-traffic',
+                onClick: async (event) => {
+                    const button = event.currentTarget;
+                    const limitInput = await requestTrafficLimitInput(clientName, 'WG/AWG', row);
+                    if (!limitInput) {
+                        return;
+                    }
+                    setActionButtonBusy(button, true);
+                    try {
+                        const payload = await updateWgClientAccess(clientName, 'set_traffic_limit', limitInput);
+                        await applyWgAccessPayload(clientName, row, payload);
+                        notifyWgAccessResult(payload, 'Лимит трафика WG/AWG обновлён');
+                        renderActions(clientName);
+                    } catch (error) {
+                        showNotification(error.message || 'Не удалось установить лимит трафика', 'error');
+                    } finally {
+                        setActionButtonBusy(button, false);
+                    }
+                }
+            });
+
+            if (hasTrafficLimit) {
+                addActionButton({
+                    icon: '📊',
+                    title: 'Снять лимит',
+                    subtitle: 'трафик · WG / AWG',
+                    variant: 'info',
+                    groupKey: 'manage-traffic',
+                    onClick: async (event) => {
+                        const button = event.currentTarget;
+                        const confirmed = await showActionModal({
+                            title: 'Снять лимит трафика WG/AWG',
+                            message: `Снять лимит трафика для клиента "${clientName}"?`,
+                            mode: 'confirm',
+                            confirmLabel: 'Снять',
+                            cancelLabel: 'Отмена',
+                        });
+                        if (!confirmed) {
+                            return;
+                        }
+                        setActionButtonBusy(button, true);
+                        try {
+                            const payload = await updateWgClientAccess(clientName, 'clear_traffic_limit');
+                            await applyWgAccessPayload(clientName, row, payload);
+                            notifyWgAccessResult(payload, 'Лимит трафика WG/AWG снят');
+                            renderActions(clientName);
+                        } catch (error) {
+                            showNotification(error.message || 'Не удалось снять лимит трафика', 'error');
+                        } finally {
+                            setActionButtonBusy(button, false);
                         }
                     }
                 });
             }
 
             addActionButton({
-                label: '♻ Продлить срок WG/AWG',
-                groupKey: 'manage',
+                icon: '♻',
+                title: 'Продлить срок',
+                subtitle: 'WG / AWG',
+                variant: 'primary',
+                groupKey: 'manage-access',
                 onClick: async (event) => {
                     const button = event.currentTarget;
-                    const originalText = button.textContent;
-                    button.disabled = true;
-                    button.textContent = '...';
+                    setActionButtonBusy(button, true);
                     try {
                         await requestWgExtendDays(clientName, row);
                     } catch (error) {
                         showNotification(error.message || 'Не удалось продлить срок WG/AWG', 'error');
                     } finally {
-                        button.disabled = false;
-                        button.textContent = originalText;
+                        setActionButtonBusy(button, false);
                     }
                 }
             });
@@ -1334,8 +2009,10 @@ function initializeClientDetailsModal() {
 
         if (canManage && deleteOption) {
             addActionButton({
-                label: '🗑 Удалить профиль',
-                groupKey: 'manage',
+                icon: '🗑',
+                title: 'Удалить профиль',
+                variant: 'destructive',
+                groupKey: 'manage-danger',
                 onClick: async (event) => {
                     const button = event.currentTarget;
                     const confirmed = await showActionModal({
@@ -1349,9 +2026,7 @@ function initializeClientDetailsModal() {
                         return;
                     }
 
-                    const originalText = button.textContent;
-                    button.disabled = true;
-                    button.textContent = '...';
+                    setActionButtonBusy(button, true);
 
                     try {
                         const formData = new FormData();
@@ -1392,8 +2067,7 @@ function initializeClientDetailsModal() {
                     } catch (error) {
                         showNotification(error.message || 'Ошибка удаления профиля', 'error');
                     } finally {
-                        button.disabled = false;
-                        button.textContent = originalText;
+                        setActionButtonBusy(button, false);
                     }
                 }
             });
@@ -1401,7 +2075,9 @@ function initializeClientDetailsModal() {
 
         if (downloadVpnUrl) {
             addActionButton({
-                label: '⬇️ Скачать VPN',
+                icon: '⬇️',
+                title: 'Скачать VPN',
+                variant: 'download',
                 groupKey: 'download',
                 onClick: () => {
                     window.location.href = downloadVpnUrl;
@@ -1411,7 +2087,9 @@ function initializeClientDetailsModal() {
 
         if (downloadAzUrl) {
             addActionButton({
-                label: '⬇️ Скачать AZ',
+                icon: '⬇️',
+                title: 'Скачать AZ',
+                variant: 'download',
                 groupKey: 'download',
                 onClick: () => {
                     window.location.href = downloadAzUrl;
@@ -1421,7 +2099,10 @@ function initializeClientDetailsModal() {
 
         if (qrVpnUrl) {
             addActionButton({
-                label: '📱 QR VPN',
+                icon: '📱',
+                title: 'QR-код',
+                subtitle: 'VPN',
+                variant: 'neutral',
                 groupKey: 'qr',
                 onClick: () => {
                     showQRModal(qrVpnUrl);
@@ -1431,7 +2112,10 @@ function initializeClientDetailsModal() {
 
         if (qrAzUrl) {
             addActionButton({
-                label: '📱 QR AZ',
+                icon: '📱',
+                title: 'QR-код',
+                subtitle: 'Antizapret',
+                variant: 'neutral',
                 groupKey: 'qr',
                 onClick: () => {
                     showQRModal(qrAzUrl);
@@ -1441,21 +2125,21 @@ function initializeClientDetailsModal() {
 
         if (oneTimeVpnEndpoint) {
             addActionButton({
-                label: '🔗 Ссылка VPN',
+                icon: '🔗',
+                title: 'Одноразовая ссылка',
+                subtitle: 'VPN',
+                variant: 'neutral',
                 groupKey: 'links',
                 onClick: async (event) => {
                     const button = event.currentTarget;
-                    const originalText = button.textContent;
-                    button.disabled = true;
-                    button.textContent = '...';
+                    setActionButtonBusy(button, true);
                     try {
                         await generateOneTimeLink(oneTimeVpnEndpoint);
                         showNotification('Одноразовая ссылка скопирована в буфер', 'success');
                     } catch (error) {
                         showNotification(error.message || 'Ошибка формирования ссылки', 'error');
                     } finally {
-                        button.disabled = false;
-                        button.textContent = originalText;
+                        setActionButtonBusy(button, false);
                     }
                 }
             });
@@ -1463,21 +2147,21 @@ function initializeClientDetailsModal() {
 
         if (oneTimeAzEndpoint) {
             addActionButton({
-                label: '🔗 Ссылка AZ',
+                icon: '🔗',
+                title: 'Одноразовая ссылка',
+                subtitle: 'Antizapret',
+                variant: 'neutral',
                 groupKey: 'links',
                 onClick: async (event) => {
                     const button = event.currentTarget;
-                    const originalText = button.textContent;
-                    button.disabled = true;
-                    button.textContent = '...';
+                    setActionButtonBusy(button, true);
                     try {
                         await generateOneTimeLink(oneTimeAzEndpoint);
                         showNotification('Одноразовая ссылка скопирована в буфер', 'success');
                     } catch (error) {
                         showNotification(error.message || 'Ошибка формирования ссылки', 'error');
                     } finally {
-                        button.disabled = false;
-                        button.textContent = originalText;
+                        setActionButtonBusy(button, false);
                     }
                 }
             });
@@ -1568,6 +2252,65 @@ function initializeClientDetailsModal() {
                 antData.push(0);
             }
 
+            const clientRow = getClientRowByName(currentClientName);
+            const limitBytes = clientRow ? clientRow.dataset.trafficLimitBytes : '';
+            const limitPeriodDays = clientRow ? clientRow.dataset.trafficLimitPeriodDays : '';
+            const limitDisplay = getChartTrafficLimitDisplay(limitBytes, limitPeriodDays, currentRange);
+
+            const cumulativeData = [];
+            let cumulativeTotal = 0;
+            for (let index = 0; index < labels.length; index += 1) {
+                cumulativeTotal += (vpnData[index] || 0) + (antData[index] || 0);
+                cumulativeData.push(cumulativeTotal);
+            }
+
+            const datasets = [
+                {
+                    label: 'VPN',
+                    data: vpnData,
+                    borderColor: getThemeColor('--theme-chart-vpn-border', '#4caf50'),
+                    backgroundColor: getThemeColor('--theme-chart-vpn-fill', 'rgba(76,175,80,0.12)'),
+                    borderWidth: 2.2,
+                    fill: false,
+                    tension: 0.2,
+                    pointRadius: 0,
+                },
+                {
+                    label: 'Antizapret',
+                    data: antData,
+                    borderColor: getThemeColor('--theme-chart-antizapret-border', '#f44336'),
+                    backgroundColor: getThemeColor('--theme-chart-antizapret-fill', 'rgba(244,67,54,0.12)'),
+                    borderWidth: 1.6,
+                    borderDash: [6, 4],
+                    fill: false,
+                    tension: 0.2,
+                    pointRadius: 0,
+                },
+                {
+                    label: 'Накоплено',
+                    data: cumulativeData,
+                    borderColor: getThemeColor('--theme-chart-cumulative-border', '#ffb74d'),
+                    backgroundColor: 'rgba(255,183,77,0.08)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.2,
+                    pointRadius: 0,
+                },
+            ];
+
+            if (limitDisplay) {
+                datasets.push({
+                    label: limitDisplay.label,
+                    data: labels.map(() => limitDisplay.value),
+                    borderColor: getThemeColor('--theme-chart-limit-border', '#ff9800'),
+                    backgroundColor: 'rgba(255,152,0,0.06)',
+                    borderWidth: 2,
+                    borderDash: [10, 6],
+                    fill: false,
+                    pointRadius: 0,
+                });
+            }
+
             if (detailsChart) {
                 detailsChart.destroy();
             }
@@ -1576,29 +2319,7 @@ function initializeClientDetailsModal() {
                 type: 'line',
                 data: {
                     labels,
-                    datasets: [
-                        {
-                            label: 'VPN',
-                            data: vpnData,
-                            borderColor: getThemeColor('--theme-chart-vpn-border', '#4caf50'),
-                            backgroundColor: getThemeColor('--theme-chart-vpn-fill', 'rgba(76,175,80,0.12)'),
-                            borderWidth: 2.2,
-                            fill: false,
-                            tension: 0.2,
-                            pointRadius: 0,
-                        },
-                        {
-                            label: 'Antizapret',
-                            data: antData,
-                            borderColor: getThemeColor('--theme-chart-antizapret-border', '#f44336'),
-                            backgroundColor: getThemeColor('--theme-chart-antizapret-fill', 'rgba(244,67,54,0.12)'),
-                            borderWidth: 1.6,
-                            borderDash: [6, 4],
-                            fill: false,
-                            tension: 0.2,
-                            pointRadius: 0,
-                        }
-                    ]
+                    datasets,
                 },
                 options: {
                     responsive: true,
@@ -1641,10 +2362,14 @@ function initializeClientDetailsModal() {
                 }
             });
 
-            modalTrafficMeta.textContent =
+            let metaText =
                 `VPN: ${data.total_vpn_human || humanBytes(data.total_vpn)} | ` +
                 `Antizapret: ${data.total_antizapret_human || humanBytes(data.total_antizapret)} | ` +
                 `Итого: ${data.total_human || humanBytes(data.total)}`;
+            if (limitDisplay) {
+                metaText += ` | ${limitDisplay.label}`;
+            }
+            modalTrafficMeta.textContent = metaText;
         } catch (error) {
             modalTrafficMeta.textContent = `Не удалось загрузить график: ${error.message}`;
         }

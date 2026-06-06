@@ -11,6 +11,17 @@
   data-blocked-until="{{ row.blocked_until or '' }}"
   data-blocked-days-left="{{ row.blocked_days_left if row.blocked_days_left is not none else '' }}"
   data-block-duration-days="{{ row.block_duration_days if row.block_duration_days is not none else '' }}"
+  {% if row.traffic_limit_bytes is not none %}data-traffic-limit-bytes="{{ row.traffic_limit_bytes }}"{% endif %}
+  {% if row.traffic_limit_period_days is not none %}data-traffic-limit-period-days="{{ row.traffic_limit_period_days }}"{% endif %}
+  data-traffic-consumed-bytes="{{ row.traffic_consumed_bytes if row.traffic_consumed_bytes is not none else 0 }}"
+  {% if row.traffic_bytes_left is not none %}data-traffic-bytes-left="{{ row.traffic_bytes_left }}"{% endif %}
+  data-traffic-limit-exceeded="{{ 1 if row.traffic_limit_exceeded else 0 }}"
+  {% if row.traffic_limit_human %}data-traffic-limit-human="{{ row.traffic_limit_human }}"{% endif %}
+  {% if row.traffic_limit_period_label %}data-traffic-limit-period-label="{{ row.traffic_limit_period_label }}"{% endif %}
+  {% if row.traffic_limit_unblock_at %}data-traffic-limit-unblock-at="{{ row.traffic_limit_unblock_at }}"{% endif %}
+  {% if row.traffic_limit_unblock_label %}data-traffic-limit-unblock-label="{{ row.traffic_limit_unblock_label }}"{% endif %}
+  {% if row.traffic_consumed_human %}data-traffic-consumed-human="{{ row.traffic_consumed_human }}"{% endif %}
+  {% if row.traffic_bytes_left_human %}data-traffic-bytes-left-human="{{ row.traffic_bytes_left_human }}"{% endif %}
   {% if row.protocol == 'openvpn' %}
   data-cert-state="{{ row.cert_state }}"
   data-cert-days="{{ row.cert_days }}"
@@ -31,7 +42,7 @@
     <span class="client-block-badge {% if row.is_blocked %}is-blocked{% else %}is-active{% endif %}">
       {% if row.is_blocked %}Заблокирован{% else %}Активный{% endif %}
     </span>
-    <div class="client-cert-meta {% if row.cert_state == 'expired' or row.block_mode in ['expired', 'temp', 'permanent'] %}expired{% elif row.cert_state == 'expiring' %}expiring{% else %}active{% endif %}">
+    <div class="client-cert-meta {% if row.cert_state == 'expired' or row.block_mode in ['expired', 'temp', 'permanent', 'traffic_limit'] %}expired{% elif row.cert_state == 'expiring' %}expiring{% else %}active{% endif %}">
       {% if row.access_expires_at %}
       <div>Отключение: {{ row.access_expires_at.split(' ')[0] }}</div>
       {% else %}
@@ -41,6 +52,14 @@
       <div>
         Осталось: {{ row.access_remaining_text or 'неизвестно' }}
       </div>
+
+      {% if row.traffic_limit_human %}
+      <div>
+        Лимит трафика: {{ row.traffic_limit_human }}{% if row.traffic_limit_period_label %} / {{ row.traffic_limit_period_label }}{% endif %}
+        (использовано {{ row.traffic_consumed_human or '0 B' }}{% if row.traffic_bytes_left_human %}, осталось {{ row.traffic_bytes_left_human }}{% endif %})
+        {% if row.traffic_limit_exceeded %} — превышен{% endif %}
+      </div>
+      {% endif %}
 
       {% if row.block_mode == 'temp' %}
       <div>
@@ -56,8 +75,13 @@
       {% if row.blocked_until %}
       <div>Разблокировка: {{ row.blocked_until.split(' ')[0] }}</div>
       {% endif %}
+      {% elif row.block_mode == 'traffic_limit' or (row.traffic_limit_exceeded and row.traffic_limit_human) %}
+      <div>Блокировка: превышен лимит трафика</div>
+      {% if row.traffic_limit_unblock_label %}
+      <div>{{ row.traffic_limit_unblock_label }}</div>
+      {% endif %}
       {% elif row.block_mode == 'permanent' %}
-      <div>Блокировка: до ручной разблокировки</div>
+      <div>Блокировка: бессрочная (вручную)</div>
       {% elif row.block_mode == 'expired' %}
       <div>Блокировка: до ручной разблокировки</div>
       {% else %}

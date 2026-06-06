@@ -1074,10 +1074,25 @@ wg_awg_runtime_enforcer = WgAwgRuntimeEnforcer(
     command_timeout_seconds=4,
 )
 
+
+def _get_client_consumed_traffic_bytes(client_name, *, period_days=None):
+    from core.services.traffic_limit import get_client_consumed_traffic_bytes
+
+    return get_client_consumed_traffic_bytes(
+        db=db,
+        user_traffic_stat_protocol_model=UserTrafficStatProtocol,
+        user_traffic_sample_model=UserTrafficSample,
+        client_name=client_name,
+        normalize_identity=_normalize_traffic_client_identity,
+        period_days=period_days,
+    )
+
+
 wg_access_policy_service = WgAccessPolicyService(
     db=db,
     policy_model=WgAccessPolicy,
     runtime_enforcer=wg_awg_runtime_enforcer,
+    get_consumed_traffic_bytes=_get_client_consumed_traffic_bytes,
 )
 
 openvpn_access_policy_service = OpenVpnAccessPolicyService(
@@ -1086,7 +1101,29 @@ openvpn_access_policy_service = OpenVpnAccessPolicyService(
     read_banned_clients=_read_banned_clients,
     write_banned_clients=_write_banned_clients,
     ensure_client_connect_ban_check_block=_ensure_client_connect_ban_check_block,
+    get_consumed_traffic_bytes=_get_client_consumed_traffic_bytes,
 )
+
+
+def _reconcile_traffic_limit_policies():
+    wg_clients = [
+        row.client_name
+        for row in WgAccessPolicy.query.filter(WgAccessPolicy.traffic_limit_bytes.isnot(None)).all()
+    ]
+    ovpn_clients = [
+        row.client_name
+        for row in OpenVpnAccessPolicy.query.filter(OpenVpnAccessPolicy.traffic_limit_bytes.isnot(None)).all()
+    ]
+    for client_name in wg_clients:
+        wg_access_policy_service.reconcile_client_policy(client_name, apply_runtime=True)
+    for client_name in ovpn_clients:
+        openvpn_access_policy_service.reconcile_client_policy(client_name)
+    if traffic_limit_notify_service is not None:
+        traffic_limit_notify_service.process_clients(protocol_scope="wg", client_names=wg_clients)
+        traffic_limit_notify_service.process_clients(protocol_scope="openvpn", client_names=ovpn_clients)
+
+
+traffic_persistence_service.on_after_persist = _reconcile_traffic_limit_policies
 
 
 def _wg_build_status_map(client_names):
@@ -1156,6 +1193,50 @@ def _wg_clear_temp_block(client_name, *, actor_username=None):
         client_name,
         actor_username=actor_username,
     )
+
+
+def _wg_set_traffic_limit_bytes(client_name, limit_bytes, *, period_days=None, actor_username=None):
+    row = wg_access_policy_service.set_traffic_limit_bytes(
+        client_name,
+        limit_bytes,
+        period_days=period_days,
+        actor_username=actor_username,
+    )
+    if traffic_limit_notify_service is not None:
+        traffic_limit_notify_service.process_client(protocol_scope="wg", client_name=client_name)
+    return row
+
+
+def _wg_clear_traffic_limit(client_name, *, actor_username=None):
+    row = wg_access_policy_service.clear_traffic_limit(
+        client_name,
+        actor_username=actor_username,
+    )
+    if traffic_limit_notify_service is not None:
+        traffic_limit_notify_service.process_client(protocol_scope="wg", client_name=client_name)
+    return row
+
+
+def _openvpn_set_traffic_limit_bytes(client_name, limit_bytes, *, period_days=None, actor_username=None):
+    row = openvpn_access_policy_service.set_traffic_limit_bytes(
+        client_name,
+        limit_bytes,
+        period_days=period_days,
+        actor_username=actor_username,
+    )
+    if traffic_limit_notify_service is not None:
+        traffic_limit_notify_service.process_client(protocol_scope="openvpn", client_name=client_name)
+    return row
+
+
+def _openvpn_clear_traffic_limit(client_name, *, actor_username=None):
+    row = openvpn_access_policy_service.clear_traffic_limit(
+        client_name,
+        actor_username=actor_username,
+    )
+    if traffic_limit_notify_service is not None:
+        traffic_limit_notify_service.process_client(protocol_scope="openvpn", client_name=client_name)
+    return row
 
 
 def _wg_reconcile_client_policy(client_name, apply_runtime=True):
@@ -1241,6 +1322,24 @@ admin_notify_service = AdminNotifyService(
     get_env_value=_get_env_value,
     logger=app.logger,
 )
+
+traffic_limit_notify_service = None
+try:
+    from core.services.traffic_limit_notify import TrafficLimitNotifyService
+
+    traffic_limit_notify_service = TrafficLimitNotifyService(
+        admin_notify_service=admin_notify_service,
+        wg_access_policy_service=wg_access_policy_service,
+        openvpn_access_policy_service=openvpn_access_policy_service,
+        config_paths=CONFIG_PATHS,
+        extract_client_name_from_config_file=_extract_client_name_from_config_file,
+        logger=app.logger,
+    )
+except Exception as _traffic_limit_notify_exc:
+    app.logger.warning(
+        "Не удалось инициализировать уведомления лимита трафика: %s",
+        _traffic_limit_notify_exc,
+    )
 
 
 def _send_tg_admin_notification(event_type, *, actor_username=None,

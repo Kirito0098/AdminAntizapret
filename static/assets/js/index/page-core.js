@@ -155,11 +155,33 @@ function syncClientAccessMeta(row) {
     const blockedDaysLeft = parseNullableInt(row.dataset.blockedDaysLeft);
     const blockDurationDays = parseNullableInt(row.dataset.blockDurationDays);
     const certState = (row.dataset.certState || 'active').toLowerCase();
+    const trafficLimitHuman = row.dataset.trafficLimitHuman || '';
+    const trafficLimitPeriodLabel = row.dataset.trafficLimitPeriodLabel || '';
+    const trafficConsumedHuman = row.dataset.trafficConsumedHuman || '';
+    const trafficBytesLeftHuman = row.dataset.trafficBytesLeftHuman || '';
+    const trafficLimitExceeded = row.dataset.trafficLimitExceeded === '1';
+    const trafficLimitUnblockLabel = row.dataset.trafficLimitUnblockLabel || '';
 
     const lines = [];
     lines.push(`Отключение: ${accessExpiresAt ? accessExpiresAt.split(' ')[0] : 'не ограничено'}`);
     const accessRemainingText = formatAccessRemaining(accessExpiresAt);
     lines.push(`Осталось: ${accessRemainingText || 'неизвестно'}`);
+
+    if (trafficLimitHuman) {
+        let trafficLine = `Лимит трафика: ${trafficLimitHuman}`;
+        if (trafficLimitPeriodLabel) {
+            trafficLine += ` / ${trafficLimitPeriodLabel}`;
+        }
+        trafficLine += ` (использовано ${trafficConsumedHuman || '0 B'}`;
+        if (trafficBytesLeftHuman) {
+            trafficLine += `, осталось ${trafficBytesLeftHuman}`;
+        }
+        trafficLine += ')';
+        if (trafficLimitExceeded) {
+            trafficLine += ' — превышен';
+        }
+        lines.push(trafficLine);
+    }
 
     if (blockMode === 'temp') {
         if (blockDurationDays !== null) {
@@ -172,8 +194,21 @@ function syncClientAccessMeta(row) {
         if (blockedUntil) {
             lines.push(`Разблокировка: ${blockedUntil.split(' ')[0]}`);
         }
+    } else if (blockMode === 'traffic_limit' || (trafficLimitExceeded && trafficLimitHuman)) {
+        let trafficBlockLine = 'Блокировка: превышен лимит трафика';
+        if (trafficLimitHuman) {
+            trafficBlockLine += ` (${trafficLimitHuman}`;
+            if (trafficLimitPeriodLabel) {
+                trafficBlockLine += ` / ${trafficLimitPeriodLabel}`;
+            }
+            trafficBlockLine += ')';
+        }
+        lines.push(trafficBlockLine);
+        if (trafficLimitUnblockLabel) {
+            lines.push(trafficLimitUnblockLabel);
+        }
     } else if (blockMode === 'permanent') {
-        lines.push('Блокировка: до ручной разблокировки');
+        lines.push('Блокировка: бессрочная (вручную)');
     } else if (blockMode === 'expired') {
         lines.push('Блокировка: до ручной разблокировки');
     } else {
@@ -188,7 +223,7 @@ function syncClientAccessMeta(row) {
     });
     metaNode.replaceChildren(fragment);
 
-    const forceExpired = blockMode === 'temp' || blockMode === 'permanent' || blockMode === 'expired' || certState === 'expired';
+    const forceExpired = blockMode === 'temp' || blockMode === 'permanent' || blockMode === 'expired' || blockMode === 'traffic_limit' || certState === 'expired';
     metaNode.classList.remove('active', 'expiring', 'expired');
     if (forceExpired) {
         metaNode.classList.add('expired');
@@ -197,6 +232,23 @@ function syncClientAccessMeta(row) {
     } else {
         metaNode.classList.add('active');
     }
+}
+
+function applyTrafficPayloadToRow(row, payload) {
+    if (!row || !payload) {
+        return;
+    }
+    setRowDatasetValue(row, 'trafficLimitBytes', payload.traffic_limit_bytes);
+    setRowDatasetValue(row, 'trafficLimitPeriodDays', payload.traffic_limit_period_days);
+    setRowDatasetValue(row, 'trafficLimitPeriodLabel', payload.traffic_limit_period_label || '');
+    setRowDatasetValue(row, 'trafficLimitUnblockAt', payload.traffic_limit_unblock_at || '');
+    setRowDatasetValue(row, 'trafficLimitUnblockLabel', payload.traffic_limit_unblock_label || '');
+    setRowDatasetValue(row, 'trafficConsumedBytes', payload.traffic_consumed_bytes);
+    setRowDatasetValue(row, 'trafficBytesLeft', payload.traffic_bytes_left);
+    setRowDatasetValue(row, 'trafficLimitExceeded', payload.traffic_limit_exceeded ? '1' : '0');
+    setRowDatasetValue(row, 'trafficLimitHuman', payload.traffic_limit_human || '');
+    setRowDatasetValue(row, 'trafficConsumedHuman', payload.traffic_consumed_human || '');
+    setRowDatasetValue(row, 'trafficBytesLeftHuman', payload.traffic_bytes_left_human || '');
 }
 
 function applyWgAccessPayloadToRow(row, payload) {
@@ -218,6 +270,7 @@ function applyWgAccessPayloadToRow(row, payload) {
     setRowDatasetValue(row, 'wgBlockedDaysLeft', payload.blocked_days_left);
     setRowDatasetValue(row, 'wgBlockMode', payload.block_mode || 'none');
     setRowDatasetValue(row, 'wgBlockDurationDays', payload.block_duration_days);
+    applyTrafficPayloadToRow(row, payload);
     syncClientBlockedBadge(row);
     syncClientAccessMeta(row);
 }
@@ -246,6 +299,7 @@ function applyOpenVpnAccessPayloadToRow(row, payload) {
     setRowDatasetValue(row, 'blockedUntil', payload.block_until || '');
     setRowDatasetValue(row, 'blockedDaysLeft', payload.blocked_days_left);
     setRowDatasetValue(row, 'blockDurationDays', payload.block_duration_days);
+    applyTrafficPayloadToRow(row, payload);
     syncClientBlockedBadge(row);
     syncClientAccessMeta(row);
 }
