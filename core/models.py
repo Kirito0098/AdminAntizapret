@@ -333,6 +333,8 @@ class BackgroundTask(db.Model):
     message = db.Column(db.String(255), nullable=True)
     output = db.Column(db.Text, nullable=True)
     error = db.Column(db.Text, nullable=True)
+    progress_percent = db.Column(db.Integer, nullable=False, default=0)
+    progress_stage = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=_utcnow, index=True)
     started_at = db.Column(db.DateTime, nullable=True)
     finished_at = db.Column(db.DateTime, nullable=True)

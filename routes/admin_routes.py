@@ -1,9 +1,13 @@
 import os
 import re
+import time
 import urllib.request
 from typing import Any
 
 from flask import jsonify, request, session
+
+_CHANGELOG_CACHE: dict = {"data": None, "expires": 0.0}
+_CHANGELOG_CACHE_TTL = 600  # 10 minutes
 
 
 def register_admin_routes(
@@ -98,6 +102,12 @@ def register_admin_routes(
     @app.route("/api/latest-changelog", methods=["GET"])
     @auth_manager.login_required
     def api_latest_changelog():
+        now = time.monotonic()
+        if _CHANGELOG_CACHE["data"] is not None and now < _CHANGELOG_CACHE["expires"]:
+            resp = jsonify(_CHANGELOG_CACHE["data"])
+            resp.headers["Cache-Control"] = "no-store"
+            return resp, 200
+
         _CHANGELOG_URL = (
             "https://raw.githubusercontent.com/Kirito0098/AdminAntizapret/main/CHANGELOG.md"
         )
@@ -133,12 +143,16 @@ def register_admin_routes(
                 if items:
                     sections.append({"title": sm.group(1).strip(), "items": items})
 
-            resp = jsonify({
+            data = {
                 "success": True,
                 "version": version,
                 "date": date,
                 "sections": sections,
-            })
+            }
+            _CHANGELOG_CACHE["data"] = data
+            _CHANGELOG_CACHE["expires"] = now + _CHANGELOG_CACHE_TTL
+
+            resp = jsonify(data)
             resp.headers["Cache-Control"] = "no-store"
             return resp, 200
 

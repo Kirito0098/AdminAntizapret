@@ -117,7 +117,21 @@ class DatabaseMigrationService:
                         conn.commit()
 
                 if insp.has_table("background_task"):
+                    bg_cols = {c["name"] for c in insp.get_columns("background_task")}
+                    bg_missing = {
+                        "progress_percent": (
+                            "ALTER TABLE background_task "
+                            "ADD COLUMN progress_percent INTEGER NOT NULL DEFAULT 0"
+                        ),
+                        "progress_stage": (
+                            "ALTER TABLE background_task "
+                            "ADD COLUMN progress_stage VARCHAR(255)"
+                        ),
+                    }
                     with self.db.engine.connect() as conn:
+                        for col_name, alter_sql in bg_missing.items():
+                            if col_name not in bg_cols:
+                                conn.execute(text(alter_sql))
                         conn.execute(
                             text(
                                 "CREATE INDEX IF NOT EXISTS ix_background_task_task_type_status_created_at "

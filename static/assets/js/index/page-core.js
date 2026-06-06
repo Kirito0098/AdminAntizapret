@@ -895,61 +895,69 @@ function populateClientSelect(option) {
     }
 }
 
+let _isRefreshing = false;
+
 async function refreshMainContent() {
-    const response = await fetch(window.location.pathname, {
-        method: 'GET',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+    try {
+        const response = await fetch(window.location.pathname, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    });
 
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        const newTabContent = doc.querySelector('.tab-content');
+        const currentTabContent = document.querySelector('.tab-content');
+        if (newTabContent && currentTabContent) {
+            currentTabContent.innerHTML = newTabContent.innerHTML;
+        }
+
+        const newProtocolTabs = doc.querySelector('.protocol-tabs');
+        const currentProtocolTabs = document.querySelector('.protocol-tabs');
+        if (newProtocolTabs && currentProtocolTabs) {
+            currentProtocolTabs.innerHTML = newProtocolTabs.innerHTML;
+        }
+
+        const newClientDetailsData = doc.querySelector('#index-client-details-data');
+        const currentClientDetailsData = document.querySelector('#index-client-details-data');
+        if (newClientDetailsData && currentClientDetailsData) {
+            currentClientDetailsData.textContent = newClientDetailsData.textContent;
+        }
+
+        indexClientDetailsCache = null;
+        indexClientDetailsFetchPromise = null;
+
+        initializeTabSwitching();
+        initializeAddClientModal();
+        initializeTableSorting();
+        initializeOpenVpnGroupSwitching();
+        initializeQRButtons();
+        initializeOneTimeLinkButtons();
+        initializeClientBanToggles();
+        initializeClientDetailsModal();
+
+        switchTab(currentTab);
+
+        const optionSelect = document.getElementById('option');
+        if (optionSelect && (optionSelect.value === '2' || optionSelect.value === '5')) {
+            populateClientSelect(optionSelect.value);
+        }
+
+        initializeIndexTrafficMiniSummary(true);
+        extractCertExpiryData();
+    } finally {
+        _isRefreshing = false;
     }
-
-    const html = await response.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-
-    const newTabContent = doc.querySelector('.tab-content');
-    const currentTabContent = document.querySelector('.tab-content');
-    if (newTabContent && currentTabContent) {
-        currentTabContent.innerHTML = newTabContent.innerHTML;
-    }
-
-    const newProtocolTabs = doc.querySelector('.protocol-tabs');
-    const currentProtocolTabs = document.querySelector('.protocol-tabs');
-    if (newProtocolTabs && currentProtocolTabs) {
-        currentProtocolTabs.innerHTML = newProtocolTabs.innerHTML;
-    }
-
-    const newClientDetailsData = doc.querySelector('#index-client-details-data');
-    const currentClientDetailsData = document.querySelector('#index-client-details-data');
-    if (newClientDetailsData && currentClientDetailsData) {
-        currentClientDetailsData.textContent = newClientDetailsData.textContent;
-    }
-
-    indexClientDetailsCache = null;
-    indexClientDetailsFetchPromise = null;
-
-    initializeTabSwitching();
-    initializeAddClientModal();
-    initializeTableSorting();
-    initializeOpenVpnGroupSwitching();
-    initializeQRButtons();
-    initializeOneTimeLinkButtons();
-    initializeClientBanToggles();
-    initializeClientDetailsModal();
-
-    switchTab(currentTab);
-
-    const optionSelect = document.getElementById('option');
-    if (optionSelect && (optionSelect.value === '2' || optionSelect.value === '5')) {
-        populateClientSelect(optionSelect.value);
-    }
-
-    initializeIndexTrafficMiniSummary(true);
-    extractCertExpiryData();
 }
 
 // ============ TAB SWITCHING ============
@@ -974,11 +982,13 @@ function switchTab(tabName) {
     });
 
     // Add active class to selected tab
-    document.querySelector(`.tab-btn[data-protocol="${tabName}"]`).classList.add('active');
+    const tabBtn = document.querySelector(`.tab-btn[data-protocol="${tabName}"]`);
+    if (tabBtn) tabBtn.classList.add('active');
 
     const tabId = tabName === 'amneziawg' ? `${tabName}-tab` :
         tabName === 'wireguard' ? `${tabName}-tab` : `${tabName}-tab`;
-    document.getElementById(tabId).classList.add('active');
+    const tabPane = document.getElementById(tabId);
+    if (tabPane) tabPane.classList.add('active');
 
     currentTab = tabName;
     filterTable();
@@ -1043,7 +1053,7 @@ function filterTable() {
     const rows = table.querySelectorAll('.client-row');
 
     rows.forEach(row => {
-        const clientName = row.getAttribute('data-client-name').toLowerCase();
+        const clientName = (row.getAttribute('data-client-name') || '').toLowerCase();
         const matchSearch = clientName.includes(searchValue);
 
         let matchFilter = true;

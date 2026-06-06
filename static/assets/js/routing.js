@@ -199,16 +199,11 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   const saveIpFileStates = async () => {
-    const getCsrfToken = () => {
-      return document.querySelector('input[name="csrf_token"]')?.value ||
-        document.querySelector('meta[name="csrf-token"]')?.content ||
-        "";
-    };
     const response = await fetch("/api/antizapret/ip-files", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
+        "X-CSRFToken": window.getCsrfToken(),
       },
       body: JSON.stringify({ states: collectIpFileStates() }),
     });
@@ -323,16 +318,11 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   const syncIpFilesFromList = async () => {
-    const getCsrfToken = () => {
-      return document.querySelector('input[name="csrf_token"]')?.value ||
-        document.querySelector('meta[name="csrf-token"]')?.content ||
-        "";
-    };
     const response = await fetch("/api/antizapret/ip-files", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
+        "X-CSRFToken": window.getCsrfToken(),
       },
       body: JSON.stringify({ action: "sync_with_list" }),
     });
@@ -1297,11 +1287,6 @@ document.addEventListener("DOMContentLoaded", function () {
     endpoint = "/api/cidr-lists",
     silent = false,
   }) => {
-    const getCsrfToken = () => {
-      return document.querySelector('input[name="csrf_token"]')?.value ||
-        document.querySelector('meta[name="csrf-token"]')?.content ||
-        "";
-    };
     const resolvedIncludeProviderKeys = Array.isArray(includeProviderKeys)
       ? includeProviderKeys
       : (Array.isArray(includeGameKeys) ? includeGameKeys : []);
@@ -1312,7 +1297,7 @@ document.addEventListener("DOMContentLoaded", function () {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
+        "X-CSRFToken": window.getCsrfToken(),
       },
       body: JSON.stringify({
         action,
@@ -2341,18 +2326,13 @@ document.addEventListener("DOMContentLoaded", function () {
   async function applyAntizapretChanges(statusElement) {
     statusElement.textContent = "Применение изменений...";
 
-    const getCsrfToken = () => {
-      return document.querySelector('input[name="csrf_token"]')?.value ||
-        document.querySelector('meta[name="csrf-token"]')?.content ||
-        "";
-    };
     const _ctx = _pendingDoallContext || "Применение настроек Antizapret";
     _pendingDoallContext = null;
     const applyResponse = await fetch("/run-doall", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
+        "X-CSRFToken": window.getCsrfToken(),
       },
       body: JSON.stringify({ context: _ctx }),
     });
@@ -2398,16 +2378,11 @@ document.addEventListener("DOMContentLoaded", function () {
     statusElement.style.display = "block";
 
     try {
-      const getCsrfToken = () => {
-        return document.querySelector('input[name="csrf_token"]')?.value ||
-          document.querySelector('meta[name="csrf-token"]')?.content ||
-          "";
-      };
       const saveResponse = await fetch("/update_antizapret_settings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRFToken": getCsrfToken(),
+          "X-CSRFToken": window.getCsrfToken(),
         },
         body: JSON.stringify(settings),
       });

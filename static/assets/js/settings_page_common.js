@@ -112,19 +112,46 @@ function showUserActionConfirm(options) {
 
 window.showUserActionConfirm = showUserActionConfirm;
 
+window.getCsrfToken = () =>
+  document.querySelector('input[name="csrf_token"]')?.value ||
+  document.querySelector('meta[name="csrf-token"]')?.content ||
+  "";
+
 async function pollBackgroundTask(taskId, options = {}) {
   const intervalMs = options.intervalMs || 3000;
   const timeoutMs = options.timeoutMs || 600000;
+  const maxConsecutiveErrors = options.maxConsecutiveErrors ?? 3;
   const startedAt = Date.now();
+  let consecutiveErrors = 0;
 
   while (Date.now() - startedAt < timeoutMs) {
-    const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
-      cache: "no-store",
-    });
+    let response;
+    try {
+      response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
+        cache: "no-store",
+      });
+    } catch (networkErr) {
+      consecutiveErrors++;
+      if (consecutiveErrors >= maxConsecutiveErrors) {
+        throw new Error(`Ошибка запроса статуса задачи: ${networkErr.message}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      continue;
+    }
+
     if (!response.ok) {
+      if (response.status >= 500) {
+        consecutiveErrors++;
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          throw new Error(`Ошибка запроса статуса задачи (HTTP ${response.status})`);
+        }
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        continue;
+      }
       throw new Error(`Ошибка запроса статуса задачи (HTTP ${response.status})`);
     }
 
+    consecutiveErrors = 0;
     const task = await response.json();
     if (task.status === "completed") {
       return task;
@@ -138,6 +165,8 @@ async function pollBackgroundTask(taskId, options = {}) {
 
   throw new Error("Превышено время ожидания фоновой задачи");
 }
+
+window.pollBackgroundTask = pollBackgroundTask;
 
 function initContentTabs() {
   const navLinks = document.querySelectorAll(".nav-sublink[data-settings-tab]");

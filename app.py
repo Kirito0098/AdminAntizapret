@@ -82,6 +82,7 @@ from core.models import (
     db,
 )
 from core.services.cidr_db_updater import CidrDbUpdaterService
+from core.services.settings.cidr_tasks import init_cidr_task_db
 from core.services.logs_dashboard.collector import collect_logs_dashboard_data as collect_logs_dashboard_data_service
 from core.services.request_user import get_user_by_username
 from core.services import (
@@ -541,6 +542,8 @@ def _run_db_migrations():
 
 
 _run_db_migrations()
+
+init_cidr_task_db(app, db, BackgroundTask)
 
 cidr_db_updater_service = CidrDbUpdaterService(db=db)
 

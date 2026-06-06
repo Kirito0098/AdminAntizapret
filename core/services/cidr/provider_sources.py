@@ -57,14 +57,22 @@ from core.services.cidr.game_server_data import (
 PROVIDER_SOURCES = {
     "akamai-ips.txt": [
         {
-            "name": "ripe-as20940-geo",
-            "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS20940",
-            "format": "ripe_geo_json",
-        },
-        {
             "name": "ripe-as20940-announced",
             "url": "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS20940",
             "format": "ripe_json",
+            "timeout": 120,
+        },
+        {
+            "name": "ripe-as20940-bgpstate",
+            "url": "https://stat.ripe.net/data/bgp-state/data.json?resource=AS20940",
+            "format": "ripe_bgp_state_json",
+            "timeout": 90,
+        },
+        {
+            "name": "ripe-as20940-geo",
+            "url": "https://stat.ripe.net/data/maxmind-geo-lite-announced-by-as/data.json?resource=AS20940",
+            "format": "ripe_geo_json",
+            "timeout": 120,
         },
     ],
     "amazon-ips.txt": [

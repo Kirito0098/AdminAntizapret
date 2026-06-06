@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Исправлено
+
+- **CIDR DB / прогресс UI**: во время длительной загрузки провайдеров (RIPE, Akamai и др.) прогресс больше не «залипает» на «Подготовка обновления провайдеров» (~3–5%): backend пишет в `BackgroundTask` текущий провайдер, этап (обнаружение ASN, RIPE AS{n}, прямые источники) и долю выполнения; poll в `routing.js` отображает обновлённые `progress_stage` / `progress_percent`.
+- **CIDR DB / RIPE (Akamai AS20940)**: увеличены таймауты и добавлен retry (до 3 попыток) при загрузке источников провайдера; `akamai-ips.txt` — сначала `announced-prefixes`, затем `bgp-state` как fallback, geo MaxMind последним; кэш ответов пишется только после успешного парсинга (пустые/битые ответы RIPE не «залипают» на 15 мин). Переменные: `CIDR_DB_SOURCE_FETCH_TIMEOUT` (по умолчанию 90 с), `CIDR_DB_SOURCE_FETCH_RETRIES` (3).
+
+### JS↔Python аудит — исправления
+
+- **CIDR задачи → БД**: `cidr_tasks.py` мигрирован с in-memory словаря на `BackgroundTask` (SQLite/DB); поля `progress_percent` и `progress_stage` добавлены в модель `BackgroundTask`; DB-миграция в `db_migration.py`; в `app.py` — `init_cidr_task_db()` после `_run_db_migrations()`. In-memory fallback сохранён для тестов без БД.
+- **`getCsrfToken` централизован**: определён один раз в `settings_page_common.js` как `window.getCsrfToken`; дублирующие локальные определения удалены из `settings.js`, `routing.js` (5 мест) и `edit_files/page-core.js`.
+- **Кэш `/api/latest-changelog`**: TTL-кэш 10 минут в памяти процесса (`routes/admin_routes.py`) — GitHub-запрос не повторяется чаще раза в 10 мин.
+- **`pollBackgroundTask` дедупликация**: локальная копия в `edit_files/page-core.js` удалена; `settings_page_common.js` теперь загружается на странице редактора файлов (`_scripts.html`).
+- **`pollBackgroundTask` retry**: в `settings_page_common.js` — до 3 последовательных HTTP 5xx / сетевых ошибок допускаются без сброса (для устойчивости к перезапуску службы); также экспортируется как `window.pollBackgroundTask`.
+- **Race condition `refreshMainContent`**: добавлен флаг `_isRefreshing` с `try/finally` — конкурентные вызовы игнорируются (`index/page-core.js`).
+- **Перезапуск службы через AJAX**: `settings.js` теперь POST на `/api/restart-service` вместо `form.submit()`, с poll-ингом задачи и `window.location.reload()` по завершении; UX-оверлей сохранён.
+
 ### Code review fixes (модули, Safe Browsing, API)
 
 - **`get_env_value` в роутах**: `routes/index/routes.py` и `routes/auth_routes.py` читают `.env` через инжектируемый `get_env_value` (как `feature_guards`), а не `os.getenv` — согласованность при multi-worker.

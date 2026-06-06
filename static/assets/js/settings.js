@@ -237,9 +237,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!els.checkBtn) return;
 
-    const getCsrfToken = () =>
-      document.querySelector('input[name="csrf_token"]')?.value ||
-      document.querySelector('meta[name="csrf-token"]')?.content || "";
+    const getCsrfToken = window.getCsrfToken;
 
     const ICONS = {
       loading: `<svg class="upd-hero__icon upd-hero__icon--spin" viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -365,7 +363,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (data.queued && data.task_id) {
           if (els.progressLabel) els.progressLabel.textContent = "Выполняется обновление…";
           const task = await pollBackgroundTask(data.task_id, { timeoutMs: 1200000 });
-          const ok = task.status === "done";
+          const ok = task.status === "completed";
           if (els.progressFill) els.progressFill.style.width = "100%";
           window.showNotification?.(
             task.message || (ok ? "Обновление завершено!" : "Ошибка обновления"),
@@ -374,7 +372,7 @@ document.addEventListener("DOMContentLoaded", function () {
           if (ok) {
             setHeroState("ok");
             els.heroLabel.textContent = "Обновление установлено";
-            els.heroSub.textContent   = "Служба будет перезапущена автоматически";
+            els.heroSub.textContent   = "Рекомендуется перезапустить службу";
             els.changelogCard.hidden = true;
             els.menuItem?.classList.remove("upd-menu-badge");
           }
@@ -452,9 +450,7 @@ document
 function startRestartProcess() {
   const overlay = document.getElementById("loadingOverlay");
   const countdownElement = document.getElementById("countdownTimer");
-  const restartForm = document.getElementById("restartForm");
 
-  // Показываем оверлей
   overlay.style.display = "flex";
   requestAnimationFrame(() => {
     overlay.classList.add("is-open");
@@ -462,7 +458,6 @@ function startRestartProcess() {
 
   let countdown = 5;
 
-  // Запускаем обратный отсчет
   const countdownInterval = setInterval(() => {
     countdown--;
     countdownElement.textContent = countdown;
@@ -470,24 +465,37 @@ function startRestartProcess() {
     if (countdown <= 0) {
       clearInterval(countdownInterval);
 
-      // Меняем сообщение
       document.querySelector(".loading-title").textContent =
         "⚡ Выполняется перезапуск...";
       document.querySelector(".loading-message").textContent =
         "Выполняется команда перезапуска службы.";
       countdownElement.style.display = "none";
 
-      // Отправляем форму через 1 секунду
-      setTimeout(() => {
-        restartForm.submit();
+      setTimeout(async () => {
+        try {
+          const resp = await fetch("/api/restart-service", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": window.getCsrfToken(),
+            },
+          });
+          const data = await resp.json();
+          if (data.queued && data.task_id) {
+            await pollBackgroundTask(data.task_id, {
+              maxConsecutiveErrors: 5,
+              timeoutMs: 120000,
+            });
+          }
+        } catch {
+          // Ошибки во время перезапуска ожидаемы — перезагружаем страницу
+        }
+        window.location.reload();
       }, 1000);
     }
   }, 1000);
 
-  // Блокируем все действия пользователя
   document.body.style.overflow = "hidden";
-
-  // Показываем анимацию пульсации
   countdownElement.classList.add("pulse");
 }
 

@@ -61,33 +61,6 @@ function groupNavItems() {
     });
 }
 
-async function pollBackgroundTask(taskId, options = {}) {
-    const intervalMs = options.intervalMs || 3000;
-    const timeoutMs = options.timeoutMs || 900000;
-    const startedAt = Date.now();
-
-    while (Date.now() - startedAt < timeoutMs) {
-        const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
-            cache: 'no-store'
-        });
-        if (!response.ok) {
-            throw new Error(`Ошибка запроса статуса задачи (HTTP ${response.status})`);
-        }
-
-        const task = await response.json();
-        if (task.status === 'completed') {
-            return task;
-        }
-        if (task.status === 'failed') {
-            throw new Error(task.error || task.message || 'Фоновая задача завершилась с ошибкой');
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, intervalMs));
-    }
-
-    throw new Error('Превышено время ожидания фоновой задачи');
-}
-
 // === Навигация форм ===
 groupNavItems();
 
@@ -507,12 +480,7 @@ runDoAllBtn?.addEventListener('click', async () => {
     runDoAllBtn.textContent = 'Обновляем...';
 
     try {
-        const getCsrfToken = () => {
-            return document.querySelector('input[name="csrf_token"]')?.value ||
-                document.querySelector('meta[name="csrf-token"]')?.content ||
-                "";
-        };
-        const csrfToken = getCsrfToken();
+        const csrfToken = window.getCsrfToken();
         if (!csrfToken) throw new Error('CSRF-токен не найден');
 
         const res = await fetch('/run-doall', {

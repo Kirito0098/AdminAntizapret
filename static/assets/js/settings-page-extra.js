@@ -6,7 +6,7 @@ document.querySelectorAll('.viewer-access-cb').forEach(function (cb) {
     const configLabel = this.dataset.configLabel || configName;
     const configType = this.dataset.configType;
     const action = this.checked ? 'grant' : 'revoke';
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
     fetch('/api/viewer-access', {
       method: 'POST',
