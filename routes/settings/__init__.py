@@ -28,6 +28,9 @@ def register_settings_routes(app, **deps):
         is_valid_cron_expression=deps["is_valid_cron_expression"],
         ensure_nightly_idle_restart_cron=deps["ensure_nightly_idle_restart_cron"],
         ensure_app_backup_cron=deps["ensure_app_backup_cron"],
+        ensure_traffic_sync_cron=deps["ensure_traffic_sync_cron"],
+        ensure_wg_policy_sync_cron=deps["ensure_wg_policy_sync_cron"],
+        ensure_runtime_backup_cleanup_cron=deps["ensure_runtime_backup_cleanup_cron"],
         get_nightly_idle_restart_settings=deps["get_nightly_idle_restart_settings"],
         get_backup_settings=deps["get_backup_settings"],
         set_nightly_idle_restart_settings=deps["set_nightly_idle_restart_settings"],
@@ -36,6 +39,8 @@ def register_settings_routes(app, **deps):
         set_active_web_session_settings=deps["set_active_web_session_settings"],
         get_public_download_enabled=deps["get_public_download_enabled"],
         backup_manager_service=deps["backup_manager_service"],
+        maintenance_scheduler_service=deps["maintenance_scheduler_service"],
+        runtime_set=deps["runtime_set"],
         log_telegram_audit_event=deps["log_telegram_audit_event"],
         log_user_action_event=deps["log_user_action_event"],
     )

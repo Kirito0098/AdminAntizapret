@@ -560,6 +560,7 @@ def user_action_event_label(event_type: str | None) -> str:
         "settings_backup_delete": "Удаление бэкапа",
         "settings_user_tg_notify_update": "Изменение уведомлений в Telegram",
         "settings_monitor_update": "Изменение мониторинга ресурсов",
+        "settings_feature_toggles_update": "Изменение модулей и фоновых задач",
     }
     event_key = str(event_type or "").strip()
 
@@ -935,6 +936,7 @@ _TG_NOTIFY_EVENT_LABELS = {
     "user_create": "добавление пользователя",
     "user_delete": "удаление пользователя",
     "client_ban": "блокировка клиента",
+    "traffic_limit": "лимит трафика",
     "settings_change": "изменение настроек",
     "high_cpu": "высокая нагрузка CPU",
     "high_ram": "высокая нагрузка RAM",

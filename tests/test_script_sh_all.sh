@@ -34,7 +34,9 @@ echo "Syntax checks passed: $syntax_ok/${#scripts[@]}"
 
 if command -v shellcheck >/dev/null 2>&1; then
   echo "Running shellcheck..."
-  shellcheck -x "${scripts[@]}"
+  # Info-level hints (SC2059 printf/ANSI, SC2015 &&/||) — легаси-стиль script_sh;
+  # в CI и pre-commit падаем только на warning и выше.
+  shellcheck -x -S warning "${scripts[@]}"
   echo "OK: shellcheck passed"
 else
   echo "WARN: shellcheck is not installed; skipping lint stage"

@@ -8,6 +8,7 @@ from core.services.cidr.antifilter import (
     _cidr_overlaps_index,
     _load_antifilter_index,
 )
+from core.services.cidr.display_names import cidr_provider_display_name
 from core.services.cidr.facade_compat import call as _facade_call, get_attr as _cfg
 from core.services.cidr.geo import (
     _exclude_ru_country_cidrs,
@@ -138,7 +139,8 @@ def update_cidr_files_from_db(
 
     for index, file_name in enumerate(normalized, start=1):
         progress_start = 10 + int(((index - 1) / max(total_files, 1)) * 82)
-        _emit_progress(progress_callback, progress_start, f"Обработка {file_name} из БД")
+        provider_name = cidr_provider_display_name(file_name)
+        _emit_progress(progress_callback, progress_start, f"{provider_name}: чтение данных из БД…")
 
         file_quality = {
             "raw_db_count": 0,
@@ -157,7 +159,14 @@ def update_cidr_files_from_db(
             file_quality["status"] = "skipped"
             file_quality["skip_reason"] = reason
             quality_by_file[file_name] = file_quality
-            _emit_progress(progress_callback, progress_start, f"Файл {file_name} пропущен: {reason}")
+            skip_label = {
+                "no_db_data": "нет данных в БД",
+            }.get(reason, reason)
+            _emit_progress(
+                progress_callback,
+                progress_start,
+                f"{provider_name}: пропущен ({skip_label})",
+            )
             continue
 
         rows = all_rows_by_provider.get(file_name) or []
@@ -197,7 +206,11 @@ def update_cidr_files_from_db(
             file_quality["status"] = "skipped"
             file_quality["skip_reason"] = "empty_after_geo_filter"
             quality_by_file[file_name] = file_quality
-            _emit_progress(progress_callback, progress_start, f"Файл {file_name} пропущен: empty_after_geo_filter")
+            _emit_progress(
+                progress_callback,
+                progress_start,
+                f"{provider_name}: пропущен (пусто после геофильтра)",
+            )
             continue
 
         country_exclusion_meta = None
@@ -241,7 +254,11 @@ def update_cidr_files_from_db(
         quality_by_file[file_name] = file_quality
 
         progress_done = 10 + int((index / max(total_files, 1)) * 82)
-        _emit_progress(progress_callback, progress_done, f"Файл {file_name}: {len(cidrs)} CIDR из БД")
+        _emit_progress(
+            progress_callback,
+            progress_done,
+            f"{provider_name}: записано {len(cidrs)} маршрутов",
+        )
 
     effective_limit = int(total_cidr_limit) if total_cidr_limit and int(total_cidr_limit) > 0 else _facade_call("_get_openvpn_route_total_cidr_limit")
     planned_updates, global_route_optimization_meta = _apply_total_route_limit(

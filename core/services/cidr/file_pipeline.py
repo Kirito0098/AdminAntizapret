@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 from config.antizapret_params import IP_FILES
+from core.services.cidr.display_names import cidr_provider_display_name
 from core.services.cidr.constants import RUNTIME_BACKUP_RETENTION_SECONDS
 from core.services.cidr.facade_compat import call as _facade_call, get_attr as _cfg
 from core.services.cidr.geo import _exclude_ru_country_cidrs, _normalize_region_scopes
@@ -175,7 +176,7 @@ def update_cidr_files(
 
     # Phase 2: parallel HTTP downloads
     download_results = {}  # file_name -> (cidrs, source_name, last_error)
-    _emit_progress(progress_callback, 10, f"Скачивание {len(download_jobs)} провайдеров параллельно…")
+    _emit_progress(progress_callback, 10, f"Скачивание данных {len(download_jobs)} провайдер(ов)…")
     if download_jobs:
         max_workers = min(len(download_jobs), 8)
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -193,7 +194,12 @@ def update_cidr_files(
                 file_name = future_to_file[future]
                 completed += 1
                 pct = 10 + int((completed / len(download_jobs)) * 50)
-                _emit_progress(progress_callback, pct, f"Загружен {file_name} ({completed}/{len(download_jobs)})")
+                provider_name = cidr_provider_display_name(file_name)
+                _emit_progress(
+                    progress_callback,
+                    pct,
+                    f"{provider_name}: загружен ({completed} из {len(download_jobs)})",
+                )
                 try:
                     download_results[file_name] = future.result()
                 except Exception as exc:  # noqa: BLE001
@@ -202,7 +208,8 @@ def update_cidr_files(
     # Phase 3: post-process in original order
     for index, (file_name, sources, effective_scopes) in enumerate(download_jobs, start=1):
         progress_start = 60 + int(((index - 1) / max(len(download_jobs), 1)) * 32)
-        _emit_progress(progress_callback, progress_start, f"Обработка {file_name}")
+        provider_name = cidr_provider_display_name(file_name)
+        _emit_progress(progress_callback, progress_start, f"{provider_name}: обработка маршрутов…")
 
         cidrs, source_name, last_error = download_results.get(file_name, ([], "", "download missing"))
         if not cidrs:
@@ -233,7 +240,11 @@ def update_cidr_files(
                 "route_optimization": optimization_meta,
             }
         )
-        _emit_progress(progress_callback, progress_start, f"Файл {file_name} готов: {len(cidrs)} CIDR")
+        _emit_progress(
+            progress_callback,
+            progress_start,
+            f"{provider_name}: готово, {len(cidrs)} маршрутов",
+        )
 
     planned_updates, global_route_optimization_meta = _apply_total_route_limit(
         planned_updates,

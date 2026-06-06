@@ -4,8 +4,10 @@
 This is a lightweight replacement for utils/traffic_sync.py.
 
 It intentionally does NOT import app.py, Flask, SQLAlchemy, routes, schedulers,
-or the full services bundle. It reads OpenVPN status logs and `wg show all dump`,
-then persists traffic deltas directly into SQLite.
+or the full services bundle for the traffic snapshot itself. It reads OpenVPN status
+logs and `wg show all dump`, persists traffic deltas directly into SQLite, then
+optionally runs a lightweight traffic-limit reconcile via utils.traffic_limit_reconcile
+(ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP).
 
 Default DB path matches Flask-SQLAlchemy sqlite:///users.db:
     /opt/AdminAntizapret/instance/users.db
@@ -1013,12 +1015,45 @@ def persist_traffic_snapshot(conn: sqlite3.Connection, status_rows: Sequence[Dic
     }
 
 
+def _traffic_limit_reconcile_enabled(*, cli_skip: bool = False) -> bool:
+    if cli_skip:
+        return False
+    enabled = (os.getenv("TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC", "true") or "true").strip().lower()
+    return enabled in {"1", "true", "yes", "on"}
+
+
+def run_traffic_limit_reconcile(*, skip: bool = False) -> Dict[str, Any]:
+    """Reconcile traffic-limit policies after persisting traffic deltas."""
+    if not _traffic_limit_reconcile_enabled(cli_skip=skip):
+        return {"traffic_limit_reconcile": "skipped"}
+
+    root = str(ROOT_DIR)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+
+    try:
+        from utils.traffic_limit_reconcile import reconcile_traffic_limit_policies
+
+        reconcile_traffic_limit_policies()
+        return {"traffic_limit_reconcile": "ok"}
+    except Exception as exc:
+        return {
+            "traffic_limit_reconcile": "error",
+            "traffic_limit_reconcile_error": str(exc),
+        }
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Fast AdminAntizapret traffic snapshot sync.")
     parser.add_argument("--db", default="", help="Path to users.db. Defaults to instance/users.db.")
     parser.add_argument("--json", action="store_true", help="Print a compact JSON summary.")
     parser.add_argument("--no-wg", action="store_true", help="Skip WireGuard status collection.")
     parser.add_argument("--no-openvpn", action="store_true", help="Skip OpenVPN status log collection.")
+    parser.add_argument(
+        "--no-reconcile",
+        action="store_true",
+        help="Skip post-sync traffic-limit policy reconcile.",
+    )
     return parser
 
 
@@ -1060,8 +1095,15 @@ def run_sync(argv: Optional[Sequence[str]] = None) -> int:
         with conn:
             summary = persist_traffic_snapshot(conn, status_rows)
 
+        reconcile_summary = run_traffic_limit_reconcile(skip=bool(args.no_reconcile))
+
         if args.json:
-            print(json.dumps({"ok": True, "db": str(db_path), **summary}, ensure_ascii=False))
+            print(
+                json.dumps(
+                    {"ok": True, "db": str(db_path), **summary, **reconcile_summary},
+                    ensure_ascii=False,
+                )
+            )
         return 0
     finally:
         conn.close()

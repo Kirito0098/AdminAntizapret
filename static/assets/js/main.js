@@ -31,7 +31,42 @@ const showHiddenPass = (loginPass, loginEye) => {
 
 showHiddenPass('login-pass', 'login-eye');
 
+const syncLoginFieldLabel = (input) => {
+  const label = input?.nextElementSibling;
+  if (!label?.classList?.contains('login__label')) {
+    return;
+  }
+  const hasValue = Boolean((input.value || '').trim());
+  label.classList.toggle('login__label--raised', hasValue);
+};
+
+const initLoginAutofillLabels = () => {
+  const inputs = document.querySelectorAll('.login__input');
+  if (!inputs.length) {
+    return;
+  }
+
+  const syncAll = () => inputs.forEach((input) => syncLoginFieldLabel(input));
+
+  inputs.forEach((input) => {
+    syncLoginFieldLabel(input);
+    input.addEventListener('input', () => syncLoginFieldLabel(input));
+    input.addEventListener('change', () => syncLoginFieldLabel(input));
+    input.addEventListener('animationstart', (event) => {
+      if (event.animationName === 'login-autofill-start') {
+        syncLoginFieldLabel(input);
+      }
+    });
+  });
+
+  // Autofill часто срабатывает после DOMContentLoaded.
+  window.setTimeout(syncAll, 120);
+  window.setTimeout(syncAll, 400);
+};
+
 document.addEventListener('DOMContentLoaded', function () {
+  initLoginAutofillLabels();
+
   // Включение капчи после 2 неудачных авторизаций
   const loginForm = document.querySelector('.login__form');
   const captchaContainer = document.querySelector('.captcha-container');

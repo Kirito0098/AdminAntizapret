@@ -7,6 +7,10 @@ from core.services.audit_view_presenter import (
     build_user_action_day_groups,
     build_user_action_sessions,
 )
+from core.services.feature_toggles import (
+    build_feature_toggles_page_groups,
+    build_feature_toggles_page_items,
+)
 from core.services.panel_publish_info import build_panel_publish_context
 from core.services.settings.telegram_normalize import nightly_time_from_cron
 
@@ -199,5 +203,7 @@ def build_settings_page_context(
         "monitor_ram_threshold": monitor_ram_threshold,
         "monitor_interval_seconds": monitor_interval_seconds,
         "monitor_cooldown_minutes": monitor_cooldown_minutes,
+        "feature_toggles": build_feature_toggles_page_items(get_env_value=get_env_value),
+        "feature_toggle_groups": build_feature_toggles_page_groups(get_env_value=get_env_value),
         **_telegram_auth_fields(get_env_value),
     }

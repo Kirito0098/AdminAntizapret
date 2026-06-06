@@ -1,3 +1,4 @@
+import inspect
 import os
 import secrets
 import subprocess
@@ -8,8 +9,53 @@ from flask import jsonify, url_for
 
 
 class BackgroundTaskCallable(Protocol):
-    def __call__(self) -> dict[str, str] | None:
+    def __call__(self, *args: Any, **kwargs: Any) -> dict[str, str] | None:
         ...
+
+
+_TASK_START_PROGRESS: dict[str, tuple[str, str, int]] = {
+    "run_doall": ("AntiZapret: применение изменений…", "AntiZapret: запуск doall.sh…", 5),
+    "restart_service": (
+        "Перезапуск службы AdminAntizapret…",
+        "Перезапуск службы AdminAntizapret…",
+        10,
+    ),
+    "update_system": (
+        "Обновление кода и зависимостей…",
+        "Обновление: загрузка изменений из репозитория…",
+        5,
+    ),
+    "app_backup_create": (
+        "Резервная копия: создание архива…",
+        "Резервная копия: подготовка файлов…",
+        5,
+    ),
+    "app_backup_restore": (
+        "Восстановление из резервной копии…",
+        "Восстановление: остановка службы…",
+        5,
+    ),
+    "app_backup_test_tg": (
+        "Резервная копия: отправка в Telegram…",
+        "Резервная копия: создание архива для Telegram…",
+        5,
+    ),
+    "logs_dashboard_refresh": (
+        "Обновление панели логов…",
+        "Обновление панели логов…",
+        5,
+    ),
+}
+
+_TASK_DONE_PROGRESS: dict[str, str] = {
+    "run_doall": "AntiZapret: изменения применены",
+    "restart_service": "Служба AdminAntizapret перезапущена",
+    "update_system": "Обновление завершено",
+    "app_backup_create": "Резервная копия создана",
+    "app_backup_restore": "Восстановление завершено",
+    "app_backup_test_tg": "Бэкап отправлен в Telegram",
+    "logs_dashboard_refresh": "Панель логов обновлена",
+}
 
 
 class BackgroundTaskService:
@@ -44,6 +90,8 @@ class BackgroundTaskService:
             "message": task.message,
             "output": task.output,
             "error": task.error,
+            "progress_percent": getattr(task, "progress_percent", 0) or 0,
+            "progress_stage": getattr(task, "progress_stage", None),
             "created_at": task.created_at.isoformat() if task.created_at else None,
             "started_at": task.started_at.isoformat() if task.started_at else None,
             "finished_at": task.finished_at.isoformat() if task.finished_at else None,
@@ -60,24 +108,75 @@ class BackgroundTaskService:
 
             self.db.session.commit()
 
+    def _read_task_type(self, task_id: str) -> str:
+        with self.app.app_context():
+            task = self.db.session.get(self.background_task_model, task_id)
+            return str(getattr(task, "task_type", "") or "")
+
+    def _task_start_progress(self, task_type: str) -> tuple[str, str, int]:
+        return _TASK_START_PROGRESS.get(
+            task_type,
+            ("Задача выполняется…", "Запуск…", 5),
+        )
+
+    def _task_done_stage(self, task_type: str) -> str:
+        return _TASK_DONE_PROGRESS.get(task_type, "Готово")
+
+    def _make_progress_updater(self, task_id: str) -> Callable[[int, str, str | None], None]:
+        def updater(percent: int, stage: str, message: str | None = None) -> None:
+            fields: dict[str, Any] = {
+                "progress_percent": max(0, min(99, int(percent))),
+                "progress_stage": str(stage or "").strip()[:255] or None,
+            }
+            if message:
+                fields["message"] = str(message).strip()[:255]
+            self.update_background_task(task_id, **fields)
+
+        return updater
+
+    def _invoke_task_callable(
+        self,
+        task_callable: BackgroundTaskCallable,
+        progress_updater: Callable[[int, str, str | None], None],
+    ) -> dict[str, str] | None:
+        try:
+            signature = inspect.signature(task_callable)
+        except (TypeError, ValueError):
+            signature = None
+
+        if signature is not None and "progress_updater" in signature.parameters:
+            with self.app.app_context():
+                return task_callable(progress_updater=progress_updater) or {}
+
+        with self.app.app_context():
+            return task_callable() or {}
+
     def run_background_task(self, task_id: str, task_callable: BackgroundTaskCallable) -> None:
+        task_type = self._read_task_type(task_id)
+        running_message, starting_stage, starting_percent = self._task_start_progress(task_type)
+        progress_updater = self._make_progress_updater(task_id)
+
         self.update_background_task(
             task_id,
             status="running",
             started_at=datetime.now(timezone.utc),
-            message="Задача выполняется",
+            message=running_message,
+            progress_percent=starting_percent,
+            progress_stage=starting_stage,
         )
 
         try:
-            with self.app.app_context():
-                result = task_callable() or {}
+            result = self._invoke_task_callable(task_callable, progress_updater)
+            done_stage = self._task_done_stage(task_type)
             self.update_background_task(
                 task_id,
                 status="completed",
                 finished_at=datetime.now(timezone.utc),
-                message=(result.get("message") or "Задача выполнена")[:255],
+                message=(result.get("message") or running_message)[:255],
                 output=self.trim_background_task_text(result.get("output", "")),
                 error=None,
+                progress_percent=100,
+                progress_stage=done_stage,
             )
         except Exception as e:
             self.app.logger.exception("Ошибка фоновой задачи %s: %s", task_id, e)
@@ -96,6 +195,8 @@ class BackgroundTaskService:
                 finished_at=datetime.now(timezone.utc),
                 message="Задача завершилась с ошибкой",
                 error=self.trim_background_task_text(str(e)),
+                progress_percent=100,
+                progress_stage="Ошибка выполнения",
             )
 
     def enqueue_background_task(
@@ -176,12 +277,19 @@ class BackgroundTaskService:
     def task_run_doall(
         self,
         sync_wireguard_peer_cache_callback: Callable[..., Any] | None = None,
+        progress_updater: Callable[[int, str, str | None], None] | None = None,
     ) -> dict[str, str]:
         install_dir = self._antizapret_install_dir()
         doall_sh = os.path.join(install_dir, "doall.sh")
+        if progress_updater:
+            progress_updater(10, "AntiZapret: запуск doall.sh…")
         stdout, stderr = self.run_checked_command([doall_sh], timeout=900)
+        if progress_updater:
+            progress_updater(65, "AntiZapret: пересоздание профилей клиентов…")
         recreate_stdout, recreate_stderr = self._run_client_sh_recreate_profiles(install_dir)
         if sync_wireguard_peer_cache_callback is not None:
+            if progress_updater:
+                progress_updater(85, "AntiZapret: синхронизация кэша WireGuard…")
             try:
                 sync_wireguard_peer_cache_callback(force=True)
             except Exception as e:
@@ -200,9 +308,15 @@ class BackgroundTaskService:
             "output": combined,
         }
 
-    def task_restart_service(self) -> dict[str, str]:
+    def task_restart_service(
+        self,
+        progress_updater: Callable[[int, str, str | None], None] | None = None,
+    ) -> dict[str, str]:
+        if progress_updater:
+            progress_updater(20, "Перезапуск службы AdminAntizapret…")
+        adminpanel_sh = os.path.join(self.app_root, "script_sh", "adminpanel.sh")
         stdout, stderr = self.run_checked_command(
-            ["/opt/AdminAntizapret/script_sh/adminpanel.sh", "--restart"],
+            [adminpanel_sh, "--restart"],
             timeout=120,
         )
         combined = "\n".join(part for part in [stdout, stderr] if part).strip()
@@ -211,7 +325,10 @@ class BackgroundTaskService:
             "output": combined,
         }
 
-    def task_update_system(self) -> dict[str, str]:
+    def task_update_system(
+        self,
+        progress_updater: Callable[[int, str, str | None], None] | None = None,
+    ) -> dict[str, str]:
         output_parts: list[str] = []
         repo_dir = self.app_root
         pip_path = os.path.join(self.app_root, "venv", "bin", "pip")
@@ -219,13 +336,15 @@ class BackgroundTaskService:
             pip_path = "pip3"
 
         commands = [
-            (["git", "fetch", "origin", "main", "--quiet"], 90),
-            (["git", "reset", "--hard", "origin/main", "--quiet"], 90),
-            (["git", "clean", "-fd", "--quiet"], 90),
-            ([pip_path, "install", "-q", "-r", "requirements.txt"], 300),
+            (["git", "fetch", "origin", "main", "--quiet"], 90, "Обновление: загрузка изменений из репозитория…", 15),
+            (["git", "reset", "--hard", "origin/main", "--quiet"], 90, "Обновление: применение версии из main…", 35),
+            (["git", "clean", "-fd", "--quiet"], 90, "Обновление: очистка лишних файлов…", 55),
+            ([pip_path, "install", "-q", "-r", "requirements.txt"], 300, "Обновление: установка зависимостей Python…", 75),
         ]
 
-        for cmd, timeout in commands:
+        for cmd, timeout, stage, pct in commands:
+            if progress_updater:
+                progress_updater(pct, stage)
             stdout, stderr = self.run_checked_command(cmd, cwd=repo_dir, timeout=timeout)
             output_parts.extend([part for part in [stdout, stderr] if part])
 

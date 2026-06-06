@@ -280,9 +280,9 @@ _do_apt_update() {
 }
 
 _do_write_env() {
-    [ -f "$INSTALL_DIR/.env" ] || touch "$INSTALL_DIR/.env"
-    grep -q "^OPENVPN_ROUTE_TOTAL_CIDR_LIMIT=" "$INSTALL_DIR/.env" \
-        || printf 'OPENVPN_ROUTE_TOTAL_CIDR_LIMIT=1500\n' >> "$INSTALL_DIR/.env"
+    # shellcheck disable=SC1091
+    . "$SCRIPT_SH_DIR/env_defaults.sh"
+    ensure_env_defaults
 }
 
 _check_antizapret_prereq() {

@@ -82,6 +82,7 @@ from core.models import (
     db,
 )
 from core.services.cidr_db_updater import CidrDbUpdaterService
+from core.services.settings.cidr_tasks import init_cidr_task_db
 from core.services.logs_dashboard.collector import collect_logs_dashboard_data as collect_logs_dashboard_data_service
 from core.services.request_user import get_user_by_username
 from core.services import (
@@ -255,11 +256,7 @@ def build_conf_access_groups(conf_paths, config_type):
 def collect_all_configs_for_access(config_type):
     return config_access_service.collect_all_configs_for_access(config_type)
 
-# Инициализация классов
-script_executor = ScriptExecutor(
-    min_cert_expire=MIN_CERT_EXPIRE,
-    max_cert_expire=MAX_CERT_EXPIRE,
-)
+# Инициализация классов (script_executor — после runtime_settings, см. ниже)
 config_file_handler = ConfigFileHandler(CONFIG_PATHS)
 config_access_service = ConfigAccessService(
     config_file_handler=config_file_handler,
@@ -546,6 +543,8 @@ def _run_db_migrations():
 
 _run_db_migrations()
 
+init_cidr_task_db(app, db, BackgroundTask)
+
 cidr_db_updater_service = CidrDbUpdaterService(db=db)
 
 try:
@@ -569,6 +568,13 @@ def _inject_csp_nonce():
     # Прокидываем per-request CSP nonce в шаблоны (атрибут nonce="..." на inline
     # <script>). Тот же nonce попадает в заголовок Content-Security-Policy.
     return {"csp_nonce": get_csp_nonce()}
+
+
+@app.context_processor
+def _inject_feature_modules():
+    from core.services.feature_toggles import get_app_module_states
+
+    return {"feature_modules": get_app_module_states(get_env_value=_get_env_value)}
 
 
 @app.after_request
@@ -620,6 +626,9 @@ APP_BACKUP_SERVICE_NAME = runtime_settings["APP_BACKUP_SERVICE_NAME"]
 RUNTIME_BACKUP_CLEANUP_MARKER = runtime_settings["RUNTIME_BACKUP_CLEANUP_MARKER"]
 RUNTIME_BACKUP_CLEANUP_CRON_EXPR = runtime_settings["RUNTIME_BACKUP_CLEANUP_CRON_EXPR"]
 RUNTIME_BACKUP_RETENTION_HOURS = runtime_settings["RUNTIME_BACKUP_RETENTION_HOURS"]
+RUNTIME_BACKUP_CLEANUP_ENABLED = runtime_settings["RUNTIME_BACKUP_CLEANUP_ENABLED"]
+MONITOR_ENABLED = runtime_settings["MONITOR_ENABLED"]
+ACTIVE_WEB_SESSION_TRACKING_ENABLED = runtime_settings["ACTIVE_WEB_SESSION_TRACKING_ENABLED"]
 RUNTIME_BACKUP_ROOT = os.path.join(APP_ROOT, "ips", "runtime_backups")
 _runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", runtime_settings["NIGHTLY_IDLE_RESTART_CRON_EXPR"])
 _runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", runtime_settings["NIGHTLY_IDLE_RESTART_ENABLED"])
@@ -635,6 +644,23 @@ _runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", runtime_settings["ACTIVE_WEB_SESS
 _runtime_set(
     "ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS",
     runtime_settings["ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS"],
+)
+_runtime_set("TRAFFIC_SYNC_ENABLED", runtime_settings["TRAFFIC_SYNC_ENABLED"])
+_runtime_set("WG_POLICY_SYNC_ENABLED", runtime_settings["WG_POLICY_SYNC_ENABLED"])
+_runtime_set("MONITOR_ENABLED", runtime_settings["MONITOR_ENABLED"])
+_runtime_set(
+    "ACTIVE_WEB_SESSION_TRACKING_ENABLED",
+    runtime_settings["ACTIVE_WEB_SESSION_TRACKING_ENABLED"],
+)
+_runtime_set(
+    "RUNTIME_BACKUP_CLEANUP_ENABLED",
+    runtime_settings["RUNTIME_BACKUP_CLEANUP_ENABLED"],
+)
+
+script_executor = ScriptExecutor(
+    min_cert_expire=MIN_CERT_EXPIRE,
+    max_cert_expire=MAX_CERT_EXPIRE,
+    client_sh_cwd=runtime_settings["APP_BACKUP_AZ_INSTALL_DIR"],
 )
 
 
@@ -746,6 +772,7 @@ _services = build_services(
     runtime_backup_cleanup_cron_expr=RUNTIME_BACKUP_CLEANUP_CRON_EXPR,
     runtime_backup_root=RUNTIME_BACKUP_ROOT,
     runtime_backup_retention_hours=RUNTIME_BACKUP_RETENTION_HOURS,
+    runtime_backup_cleanup_enabled=RUNTIME_BACKUP_CLEANUP_ENABLED,
     backup_root=APP_BACKUP_ROOT,
     backup_service_name=APP_BACKUP_SERVICE_NAME,
     backup_retention_count=APP_BACKUP_RETENTION_COUNT,
@@ -812,6 +839,8 @@ logs_dashboard_cache_service = _services["logs_dashboard_cache_service"]
 
 
 def _touch_active_web_session(username, force=False):
+    if not bool(_runtime_get("ACTIVE_WEB_SESSION_TRACKING_ENABLED", True)):
+        return
     active_web_session_service.touch_active_web_session(
         username,
         session_obj=session,
@@ -1074,10 +1103,25 @@ wg_awg_runtime_enforcer = WgAwgRuntimeEnforcer(
     command_timeout_seconds=4,
 )
 
+
+def _get_client_consumed_traffic_bytes(client_name, *, period_days=None):
+    from core.services.traffic_limit import get_client_consumed_traffic_bytes
+
+    return get_client_consumed_traffic_bytes(
+        db=db,
+        user_traffic_stat_protocol_model=UserTrafficStatProtocol,
+        user_traffic_sample_model=UserTrafficSample,
+        client_name=client_name,
+        normalize_identity=_normalize_traffic_client_identity,
+        period_days=period_days,
+    )
+
+
 wg_access_policy_service = WgAccessPolicyService(
     db=db,
     policy_model=WgAccessPolicy,
     runtime_enforcer=wg_awg_runtime_enforcer,
+    get_consumed_traffic_bytes=_get_client_consumed_traffic_bytes,
 )
 
 openvpn_access_policy_service = OpenVpnAccessPolicyService(
@@ -1086,7 +1130,29 @@ openvpn_access_policy_service = OpenVpnAccessPolicyService(
     read_banned_clients=_read_banned_clients,
     write_banned_clients=_write_banned_clients,
     ensure_client_connect_ban_check_block=_ensure_client_connect_ban_check_block,
+    get_consumed_traffic_bytes=_get_client_consumed_traffic_bytes,
 )
+
+
+def _reconcile_traffic_limit_policies():
+    wg_clients = [
+        row.client_name
+        for row in WgAccessPolicy.query.filter(WgAccessPolicy.traffic_limit_bytes.isnot(None)).all()
+    ]
+    ovpn_clients = [
+        row.client_name
+        for row in OpenVpnAccessPolicy.query.filter(OpenVpnAccessPolicy.traffic_limit_bytes.isnot(None)).all()
+    ]
+    for client_name in wg_clients:
+        wg_access_policy_service.reconcile_client_policy(client_name, apply_runtime=True)
+    for client_name in ovpn_clients:
+        openvpn_access_policy_service.reconcile_client_policy(client_name)
+    if traffic_limit_notify_service is not None:
+        traffic_limit_notify_service.process_clients(protocol_scope="wg", client_names=wg_clients)
+        traffic_limit_notify_service.process_clients(protocol_scope="openvpn", client_names=ovpn_clients)
+
+
+traffic_persistence_service.on_after_persist = _reconcile_traffic_limit_policies
 
 
 def _wg_build_status_map(client_names):
@@ -1156,6 +1222,50 @@ def _wg_clear_temp_block(client_name, *, actor_username=None):
         client_name,
         actor_username=actor_username,
     )
+
+
+def _wg_set_traffic_limit_bytes(client_name, limit_bytes, *, period_days=None, actor_username=None):
+    row = wg_access_policy_service.set_traffic_limit_bytes(
+        client_name,
+        limit_bytes,
+        period_days=period_days,
+        actor_username=actor_username,
+    )
+    if traffic_limit_notify_service is not None:
+        traffic_limit_notify_service.process_client(protocol_scope="wg", client_name=client_name)
+    return row
+
+
+def _wg_clear_traffic_limit(client_name, *, actor_username=None):
+    row = wg_access_policy_service.clear_traffic_limit(
+        client_name,
+        actor_username=actor_username,
+    )
+    if traffic_limit_notify_service is not None:
+        traffic_limit_notify_service.process_client(protocol_scope="wg", client_name=client_name)
+    return row
+
+
+def _openvpn_set_traffic_limit_bytes(client_name, limit_bytes, *, period_days=None, actor_username=None):
+    row = openvpn_access_policy_service.set_traffic_limit_bytes(
+        client_name,
+        limit_bytes,
+        period_days=period_days,
+        actor_username=actor_username,
+    )
+    if traffic_limit_notify_service is not None:
+        traffic_limit_notify_service.process_client(protocol_scope="openvpn", client_name=client_name)
+    return row
+
+
+def _openvpn_clear_traffic_limit(client_name, *, actor_username=None):
+    row = openvpn_access_policy_service.clear_traffic_limit(
+        client_name,
+        actor_username=actor_username,
+    )
+    if traffic_limit_notify_service is not None:
+        traffic_limit_notify_service.process_client(protocol_scope="openvpn", client_name=client_name)
+    return row
 
 
 def _wg_reconcile_client_policy(client_name, apply_runtime=True):
@@ -1242,6 +1352,24 @@ admin_notify_service = AdminNotifyService(
     logger=app.logger,
 )
 
+traffic_limit_notify_service = None
+try:
+    from core.services.traffic_limit_notify import TrafficLimitNotifyService
+
+    traffic_limit_notify_service = TrafficLimitNotifyService(
+        admin_notify_service=admin_notify_service,
+        wg_access_policy_service=wg_access_policy_service,
+        openvpn_access_policy_service=openvpn_access_policy_service,
+        config_paths=CONFIG_PATHS,
+        extract_client_name_from_config_file=_extract_client_name_from_config_file,
+        logger=app.logger,
+    )
+except Exception as _traffic_limit_notify_exc:
+    app.logger.warning(
+        "Не удалось инициализировать уведомления лимита трафика: %s",
+        _traffic_limit_notify_exc,
+    )
+
 
 def _send_tg_admin_notification(event_type, *, actor_username=None,
                                  target_name=None, target_type=None,
@@ -1260,6 +1388,14 @@ def _send_tg_admin_notification(event_type, *, actor_username=None,
 
 
 register_all_routes(app, sock, locals())
-admin_notify_service.start_monitor()
+
+from core.services.feature_guards import register_feature_guards
+
+register_feature_guards(app, get_env_value=_get_env_value)
+
+if bool(_runtime_get("MONITOR_ENABLED", True)):
+    admin_notify_service.start_monitor()
+else:
+    app.logger.info("Мониторинг нагрузки CPU/RAM отключён (MONITOR_ENABLED=false)")
 
 

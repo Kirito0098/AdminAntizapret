@@ -551,6 +551,36 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
         self.assertFalse(first_details[0]["cache_hit"])
         self.assertTrue(second_details[0]["cache_hit"])
 
+    def test_download_cidrs_with_meta_retries_transient_download_errors(self):
+        svc = CidrDbUpdaterService(db=None)
+        CidrDbUpdaterService._source_cache = {}
+        sources = [{"name": "source-a", "url": "https://example.test/a", "format": "cidr_text"}]
+
+        with (
+            patch(
+                "core.services.cidr_db_updater._download_text",
+                side_effect=[TimeoutError("The read operation timed out"), "1.1.1.0/24\n"],
+            ) as mocked_download,
+            patch.object(svc, "_current_source_fetch_workers", return_value=1),
+            patch("core.services.cidr.db_service.time.sleep"),
+        ):
+            items, source_used, details = svc._download_cidrs_with_meta(
+                sources,
+                return_source_details=True,
+            )
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(source_used, "source-a")
+        self.assertEqual(mocked_download.call_count, 2)
+        self.assertEqual(details[0]["status"], "ok")
+
+    def test_akamai_provider_sources_prefers_announced_before_geo(self):
+        akamai_sources = PROVIDER_SOURCES["akamai-ips.txt"]
+        names = [source["name"] for source in akamai_sources]
+        self.assertEqual(names[0], "ripe-as20940-announced")
+        self.assertIn("ripe-as20940-bgpstate", names)
+        self.assertEqual(names[-1], "ripe-as20940-geo")
+
     @patch("core.services.cidr.db_service._get_models")
     def test_refresh_all_providers_dry_run_skips_db_writes(self, mocked_get_models):
         models = MagicMock()
@@ -587,6 +617,62 @@ class CidrDbUpdaterServiceHelperTests(unittest.TestCase):
         mocked_upsert_asns.assert_not_called()
         mocked_upsert_cidrs.assert_not_called()
         mocked_update_meta.assert_not_called()
+
+    @patch("core.services.cidr.db_service._get_models")
+    def test_refresh_all_providers_emits_granular_progress(self, mocked_get_models):
+        models = MagicMock()
+        models.CidrDbRefreshLog.side_effect = lambda **kwargs: MagicMock(**kwargs)
+        models.ProviderCidr.query.filter_by.return_value.count.return_value = 0
+        models.ProviderAsn.query.filter_by.return_value.count.return_value = 0
+        mocked_get_models.return_value = models
+
+        db = MagicMock()
+        svc = CidrDbUpdaterService(db=db)
+        progress_events = []
+
+        def _capture_progress(pct, stage):
+            progress_events.append((int(pct), str(stage)))
+
+        with (
+            patch.object(svc, "_discover_provider_asns", return_value=([20940, 15169], {"source-meta"}, [])),
+            patch.object(
+                svc,
+                "_download_asn_cidrs_with_meta",
+                return_value=(
+                    [{"cidr": "23.0.0.0/24", "region": None, "countries": None}],
+                    "ripe-as20940",
+                    None,
+                ),
+            ),
+            patch.object(
+                svc,
+                "_download_cidrs_with_meta",
+                return_value=(
+                    [{"cidr": "23.1.0.0/24", "region": None, "countries": ["US"]}],
+                    "ripe-as20940-announced",
+                    [{"name": "ripe-as20940-announced", "status": "ok", "count": 1, "error": None, "cache_hit": False}],
+                ),
+            ),
+            patch.object(svc, "_upsert_provider_asns", return_value=[MagicMock(active=True, asn=20940)]),
+            patch.object(svc, "_apply_provider_asn_runtime_meta"),
+            patch.object(svc, "_upsert_provider_cidrs", return_value=2),
+            patch.object(svc, "_write_provider_asn_snapshots"),
+            patch.object(svc, "_update_provider_meta"),
+        ):
+            result = svc.refresh_all_providers(
+                selected_files=["akamai-ips.txt"],
+                triggered_by="manual:test-progress",
+                progress_callback=_capture_progress,
+            )
+
+        self.assertTrue(result["success"])
+        self.assertGreaterEqual(len(progress_events), 4)
+        stages = [stage for _, stage in progress_events]
+        self.assertTrue(any("Akamai" in stage for stage in stages))
+        self.assertTrue(any("AS20940" in stage for stage in stages))
+        percents = [pct for pct, _ in progress_events]
+        self.assertGreater(max(percents), min(percents))
+        self.assertEqual(progress_events[-1][0], 100)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 {% if current_user and current_user.is_admin() %}
+{% if feature_modules.get('openvpn', true) or feature_modules.get('wireguard', true) or feature_modules.get('amneziawg', true) %}
 <div class="add-client-modal" id="addClientModal" hidden>
   <div class="add-client-backdrop" data-add-client-close></div>
   <div class="add-client-dialog" role="dialog" aria-modal="true" aria-labelledby="addClientModalTitle">
@@ -15,8 +16,12 @@
         <label>Выберите действие:</label>
         <input type="hidden" id="option" name="option" value="" />
         <div class="add-client-option-buttons" role="group" aria-label="Тип новой конфигурации">
+          {% if feature_modules.get('openvpn', true) %}
           <button type="button" class="add-client-option-btn" data-option="1">➕ Добавить клиента OpenVPN</button>
+          {% endif %}
+          {% if feature_modules.get('wireguard', true) or feature_modules.get('amneziawg', true) %}
           <button type="button" class="add-client-option-btn" data-option="4">➕ Добавить WireGuard/AmneziaWG</button>
+          {% endif %}
         </div>
       </div>
 
@@ -39,4 +44,5 @@
     </form>
   </div>
 </div>
+{% endif %}
 {% endif %}

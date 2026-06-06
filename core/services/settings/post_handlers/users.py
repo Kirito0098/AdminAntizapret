@@ -1,6 +1,16 @@
 import json as _json
 
+from core.services.feature_toggles import app_module_disabled_message, is_app_module_enabled
 from core.services.settings.telegram_normalize import normalize_telegram_id
+
+_USER_SETTINGS_FORM_KEYS = (
+    "username",
+    "change_tg_notify_username",
+    "change_telegram_username",
+    "delete_username",
+    "change_role_username",
+    "change_password_username",
+)
 
 
 def handle_users_settings(
@@ -12,7 +22,14 @@ def handle_users_settings(
     user_model,
     log_user_action_event,
     redirect_url,
+    get_env_value=None,
 ):
+    if get_env_value is not None and not is_app_module_enabled("user_management", get_env_value=get_env_value):
+        if any(form.get(key) for key in _USER_SETTINGS_FORM_KEYS):
+            flash(app_module_disabled_message("user_management"), "error")
+            return redirect_url
+        return None
+
     username = form.get("username")
     password = form.get("password")
     if username and password:
@@ -56,7 +73,7 @@ def handle_users_settings(
                 "login_success", "login_failed", "tg_unlinked",
                 "config_create", "config_delete",
                 "user_create", "user_delete",
-                "client_ban", "settings_change",
+                "client_ban", "traffic_limit", "settings_change",
                 "high_cpu", "high_ram",
             ]
             events = {k: (form.get(f"tg_e_{k}") == "1") for k in _ev_keys}

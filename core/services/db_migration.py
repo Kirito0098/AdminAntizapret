@@ -117,7 +117,21 @@ class DatabaseMigrationService:
                         conn.commit()
 
                 if insp.has_table("background_task"):
+                    bg_cols = {c["name"] for c in insp.get_columns("background_task")}
+                    bg_missing = {
+                        "progress_percent": (
+                            "ALTER TABLE background_task "
+                            "ADD COLUMN progress_percent INTEGER NOT NULL DEFAULT 0"
+                        ),
+                        "progress_stage": (
+                            "ALTER TABLE background_task "
+                            "ADD COLUMN progress_stage VARCHAR(255)"
+                        ),
+                    }
                     with self.db.engine.connect() as conn:
+                        for col_name, alter_sql in bg_missing.items():
+                            if col_name not in bg_cols:
+                                conn.execute(text(alter_sql))
                         conn.execute(
                             text(
                                 "CREATE INDEX IF NOT EXISTS ix_background_task_task_type_status_created_at "
@@ -307,6 +321,10 @@ class DatabaseMigrationService:
                             ),
                             "block_started_at": "ALTER TABLE wg_access_policy ADD COLUMN block_started_at DATETIME",
                             "block_days": "ALTER TABLE wg_access_policy ADD COLUMN block_days INTEGER",
+                            "traffic_limit_bytes": "ALTER TABLE wg_access_policy ADD COLUMN traffic_limit_bytes BIGINT",
+                            "traffic_limit_period_days": (
+                                "ALTER TABLE wg_access_policy ADD COLUMN traffic_limit_period_days INTEGER"
+                            ),
                         }
                         for col_name, alter_sql in wg_policy_missing.items():
                             if col_name not in wg_policy_cols:
@@ -370,7 +388,17 @@ class DatabaseMigrationService:
                         conn.commit()
 
                 if insp.has_table("openvpn_access_policy"):
+                    ovpn_policy_cols = {c["name"] for c in insp.get_columns("openvpn_access_policy")}
                     with self.db.engine.connect() as conn:
+                        ovpn_policy_missing = {
+                            "traffic_limit_bytes": "ALTER TABLE openvpn_access_policy ADD COLUMN traffic_limit_bytes BIGINT",
+                            "traffic_limit_period_days": (
+                                "ALTER TABLE openvpn_access_policy ADD COLUMN traffic_limit_period_days INTEGER"
+                            ),
+                        }
+                        for col_name, alter_sql in ovpn_policy_missing.items():
+                            if col_name not in ovpn_policy_cols:
+                                conn.execute(text(alter_sql))
                         conn.execute(
                             text(
                                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_openvpn_access_policy_client_name "

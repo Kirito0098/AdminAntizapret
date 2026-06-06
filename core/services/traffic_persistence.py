@@ -46,6 +46,7 @@ class TrafficPersistenceService:
         self.human_seconds = human_seconds
         self.format_dt = format_dt
         self.traffic_db_stale_seconds = traffic_db_stale_seconds
+        self.on_after_persist = None
 
     def build_session_key(self, profile, client):
         session_kind = (client.get("session_kind") or "").strip().lower()
@@ -209,6 +210,12 @@ class TrafficPersistenceService:
                 self.persist_traffic_snapshot(status_rows, retry_on_integrity=False)
                 return
             raise
+
+        if self.on_after_persist:
+            try:
+                self.on_after_persist()
+            except Exception as exc:
+                self.app.logger.exception("Ошибка post-persist hook для политик лимита трафика: %s", exc)
 
     def protocol_label_from_type(self, protocol_type):
         normalized = self.normalize_traffic_protocol_type(protocol_type, fallback="openvpn")

@@ -9,6 +9,10 @@ from core.services.audit_view_presenter import (
 )
 from core.services.notify_time import format_notify_when
 from core.services.tg_notify import send_tg_message
+from core.services.traffic_limit import (
+    format_traffic_limit_period_label,
+    format_traffic_limit_unblock_at,
+)
 
 CLIENT_BLOCK_NOTIFY_EVENTS = frozenset({
     "openvpn_client_block_toggle",
@@ -185,6 +189,8 @@ _PREF_KEY_MAP = {
     "tg_login_unlinked": "tg_unlinked",
     "tg_mini_login_unlinked": "tg_unlinked",
     "config_recreate": "config_create",
+    "traffic_limit_block": "traffic_limit",
+    "traffic_limit_unblock": "traffic_limit",
 }
 
 
@@ -280,6 +286,71 @@ def _resolve_client_block_action(details: str | None) -> str:
     return ""
 
 
+def _parse_traffic_limit_details(details: str | None) -> dict[str, str]:
+    return parse_mini_details_kv(details)
+
+
+def _build_traffic_limit_message(
+    *,
+    title: str,
+    target_type: str | None,
+    target_name: str | None,
+    details: str | None,
+    when: str,
+    action_line: str,
+    show_unblock_hint: bool = True,
+) -> str:
+    detail_map = _parse_traffic_limit_details(details)
+    client = _fmt_config_object(target_type, target_name)
+    lines = [title, action_line.replace("{client}", client)]
+
+    limit_bytes = detail_map.get("limit_bytes")
+    consumed_bytes = detail_map.get("consumed_bytes")
+    if limit_bytes or consumed_bytes:
+        limit_human = _human_bytes_from_details(limit_bytes)
+        consumed_human = _human_bytes_from_details(consumed_bytes)
+        period_days_raw = detail_map.get("period_days")
+        period_label = None
+        if period_days_raw:
+            try:
+                period_label = format_traffic_limit_period_label(int(period_days_raw))
+            except (TypeError, ValueError):
+                period_label = None
+        if period_label:
+            lines.append(f"📏 Лимит: <code>{limit_human}</code> ({period_label})")
+        else:
+            lines.append(f"📏 Лимит: <code>{limit_human}</code>")
+        lines.append(f"📈 Использовано: <code>{consumed_human}</code>")
+
+    if show_unblock_hint:
+        period_days_raw = detail_map.get("period_days")
+        unblock_label = None
+        if period_days_raw:
+            try:
+                _unblock_at, unblock_label = format_traffic_limit_unblock_at(int(period_days_raw))
+            except (TypeError, ValueError):
+                unblock_label = None
+        if unblock_label:
+            lines.append(f"🕓 {unblock_label}")
+
+    lines.append(when)
+    return "\n".join(lines)
+
+
+def _human_bytes_from_details(raw_value: str | None) -> str:
+    try:
+        size = float(raw_value or 0)
+    except (TypeError, ValueError):
+        return "0 B"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    idx = 0
+    while size >= 1024 and idx < len(units) - 1:
+        size /= 1024
+        idx += 1
+    precision = 0 if idx == 0 else (2 if size < 10 else 1)
+    return f"{size:.{precision}f} {units[idx]}"
+
+
 def _build_client_ban_message(
     actor_admin: str,
     target_type: str | None,
@@ -367,12 +438,19 @@ class AdminNotifyService:
             self.logger.warning("TG admin notify error: %s", exc)
 
     def start_monitor(self):
+        if not self._monitor_enabled():
+            self.logger.info("Resource monitor disabled (MONITOR_ENABLED=false)")
+            return
         t = threading.Thread(
             target=self._monitor_loop,
             daemon=True,
             name="resource-monitor",
         )
         t.start()
+
+    def _monitor_enabled(self):
+        raw = (self.get_env_value("MONITOR_ENABLED", "true") or "true").strip().lower()
+        return raw in {"1", "true", "yes", "on"}
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
@@ -482,6 +560,25 @@ class AdminNotifyService:
                 action_line,
                 when,
             )
+        if event_type == "traffic_limit_block":
+            return _build_traffic_limit_message(
+                title="🚫 <b>Блокировка по лимиту трафика</b>",
+                target_type=target_type,
+                target_name=target_name,
+                details=details,
+                when=when,
+                action_line="Клиент {client} отключён — превышен лимит трафика",
+            )
+        if event_type == "traffic_limit_unblock":
+            return _build_traffic_limit_message(
+                title="🟢 <b>Авторазблокировка по лимиту трафика</b>",
+                target_type=target_type,
+                target_name=target_name,
+                details=details,
+                when=when,
+                action_line="Клиент {client} разблокирован — начался новый период учёта",
+                show_unblock_hint=False,
+            )
         if event_type == "high_cpu":
             metric = _fmt_code(details) if details else "—"
             return _format_notify_system(
@@ -505,6 +602,11 @@ class AdminNotifyService:
         time.sleep(1)
         while True:
             try:
+                if not self._monitor_enabled():
+                    import time as _t
+                    _t.sleep(60)
+                    continue
+
                 cpu_thr = int((self.get_env_value("MONITOR_CPU_THRESHOLD", "90") or "90").strip())
                 ram_thr = int((self.get_env_value("MONITOR_RAM_THRESHOLD", "90") or "90").strip())
                 cooldown_min = int((self.get_env_value("MONITOR_COOLDOWN_MINUTES", "30") or "30").strip())

@@ -25,6 +25,7 @@ class MaintenanceSchedulerService:
         runtime_backup_cleanup_cron_expr,
         runtime_backup_root,
         runtime_backup_retention_hours,
+        runtime_backup_cleanup_enabled=True,
         is_valid_cron_expression,
         get_nightly_idle_restart_settings,
         get_backup_settings,
@@ -46,6 +47,7 @@ class MaintenanceSchedulerService:
         self.runtime_backup_cleanup_cron_expr = runtime_backup_cleanup_cron_expr
         self.runtime_backup_root = runtime_backup_root
         self.runtime_backup_retention_hours = max(0, int(runtime_backup_retention_hours or 0))
+        self.runtime_backup_cleanup_enabled = bool(runtime_backup_cleanup_enabled)
         self.is_valid_cron_expression = is_valid_cron_expression
         self.get_nightly_idle_restart_settings = get_nightly_idle_restart_settings
         self.get_backup_settings = get_backup_settings
@@ -91,25 +93,32 @@ class MaintenanceSchedulerService:
     def strip_status_cleanup_jobs(self, lines):
         return [line for line in lines if self.status_log_cleanup_marker not in line]
 
+    def _cron_log_redirect(self, log_basename):
+        log_dir = os.path.join(self.app_root, "logs")
+        log_path = os.path.join(log_dir, log_basename)
+        quoted_log_dir = shlex.quote(log_dir)
+        quoted_log_path = shlex.quote(log_path)
+        return f"mkdir -p {quoted_log_dir} >> {quoted_log_path} 2>&1"
+
     def traffic_sync_command(self):
         python_bin = shlex.quote(self.python_executable)
         script_path = shlex.quote(os.path.join(self.app_root, "utils", "traffic_sync.py"))
-        return f"{python_bin} {script_path} >/dev/null 2>&1"
+        return f"{python_bin} {script_path} {self._cron_log_redirect('traffic_sync.log')}"
 
     def nightly_idle_restart_command(self):
         python_bin = shlex.quote(self.python_executable)
         script_path = shlex.quote(os.path.join(self.app_root, "utils", "nightly_idle_restart.py"))
-        return f"{python_bin} {script_path} >/dev/null 2>&1"
+        return f"{python_bin} {script_path} {self._cron_log_redirect('nightly_idle_restart.log')}"
 
     def wg_policy_sync_command(self):
         python_bin = shlex.quote(self.python_executable)
         script_path = shlex.quote(os.path.join(self.app_root, "utils", "wg_awg_policy_sync.py"))
-        return f"{python_bin} {script_path} >/dev/null 2>&1"
+        return f"{python_bin} {script_path} {self._cron_log_redirect('wg_policy_sync.log')}"
 
     def app_backup_command(self):
         python_bin = shlex.quote(self.python_executable)
         script_path = shlex.quote(os.path.join(self.app_root, "utils", "app_auto_backup.py"))
-        return f"{python_bin} {script_path} >/dev/null 2>&1"
+        return f"{python_bin} {script_path} {self._cron_log_redirect('app_auto_backup.log')}"
 
     def runtime_backup_cleanup_command(self):
         quoted_backup_root = shlex.quote(self.runtime_backup_root)
@@ -252,7 +261,7 @@ class MaintenanceSchedulerService:
 
         lines = [line for line in lines if self.runtime_backup_cleanup_marker not in line]
 
-        if self.runtime_backup_retention_hours > 0:
+        if self.runtime_backup_cleanup_enabled and self.runtime_backup_retention_hours > 0:
             if not self.is_valid_cron_expression(self.runtime_backup_cleanup_cron_expr):
                 return False, "Некорректное cron-выражение для очистки runtime_backups."
             command = self.runtime_backup_cleanup_command()
@@ -265,7 +274,7 @@ class MaintenanceSchedulerService:
         except Exception as e:
             return False, f"Ошибка записи cron очистки runtime_backups: {e}"
 
-        if self.runtime_backup_retention_hours > 0:
+        if self.runtime_backup_cleanup_enabled and self.runtime_backup_retention_hours > 0:
             return True, (
                 "Cron очистки runtime_backups включен "
                 f"(хранение: {self.runtime_backup_retention_hours} ч)"

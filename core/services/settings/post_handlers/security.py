@@ -1,8 +1,14 @@
+from core.services.feature_toggles import app_module_disabled_message, is_app_module_enabled
 from core.services.panel_publish_info import is_whitelist_port_firewall_applicable
 from core.services.settings.telegram_normalize import normalize_ip_entry
 
 
-def handle_security_settings(form, *, flash, ip_restriction, log_user_action_event):
+def handle_security_settings(form, *, flash, ip_restriction, log_user_action_event, get_env_value=None):
+    if get_env_value is not None and not is_app_module_enabled("security", get_env_value=get_env_value):
+        if form.get("ip_action") or form.getlist("ip_action") or form.get("new_ip") or form.get("panel_publish_action"):
+            flash(app_module_disabled_message("security"), "error")
+        return None
+
     ip_action_values = form.getlist("ip_action")
     if "clear_scanner_bans" in ip_action_values:
         ip_action = "clear_scanner_bans"

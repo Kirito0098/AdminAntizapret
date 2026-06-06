@@ -2,7 +2,6 @@ import secrets
 import time
 import hashlib
 import hmac
-import os
 from urllib.parse import urlsplit
 from datetime import timedelta
 from typing import Any, Callable
@@ -31,6 +30,7 @@ def register_auth_routes(
     limiter,
     db,
     user_model,
+    get_env_value,
     touch_active_web_session,
     remove_active_web_session,
     log_telegram_audit_event,
@@ -49,7 +49,7 @@ def register_auth_routes(
             return max(1, min(configured_value, 365))
 
         if configured_value is None:
-            raw_value = (os.getenv("REMEMBER_ME_DAYS", "30") or "").strip()
+            raw_value = (get_env_value("REMEMBER_ME_DAYS", "30") or "").strip()
         else:
             raw_value = str(configured_value).strip()
 
@@ -59,19 +59,23 @@ def register_auth_routes(
             return 30
 
     def _get_telegram_bot_username() -> str:
-        return (os.getenv("TELEGRAM_AUTH_BOT_USERNAME", "") or "").strip()
+        return (get_env_value("TELEGRAM_AUTH_BOT_USERNAME", "") or "").strip()
 
     def _get_telegram_bot_token() -> str:
-        return (os.getenv("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip()
+        return (get_env_value("TELEGRAM_AUTH_BOT_TOKEN", "") or "").strip()
 
     def _get_telegram_auth_max_age_seconds() -> int:
-        raw_value = (os.getenv("TELEGRAM_AUTH_MAX_AGE_SECONDS", "300") or "").strip()
+        raw_value = (get_env_value("TELEGRAM_AUTH_MAX_AGE_SECONDS", "300") or "").strip()
         try:
             return max(30, min(int(raw_value), 86400))
         except (TypeError, ValueError):
             return 300
 
     def _is_telegram_auth_enabled() -> bool:
+        from core.services.feature_toggles import is_app_module_enabled
+
+        if not is_app_module_enabled("telegram", get_env_value=get_env_value):
+            return False
         return bool(_get_telegram_bot_username() and _get_telegram_bot_token())
 
     def _safe_internal_next_url(raw_next_url: str, default_endpoint: str = "tg_mini_app") -> str:

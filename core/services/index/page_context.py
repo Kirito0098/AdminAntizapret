@@ -3,7 +3,7 @@ import re
 from collections import OrderedDict
 from datetime import datetime, timezone
 
-from core.services.access_remaining import format_access_remaining
+from core.services.access_remaining import format_access_remaining, is_access_expired
 from core.services.time_utils import as_utc
 
 _CLIENT_NAME_SUFFIX_RE = re.compile(r"-(?:udp|tcp|wg|am)$", re.IGNORECASE)
@@ -123,7 +123,18 @@ def group_config_files_by_client(file_paths):
     return grouped
 
 
-def _resolve_cert_state(cert_info):
+def _cert_is_expired(cert_days, cert_expires_at, *, now=None):
+    if cert_days is not None and cert_days < 0:
+        return True
+
+    expired_by_date = is_access_expired(cert_expires_at, now=now)
+    if expired_by_date is not None:
+        return expired_by_date
+
+    return cert_days is not None and cert_days <= 0
+
+
+def _resolve_cert_state(cert_info, *, now=None):
     if not cert_info:
         return "active", None, None
 
@@ -132,7 +143,7 @@ def _resolve_cert_state(cert_info):
 
     if cert_days is None:
         return "active", None, cert_expires_at
-    if cert_days <= 0:
+    if _cert_is_expired(cert_days, cert_expires_at, now=now):
         return "expired", cert_days, cert_expires_at
     if cert_days <= 30:
         return "expiring", cert_days, cert_expires_at
@@ -205,6 +216,27 @@ def _build_blocked_entries(
     return entries
 
 
+def _traffic_row_fields(state, human_bytes=None):
+    state = state or {}
+    limit_bytes = state.get("traffic_limit_bytes")
+    consumed_bytes = int(state.get("traffic_consumed_bytes") or 0)
+    left_bytes = state.get("traffic_bytes_left")
+    format_bytes = human_bytes or (lambda value: str(value))
+    return {
+        "traffic_limit_bytes": limit_bytes,
+        "traffic_limit_period_days": state.get("traffic_limit_period_days"),
+        "traffic_limit_period_label": state.get("traffic_limit_period_label"),
+        "traffic_limit_unblock_at": state.get("traffic_limit_unblock_at"),
+        "traffic_limit_unblock_label": state.get("traffic_limit_unblock_label"),
+        "traffic_consumed_bytes": consumed_bytes,
+        "traffic_bytes_left": left_bytes,
+        "traffic_limit_exceeded": bool(state.get("traffic_limit_exceeded")),
+        "traffic_limit_human": format_bytes(limit_bytes) if limit_bytes else None,
+        "traffic_consumed_human": format_bytes(consumed_bytes),
+        "traffic_bytes_left_human": format_bytes(left_bytes) if left_bytes is not None else None,
+    }
+
+
 def build_client_table_rows(
     protocol,
     grouped_files,
@@ -215,6 +247,8 @@ def build_client_table_rows(
     openvpn_policy_status_by_client,
     wg_policy_status_by_client,
     url_for,
+    human_bytes=None,
+    qr_downloads_enabled=True,
 ):
     config = _PROTOCOL_TABLE_CONFIG[protocol]
     is_admin = bool(current_user and current_user.is_admin())
@@ -248,7 +282,7 @@ def build_client_table_rows(
         wg_blocked_days_left = wg_state.get("blocked_days_left")
         if wg_blocked_days_left is None:
             wg_blocked_days_left = _resolve_access_days_left(wg_block_until_dt)
-        wg_block_mode = wg_state.get("block_mode") or ("temp" if wg_block_reason == "manual_temp" else ("expired" if wg_block_reason == "expired" else ("permanent" if wg_block_reason == "manual_permanent" else "none")))
+        wg_block_mode = wg_state.get("block_mode") or ("temp" if wg_block_reason == "manual_temp" else ("expired" if wg_block_reason == "expired" else ("traffic_limit" if wg_block_reason == "traffic_limit" else ("permanent" if wg_block_reason == "manual_permanent" else "none"))))
         wg_block_duration_days = wg_state.get("block_duration_days")
 
         if protocol == "openvpn":
@@ -271,6 +305,9 @@ def build_client_table_rows(
             block_duration_days = wg_block_duration_days
 
         access_remaining_text = format_access_remaining(access_expires_at_raw)
+
+        policy_state = ovpn_state if protocol == "openvpn" else wg_state
+        traffic_fields = _traffic_row_fields(policy_state, human_bytes)
 
         show_cert_meta = is_admin and config["supports_cert_meta"]
         if show_cert_meta:
@@ -311,28 +348,37 @@ def build_client_table_rows(
             "delete_option": config["delete_option"],
             "has_vpn": bool(files.get("vpn")),
             "has_antizapret": bool(files.get("antizapret")),
-            "download_vpn_url": _build_file_url(url_for, "download", file_type, files.get("vpn")),
-            "download_az_url": _build_file_url(url_for, "download", file_type, files.get("antizapret")),
+            "download_vpn_url": (
+                _build_file_url(url_for, "download", file_type, files.get("vpn"))
+                if qr_downloads_enabled
+                else None
+            ),
+            "download_az_url": (
+                _build_file_url(url_for, "download", file_type, files.get("antizapret"))
+                if qr_downloads_enabled
+                else None
+            ),
             "qr_vpn_url": (
                 _build_file_url(url_for, "generate_qr", file_type, files.get("vpn"))
-                if config["supports_qr"]
+                if qr_downloads_enabled and config["supports_qr"]
                 else None
             ),
             "qr_az_url": (
                 _build_file_url(url_for, "generate_qr", file_type, files.get("antizapret"))
-                if config["supports_qr"]
+                if qr_downloads_enabled and config["supports_qr"]
                 else None
             ),
             "one_time_vpn_endpoint": (
                 _build_file_url(url_for, "generate_one_time_download", file_type, files.get("vpn"))
-                if is_admin
+                if qr_downloads_enabled and is_admin
                 else None
             ),
             "one_time_az_endpoint": (
                 _build_file_url(url_for, "generate_one_time_download", file_type, files.get("antizapret"))
-                if is_admin
+                if qr_downloads_enabled and is_admin
                 else None
             ),
+            **traffic_fields,
         }
         rows.append(row)
 
@@ -352,10 +398,10 @@ def build_index_kpi(
 
     if cert_expiry:
         for cert_info in cert_expiry.values():
-            cert_days = cert_info.get("days_left")
-            if cert_days is not None and cert_days <= 0:
+            cert_state, _, _ = _resolve_cert_state(cert_info)
+            if cert_state == "expired":
                 expired_count += 1
-            elif cert_days is not None and cert_days <= 30:
+            elif cert_state == "expiring":
                 expiring_count += 1
 
     return {
@@ -395,6 +441,8 @@ def build_index_get_context(
     extract_client_name_from_config_file,
     wg_build_status_map,
     url_for,
+    human_bytes=None,
+    get_env_value=None,
 ):
     (
         group,
@@ -455,6 +503,12 @@ def build_index_get_context(
     amneziawg_grouped = group_config_files_by_client(amneziawg_files)
     wireguard_grouped = group_config_files_by_client(wg_files)
 
+    qr_downloads_enabled = True
+    if callable(get_env_value):
+        from core.services.feature_toggles import is_app_module_enabled
+
+        qr_downloads_enabled = is_app_module_enabled("qr_downloads", get_env_value=get_env_value)
+
     row_kwargs = {
         "current_user": idx_user,
         "cert_expiry": cert_expiry,
@@ -462,6 +516,8 @@ def build_index_get_context(
         "openvpn_policy_status_by_client": openvpn_policy_status_by_client,
         "wg_policy_status_by_client": wg_policy_status_by_client,
         "url_for": url_for,
+        "human_bytes": human_bytes,
+        "qr_downloads_enabled": qr_downloads_enabled,
     }
 
     return {

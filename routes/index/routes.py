@@ -5,6 +5,9 @@ import time
 
 from flask import jsonify, render_template, request, session, url_for
 
+from core.services.feature_guards import check_index_post_option
+from core.services.feature_toggles import is_app_module_enabled
+
 from core.services.index import (
     build_client_details_payload,
     build_index_get_context,
@@ -12,6 +15,12 @@ from core.services.index import (
     resolve_openvpn_group_and_files,
 )
 from core.services.wg_access_policy import EXPIRED_REQUIRES_EXTEND_CODE, ExpiredRequiresExtendError
+from core.services.traffic_limit import (
+    TRAFFIC_LIMIT_EXCEEDED_CODE,
+    TrafficLimitExceededError,
+    parse_traffic_limit_bytes,
+    parse_traffic_limit_period_days,
+)
 from core.services.request_user import get_current_user
 from utils.wg_runtime_subprocess import trigger_wg_policy_sync_background
 from tg_mini.session import has_telegram_mini_session
@@ -25,6 +34,25 @@ INDEX_RECONCILE_TTL_SECONDS = 45
 
 _index_reconcile_lock = threading.Lock()
 _index_reconcile_last_ts = 0.0
+
+
+def _access_policy_traffic_json(state, human_bytes):
+    limit_bytes = state.get("traffic_limit_bytes")
+    consumed_bytes = state.get("traffic_consumed_bytes")
+    left_bytes = state.get("traffic_bytes_left")
+    return {
+        "traffic_limit_bytes": limit_bytes,
+        "traffic_limit_period_days": state.get("traffic_limit_period_days"),
+        "traffic_limit_period_label": state.get("traffic_limit_period_label"),
+        "traffic_limit_unblock_at": state.get("traffic_limit_unblock_at"),
+        "traffic_limit_unblock_label": state.get("traffic_limit_unblock_label"),
+        "traffic_consumed_bytes": consumed_bytes,
+        "traffic_bytes_left": left_bytes,
+        "traffic_limit_exceeded": bool(state.get("traffic_limit_exceeded")),
+        "traffic_limit_human": human_bytes(limit_bytes) if limit_bytes else None,
+        "traffic_consumed_human": human_bytes(consumed_bytes) if consumed_bytes is not None else None,
+        "traffic_bytes_left_human": human_bytes(left_bytes) if left_bytes is not None else None,
+    }
 
 
 def _should_run_index_reconcile():
@@ -42,6 +70,7 @@ def register_index_routes(
     app,
     *,
     auth_manager,
+    get_env_value,
     db,
     user_model,
     config_file_handler,
@@ -60,6 +89,8 @@ def register_index_routes(
     wg_set_temp_block_days,
     wg_set_permanent_block,
     wg_clear_temp_block,
+    wg_set_traffic_limit_bytes,
+    wg_clear_traffic_limit,
     wg_reconcile_client_policy,
     wg_reconcile_all_policies,
     log_telegram_audit_event,
@@ -113,21 +144,26 @@ def register_index_routes(
     def index():
         if request.method == "GET":
             idx_user = get_current_user(user_model)
+
             # Тяжёлый reconcile выполняем с TTL-debounce, чтобы частые GET /
             # не создавали лишнюю нагрузку и гонки. Корректность не страдает:
             # мутирующие POST-операции синхронизируют политики напрямую.
             if _should_run_index_reconcile():
-                try:
-                    openvpn_reconcile_all_policies()
-                except Exception as e:
-                    db.session.rollback()
-                    app.logger.warning("Не удалось синхронизировать OpenVPN политики при загрузке index: %s", e)
-                try:
-                    wg_reconcile_all_policies(apply_runtime=False)
-                    trigger_wg_policy_sync_background()
-                except Exception as e:
-                    db.session.rollback()
-                    app.logger.warning("Не удалось синхронизировать WG/AWG политики при загрузке index: %s", e)
+                if is_app_module_enabled("openvpn", get_env_value=get_env_value):
+                    try:
+                        openvpn_reconcile_all_policies()
+                    except Exception as e:
+                        db.session.rollback()
+                        app.logger.warning("Не удалось синхронизировать OpenVPN политики при загрузке index: %s", e)
+                if is_app_module_enabled("wireguard", get_env_value=get_env_value) or is_app_module_enabled(
+                    "amneziawg", get_env_value=get_env_value
+                ):
+                    try:
+                        wg_reconcile_all_policies(apply_runtime=False)
+                        trigger_wg_policy_sync_background()
+                    except Exception as e:
+                        db.session.rollback()
+                        app.logger.warning("Не удалось синхронизировать WG/AWG политики при загрузке index: %s", e)
             context = build_index_get_context(
                 session=session,
                 group_folders=group_folders,
@@ -138,6 +174,8 @@ def register_index_routes(
                 extract_client_name_from_config_file=extract_client_name_from_config_file,
                 wg_build_status_map=wg_build_status_map,
                 url_for=url_for,
+                human_bytes=human_bytes,
+                get_env_value=get_env_value,
             )
             context["service_statuses"] = collect_grouped_service_statuses()
             return render_template("index.html", **context)
@@ -145,6 +183,14 @@ def register_index_routes(
         post_user = get_current_user(user_model)
         if not post_user or post_user.role != "admin":
             return jsonify({"success": False, "message": "Доступ запрещён."}), 403
+
+        blocked = check_index_post_option(
+            request.form.get("option"),
+            get_env_value=get_env_value,
+        )
+        if blocked is not None:
+            return blocked
+
         try:
             option = request.form.get("option")
             client_name = request.form.get("client-name", "").strip()
@@ -272,6 +318,9 @@ def register_index_routes(
         client_name = (request.form.get("client_name") or "").strip()
         action = (request.form.get("action") or "").strip().lower()
         days_raw = (request.form.get("days") or "").strip()
+        limit_value_raw = (request.form.get("limit_value") or "").strip()
+        limit_unit = (request.form.get("limit_unit") or "mb").strip().lower()
+        limit_period_days_raw = (request.form.get("limit_period_days") or "").strip()
         actor_username = session.get("username")
 
         if not client_name:
@@ -331,6 +380,31 @@ def register_index_routes(
                     details=f"days={days_value}",
                 )
                 message = "Срок действия WG/AWG продлён."
+            elif action == "set_traffic_limit":
+                limit_bytes = parse_traffic_limit_bytes(limit_value_raw, limit_unit)
+                limit_period_days = parse_traffic_limit_period_days(limit_period_days_raw)
+                row = wg_set_traffic_limit_bytes(
+                    client_name,
+                    limit_bytes,
+                    period_days=limit_period_days,
+                    actor_username=actor_username,
+                )
+                log_user_action_event(
+                    "wg_client_traffic_limit_set",
+                    target_type="wireguard",
+                    target_name=client_name,
+                    details=f"limit_bytes={limit_bytes} period_days={limit_period_days}",
+                )
+                message = "Лимит трафика WG/AWG установлен."
+            elif action == "clear_traffic_limit":
+                row = wg_clear_traffic_limit(client_name, actor_username=actor_username)
+                log_user_action_event(
+                    "wg_client_traffic_limit_clear",
+                    target_type="wireguard",
+                    target_name=client_name,
+                    details="action=clear_traffic_limit",
+                )
+                message = "Лимит трафика WG/AWG снят."
             else:
                 return jsonify({"success": False, "message": "Неизвестное действие."}), 400
 
@@ -358,6 +432,7 @@ def register_index_routes(
                     "runtime_synced_count": int(runtime_result.get("synced_count") or 0),
                     "runtime_error_count": int(runtime_result.get("error_count") or 0),
                     "runtime_errors": runtime_result.get("errors") or [],
+                    **_access_policy_traffic_json(state, human_bytes),
                 }
             )
         except ValueError as e:
@@ -368,6 +443,17 @@ def register_index_routes(
                             "success": False,
                             "message": str(e),
                             "error_code": EXPIRED_REQUIRES_EXTEND_CODE,
+                        }
+                    ),
+                    409,
+                )
+            if isinstance(e, TrafficLimitExceededError):
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "message": str(e),
+                            "error_code": TRAFFIC_LIMIT_EXCEEDED_CODE,
                         }
                     ),
                     409,

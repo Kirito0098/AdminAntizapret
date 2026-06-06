@@ -17,7 +17,7 @@ class SettingsPostHandlersTests(unittest.TestCase):
         handle_vpn_network_port(
             form,
             flash=flash,
-            get_env_value=MagicMock(),
+            get_env_value=lambda _key, default=None: default,
             set_env_value=MagicMock(),
             log_user_action_event=MagicMock(),
         )

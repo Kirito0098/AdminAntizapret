@@ -1,0 +1,103 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "globals": {
+    "Chart": "readonly",
+    "Telegram": "readonly",
+    "showNotification": "readonly",
+    "hideNotificationWithFx": "readonly",
+    "normalizeNotificationType": "readonly",
+    "pollBackgroundTask": "readonly",
+    "pollBackgroundTaskWithProgress": "readonly",
+    "getCsrfToken": "readonly",
+    "resolveBackgroundTaskStage": "readonly",
+    "showTaskProgress": "readonly",
+    "hideTaskProgress": "readonly",
+    "showUserActionConfirm": "readonly"
+  },
+  "rules": {
+    "no-undef": "error",
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }],
+    "no-empty": ["error", { "allowEmptyCatch": false }],
+    "no-unreachable": "error",
+    "no-extra-semi": "error"
+  },
+  "overrides": [
+    {
+      "files": ["static/assets/js/index/**/*.js"],
+      "globals": {
+        "getThemeColor": "readonly",
+        "createMetaElement": "readonly",
+        "initializeClientDetailsModal": "readonly",
+        "initializeIndexTrafficMiniSummary": "readonly",
+        "getIndexClientDetailsPayload": "readonly",
+        "indexClientDetailsCache": "writable",
+        "indexClientDetailsFetchPromise": "writable",
+        "parseAccessExpiresAt": "readonly",
+        "formatAccessRemaining": "readonly",
+        "syncClientCardStats": "readonly",
+        "syncAllClientCardStats": "readonly",
+        "syncClientAccessMeta": "readonly",
+        "syncClientBlockedBadge": "readonly",
+        "applyWgAccessPayloadToRow": "readonly",
+        "applyWgAccessPayloadToClientRows": "readonly",
+        "applyOpenVpnAccessPayloadToClientRows": "readonly",
+        "refreshMainContent": "readonly",
+        "showQRModal": "readonly",
+        "copyTextToClipboard": "readonly"
+      }
+    },
+    {
+      "files": [
+        "static/assets/js/routing.js",
+        "static/assets/js/routing-game-filters.js",
+        "static/assets/js/routing-page-extra.js"
+      ],
+      "globals": {
+        "AntiZapretGameFilters": "readonly",
+        "AntiZapretRouteLimitOverride": "readonly",
+        "loadAntizapretSettings": "readonly"
+      }
+    },
+    {
+      "files": ["static/assets/js/settings*.js", "static/assets/js/settings/**/*.js"],
+      "globals": {
+        "loadAntizapretSettings": "readonly"
+      }
+    },
+    {
+      "files": ["static/assets/js/logs_dashboard/**/*.js"],
+      "globals": {
+        "__logsDashboardBootstrap": "readonly",
+        "LogsDashboardFmt": "readonly",
+        "LogsDashboardChartTheme": "readonly",
+        "LogsDashboardClientsFilters": "readonly"
+      }
+    },
+    {
+      "files": ["static/assets/js/server_monitor/**/*.js"],
+      "globals": {
+        "__bwIfaceGroups": "readonly",
+        "ServerMonitorFmt": "readonly",
+        "ServerMonitorChartTheme": "readonly",
+        "ServerMonitorIfaceGroups": "readonly",
+        "ServerMonitorSystemMetrics": "readonly",
+        "ServerMonitorBandwidth": "readonly",
+        "updateServerCharts": "readonly"
+      }
+    },
+    {
+      "files": ["static/assets/js/edit_files/**/*.js"],
+      "globals": {
+        "buildLightDiff": "readonly"
+      }
+    }
+  ]
+}

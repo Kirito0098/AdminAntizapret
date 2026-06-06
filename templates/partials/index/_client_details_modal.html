@@ -1,37 +1,69 @@
 <div class="client-details-modal" id="clientDetailsModalMain" hidden>
   <div class="client-details-backdrop" data-client-details-close></div>
   <div class="client-details-dialog" role="dialog" aria-modal="true" aria-labelledby="clientDetailsTitleMain">
-    <button type="button" class="client-details-close" data-client-details-close aria-label="Закрыть">×</button>
+    <header class="client-details-header">
+      <div class="client-details-header-main">
+        <h3 id="clientDetailsTitleMain">Клиент</h3>
+        <div id="clientDetailsChipsMain" class="client-details-chips" aria-label="Статус клиента"></div>
+      </div>
+      <button type="button" class="client-details-close" data-client-details-close aria-label="Закрыть">
+        <svg class="client-details-close-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+          <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div id="clientDetailsSummaryMain" class="client-details-summary-grid" aria-live="polite">
+        <div class="client-details-placeholder is-loading">Загрузка сведений...</div>
+      </div>
+    </header>
 
-    <div class="client-details-header">
-      <h3 id="clientDetailsTitleMain">Клиент</h3>
-      <p id="clientDetailsSummaryMain" class="client-details-summary">Загрузка...</p>
+    <div class="client-details-body">
+      <section class="client-details-section client-details-restrictions-section">
+        <div class="client-details-section-head">
+          <div class="client-details-section-title">Текущие ограничения</div>
+        </div>
+        <div id="clientDetailsRestrictionsMain" class="client-details-restrictions-host">
+          <div class="client-details-placeholder is-loading">Загрузка ограничений...</div>
+        </div>
+      </section>
+
+      <section class="client-details-section client-details-actions-section">
+        <div class="client-details-section-head">
+          <div class="client-details-section-title">Действия</div>
+        </div>
+        <div id="clientDetailsActionsMain" class="client-details-actions"></div>
+      </section>
+
+      <section class="client-details-section client-details-traffic-section">
+        <div class="client-details-section-head">
+          <div class="client-details-section-title">Трафик клиента (БД)</div>
+        </div>
+        <div id="clientDetailsTrafficQuickMain" class="client-details-traffic-stats">
+          <div class="client-details-placeholder is-loading">Загрузка статистики...</div>
+        </div>
+        <div class="client-details-traffic-toolbar">
+          <div class="client-details-range" role="tablist" aria-label="Диапазон графика клиента">
+            <button type="button" class="client-details-range-btn" data-range="1h">1 час</button>
+            <button type="button" class="client-details-range-btn" data-range="24h">24 часа</button>
+            <button type="button" class="client-details-range-btn" data-range="7d">7 дней</button>
+            <button type="button" class="client-details-range-btn" data-range="30d">30 дней</button>
+            <button type="button" class="client-details-range-btn" data-range="all">За все время</button>
+          </div>
+        </div>
+        <div id="clientDetailsTrafficMetaMain" class="client-details-meta">
+          <div class="client-details-placeholder is-loading">Загрузка графика...</div>
+        </div>
+        <div class="client-details-chart-wrap">
+          <canvas id="clientDetailsTrafficChartMain"></canvas>
+        </div>
+      </section>
+
+      <section class="client-details-section client-details-connections-section">
+        <div class="client-details-section-head">
+          <div class="client-details-section-title">Подключения</div>
+          <p class="client-details-section-subtitle">IP, устройство, версия</p>
+        </div>
+        <div id="clientDetailsConnectionsMain" class="client-details-connections"></div>
+      </section>
     </div>
-
-    <section class="client-details-section client-details-actions-section">
-      <div class="client-details-section-title">Действия</div>
-      <div id="clientDetailsActionsMain" class="client-details-actions"></div>
-    </section>
-
-    <section class="client-details-section">
-      <div class="client-details-section-title">Трафик клиента (БД)</div>
-      <div id="clientDetailsTrafficQuickMain" class="client-details-quick">Загрузка...</div>
-      <div class="client-details-range" role="tablist" aria-label="Диапазон графика клиента">
-        <button type="button" class="client-details-range-btn" data-range="1h">1 час</button>
-        <button type="button" class="client-details-range-btn" data-range="24h">24 часа</button>
-        <button type="button" class="client-details-range-btn" data-range="7d">7 дней</button>
-        <button type="button" class="client-details-range-btn" data-range="30d">30 дней</button>
-        <button type="button" class="client-details-range-btn" data-range="all">За все время</button>
-      </div>
-      <div id="clientDetailsTrafficMetaMain" class="client-details-meta">Загрузка...</div>
-      <div class="client-details-chart-wrap">
-        <canvas id="clientDetailsTrafficChartMain"></canvas>
-      </div>
-    </section>
-
-    <section class="client-details-section">
-      <div class="client-details-section-title">Подключения (IP, устройство, версия)</div>
-      <div id="clientDetailsConnectionsMain" class="client-details-connections"></div>
-    </section>
   </div>
 </div>

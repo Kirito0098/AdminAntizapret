@@ -206,12 +206,14 @@
 
   const waitForBackupTaskAndRefresh = async (data, options = {}) => {
     const timeoutMs = options.timeoutMs || 900000;
+    const title = options.title || "Создание резервной копии…";
     if (!data?.task_id || typeof pollBackgroundTask !== "function") {
       await refreshBackupListWithRetry();
       return;
     }
+    const pollFn = window.pollBackgroundTaskWithProgress || pollBackgroundTask;
     try {
-      const task = await pollBackgroundTask(data.task_id, { timeoutMs });
+      const task = await pollFn(data.task_id, { timeoutMs, title });
       if (task.status === "completed") {
         await refreshBackupListWithRetry();
         return;
@@ -266,7 +268,9 @@
       const data = await apiFetch("/api/backups/test-telegram", { method: "POST" });
       handleApiMessages(data, data.success ? "info" : "error");
       if (data.success) {
-        await waitForBackupTaskAndRefresh(data);
+        await waitForBackupTaskAndRefresh(data, {
+          title: "Бэкап и отправка в Telegram…",
+        });
       }
     } catch (_err) {
       notify("Ошибка сети при создании бэкапа и отправке в Telegram", "error");
@@ -284,7 +288,10 @@
       const data = await apiFetch("/api/backups/create", { method: "POST" });
       handleApiMessages(data, "info");
       if (data.success) {
-        await waitForBackupTaskAndRefresh(data, { timeoutMs: 600000 });
+        await waitForBackupTaskAndRefresh(data, {
+          timeoutMs: 600000,
+          title: "Создание резервной копии…",
+        });
       }
     } catch (_err) {
       notify("Ошибка сети при создании бэкапа", "error");

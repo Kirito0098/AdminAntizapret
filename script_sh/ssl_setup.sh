@@ -50,6 +50,28 @@ set_env_value() {
 	fi
 }
 
+set_secret_key_if_missing() {
+	local env_file="$INSTALL_DIR/.env"
+
+	mkdir -p "$INSTALL_DIR"
+	[ -f "$env_file" ] || touch "$env_file"
+
+	if grep -q '^SECRET_KEY=' "$env_file"; then
+		return 0
+	fi
+
+	if [ -z "$SECRET_KEY" ]; then
+		if declare -F generate_secret_key >/dev/null 2>&1; then
+			SECRET_KEY=$(generate_secret_key)
+		fi
+	fi
+	if [ -z "$SECRET_KEY" ]; then
+		echo "${RED}Не удалось сгенерировать SECRET_KEY.${NC}" >&2
+		return 1
+	fi
+	set_env_value "SECRET_KEY" "$SECRET_KEY"
+}
+
 unset_env_value() {
 	local key="$1"
 	local env_file="$INSTALL_DIR/.env"
@@ -97,7 +119,7 @@ choose_installation_type() {
 			1 | 2 | 3 | 4)
 				# Базовые настройки для HTTPS
 				get_port
-				set_env_value "SECRET_KEY" "$SECRET_KEY"
+				set_secret_key_if_missing || return 1
 				set_env_value "APP_PORT" "$APP_PORT"
 
 				case $ssl_sub_choice in
@@ -419,7 +441,7 @@ configure_http() {
 	log "Настройка HTTP соединения"
 	echo "${YELLOW}Настройка HTTP соединения...${NC}"
 
-	set_env_value "SECRET_KEY" "$SECRET_KEY"
+	set_secret_key_if_missing || return 1
 	set_env_value "APP_PORT" "$APP_PORT"
 	set_env_value "USE_HTTPS" "false"
 	set_env_value "SESSION_COOKIE_SECURE" "false"

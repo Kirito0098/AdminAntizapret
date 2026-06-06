@@ -51,6 +51,7 @@ class IndexRoutesWgAccessTests(unittest.TestCase):
         register_index_routes(
             self.app,
             auth_manager=FakeAuthManager(),
+            get_env_value=lambda key, default="": default,
             db=FakeDb(),
             user_model=SimpleNamespace(),
             config_file_handler=SimpleNamespace(),
@@ -69,6 +70,12 @@ class IndexRoutesWgAccessTests(unittest.TestCase):
             wg_set_temp_block_days=wg_set_temp_block_days,
             wg_set_permanent_block=wg_set_permanent_block,
             wg_clear_temp_block=wg_clear_temp_block,
+            wg_set_traffic_limit_bytes=lambda *args, **kwargs: SimpleNamespace(
+                expires_at=None, block_until=None
+            ),
+            wg_clear_traffic_limit=lambda *args, **kwargs: SimpleNamespace(
+                expires_at=None, block_until=None
+            ),
             wg_reconcile_client_policy=lambda client_name, apply_runtime=True: {
                 "state": {
                     "is_blocked": client_name == "alice",
@@ -140,6 +147,7 @@ class IndexRoutesWgAccessTests(unittest.TestCase):
         register_index_routes(
             app,
             auth_manager=FakeAuthManager(),
+            get_env_value=lambda key, default="": default,
             db=FakeDb(),
             user_model=SimpleNamespace(),
             config_file_handler=SimpleNamespace(),
@@ -158,6 +166,12 @@ class IndexRoutesWgAccessTests(unittest.TestCase):
             wg_set_temp_block_days=lambda *args, **kwargs: SimpleNamespace(expires_at=None, block_until=None),
             wg_set_permanent_block=lambda *args, **kwargs: SimpleNamespace(expires_at=None, block_until=None),
             wg_clear_temp_block=wg_clear_temp_block_raises,
+            wg_set_traffic_limit_bytes=lambda *args, **kwargs: SimpleNamespace(
+                expires_at=None, block_until=None
+            ),
+            wg_clear_traffic_limit=lambda *args, **kwargs: SimpleNamespace(
+                expires_at=None, block_until=None
+            ),
             wg_reconcile_client_policy=lambda *args, **kwargs: {"state": {}},
             wg_reconcile_all_policies=lambda apply_runtime=True: None,
             log_telegram_audit_event=lambda *args, **kwargs: None,

@@ -110,6 +110,7 @@ def build_test_app(remember_days: int | None = None) -> tuple[Flask, list[tuple[
         limiter=None,
         db=FakeDb(),
         user_model=FakeUserModel,
+        get_env_value=lambda key, default="": default,
         touch_active_web_session=touch_active_web_session,
         remove_active_web_session=lambda: None,
         log_telegram_audit_event=lambda *args, **kwargs: None,

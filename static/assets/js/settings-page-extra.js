@@ -6,7 +6,7 @@ document.querySelectorAll('.viewer-access-cb').forEach(function (cb) {
     const configLabel = this.dataset.configLabel || configName;
     const configType = this.dataset.configType;
     const action = this.checked ? 'grant' : 'revoke';
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
     fetch('/api/viewer-access', {
       method: 'POST',
@@ -580,3 +580,78 @@ document.querySelectorAll(".maintenance-recipient-chip__input").forEach((input) 
   input.addEventListener("change", syncChipState);
   syncChipState();
 });
+
+(function initFeatureToggleReload() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("feature_toggles_saved") !== "1") {
+    return;
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.delete("feature_toggles_saved");
+  url.hash = "feature-toggles";
+  window.location.replace(url.pathname + (url.search || "") + url.hash);
+})();
+
+(function initFeatureToggleCriticalConfirm() {
+  const form = document.querySelector(".feature-toggles-form");
+  if (!form) return;
+
+  const criticalModules = {
+    security: "Безопасность",
+    backups: "Резервные копии",
+    traffic_sync: "Синхронизация трафика",
+  };
+
+  form.addEventListener(
+    "submit",
+    (event) => {
+      const disabling = [];
+      Object.entries(criticalModules).forEach(([key, label]) => {
+        const enabledRadio = form.querySelector(
+          `input[name="feature_toggle_${key}"][value="true"]`
+        );
+        const selected = form.querySelector(`input[name="feature_toggle_${key}"]:checked`);
+        if (enabledRadio?.defaultChecked && selected?.value === "false") {
+          disabling.push(label);
+        }
+      });
+      if (disabling.length === 0) {
+        return;
+      }
+      const modulesList = disabling.map((label) => `«${label}»`).join(", ");
+      const confirmed = window.confirm(
+        `Отключить критичные модули ${modulesList}? Это может ограничить защиту, бэкапы или учёт трафика.`
+      );
+      if (!confirmed) {
+        event.preventDefault();
+      }
+    },
+    true
+  );
+})();
+
+(function initFeatureToggleCards() {
+  const root = document.getElementById("feature-toggles");
+  if (!root) return;
+
+  root.querySelectorAll(".feature-toggle-card").forEach((card) => {
+    const statusText = card.querySelector(".feature-toggle-card__status-text");
+    const radios = card.querySelectorAll('.feature-toggle-segment__option input[type="radio"]');
+
+    const syncCardState = () => {
+      const checked = card.querySelector('.feature-toggle-segment__option input[type="radio"]:checked');
+      const enabled = checked?.value === "true";
+      card.classList.toggle("is-on", enabled);
+      card.classList.toggle("is-off", !enabled);
+      card.querySelectorAll(".feature-toggle-segment__option").forEach((option) => {
+        const input = option.querySelector('input[type="radio"]');
+        option.classList.toggle("is-active", Boolean(input?.checked));
+      });
+      if (statusText) {
+        statusText.textContent = enabled ? "Включён" : "Выключен";
+      }
+    };
+
+    radios.forEach((radio) => radio.addEventListener("change", syncCardState));
+  });
+})();

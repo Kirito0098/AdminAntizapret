@@ -1,3 +1,4 @@
+/* exported buildLightDiff */
 function splitLines(value) {
     if (!value) {
         return [];

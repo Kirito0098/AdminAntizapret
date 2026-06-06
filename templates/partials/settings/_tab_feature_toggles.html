@@ -1,0 +1,172 @@
+<div id="feature-toggles" class="content-tab maintenance-tab feature-toggles-tab">
+  <header class="maintenance-page-head">
+    <div class="maintenance-page-head__text">
+      <h2>Модули и задачи</h2>
+      <p class="maintenance-page-lead">
+        Управляйте фоновыми задачами и целыми разделами панели. Отключайте неиспользуемое,
+        чтобы снизить нагрузку на сервер — изменения сохраняются в <code>.env</code> и применяются сразу.
+      </p>
+    </div>
+  </header>
+
+  {% set enabled_count = feature_toggles|selectattr('enabled')|list|length %}
+  {% set disabled_count = feature_toggles|length - enabled_count %}
+  {% set background_group = feature_toggle_groups|selectattr('key', 'equalto', 'background')|first %}
+  {% set app_module_group = feature_toggle_groups|selectattr('key', 'equalto', 'app_module')|first %}
+
+  <div class="maintenance-kpi-strip feature-toggles-kpi" role="list">
+    <article class="maintenance-kpi maintenance-kpi--info" role="listitem">
+      <span class="maintenance-kpi__label">Всего модулей</span>
+      <strong class="maintenance-kpi__value">{{ feature_toggles|length }}</strong>
+      <span class="maintenance-kpi__hint">
+        {% if background_group %}{{ background_group.total_count }} фоновых{% endif %}
+        {% if background_group and app_module_group %} · {% endif %}
+        {% if app_module_group %}{{ app_module_group.total_count }} разделов{% endif %}
+      </span>
+    </article>
+    <article
+      class="maintenance-kpi maintenance-kpi--status {% if enabled_count %}is-on{% else %}is-off{% endif %}"
+      role="listitem">
+      <span class="maintenance-kpi__label">Включено</span>
+      <strong class="maintenance-kpi__value">{{ enabled_count }}</strong>
+      <span class="maintenance-kpi__hint">Активных модулей сейчас</span>
+    </article>
+    <article
+      class="maintenance-kpi maintenance-kpi--{% if disabled_count %}warn{% else %}status is-on{% endif %}"
+      role="listitem">
+      <span class="maintenance-kpi__label">Выключено</span>
+      <strong class="maintenance-kpi__value">{{ disabled_count }}</strong>
+      <span class="maintenance-kpi__hint">
+        {% if disabled_count %}Проверьте последствия ниже{% else %}Все модули активны{% endif %}
+      </span>
+    </article>
+  </div>
+  <p class="feature-toggles-kpi-note">
+    Оценки нагрузки приблизительные — зависят от числа клиентов, активности админов и расписания cron.
+  </p>
+
+  <form method="POST" class="settings-form maintenance-form feature-toggles-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <input type="hidden" name="feature_toggles_action" value="save" />
+
+    <div class="feature-toggles-intro">
+      <div class="maintenance-callout maintenance-callout--highlight">
+        <p>
+          <strong>По умолчанию всё включено.</strong>
+          Фоновые задачи можно отключать без скрытия интерфейса — разделы UI останутся на месте.
+        </p>
+      </div>
+      <div class="maintenance-callout maintenance-callout--warn">
+        <p>
+          <strong>Разделы приложения</strong> при отключении скрываются из меню;
+          их страницы и API возвращают ошибку «модуль отключён».
+        </p>
+      </div>
+    </div>
+
+    {% for group in feature_toggle_groups %}
+    <section
+      class="maintenance-section feature-toggles-section maintenance-section--feature-{{ group.section_modifier }}"
+      aria-labelledby="feature-group-{{ group.key }}">
+      <div class="maintenance-section__head feature-toggles-section__head">
+        <span class="maintenance-section__icon" aria-hidden="true">
+          {% if group.key == 'app_module' %}🧩{% else %}⚙️{% endif %}
+        </span>
+        <div class="feature-toggles-section__titles">
+          <div class="feature-toggles-section__title-row">
+            <h3 id="feature-group-{{ group.key }}" class="maintenance-section__title">{{ group.label }}</h3>
+            <span class="feature-toggles-section__count maintenance-badge maintenance-badge--{% if group.key == 'app_module' %}env{% else %}db{% endif %}">
+              {{ group.enabled_count }} / {{ group.total_count }} вкл.
+            </span>
+          </div>
+          <p class="maintenance-section__subtitle">{{ group.description }}</p>
+        </div>
+      </div>
+
+      <div class="feature-toggles-grid">
+        {% for item in group['items'] %}
+        <article
+          class="feature-toggle-card {% if item.enabled %}is-on{% else %}is-off{% endif %}"
+          aria-labelledby="feature-toggle-title-{{ item.key }}">
+          <header class="feature-toggle-card__head">
+            <span class="feature-toggle-card__icon" aria-hidden="true">{{ item.icon }}</span>
+            <div class="feature-toggle-card__meta">
+              <div class="feature-toggle-card__title-row">
+                <h4 id="feature-toggle-title-{{ item.key }}" class="feature-toggle-card__title">
+                  {{ item.label }}
+                </h4>
+                <span class="feature-toggle-card__badge maintenance-badge maintenance-badge--{% if item.group == 'app_module' %}env{% else %}data{% endif %}">
+                  {{ item.group_badge }}
+                </span>
+              </div>
+              <code class="feature-toggle-card__env" title="Ключ в .env">{{ item.env_key }}</code>
+            </div>
+            <span class="feature-toggle-card__status" aria-live="polite">
+              <span class="feature-toggle-card__status-dot" aria-hidden="true"></span>
+              <span class="feature-toggle-card__status-text">
+                {% if item.enabled %}Включён{% else %}Выключен{% endif %}
+              </span>
+            </span>
+          </header>
+
+          <p class="feature-toggle-card__desc">{{ item.description }}</p>
+
+          {% if item.resource_savings %}
+          <div
+            class="feature-toggle-card__resource feature-toggle-card__resource--{{ item.resource_impact_css }}"
+            role="note">
+            <div class="feature-toggle-card__resource-head">
+              <span class="feature-toggle-card__resource-label">Нагрузка при включении</span>
+              <span
+                class="feature-toggle-card__resource-badge maintenance-badge maintenance-badge--impact-{{ item.resource_impact_css }}"
+                title="Примерная оценка фоновой нагрузки">
+                {{ item.resource_impact_label }}
+              </span>
+            </div>
+            <p>{{ item.resource_savings }}</p>
+          </div>
+          {% endif %}
+
+          <div
+            class="feature-toggle-card__effect feature-toggle-card__effect--{% if item.key == 'traffic_sync' %}critical{% elif item.group == 'app_module' %}warn{% else %}info{% endif %}"
+            role="note">
+            <span class="feature-toggle-card__effect-label">При отключении</span>
+            <p>{{ item.disable_hint }}</p>
+          </div>
+
+          <fieldset class="feature-toggle-card__control">
+            <legend class="visually-hidden">Состояние модуля «{{ item.label }}»</legend>
+            <div class="feature-toggle-segment" role="radiogroup" aria-label="Состояние «{{ item.label }}»">
+              <label class="feature-toggle-segment__option {% if item.enabled %}is-active{% endif %}">
+                <input
+                  type="radio"
+                  name="feature_toggle_{{ item.key }}"
+                  value="true"
+                  {% if item.enabled %}checked{% endif %} />
+                <span>Включён</span>
+              </label>
+              <label class="feature-toggle-segment__option {% if not item.enabled %}is-active{% endif %}">
+                <input
+                  type="radio"
+                  name="feature_toggle_{{ item.key }}"
+                  value="false"
+                  {% if not item.enabled %}checked{% endif %} />
+                <span>Выключен</span>
+              </label>
+            </div>
+          </fieldset>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+
+    <div class="feature-toggles-form-actions maintenance-form-actions">
+      <p class="feature-toggles-form-footnote">
+        После сохранения cron-задачи обновляются автоматически. Некоторые изменения могут потребовать
+        обновления страницы, чтобы скрыть или показать пункты меню.
+      </p>
+      <button type="submit" class="button save-button">Сохранить модули</button>
+    </div>
+  </form>
+</div>

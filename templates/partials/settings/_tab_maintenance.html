@@ -17,7 +17,9 @@
   {% set backup_interval_label = 'каждый день' %}
   {% endif %}
 
+  {% if feature_modules.get('maintenance', true) or feature_modules.get('backups', true) %}
   <div class="maintenance-kpi-strip" role="list">
+    {% if feature_modules.get('maintenance', true) %}
     <article class="maintenance-kpi maintenance-kpi--info" role="listitem">
       <span class="maintenance-kpi__label">Активные сессии</span>
       <strong class="maintenance-kpi__value">{{ active_web_sessions_count }}</strong>
@@ -31,6 +33,8 @@
         %}</strong>
       <span class="maintenance-kpi__hint">Проверка в {{ nightly_idle_restart_time }}</span>
     </article>
+    {% endif %}
+    {% if feature_modules.get('backups', true) %}
     <article class="maintenance-kpi maintenance-kpi--status {% if app_backup_enabled %}is-on{% else %}is-off{% endif %}"
       role="listitem">
       <span class="maintenance-kpi__label">Авто-бэкап</span>
@@ -46,8 +50,11 @@
       <strong class="maintenance-kpi__value">{{ backup_count }} / 5</strong>
       <span class="maintenance-kpi__hint">Хранится не более 5 последних</span>
     </article>
+    {% endif %}
   </div>
+  {% endif %}
 
+  {% if feature_modules.get('maintenance', true) %}
   <section class="maintenance-section maintenance-section--nightly" aria-labelledby="maintenance-nightly-title">
     <div class="maintenance-section__head">
       <span class="maintenance-section__icon" aria-hidden="true">🌙</span>
@@ -143,7 +150,9 @@
       </div>
     </form>
   </section>
+  {% endif %}
 
+  {% if feature_modules.get('backups', true) %}
   <section class="maintenance-section maintenance-section--backup" aria-labelledby="maintenance-backup-title">
     <div class="maintenance-section__head">
       <span class="maintenance-section__icon" aria-hidden="true">💾</span>
@@ -380,7 +389,9 @@
       </div>
     </div>
   </section>
+  {% endif %}
 
+  {% if feature_modules.get('maintenance', true) %}
   <section class="maintenance-section maintenance-section--restart" aria-labelledby="maintenance-restart-title">
     <div class="maintenance-section__head">
       <span class="maintenance-section__icon" aria-hidden="true">🔄</span>
@@ -410,6 +421,7 @@
       Перезапуск занимает 5–10 секунд. Страница будет заблокирована на время операции.
     </p>
   </section>
+  {% endif %}
 
   <div id="loadingOverlay" class="loading-overlay" aria-hidden="true">
     <div class="loading-content">

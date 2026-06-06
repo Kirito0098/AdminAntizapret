@@ -30,6 +30,7 @@ def _register_test_auth_app(restriction: IPRestriction) -> Flask:
         limiter=None,
         db=object(),
         user_model=object(),
+        get_env_value=lambda key, default="": default,
         touch_active_web_session=lambda *args, **kwargs: None,
         remove_active_web_session=lambda: None,
         log_telegram_audit_event=lambda *args, **kwargs: None,

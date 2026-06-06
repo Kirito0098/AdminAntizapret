@@ -1,21 +1,29 @@
 <div class="protocol-tabs page-unified-tabs">
-  <button type="button" class="tab-btn page-unified-tab-btn active" data-protocol="openvpn">
+  {% if feature_modules.get('openvpn', true) %}
+  <button type="button" class="tab-btn page-unified-tab-btn" data-protocol="openvpn">
     <span class="protocol-icon">🔒</span>
     <span>OpenVPN</span>
   </button>
+  {% endif %}
+  {% if feature_modules.get('amneziawg', true) %}
   <button type="button" class="tab-btn page-unified-tab-btn" data-protocol="amneziawg">
     <span class="protocol-icon">🔐</span>
     <span>AmneziaWG</span>
   </button>
+  {% endif %}
+  {% if feature_modules.get('wireguard', true) %}
   <button type="button" class="tab-btn page-unified-tab-btn" data-protocol="wireguard">
     <span class="protocol-icon">🛡️</span>
     <span>WireGuard</span>
   </button>
+  {% endif %}
   {% if current_user and current_user.is_admin() %}
+  {% if feature_modules.get('openvpn', true) or feature_modules.get('wireguard', true) or feature_modules.get('amneziawg', true) %}
   <button type="button" id="openAddClientModalBtn" class="add-client-launch-btn page-unified-tab-btn"
     aria-haspopup="dialog" aria-controls="addClientModal">
     <span class="protocol-icon">➕</span>
     <span>Добавить конфигурацию</span>
   </button>
+  {% endif %}
   {% endif %}
 </div>

@@ -3,14 +3,29 @@
  * Не переопределяем фон body: его задаёт base.css для .index-page-dark.
  */
 
+:root {
+  --tg-mini-safe-top: env(safe-area-inset-top, 0px);
+  --tg-mini-safe-right: env(safe-area-inset-right, 0px);
+  --tg-mini-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tg-mini-safe-left: env(safe-area-inset-left, 0px);
+  --tg-mini-touch-min: 44px;
+  --tg-mini-tabs-sticky-top: 0px;
+}
+
 body.tg-mini-app {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--theme-bg-main, #12191d);
+  -webkit-tap-highlight-color: transparent;
 }
 
 body.tg-mini-app .tg-mini-main {
-  padding: 0.75rem clamp(10px, 2.5vw, 22px) 1.25rem;
+  padding:
+    calc(0.75rem + var(--tg-mini-safe-top))
+    calc(clamp(10px, 2.5vw, 22px) + var(--tg-mini-safe-right))
+    calc(1.25rem + var(--tg-mini-safe-bottom))
+    calc(clamp(10px, 2.5vw, 22px) + var(--tg-mini-safe-left));
 }
 
 .tg-mini-shell {
@@ -23,7 +38,7 @@ body.tg-mini-app .tg-mini-main {
 
 /* ---------- Шапка (как блок nav-brand + карточки панели) ---------- */
 .tg-mini-header {
-  padding: 1rem 1.1rem 0.95rem;
+  padding: 0.85rem 1rem;
   border: 1px solid rgba(114, 144, 158, 0.32);
   border-radius: 14px;
   background: linear-gradient(
@@ -36,6 +51,59 @@ body.tg-mini-app .tg-mini-main {
     0 12px 32px rgba(5, 11, 15, 0.28);
   position: relative;
   overflow: hidden;
+}
+
+.tg-mini-header-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tg-mini-header-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tg-mini-touch-min);
+  padding: 8px 12px;
+  border: 1px solid rgba(102, 131, 145, 0.35);
+  border-radius: 10px;
+  background: rgba(22, 31, 38, 0.72);
+  color: var(--theme-text-secondary, rgba(198, 216, 224, 0.78));
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tg-mini-header-toggle-icon {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+  margin-top: -3px;
+}
+
+.tg-mini-header-toggle[aria-expanded="true"] .tg-mini-header-toggle-icon {
+  transform: rotate(-135deg);
+  margin-top: 3px;
+}
+
+.tg-mini-header-details {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(102, 131, 145, 0.22);
+}
+
+.tg-mini-header-details[hidden] {
+  display: none;
 }
 
 .tg-mini-header::after {
@@ -132,20 +200,37 @@ body.tg-mini-app .tg-mini-main {
 }
 
 /* ---------- Вкладки (как сегменты настроек) ---------- */
+.tg-mini-tabs-sticky {
+  position: sticky;
+  top: var(--tg-mini-tabs-sticky-top);
+  z-index: 100;
+  margin: 0 0 14px;
+  padding: 6px 0;
+  background: linear-gradient(
+    180deg,
+    var(--theme-bg-main, #12191d) 0%,
+    var(--theme-bg-main, #12191d) 72%,
+    rgba(18, 25, 29, 0) 100%
+  );
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
 .tg-mini-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  margin: 12px 0 14px;
   padding: 8px;
   border: 1px solid rgba(102, 131, 145, 0.28);
   border-radius: 12px;
-  background: rgba(18, 25, 31, 0.55);
+  background: rgba(18, 25, 31, 0.92);
+  box-shadow: 0 8px 24px rgba(5, 11, 15, 0.22);
 }
 
 .tg-mini-tab {
   flex: 1;
   min-width: 0;
+  min-height: var(--tg-mini-touch-min);
   border: 1px solid transparent;
   border-radius: 10px;
   padding: 10px 12px;
@@ -206,6 +291,33 @@ body.tg-mini-app .tg-mini-main {
   background: var(--theme-secondary-alpha-18, rgba(90, 157, 203, 0.18));
   font-size: 0.88rem;
   color: var(--theme-text-primary, rgba(234, 241, 244, 0.95));
+}
+
+.tg-mini-status.is-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.tg-mini-status.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  animation: tgMiniShimmer 1.4s infinite;
+}
+
+@keyframes tgMiniShimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 
 .tg-mini-status.is-error {
@@ -362,6 +474,7 @@ body.tg-mini-app .tg-mini-main {
   width: 100%;
   box-sizing: border-box;
   padding: 8px 11px;
+  min-height: var(--tg-mini-touch-min);
   border: 1px solid var(--theme-control-border, #546673);
   border-radius: 0.5rem;
   background: var(--theme-control-bg-alpha-70, rgba(42, 54, 64, 0.7));
@@ -395,6 +508,7 @@ body.tg-mini-app .tg-mini-main {
   border: 1px solid rgba(102, 131, 145, 0.35);
   border-radius: 9px;
   padding: 8px 11px;
+  min-height: var(--tg-mini-touch-min);
   font-family: inherit;
   font-size: 0.82rem;
   font-weight: 600;
@@ -495,11 +609,14 @@ body.tg-mini-app .tg-mini-main {
 }
 
 .tg-mini-toggle-item input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
   margin-top: 2px;
   flex: 0 0 auto;
   accent-color: var(--theme-primary, #3fa083);
+  cursor: pointer;
 }
 
 .tg-mini-actions-row {
@@ -517,6 +634,60 @@ body.tg-mini-app .tg-mini-main {
   display: grid;
   gap: 10px;
   margin-bottom: 10px;
+}
+
+.tg-mini-main-control-search input {
+  min-height: var(--tg-mini-touch-min);
+  font-size: 1rem;
+}
+
+.tg-mini-toolbar-filters {
+  border: 1px solid rgba(102, 131, 145, 0.24);
+  border-radius: 12px;
+  background: rgba(17, 24, 30, 0.55);
+  overflow: hidden;
+}
+
+.tg-mini-toolbar-filters-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--tg-mini-touch-min);
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--theme-text-main, #eaf1f4);
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tg-mini-toolbar-filters-icon {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+  margin-top: -3px;
+}
+
+.tg-mini-toolbar-filters-toggle[aria-expanded="true"] .tg-mini-toolbar-filters-icon {
+  transform: rotate(-135deg);
+  margin-top: 3px;
+}
+
+.tg-mini-toolbar-filters-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.tg-mini-toolbar-filters-body[hidden] {
+  display: none;
 }
 
 .tg-mini-main-control-group {
@@ -605,9 +776,9 @@ body.tg-mini-app .tg-mini-main {
   border: 1px solid rgba(102, 131, 145, 0.3);
   border-radius: 14px;
   background: var(--theme-bg-content, rgba(27, 36, 42, 0.88));
-  padding: 13px;
+  padding: 12px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   box-shadow: 0 8px 24px rgba(5, 11, 15, 0.2);
   position: relative;
   overflow: hidden;
@@ -630,14 +801,16 @@ body.tg-mini-app .tg-mini-main {
 .tg-mini-main-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 }
 
 .tg-mini-main-name {
   font-weight: 600;
-  font-size: 1.02rem;
+  font-size: 1.05rem;
+  line-height: 1.25;
   color: var(--theme-text-main, #eaf1f4);
+  word-break: break-word;
 }
 
 .tg-mini-main-meta {
@@ -645,13 +818,67 @@ body.tg-mini-app .tg-mini-main {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--theme-text-muted, #8ea2ad);
 }
 
 .tg-mini-main-actions {
   display: grid;
   gap: 8px;
+}
+
+.tg-mini-main-actions-primary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tg-mini-main-actions-expand {
+  display: none;
+  gap: 8px;
+}
+
+.tg-mini-main-item.is-actions-open .tg-mini-main-actions-expand {
+  display: grid;
+}
+
+.tg-mini-main-actions-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: var(--tg-mini-touch-min);
+  padding: 8px 12px;
+  border: 1px dashed rgba(102, 131, 145, 0.4);
+  border-radius: 10px;
+  background: rgba(17, 24, 30, 0.45);
+  color: var(--theme-text-secondary, rgba(198, 216, 224, 0.78));
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tg-mini-main-actions-toggle-icon {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.tg-mini-main-item.is-actions-open .tg-mini-main-actions-toggle-icon {
+  transform: rotate(-135deg);
+}
+
+.tg-mini-main-item.is-actions-open .tg-mini-main-actions-toggle-label-more {
+  display: none;
+}
+
+.tg-mini-main-item:not(.is-actions-open) .tg-mini-main-actions-toggle-label-less {
+  display: none;
 }
 
 .tg-mini-main-actions-grid {
@@ -666,12 +893,95 @@ body.tg-mini-app .tg-mini-main {
   gap: 8px;
 }
 
+.tg-mini-main-actions-manage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tg-mini-action-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--tg-mini-touch-min);
+  padding: 10px 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(102, 131, 145, 0.35);
+  background: rgba(17, 24, 30, 0.72);
+  color: var(--theme-text-main, #eaf1f4);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.tg-mini-action-card:active {
+  background: rgba(24, 33, 40, 0.95);
+}
+
+.tg-mini-action-card:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  transform: none;
+}
+
+.tg-mini-action-card-danger {
+  border-color: rgba(213, 103, 95, 0.35);
+  background: rgba(213, 103, 95, 0.12);
+}
+
+.tg-mini-action-card-success {
+  border-color: rgba(63, 160, 131, 0.4);
+  background: rgba(63, 160, 131, 0.12);
+}
+
+.tg-mini-action-card-info {
+  border-color: rgba(90, 157, 203, 0.4);
+  background: rgba(90, 157, 203, 0.12);
+}
+
+.tg-mini-action-card-primary {
+  border-color: rgba(130, 186, 168, 0.4);
+  background: rgba(63, 160, 131, 0.14);
+}
+
+.tg-mini-action-icon {
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.tg-mini-action-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tg-mini-action-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.tg-mini-action-subtitle {
+  font-size: 0.72rem;
+  color: var(--theme-text-muted, #8ea2ad);
+  line-height: 1.2;
+}
+
+.tg-mini-chip-traffic-limit {
+  background: rgba(90, 157, 203, 0.18);
+  color: #dfedff;
+  border-color: rgba(90, 157, 203, 0.35);
+}
+
 .tg-mini-main-actions .tg-mini-btn,
 .tg-mini-main-actions .tg-mini-btn:link,
 .tg-mini-main-actions .tg-mini-btn:visited {
-  min-height: 42px;
+  min-height: var(--tg-mini-touch-min);
   padding: 9px 11px;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
 }
 
 .tg-mini-btn-send {
@@ -704,6 +1014,15 @@ body.tg-mini-app .tg-mini-main {
 
 .tg-mini-legend-dashboard {
   margin: 0 0 12px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.tg-mini-legend-dashboard::-webkit-scrollbar {
+  display: none;
 }
 
 .tg-mini-chip {
@@ -780,6 +1099,7 @@ body.tg-mini-app .tg-mini-main {
   border: 1px solid rgba(130, 186, 168, 0.35);
   border-radius: 0.5rem;
   padding: 9px 13px;
+  min-height: var(--tg-mini-touch-min);
   font-family: inherit;
   font-size: 0.88rem;
   font-weight: 600;
@@ -790,13 +1110,11 @@ body.tg-mini-app .tg-mini-main {
     var(--theme-secondary, #5a9dcb),
     var(--theme-primary, #3fa083)
   );
-  transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  transition: opacity 0.18s ease, box-shadow 0.18s ease;
 }
 
-.tg-mini-btn:hover {
-  opacity: 0.95;
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(5, 14, 20, 0.3);
+.tg-mini-btn:active {
+  opacity: 0.92;
 }
 
 .tg-mini-btn:disabled {
@@ -868,7 +1186,7 @@ body.tg-mini-app .tg-mini-main {
   }
 
   .tg-mini-header {
-    padding: 0.85rem 0.95rem;
+    padding: 0.75rem 0.85rem;
     border-radius: 12px;
   }
 
@@ -877,22 +1195,104 @@ body.tg-mini-app .tg-mini-main {
   }
 
   .tg-mini-tab {
-    padding: 9px 10px;
-    font-size: 0.84rem;
+    padding: 9px 8px;
+    font-size: 0.82rem;
   }
 
   .tg-mini-main-protocol-range,
   .tg-mini-main-status-range {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tg-mini-main-actions-grid,
+  .tg-mini-main-actions-primary {
     grid-template-columns: 1fr;
   }
 
-  .tg-mini-main-actions-grid {
+  .tg-mini-panel-headline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tg-mini-panel-headline .tg-mini-btn-compact {
+    width: 100%;
+    min-height: var(--tg-mini-touch-min) !important;
+  }
+
+  .tg-mini-inline-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tg-mini-inline-controls select {
+    min-height: var(--tg-mini-touch-min);
+  }
+
+  .tg-mini-toggle-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tg-mini-toggle-item {
+    min-height: var(--tg-mini-touch-min);
+    padding: 12px;
+  }
+
+  .tg-mini-actions-row .tg-mini-btn {
+    width: 100%;
   }
 
   .tg-mini-table th,
   .tg-mini-table td {
     font-size: 0.82rem;
+    padding: 10px 8px;
+  }
+
+  .tg-mini-card p {
+    font-size: 1.05rem;
+  }
+}
+
+@media (min-width: 761px) {
+  .tg-mini-header-toggle {
+    display: none;
+  }
+
+  .tg-mini-header-details {
+    display: block !important;
+    margin-top: 0.5rem;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .tg-mini-header-details[hidden] {
+    display: block !important;
+  }
+
+  .tg-mini-toolbar-filters-toggle {
+    display: none;
+  }
+
+  .tg-mini-toolbar-filters-body {
+    display: grid !important;
+    padding: 0;
+  }
+
+  .tg-mini-toolbar-filters-body[hidden] {
+    display: grid !important;
+  }
+
+  .tg-mini-toolbar-filters {
+    border: 0;
+    background: transparent;
+    display: contents;
+  }
+
+  .tg-mini-main-actions-toggle {
+    display: none;
+  }
+
+  .tg-mini-main-actions-expand {
+    display: grid !important;
   }
 }
 
@@ -903,5 +1303,258 @@ body.tg-mini-app .tg-mini-main {
 
   .tg-mini-cards {
     grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Пустые состояния ---------- */
+.tg-mini-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  border: 1px dashed rgba(102, 131, 145, 0.35);
+  border-radius: 14px;
+  background: rgba(17, 24, 30, 0.45);
+  text-align: center;
+}
+
+.tg-mini-empty-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.tg-mini-empty-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--theme-text-main, #eaf1f4);
+}
+
+.tg-mini-empty-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--theme-text-muted, #8ea2ad);
+  max-width: 28ch;
+}
+
+/* ---------- Модальные окна действий ---------- */
+body.tg-mini-modal-open {
+  overflow: hidden;
+  touch-action: none;
+}
+
+.tg-mini-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding:
+    12px
+    calc(12px + var(--tg-mini-safe-right))
+    calc(12px + var(--tg-mini-safe-bottom))
+    calc(12px + var(--tg-mini-safe-left));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+.tg-mini-modal.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tg-mini-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 11, 15, 0.72);
+}
+
+.tg-mini-modal-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 480px);
+  max-height: calc(100dvh - 24px - var(--tg-mini-safe-top) - var(--tg-mini-safe-bottom));
+  overflow: auto;
+  border-radius: 16px 16px 14px 14px;
+  border: 1px solid rgba(114, 144, 158, 0.35);
+  background: linear-gradient(
+    180deg,
+    rgba(24, 33, 40, 0.98) 0%,
+    rgba(17, 24, 30, 0.98) 100%
+  );
+  box-shadow: 0 18px 48px rgba(5, 11, 15, 0.45);
+  padding: 16px;
+  transform: translateY(16px);
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  -webkit-overflow-scrolling: touch;
+}
+
+.tg-mini-modal.is-open .tg-mini-modal-dialog {
+  transform: translateY(0);
+}
+
+.tg-mini-modal-handle {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 12px;
+  border-radius: 999px;
+  background: rgba(142, 162, 173, 0.45);
+}
+
+.tg-mini-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: var(--tg-mini-touch-min);
+  height: var(--tg-mini-touch-min);
+  border: 0;
+  border-radius: 999px;
+  background: rgba(102, 131, 145, 0.2);
+  color: var(--theme-text-main, #eaf1f4);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tg-mini-modal-header h4 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: var(--theme-text-main, #eaf1f4);
+}
+
+.tg-mini-modal-message {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--theme-text-secondary, rgba(198, 216, 224, 0.78));
+}
+
+.tg-mini-modal-client {
+  margin: 12px 0 0;
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(90, 157, 203, 0.18);
+  color: #dfedff;
+}
+
+.tg-mini-modal-form {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.tg-mini-modal-form label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--theme-text-muted, #8ea2ad);
+}
+
+.tg-mini-modal-form input,
+.tg-mini-modal-form select {
+  width: 100%;
+  min-height: var(--tg-mini-touch-min);
+  border-radius: 10px;
+  border: 1px solid rgba(102, 131, 145, 0.35);
+  background: rgba(12, 18, 23, 0.85);
+  color: var(--theme-text-main, #eaf1f4);
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.tg-mini-modal-fields {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 8px;
+}
+
+.tg-mini-modal-field-period {
+  grid-column: 1 / -1;
+}
+
+.tg-mini-modal-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tg-mini-modal-preset {
+  border: 1px solid rgba(102, 131, 145, 0.35);
+  border-radius: 999px;
+  background: rgba(17, 24, 30, 0.8);
+  color: var(--theme-text-main, #eaf1f4);
+  padding: 8px 12px;
+  min-height: var(--tg-mini-touch-min);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.tg-mini-modal-preset.is-active {
+  border-color: rgba(63, 160, 131, 0.55);
+  background: rgba(63, 160, 131, 0.2);
+}
+
+.tg-mini-modal-hint {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--theme-text-muted, #8ea2ad);
+}
+
+.tg-mini-modal-error {
+  min-height: 1.1rem;
+  font-size: 0.78rem;
+  color: var(--theme-danger-bright, #f3a9a3);
+}
+
+.tg-mini-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tg-mini-modal-actions .tg-mini-btn {
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .tg-mini-main-actions-manage {
+    grid-template-columns: 1fr;
+  }
+
+  .tg-mini-modal {
+    align-items: flex-end;
+    padding:
+      0
+      var(--tg-mini-safe-right)
+      var(--tg-mini-safe-bottom)
+      var(--tg-mini-safe-left);
+  }
+
+  .tg-mini-modal-dialog {
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    max-height: calc(92dvh - var(--tg-mini-safe-top) - var(--tg-mini-safe-bottom));
+    padding:
+      10px
+      calc(16px + var(--tg-mini-safe-right))
+      calc(16px + var(--tg-mini-safe-bottom))
+      calc(16px + var(--tg-mini-safe-left));
+  }
+
+  .tg-mini-modal-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .tg-mini-modal-actions {
+    grid-template-columns: 1fr;
   }
 }

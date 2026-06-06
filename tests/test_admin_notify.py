@@ -190,6 +190,38 @@ class AdminNotifyTextTests(unittest.TestCase):
         self.assertIn("DIRECT: 1 игр, 10 CIDR", lines[2])
         self.assertNotIn("игр: 0", text)
 
+    def test_traffic_limit_block_message(self):
+        text = self._build(
+            "traffic_limit_block",
+            target_name="client-a",
+            target_type="wireguard",
+            details="limit_bytes=1073741824 consumed_bytes=1610612736 period_days=7",
+        )
+        self.assertIsNotNone(text)
+        lines = self._lines(text)
+        self.assertIn("Блокировка по лимиту трафика", lines[0])
+        self.assertIn("превышен лимит трафика", lines[1])
+        self.assertIn("WireGuard", lines[1])
+        self.assertIn("<code>client-a</code>", lines[1])
+        self.assertIn("за неделю", lines[2])
+        self.assertIn("1.00 GB", lines[2])
+        self.assertIn("1.50 GB", lines[3])
+        self.assertIn("Авторазблокировка", lines[4])
+
+    def test_traffic_limit_unblock_message(self):
+        text = self._build(
+            "traffic_limit_unblock",
+            target_name="client-a",
+            target_type="openvpn",
+            details="limit_bytes=1048576 consumed_bytes=0 period_days=1",
+        )
+        self.assertIsNotNone(text)
+        lines = self._lines(text)
+        self.assertIn("Авторазблокировка по лимиту трафика", lines[0])
+        self.assertIn("новый период учёта", lines[1])
+        self.assertIn("OpenVPN", lines[1])
+        self.assertNotIn("Авторазблокировка:", text)
+
     def test_settings_change_games_sync_skips_zero_counts(self):
         text = self._build(
             "settings_change",

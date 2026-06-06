@@ -112,7 +112,7 @@ run_unit_tests_by_number() {
     clear
     _unit_tests_invoke list || return 1
     printf "\n"
-    local nums raw py args=() n
+    local raw py args=() n
     read -r -p "  Введите номера тестов через пробел или запятую: " raw
     raw=${raw//,/ }
     for n in $raw; do

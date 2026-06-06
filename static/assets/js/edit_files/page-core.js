@@ -61,33 +61,6 @@ function groupNavItems() {
     });
 }
 
-async function pollBackgroundTask(taskId, options = {}) {
-    const intervalMs = options.intervalMs || 3000;
-    const timeoutMs = options.timeoutMs || 900000;
-    const startedAt = Date.now();
-
-    while (Date.now() - startedAt < timeoutMs) {
-        const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`, {
-            cache: 'no-store'
-        });
-        if (!response.ok) {
-            throw new Error(`Ошибка запроса статуса задачи (HTTP ${response.status})`);
-        }
-
-        const task = await response.json();
-        if (task.status === 'completed') {
-            return task;
-        }
-        if (task.status === 'failed') {
-            throw new Error(task.error || task.message || 'Фоновая задача завершилась с ошибкой');
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, intervalMs));
-    }
-
-    throw new Error('Превышено время ожидания фоновой задачи');
-}
-
 // === Навигация форм ===
 groupNavItems();
 
@@ -465,7 +438,11 @@ editForms.forEach(form => {
 
             if (data.queued && data.task_id) {
                 window.showNotification(data.message || 'Изменения сохранены. Применение запущено в фоне.', 'success');
-                const task = await pollBackgroundTask(data.task_id);
+                const pollFn = window.pollBackgroundTaskWithProgress || pollBackgroundTask;
+                const task = await pollFn(data.task_id, {
+                    title: 'Применение изменений файла…',
+                    timeoutMs: 900000,
+                });
                 window.showNotification(task.message || 'Изменения успешно применены', 'success');
             } else {
                 window.showNotification(data.message || 'Изменения сохранены', data.success ? 'success' : 'error');
@@ -507,12 +484,7 @@ runDoAllBtn?.addEventListener('click', async () => {
     runDoAllBtn.textContent = 'Обновляем...';
 
     try {
-        const getCsrfToken = () => {
-            return document.querySelector('input[name="csrf_token"]')?.value ||
-                document.querySelector('meta[name="csrf-token"]')?.content ||
-                "";
-        };
-        const csrfToken = getCsrfToken();
+        const csrfToken = window.getCsrfToken();
         if (!csrfToken) throw new Error('CSRF-токен не найден');
 
         const res = await fetch('/run-doall', {
@@ -535,7 +507,11 @@ runDoAllBtn?.addEventListener('click', async () => {
 
         if (data.queued && data.task_id) {
             window.showNotification(data.message || 'Обновление списка запущено в фоне', 'success');
-            const task = await pollBackgroundTask(data.task_id);
+            const pollFn = window.pollBackgroundTaskWithProgress || pollBackgroundTask;
+            const task = await pollFn(data.task_id, {
+                title: 'Обновление списка AntiZapret (doall)…',
+                timeoutMs: 900000,
+            });
             window.showNotification(task.message || 'Список успешно обновлён', 'success');
         } else {
             window.showNotification(data.message || 'Список успешно обновлён', data.success ? 'success' : 'error');

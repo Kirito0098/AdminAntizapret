@@ -199,16 +199,11 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   const saveIpFileStates = async () => {
-    const getCsrfToken = () => {
-      return document.querySelector('input[name="csrf_token"]')?.value ||
-        document.querySelector('meta[name="csrf-token"]')?.content ||
-        "";
-    };
     const response = await fetch("/api/antizapret/ip-files", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
+        "X-CSRFToken": window.getCsrfToken(),
       },
       body: JSON.stringify({ states: collectIpFileStates() }),
     });
@@ -323,16 +318,11 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   const syncIpFilesFromList = async () => {
-    const getCsrfToken = () => {
-      return document.querySelector('input[name="csrf_token"]')?.value ||
-        document.querySelector('meta[name="csrf-token"]')?.content ||
-        "";
-    };
     const response = await fetch("/api/antizapret/ip-files", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
+        "X-CSRFToken": window.getCsrfToken(),
       },
       body: JSON.stringify({ action: "sync_with_list" }),
     });
@@ -765,21 +755,6 @@ document.addEventListener("DOMContentLoaded", function () {
       .filter(Boolean);
   };
 
-  const setAllCidrGamesChecked = (checked) => {
-    if (window.AntiZapretGameFilters?.setSelectedKeys) {
-      const keys = checked
-        ? Array.from(document.querySelectorAll("#cidr-game-filters .cidr-game-mode-input"))
-          .map((input) => String(input.getAttribute("data-game-key") || "").trim().toLowerCase())
-          .filter(Boolean)
-        : [];
-      window.AntiZapretGameFilters.setSelectedKeys(keys);
-      return;
-    }
-    document.querySelectorAll(".cidr-game-checkbox").forEach((input) => {
-      input.checked = Boolean(checked);
-    });
-  };
-
   const renderCidrMeta = () => {
     const selectedProvidersCount = getSelectedCidrRegions().length;
     const { regionScopes, includeGameKeys, excludeGameKeys } = getCidrRegionSettings();
@@ -1190,45 +1165,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   };
 
-  const applyCidrGameSearchFilter = () => {
-    if (window.AntiZapretGameFilters?.applyFilters) {
-      window.AntiZapretGameFilters.applyFilters();
-      return;
-    }
-    const searchInput = document.getElementById("cidr-games-search-input");
-    const onlySelectedInput = document.getElementById("cidr-games-only-selected");
-    const metaElement = document.getElementById("cidr-games-search-meta");
-    const visibleEl = document.getElementById("cidr-games-visible-count");
-    const chips = Array.from(document.querySelectorAll("#cidr-game-filters .cidr-game-chip"));
-    if (!chips.length) {
-      if (metaElement) metaElement.textContent = "Показано: 0/0";
-      if (visibleEl) visibleEl.textContent = "0";
-      return;
-    }
-
-    const query = String(searchInput?.value || "").trim().toLowerCase();
-    const onlySelected = Boolean(onlySelectedInput?.checked);
-    let visibleCount = 0;
-
-    chips.forEach((chip) => {
-      const title = String(chip.querySelector(".cidr-game-chip__title")?.textContent || chip.querySelector("span")?.textContent || "").trim().toLowerCase();
-      const subtitle = String(chip.querySelector(".cidr-game-chip__sub")?.textContent || chip.dataset.subtitle || "").trim().toLowerCase();
-      const value = String(chip.dataset.providerKey || chip.dataset.gameKey || chip.querySelector(".cidr-game-mode-input")?.dataset?.providerKey || chip.querySelector(".cidr-game-mode-input")?.dataset?.gameKey || "").trim().toLowerCase();
-      const mode = String(chip.querySelector(".cidr-game-mode-input")?.value || "none").trim().toLowerCase();
-      const matchesSearch = !query || title.includes(query) || subtitle.includes(query) || value.includes(query);
-      const matchesSelected = !onlySelected || mode === "include" || mode === "exclude";
-      const matches = matchesSearch && matchesSelected;
-      chip.hidden = !matches;
-      chip.classList.toggle("is-filter-hidden", !matches);
-      if (matches) visibleCount += 1;
-    });
-
-    if (metaElement) {
-      metaElement.textContent = `Показано: ${visibleCount}/${chips.length}`;
-    }
-    if (visibleEl) visibleEl.textContent = String(visibleCount);
-  };
-
   const fetchCidrRegions = async () => {
     const response = await fetch("/api/cidr-lists", { cache: "no-store" });
     const payload = await response.json();
@@ -1297,11 +1233,6 @@ document.addEventListener("DOMContentLoaded", function () {
     endpoint = "/api/cidr-lists",
     silent = false,
   }) => {
-    const getCsrfToken = () => {
-      return document.querySelector('input[name="csrf_token"]')?.value ||
-        document.querySelector('meta[name="csrf-token"]')?.content ||
-        "";
-    };
     const resolvedIncludeProviderKeys = Array.isArray(includeProviderKeys)
       ? includeProviderKeys
       : (Array.isArray(includeGameKeys) ? includeGameKeys : []);
@@ -1312,7 +1243,7 @@ document.addEventListener("DOMContentLoaded", function () {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
+        "X-CSRFToken": window.getCsrfToken(),
       },
       body: JSON.stringify({
         action,
@@ -1469,7 +1400,11 @@ document.addEventListener("DOMContentLoaded", function () {
       const result = await pollCidrTask(queued.task_id, {
         onProgress: (task) => {
           const percent = Number(task.progress_percent || 0);
-          const stageText = String(task.progress_stage || task.message || "Выполняется операция");
+          const stageText = String(
+            (typeof window.resolveBackgroundTaskStage === "function"
+              ? window.resolveBackgroundTaskStage(task, progressLabel || "Выполняется операция…")
+              : null) || task.progress_stage || task.message || "Выполняется операция…"
+          );
           renderCidrProgress({ percent, stageText });
         },
       });
@@ -2341,18 +2276,13 @@ document.addEventListener("DOMContentLoaded", function () {
   async function applyAntizapretChanges(statusElement) {
     statusElement.textContent = "Применение изменений...";
 
-    const getCsrfToken = () => {
-      return document.querySelector('input[name="csrf_token"]')?.value ||
-        document.querySelector('meta[name="csrf-token"]')?.content ||
-        "";
-    };
     const _ctx = _pendingDoallContext || "Применение настроек Antizapret";
     _pendingDoallContext = null;
     const applyResponse = await fetch("/run-doall", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
+        "X-CSRFToken": window.getCsrfToken(),
       },
       body: JSON.stringify({ context: _ctx }),
     });
@@ -2361,7 +2291,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (applyData.queued && applyData.task_id) {
       statusElement.textContent = "Применение запущено в фоне...";
-      const task = await pollBackgroundTask(applyData.task_id, { timeoutMs: 900000 });
+      statusElement.className = "notification notification-info notification-inline-progress";
+      const pollFn = window.pollBackgroundTaskWithProgress || pollBackgroundTask;
+      const task = await pollFn(applyData.task_id, {
+        timeoutMs: 900000,
+        title: "Применение настроек AntiZapret…",
+      });
       statusElement.textContent = task.message || "Изменения успешно применены.";
       statusElement.className = "notification notification-success";
       return true;
@@ -2398,16 +2333,11 @@ document.addEventListener("DOMContentLoaded", function () {
     statusElement.style.display = "block";
 
     try {
-      const getCsrfToken = () => {
-        return document.querySelector('input[name="csrf_token"]')?.value ||
-          document.querySelector('meta[name="csrf-token"]')?.content ||
-          "";
-      };
       const saveResponse = await fetch("/update_antizapret_settings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRFToken": getCsrfToken(),
+          "X-CSRFToken": window.getCsrfToken(),
         },
         body: JSON.stringify(settings),
       });
@@ -2466,7 +2396,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       updateActionSurface();
     }
-  };
+  }
 
   const cancelAntizapretChanges = async () => {
     await loadAntizapretSettings();
@@ -2692,7 +2622,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let failed = false;
 
     startCidrProgress(steps[0].label + "…", { simulated: false });
-    renderCidrProgress({ percent: 2, stageText: "Подготовка…" });
+    renderCidrProgress({ percent: 2, stageText: "Подготовка последовательности операций…" });
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
@@ -2733,7 +2663,11 @@ document.addEventListener("DOMContentLoaded", function () {
               ? Math.max(0, Math.min(1, rawProgress / 100))
               : 0.5;
             const globalPct = pctStart + Math.round(localFrac * (pctEnd - pctStart));
-            const stageText = String(task.progress_stage || task.message || step.label);
+            const stageText = String(
+              (typeof window.resolveBackgroundTaskStage === "function"
+                ? window.resolveBackgroundTaskStage(task, step.label)
+                : null) || task.progress_stage || task.message || step.label
+            );
             renderCidrProgress({ percent: globalPct, stageText });
             _cidrStepUpdate(i, "active", `Шаг ${i + 1} из ${steps.length}: ${stageText}`);
           },

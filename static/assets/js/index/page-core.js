@@ -1,3 +1,4 @@
+/* exported getThemeColor, syncClientBlockedBadge, showQRModal, copyTextToClipboard, parseAccessExpiresAt, formatAccessRemaining, syncClientCardStats, syncAllClientCardStats, syncClientAccessMeta, applyWgAccessPayloadToRow, applyWgAccessPayloadToClientRows, applyOpenVpnAccessPayloadToClientRows */
 // ============ INITIALIZATION ============
 document.addEventListener('DOMContentLoaded', function () {
     initializeUI();
@@ -33,6 +34,200 @@ function getThemeColor(token, fallback) {
     return rootValue || fallback;
 }
 
+const CLIENT_CARD_STATS_FALLBACK = '—';
+const CLIENT_CARD_LAST_SEEN_FALLBACK = 'нет данных';
+
+function formatClientLastSeenLabel(rawValue) {
+    const raw = String(rawValue ?? '').trim();
+    if (!raw || raw === '-') {
+        return null;
+    }
+    const datePart = raw.split(' ')[0];
+    return datePart || raw;
+}
+
+function resolveClientDetailsEntry(entries, clientName) {
+    if (!entries || !clientName) {
+        return null;
+    }
+
+    if (entries[clientName]) {
+        return entries[clientName];
+    }
+
+    const normalized = clientName.trim().toLowerCase();
+    if (!normalized) {
+        return null;
+    }
+
+    const matchedKey = Object.keys(entries).find((key) => key.trim().toLowerCase() === normalized);
+    return matchedKey ? entries[matchedKey] : null;
+}
+
+function isIndexClientDetailsPayloadReady(payload) {
+    if (!payload) {
+        return false;
+    }
+
+    const connected = payload.connected || {};
+    const traffic = payload.traffic || {};
+    return Object.keys(connected).length > 0 || Object.keys(traffic).length > 0;
+}
+
+function buildClientOnlineStat(sessions, hasPayload) {
+    const row = createMetaElement('div', 'client-stat-online');
+    const dot = createMetaElement('span', 'client-stat-dot');
+    dot.setAttribute('aria-hidden', 'true');
+    row.appendChild(dot);
+
+    const label = createMetaElement('span', 'client-stat-online-label');
+    if (sessions > 0) {
+        row.classList.add('is-online');
+        dot.classList.add('is-pulse');
+        label.textContent = sessions > 1 ? `Онлайн · ${sessions} сесс.` : 'Онлайн';
+    } else if (hasPayload) {
+        row.classList.add('is-offline');
+        label.textContent = 'Оффлайн';
+    } else {
+        row.classList.add('is-unknown');
+        label.textContent = '—';
+    }
+    row.appendChild(label);
+    return row;
+}
+
+function buildClientTrafficStatCell(label, value) {
+    const cell = createMetaElement('div', 'client-stat-cell');
+    cell.appendChild(createMetaElement('span', 'client-stat-cell-k', label));
+    cell.appendChild(createMetaElement('strong', 'client-stat-cell-v', value));
+    return cell;
+}
+
+function syncClientCardCert(row) {
+    if (!row) {
+        return;
+    }
+
+    const certNode = row.querySelector('.client-card-cert');
+    if (!certNode) {
+        return;
+    }
+
+    if (row.dataset.protocol !== 'openvpn') {
+        certNode.replaceChildren();
+        certNode.className = 'client-card-cert';
+        return;
+    }
+
+    const certState = (row.dataset.certState || 'active').toLowerCase();
+    if (certState !== 'expiring' && certState !== 'expired') {
+        certNode.replaceChildren();
+        certNode.className = 'client-card-cert';
+        return;
+    }
+
+    const certDays = parseNullableInt(row.dataset.certDays);
+    certNode.className = `client-card-cert is-${certState}`;
+    certNode.replaceChildren(
+        createMetaElement('span', 'client-card-cert-k', 'Серт.'),
+        createMetaElement(
+            'span',
+            'client-card-cert-val',
+            certState === 'expired' ? 'истёк' : `${certDays ?? '?'} дн.`,
+        ),
+    );
+}
+
+function syncClientCardAccent(row) {
+    if (!row) {
+        return;
+    }
+
+    const isBlocked = row.dataset.blocked === '1';
+    const certState = (row.dataset.certState || 'active').toLowerCase();
+    let accent = 'active';
+
+    if (isBlocked) {
+        accent = 'blocked';
+    } else if (certState === 'expiring') {
+        accent = 'expiring';
+    } else if (certState === 'expired') {
+        accent = 'expired';
+    }
+
+    row.dataset.accent = accent;
+}
+
+function syncClientCardStats(row, payload, options = {}) {
+    if (!row) {
+        return;
+    }
+
+    const statsNode = row.querySelector('.client-card-stats');
+    if (!statsNode) {
+        return;
+    }
+
+    const clientName = row.dataset.clientName || '';
+    if (!clientName) {
+        statsNode.replaceChildren();
+        statsNode.classList.add('is-empty');
+        statsNode.classList.remove('is-loading');
+        return;
+    }
+
+    const payloadReady = options.payloadReady ?? isIndexClientDetailsPayloadReady(payload);
+    const connected = resolveClientDetailsEntry(payload && payload.connected ? payload.connected : null, clientName);
+    const traffic = resolveClientDetailsEntry(payload && payload.traffic ? payload.traffic : null, clientName);
+    const hasEntry = Boolean(connected || traffic);
+    const sessions = connected ? Number(connected.sessions || 0) : 0;
+    const grid = createMetaElement('div', 'client-card-stats-grid');
+
+    grid.appendChild(buildClientOnlineStat(sessions, hasEntry));
+
+    const traffic7d = traffic && traffic.traffic_7d_human
+        ? traffic.traffic_7d_human
+        : CLIENT_CARD_STATS_FALLBACK;
+    const traffic30d = traffic && traffic.traffic_30d_human
+        ? traffic.traffic_30d_human
+        : CLIENT_CARD_STATS_FALLBACK;
+
+    grid.appendChild(buildClientTrafficStatCell('7 дн.', traffic7d));
+    grid.appendChild(buildClientTrafficStatCell('30 дн.', traffic30d));
+
+    statsNode.replaceChildren(grid);
+    statsNode.classList.remove('is-empty');
+    statsNode.classList.toggle('is-loading', !payloadReady && !hasEntry);
+
+    const lastSeenNode = row.querySelector('.client-card-last-seen');
+    if (lastSeenNode) {
+        const formatted = traffic ? formatClientLastSeenLabel(traffic.last_seen_at) : null;
+        const lastSeenValue = formatted || CLIENT_CARD_LAST_SEEN_FALLBACK;
+
+        lastSeenNode.replaceChildren(
+            createMetaElement('span', 'client-meta-k', 'БЫЛ'),
+            createMetaElement('span', 'client-card-last-seen-val', lastSeenValue),
+        );
+        lastSeenNode.classList.add('is-visible');
+    }
+}
+
+function syncAllClientCardStats(payload, options = {}) {
+    const resolvedPayload = payload || (
+        typeof getIndexClientDetailsPayload === 'function'
+            ? getIndexClientDetailsPayload()
+            : { connected: {}, traffic: {} }
+    );
+    const syncOptions = {
+        payloadReady: options.payloadReady ?? isIndexClientDetailsPayloadReady(resolvedPayload),
+    };
+
+    document.querySelectorAll('.client-row').forEach((row) => {
+        syncClientCardStats(row, resolvedPayload, syncOptions);
+        syncClientCardAccent(row);
+    });
+}
+
 // Extract cert expiry data from HTML on load
 function extractCertExpiryData() {
     clientExpiry = {};
@@ -51,6 +246,8 @@ function extractCertExpiryData() {
             days: Number.isNaN(certDays) ? 999 : certDays,
         };
     });
+
+    syncAllClientCardStats();
 }
 
 function syncClientBlockedBadge(row) {
@@ -67,6 +264,7 @@ function syncClientBlockedBadge(row) {
     badge.textContent = isBlocked ? 'Заблокирован' : 'Активный';
     badge.classList.toggle('is-blocked', isBlocked);
     badge.classList.toggle('is-active', !isBlocked);
+    syncClientCardAccent(row);
 }
 
 function parseNullableInt(value) {
@@ -138,6 +336,164 @@ function setRowDatasetValue(row, key, value) {
     row.dataset[key] = String(value);
 }
 
+function createMetaElement(tagName, className, textContent) {
+    const node = document.createElement(tagName);
+    if (className) {
+        node.className = className;
+    }
+    if (textContent !== undefined && textContent !== null && textContent !== '') {
+        node.textContent = textContent;
+    }
+    return node;
+}
+
+function computeTrafficPercent(limitBytes, consumedBytes) {
+    const limit = parseNullableInt(limitBytes);
+    const consumed = parseNullableInt(consumedBytes) ?? 0;
+    if (limit === null || limit < 1) {
+        return 0;
+    }
+    return Math.min(100, Math.round((consumed * 100) / limit));
+}
+
+function buildClientBlockMetaSection({
+    blockMode,
+    blockedUntil,
+    blockedDaysLeft,
+    blockDurationDays,
+    trafficLimitExceeded,
+    trafficLimitHuman,
+    trafficLimitUnblockLabel,
+}) {
+    const section = createMetaElement('div', 'client-meta-block is-compact is-active');
+    let reasonText = 'Заблокирован';
+    let iconText = '';
+    let unblockText = '';
+
+    if (blockMode === 'temp') {
+        iconText = '⏸';
+        if (blockDurationDays !== null) {
+            reasonText = `Временная · ${blockDurationDays} дн.`;
+        } else if (blockedDaysLeft !== null && blockedDaysLeft >= 0) {
+            reasonText = `Временная · ${blockedDaysLeft} дн.`;
+        } else {
+            reasonText = 'Временная';
+        }
+        if (blockedUntil) {
+            unblockText = `до ${blockedUntil.split(' ')[0]}`;
+        }
+    } else if (blockMode === 'traffic_limit' || (trafficLimitExceeded && trafficLimitHuman)) {
+        iconText = '⚠';
+        reasonText = 'Лимит трафика';
+        if (trafficLimitUnblockLabel) {
+            unblockText = trafficLimitUnblockLabel.replace(/^Авторазблокировка:\s*/, 'до ');
+        }
+    } else if (blockMode === 'permanent') {
+        iconText = '🔒';
+        reasonText = 'Бессрочная';
+    } else if (blockMode === 'expired') {
+        iconText = '⏳';
+        reasonText = 'До разблокировки';
+    }
+
+    if (iconText) {
+        const head = createMetaElement('span', 'client-meta-block-head');
+        const iconNode = createMetaElement('span', 'client-meta-block-icon', iconText);
+        iconNode.setAttribute('aria-hidden', 'true');
+        head.appendChild(iconNode);
+        head.appendChild(createMetaElement('span', 'client-meta-block-reason', reasonText));
+        section.appendChild(head);
+    } else {
+        const head = createMetaElement('span', 'client-meta-block-head');
+        head.appendChild(createMetaElement('span', 'client-meta-block-reason', reasonText));
+        section.appendChild(head);
+    }
+    if (unblockText) {
+        section.appendChild(createMetaElement('span', 'client-meta-block-unblock', unblockText));
+    }
+    return section;
+}
+
+function buildClientTrafficMetaSection({
+    trafficLimitHuman,
+    trafficLimitPeriodLabel,
+    trafficConsumedHuman,
+    trafficBytesLeftHuman,
+    trafficLimitExceeded,
+    trafficLimitBytes,
+    trafficConsumedBytes,
+}) {
+    const section = createMetaElement(
+        'div',
+        `client-meta-traffic is-compact${trafficLimitExceeded ? ' is-exceeded' : ''}`,
+    );
+
+    const inline = createMetaElement('div', 'client-meta-traffic-inline');
+    inline.appendChild(createMetaElement('span', 'client-meta-k', 'Трафик'));
+    const values = createMetaElement('span', 'client-meta-traffic-values');
+    values.appendChild(createMetaElement('span', 'client-meta-traffic-used', trafficConsumedHuman || '0 B'));
+    values.appendChild(createMetaElement('span', 'client-meta-traffic-limit', `/ ${trafficLimitHuman}`));
+    if (trafficLimitPeriodLabel) {
+        values.appendChild(createMetaElement('span', 'client-meta-traffic-period', trafficLimitPeriodLabel));
+    }
+    inline.appendChild(values);
+    if (trafficLimitExceeded) {
+        inline.appendChild(createMetaElement('span', 'client-meta-traffic-status is-exceeded', 'Превышен'));
+    } else if (trafficBytesLeftHuman) {
+        inline.appendChild(createMetaElement('span', 'client-meta-traffic-status', `ост. ${trafficBytesLeftHuman}`));
+    }
+    section.appendChild(inline);
+
+    const limitBytes = parseNullableInt(trafficLimitBytes);
+    if (limitBytes !== null && limitBytes > 0) {
+        const percent = computeTrafficPercent(limitBytes, trafficConsumedBytes);
+        const bar = createMetaElement('div', 'client-meta-traffic-bar');
+        bar.setAttribute('role', 'progressbar');
+        bar.setAttribute('aria-valuemin', '0');
+        bar.setAttribute('aria-valuemax', '100');
+        bar.setAttribute('aria-valuenow', String(percent));
+        const fill = createMetaElement('span', 'client-meta-traffic-fill');
+        fill.style.width = `${percent}%`;
+        bar.appendChild(fill);
+        section.appendChild(bar);
+    }
+
+    return section;
+}
+
+function buildClientTrafficUnsetSection(trafficConsumedHuman, trafficConsumedBytes) {
+    const section = createMetaElement('div', 'client-meta-traffic is-unset is-compact');
+    const inline = createMetaElement('div', 'client-meta-traffic-inline');
+    inline.appendChild(createMetaElement('span', 'client-meta-k', 'Трафик'));
+    const consumedBytes = parseNullableInt(trafficConsumedBytes) ?? 0;
+    if (trafficConsumedHuman && consumedBytes > 0) {
+        inline.appendChild(createMetaElement('span', 'client-meta-traffic-used', trafficConsumedHuman));
+        inline.appendChild(createMetaElement('span', 'client-meta-traffic-status is-unset', 'без лимита'));
+    } else {
+        inline.appendChild(createMetaElement('span', 'client-meta-traffic-status is-unset', 'без лимита'));
+    }
+    section.appendChild(inline);
+    return section;
+}
+
+function buildClientAccessMetaSection(accessExpiresAt, protocol) {
+    const section = createMetaElement('div', 'client-meta-access');
+    const accessRemainingText = formatAccessRemaining(accessExpiresAt);
+    const accessLabel = protocol === 'openvpn' ? 'Сертификат' : 'Срок';
+    section.appendChild(createMetaElement('span', 'client-meta-k', accessLabel));
+    const valueGroup = createMetaElement('span', 'client-meta-access-value');
+    valueGroup.appendChild(createMetaElement(
+        'span',
+        'client-meta-access-date',
+        accessExpiresAt ? accessExpiresAt.split(' ')[0] : 'без срока',
+    ));
+    if (accessRemainingText) {
+        valueGroup.appendChild(createMetaElement('span', 'client-meta-access-left', `· ${accessRemainingText}`));
+    }
+    section.appendChild(valueGroup);
+    return section;
+}
+
 function syncClientAccessMeta(row) {
     if (!row) {
         return;
@@ -148,47 +504,72 @@ function syncClientAccessMeta(row) {
         return;
     }
 
-    const clientName = row.dataset.clientName || '-';
     const accessExpiresAt = row.dataset.accessExpiresAt || '';
     const blockMode = (row.dataset.blockMode || 'none').toLowerCase();
     const blockedUntil = row.dataset.blockedUntil || '';
     const blockedDaysLeft = parseNullableInt(row.dataset.blockedDaysLeft);
     const blockDurationDays = parseNullableInt(row.dataset.blockDurationDays);
     const certState = (row.dataset.certState || 'active').toLowerCase();
-
-    const lines = [];
-    lines.push(`Отключение: ${accessExpiresAt ? accessExpiresAt.split(' ')[0] : 'не ограничено'}`);
-    const accessRemainingText = formatAccessRemaining(accessExpiresAt);
-    lines.push(`Осталось: ${accessRemainingText || 'неизвестно'}`);
-
-    if (blockMode === 'temp') {
-        if (blockDurationDays !== null) {
-            lines.push(`Блокировка: на ${blockDurationDays} дн.`);
-        } else if (blockedDaysLeft !== null && blockedDaysLeft >= 0) {
-            lines.push(`Блокировка: на ${blockedDaysLeft} дн.`);
-        } else {
-            lines.push('Блокировка: временная');
-        }
-        if (blockedUntil) {
-            lines.push(`Разблокировка: ${blockedUntil.split(' ')[0]}`);
-        }
-    } else if (blockMode === 'permanent') {
-        lines.push('Блокировка: до ручной разблокировки');
-    } else if (blockMode === 'expired') {
-        lines.push('Блокировка: до ручной разблокировки');
-    } else {
-        lines.push('Блокировка: нет');
-    }
+    const trafficLimitHuman = row.dataset.trafficLimitHuman || '';
+    const trafficLimitPeriodLabel = row.dataset.trafficLimitPeriodLabel || '';
+    const trafficConsumedHuman = row.dataset.trafficConsumedHuman || '';
+    const trafficBytesLeftHuman = row.dataset.trafficBytesLeftHuman || '';
+    const trafficLimitExceeded = row.dataset.trafficLimitExceeded === '1';
+    const trafficLimitUnblockLabel = row.dataset.trafficLimitUnblockLabel || '';
+    const trafficLimitBytes = row.dataset.trafficLimitBytes || '';
+    const trafficConsumedBytes = row.dataset.trafficConsumedBytes || '0';
+    const isBlocked = row.dataset.blocked === '1';
 
     const fragment = document.createDocumentFragment();
-    lines.forEach((text) => {
-        const lineNode = document.createElement('div');
-        lineNode.textContent = text;
-        fragment.appendChild(lineNode);
-    });
+
+    if (isBlocked) {
+        fragment.appendChild(buildClientBlockMetaSection({
+            blockMode,
+            blockedUntil,
+            blockedDaysLeft,
+            blockDurationDays,
+            trafficLimitExceeded,
+            trafficLimitHuman,
+            trafficLimitUnblockLabel,
+        }));
+    }
+
+    if (trafficLimitHuman) {
+        fragment.appendChild(buildClientTrafficMetaSection({
+            trafficLimitHuman,
+            trafficLimitPeriodLabel,
+            trafficConsumedHuman,
+            trafficBytesLeftHuman,
+            trafficLimitExceeded,
+            trafficLimitBytes,
+            trafficConsumedBytes,
+        }));
+    } else if (!isBlocked) {
+        fragment.appendChild(buildClientTrafficUnsetSection(
+            trafficConsumedHuman,
+            trafficConsumedBytes,
+        ));
+    }
+
+    fragment.appendChild(buildClientAccessMetaSection(accessExpiresAt, row.dataset.protocol || ''));
+
+    const metaRows = createMetaElement('div', 'client-card-meta-rows');
+    const lastSeenPlaceholder = createMetaElement('div', 'client-card-last-seen');
+    lastSeenPlaceholder.setAttribute('aria-label', 'Последняя активность');
+    metaRows.appendChild(fragment.lastChild);
+    metaRows.appendChild(lastSeenPlaceholder);
+    fragment.appendChild(metaRows);
+
     metaNode.replaceChildren(fragment);
 
-    const forceExpired = blockMode === 'temp' || blockMode === 'permanent' || blockMode === 'expired' || certState === 'expired';
+    syncClientCardCert(row);
+    syncClientCardAccent(row);
+
+    const forceExpired = blockMode === 'temp'
+        || blockMode === 'permanent'
+        || blockMode === 'expired'
+        || blockMode === 'traffic_limit'
+        || certState === 'expired';
     metaNode.classList.remove('active', 'expiring', 'expired');
     if (forceExpired) {
         metaNode.classList.add('expired');
@@ -197,6 +578,28 @@ function syncClientAccessMeta(row) {
     } else {
         metaNode.classList.add('active');
     }
+
+    const resolvedPayload = typeof getIndexClientDetailsPayload === 'function'
+        ? getIndexClientDetailsPayload()
+        : null;
+    syncClientCardStats(row, resolvedPayload);
+}
+
+function applyTrafficPayloadToRow(row, payload) {
+    if (!row || !payload) {
+        return;
+    }
+    setRowDatasetValue(row, 'trafficLimitBytes', payload.traffic_limit_bytes);
+    setRowDatasetValue(row, 'trafficLimitPeriodDays', payload.traffic_limit_period_days);
+    setRowDatasetValue(row, 'trafficLimitPeriodLabel', payload.traffic_limit_period_label || '');
+    setRowDatasetValue(row, 'trafficLimitUnblockAt', payload.traffic_limit_unblock_at || '');
+    setRowDatasetValue(row, 'trafficLimitUnblockLabel', payload.traffic_limit_unblock_label || '');
+    setRowDatasetValue(row, 'trafficConsumedBytes', payload.traffic_consumed_bytes);
+    setRowDatasetValue(row, 'trafficBytesLeft', payload.traffic_bytes_left);
+    setRowDatasetValue(row, 'trafficLimitExceeded', payload.traffic_limit_exceeded ? '1' : '0');
+    setRowDatasetValue(row, 'trafficLimitHuman', payload.traffic_limit_human || '');
+    setRowDatasetValue(row, 'trafficConsumedHuman', payload.traffic_consumed_human || '');
+    setRowDatasetValue(row, 'trafficBytesLeftHuman', payload.traffic_bytes_left_human || '');
 }
 
 function applyWgAccessPayloadToRow(row, payload) {
@@ -218,6 +621,7 @@ function applyWgAccessPayloadToRow(row, payload) {
     setRowDatasetValue(row, 'wgBlockedDaysLeft', payload.blocked_days_left);
     setRowDatasetValue(row, 'wgBlockMode', payload.block_mode || 'none');
     setRowDatasetValue(row, 'wgBlockDurationDays', payload.block_duration_days);
+    applyTrafficPayloadToRow(row, payload);
     syncClientBlockedBadge(row);
     syncClientAccessMeta(row);
 }
@@ -246,6 +650,7 @@ function applyOpenVpnAccessPayloadToRow(row, payload) {
     setRowDatasetValue(row, 'blockedUntil', payload.block_until || '');
     setRowDatasetValue(row, 'blockedDaysLeft', payload.blocked_days_left);
     setRowDatasetValue(row, 'blockDurationDays', payload.block_duration_days);
+    applyTrafficPayloadToRow(row, payload);
     syncClientBlockedBadge(row);
     syncClientAccessMeta(row);
 }
@@ -265,6 +670,8 @@ function applyOpenVpnAccessPayloadToClientRows(clientName, payload) {
 }
 
 window.syncClientAccessMeta = syncClientAccessMeta;
+window.syncClientCardStats = syncClientCardStats;
+window.syncAllClientCardStats = syncAllClientCardStats;
 window.applyWgAccessPayloadToRow = applyWgAccessPayloadToRow;
 window.applyWgAccessPayloadToClientRows = applyWgAccessPayloadToClientRows;
 window.applyOpenVpnAccessPayloadToClientRows = applyOpenVpnAccessPayloadToClientRows;
@@ -277,9 +684,11 @@ function initializeUI() {
 
     extractCertExpiryData();
 
-    // Set first tab active
-    document.querySelector('.tab-btn[data-protocol="openvpn"]').classList.add('active');
-    document.querySelector('#openvpn-tab').classList.add('active');
+    // Set first visible protocol tab active
+    const firstTabBtn = document.querySelector('.tab-btn[data-protocol]');
+    if (firstTabBtn) {
+        switchTab(firstTabBtn.getAttribute('data-protocol'));
+    }
 
     // Set "All" filter as active
     const allFilterButton = document.querySelector('[data-filter="all"]');
@@ -480,60 +889,69 @@ function populateClientSelect(option) {
     }
 }
 
+let _isRefreshing = false;
+
 async function refreshMainContent() {
-    const response = await fetch(window.location.pathname, {
-        method: 'GET',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+    try {
+        const response = await fetch(window.location.pathname, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    });
 
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        const newTabContent = doc.querySelector('.tab-content');
+        const currentTabContent = document.querySelector('.tab-content');
+        if (newTabContent && currentTabContent) {
+            currentTabContent.innerHTML = newTabContent.innerHTML;
+        }
+
+        const newProtocolTabs = doc.querySelector('.protocol-tabs');
+        const currentProtocolTabs = document.querySelector('.protocol-tabs');
+        if (newProtocolTabs && currentProtocolTabs) {
+            currentProtocolTabs.innerHTML = newProtocolTabs.innerHTML;
+        }
+
+        const newClientDetailsData = doc.querySelector('#index-client-details-data');
+        const currentClientDetailsData = document.querySelector('#index-client-details-data');
+        if (newClientDetailsData && currentClientDetailsData) {
+            currentClientDetailsData.textContent = newClientDetailsData.textContent;
+        }
+
+        indexClientDetailsCache = null;
+        indexClientDetailsFetchPromise = null;
+
+        initializeTabSwitching();
+        initializeAddClientModal();
+        initializeTableSorting();
+        initializeOpenVpnGroupSwitching();
+        initializeQRButtons();
+        initializeOneTimeLinkButtons();
+        initializeClientBanToggles();
+        initializeClientDetailsModal();
+
+        switchTab(currentTab);
+
+        const optionSelect = document.getElementById('option');
+        if (optionSelect && (optionSelect.value === '2' || optionSelect.value === '5')) {
+            populateClientSelect(optionSelect.value);
+        }
+
+        initializeIndexTrafficMiniSummary(true);
+        extractCertExpiryData();
+    } finally {
+        _isRefreshing = false;
     }
-
-    const html = await response.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-
-    const newTabContent = doc.querySelector('.tab-content');
-    const currentTabContent = document.querySelector('.tab-content');
-    if (newTabContent && currentTabContent) {
-        currentTabContent.innerHTML = newTabContent.innerHTML;
-    }
-
-    const newProtocolTabs = doc.querySelector('.protocol-tabs');
-    const currentProtocolTabs = document.querySelector('.protocol-tabs');
-    if (newProtocolTabs && currentProtocolTabs) {
-        currentProtocolTabs.innerHTML = newProtocolTabs.innerHTML;
-    }
-
-    const newClientDetailsData = doc.querySelector('#index-client-details-data');
-    const currentClientDetailsData = document.querySelector('#index-client-details-data');
-    if (newClientDetailsData && currentClientDetailsData) {
-        currentClientDetailsData.textContent = newClientDetailsData.textContent;
-    }
-
-    indexClientDetailsCache = null;
-    indexClientDetailsFetchPromise = null;
-
-    initializeTabSwitching();
-    initializeAddClientModal();
-    initializeTableSorting();
-    initializeOpenVpnGroupSwitching();
-    initializeQRButtons();
-    initializeOneTimeLinkButtons();
-    initializeClientBanToggles();
-    initializeClientDetailsModal();
-
-    switchTab(currentTab);
-
-    const optionSelect = document.getElementById('option');
-    if (optionSelect && (optionSelect.value === '2' || optionSelect.value === '5')) {
-        populateClientSelect(optionSelect.value);
-    }
-
-    initializeIndexTrafficMiniSummary(true);
 }
 
 // ============ TAB SWITCHING ============
@@ -558,11 +976,13 @@ function switchTab(tabName) {
     });
 
     // Add active class to selected tab
-    document.querySelector(`.tab-btn[data-protocol="${tabName}"]`).classList.add('active');
+    const tabBtn = document.querySelector(`.tab-btn[data-protocol="${tabName}"]`);
+    if (tabBtn) tabBtn.classList.add('active');
 
     const tabId = tabName === 'amneziawg' ? `${tabName}-tab` :
         tabName === 'wireguard' ? `${tabName}-tab` : `${tabName}-tab`;
-    document.getElementById(tabId).classList.add('active');
+    const tabPane = document.getElementById(tabId);
+    if (tabPane) tabPane.classList.add('active');
 
     currentTab = tabName;
     filterTable();
@@ -627,7 +1047,7 @@ function filterTable() {
     const rows = table.querySelectorAll('.client-row');
 
     rows.forEach(row => {
-        const clientName = row.getAttribute('data-client-name').toLowerCase();
+        const clientName = (row.getAttribute('data-client-name') || '').toLowerCase();
         const matchSearch = clientName.includes(searchValue);
 
         let matchFilter = true;
@@ -891,7 +1311,7 @@ async function updateClientBlockState(clientName, shouldBlock) {
     }
 
     if (!response.ok || !payload || !payload.success) {
-        const msg = payload && payload.message ? payload.message : `HTTP error! status: ${response.status}`;
+        const msg = payload && (payload.message || payload.error) ? (payload.message || payload.error) : `HTTP error! status: ${response.status}`;
         throw new Error(msg);
     }
 
@@ -950,7 +1370,6 @@ function showQRModal(configUrl) {
                 }
 
                 const mode = response.headers.get('X-QR-Mode') || 'config';
-                const messageCode = response.headers.get('X-QR-Message-Code') || '';
                 const oneTimeDownloadUrl = response.headers.get('X-QR-Download-Url') || '';
                 const blob = await response.blob();
 
@@ -1063,8 +1482,8 @@ function initializeOneTimeLinkButtons() {
                 }
 
                 if (!response.ok || !payload || !payload.success || !payload.download_url) {
-                    const message = payload && payload.message
-                        ? payload.message
+                    const message = payload && (payload.message || payload.error)
+                        ? (payload.message || payload.error)
                         : `Не удалось создать ссылку (HTTP ${response.status})`;
                     throw new Error(message);
                 }
