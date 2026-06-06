@@ -5,6 +5,6 @@ def resolve_file_nav_group(file_type: str) -> str:
         return "IP и маршрутизация"
     if file_type in ("include-adblock-hosts", "exclude-adblock-hosts"):
         return "Рекламные фильтры"
-    if file_type == "allow-ips":
+    if file_type in ("allow-ips", "deny-ips"):
         return "Безопасность"
     return "Прочее"

@@ -584,6 +584,10 @@ TEST_ENTRIES: dict[str, dict[str, str]] = {
         "title": 'Группа навигации: allow IPs',
         "description": 'resolve_file_nav_group относит allow-ips файлы к соответствующей группе.',
     },
+    'tests/test_edit_files_page_context.py::EditFilesPageContextTests::test_resolve_file_nav_group_deny_ips': {
+        "title": 'Группа навигации: deny IPs',
+        "description": 'resolve_file_nav_group относит deny-ips файлы к группе «Безопасность».',
+    },
     'tests/test_edit_files_page_context.py::EditFilesPageContextTests::test_resolve_file_nav_group_domains': {
         "title": 'Группа навигации: domains',
         "description": 'resolve_file_nav_group относит domains-файлы к группе domains.',

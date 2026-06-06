@@ -16,8 +16,16 @@ _DROP_IPS_SUBTITLE = (
     "через VPN. Комментарии допускаются через #."
 )
 
+_DENY_IPS_SUBTITLE = (
+    "Формат: по одной IPv4-подсети или адресу в CIDR на строку "
+    "(например, 1.1.1.1/32). Эти источники блокируются для входящих "
+    "подключений к серверу. Комментарии допускаются через #."
+)
+
 
 def get_editor_subtitle(file_type: str) -> str:
     if file_type == "drop-ips":
         return _DROP_IPS_SUBTITLE
+    if file_type == "deny-ips":
+        return _DENY_IPS_SUBTITLE
     return _DEFAULT_SUBTITLE

@@ -26,6 +26,9 @@ class EditFilesPageContextTests(unittest.TestCase):
     def test_resolve_file_nav_group_allow_ips(self):
         self.assertEqual(resolve_file_nav_group("allow-ips"), "Безопасность")
 
+    def test_resolve_file_nav_group_deny_ips(self):
+        self.assertEqual(resolve_file_nav_group("deny-ips"), "Безопасность")
+
     def test_resolve_file_nav_group_other(self):
         self.assertEqual(resolve_file_nav_group("unknown-list"), "Прочее")
 

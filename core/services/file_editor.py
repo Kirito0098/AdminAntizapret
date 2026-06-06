@@ -11,6 +11,7 @@ class FileEditor:
             "exclude_hosts": "/root/antizapret/config/exclude-hosts.txt",
             "include_ips": "/root/antizapret/config/include-ips.txt",
             "allow-ips": "/root/antizapret/config/allow-ips.txt",
+            "deny-ips": "/root/antizapret/config/deny-ips.txt",
             "exclude-ips": "/root/antizapret/config/exclude-ips.txt",
             "drop-ips": "/root/antizapret/config/drop-ips.txt",
             "forward-ips": "/root/antizapret/config/forward-ips.txt",
