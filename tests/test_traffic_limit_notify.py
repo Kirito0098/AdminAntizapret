@@ -34,6 +34,7 @@ class TrafficLimitNotifyServiceTests(unittest.TestCase):
         self.wg_service = WgAccessPolicyService(
             db=db,
             policy_model=WgAccessPolicy,
+            use_subprocess_runtime=False,
             get_consumed_traffic_bytes=_get_consumed,
         )
         self.ovpn_service = OpenVpnAccessPolicyService(
