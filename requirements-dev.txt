@@ -1,0 +1,13 @@
+# Development & CI dependencies.
+# Installs everything from the production file plus tooling for tests/lint/security.
+# Usage: pip install -r requirements-dev.txt
+-r requirements.txt
+
+# Test runner (moved here out of the production requirements.txt).
+pytest==9.0.3
+
+# Linter / import sorter.
+ruff>=0.6,<1.0
+
+# Security static analysis.
+bandit>=1.7,<2.0

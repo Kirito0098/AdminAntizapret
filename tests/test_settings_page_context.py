@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from core.services.settings.page_context import build_settings_page_context
@@ -22,7 +22,7 @@ class SettingsPageContextTests(unittest.TestCase):
         user_model.query.filter_by.side_effect = _filter_by
 
         active_web_session_model = MagicMock()
-        active_web_session_model.last_seen_at = datetime(2020, 1, 1)
+        active_web_session_model.last_seen_at = datetime(2020, 1, 1, tzinfo=timezone.utc)
         session_filter = MagicMock()
         session_filter.count.return_value = 0
         active_web_session_model.query.filter.return_value = session_filter

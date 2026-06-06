@@ -1,7 +1,7 @@
 import os
 import secrets
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
 from flask import jsonify, url_for
@@ -64,7 +64,7 @@ class BackgroundTaskService:
         self.update_background_task(
             task_id,
             status="running",
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             message="Задача выполняется",
         )
 
@@ -74,7 +74,7 @@ class BackgroundTaskService:
             self.update_background_task(
                 task_id,
                 status="completed",
-                finished_at=datetime.utcnow(),
+                finished_at=datetime.now(timezone.utc),
                 message=(result.get("message") or "Задача выполнена")[:255],
                 output=self.trim_background_task_text(result.get("output", "")),
                 error=None,
@@ -84,12 +84,16 @@ class BackgroundTaskService:
             try:
                 with self.app.app_context():
                     self.db.session.rollback()
-            except Exception:
-                pass
+            except Exception as rollback_exc:
+                self.app.logger.warning(
+                    "Откат сессии после ошибки фоновой задачи %s не удался: %s",
+                    task_id,
+                    rollback_exc,
+                )
             self.update_background_task(
                 task_id,
                 status="failed",
-                finished_at=datetime.utcnow(),
+                finished_at=datetime.now(timezone.utc),
                 message="Задача завершилась с ошибкой",
                 error=self.trim_background_task_text(str(e)),
             )
@@ -153,11 +157,30 @@ class BackgroundTaskService:
             )
         return stdout, stderr
 
+    def _antizapret_install_dir(self) -> str:
+        for key in ("APP_BACKUP_AZ_INSTALL_DIR", "ANTIZAPRET_INSTALL_DIR"):
+            value = (os.environ.get(key) or "").strip()
+            if value:
+                return os.path.abspath(value)
+        return "/root/antizapret"
+
+    def _run_client_sh_recreate_profiles(self, install_dir: str) -> tuple[str, str]:
+        """Пересоздание файлов профилей клиентов (client.sh option 7) после doall."""
+        client_sh = os.path.join(install_dir, "client.sh")
+        if not os.path.isfile(client_sh):
+            raise FileNotFoundError(f"client.sh не найден: {client_sh}")
+        if not os.access(client_sh, os.X_OK):
+            raise PermissionError(f"client.sh не исполняемый: {client_sh}")
+        return self.run_checked_command([client_sh, "7"], cwd=install_dir, timeout=900)
+
     def task_run_doall(
         self,
         sync_wireguard_peer_cache_callback: Callable[..., Any] | None = None,
     ) -> dict[str, str]:
-        stdout, stderr = self.run_checked_command(["/root/antizapret/doall.sh"], timeout=900)
+        install_dir = self._antizapret_install_dir()
+        doall_sh = os.path.join(install_dir, "doall.sh")
+        stdout, stderr = self.run_checked_command([doall_sh], timeout=900)
+        recreate_stdout, recreate_stderr = self._run_client_sh_recreate_profiles(install_dir)
         if sync_wireguard_peer_cache_callback is not None:
             try:
                 sync_wireguard_peer_cache_callback(force=True)
@@ -167,9 +190,13 @@ class BackgroundTaskService:
                     "Не удалось синхронизировать wireguard_peer_cache после doall: %s",
                     e,
                 )
-        combined = "\n".join(part for part in [stdout, stderr] if part).strip()
+        combined = "\n".join(
+            part
+            for part in [stdout, stderr, recreate_stdout, recreate_stderr]
+            if part
+        ).strip()
         return {
-            "message": "Скрипт doall выполнен успешно",
+            "message": "doall и пересоздание профилей клиентов выполнены успешно",
             "output": combined,
         }
 

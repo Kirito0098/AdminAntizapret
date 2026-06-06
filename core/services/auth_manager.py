@@ -32,6 +32,17 @@ class AuthenticationManager:
 
         return decorated_function
 
+    def is_current_user_admin(self):
+        """Проверяет, что текущая сессия принадлежит администратору.
+
+        Подходит для контекстов без декоратора (например, WebSocket),
+        где нужно вручную проверить роль.
+        """
+        if "username" not in session:
+            return False
+        user = get_current_user(self.user_model)
+        return bool(user and user.role == "admin")
+
     def admin_required(self, f):
         @wraps(f)
         def decorated_function(*args, **kwargs):

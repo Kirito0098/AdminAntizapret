@@ -20,7 +20,7 @@ def register_logs_dashboard_page_routes(
     openvpn_log_tail_lines,
 ):
     @app.route("/logs_dashboard", methods=["GET"])
-    @auth_manager.login_required
+    @auth_manager.admin_required
     def logs_dashboard():
         dashboard_data = get_logs_dashboard_data_cached(created_by_username=session.get("username"))
         cleanup_notice = request.args.get("cleanup_notice", "")

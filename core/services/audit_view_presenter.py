@@ -154,6 +154,61 @@ def _format_backup_settings_details_ru(details: str | None) -> str:
     )
 
 
+def _detail_int(detail_map: dict[str, str], key: str) -> int:
+    try:
+        return int(str(detail_map.get(key) or "0").strip())
+    except ValueError:
+        return 0
+
+
+def _format_games_sync_tg_line(event_key: str, details: str | None) -> str | None:
+    detail_map = parse_mini_details_kv(details)
+    key = str(event_key or "").strip()
+
+    if key == "settings_cidr_games_routes_sync":
+        include_games = _detail_int(detail_map, "include_games")
+        include_cidrs = _detail_int(detail_map, "include_cidrs")
+        include_domains = _detail_int(detail_map, "include_domains")
+        exclude_games = _detail_int(detail_map, "exclude_games")
+        exclude_cidrs = _detail_int(detail_map, "exclude_cidrs")
+        exclude_domains = _detail_int(detail_map, "exclude_domains")
+        include_overlap = _detail_int(detail_map, "include_overlap")
+        exclude_overlap = _detail_int(detail_map, "exclude_overlap")
+        if include_games == 0 and exclude_games == 0 and include_cidrs == 0 and exclude_cidrs == 0:
+            return "Игровые маршруты очищены"
+        parts = []
+        if include_games > 0 or include_cidrs > 0:
+            chunk = f"VPN: {include_games} игр, {include_cidrs} CIDR"
+            if include_domains > 0:
+                chunk += f", {include_domains} доменов"
+            if include_overlap > 0:
+                chunk += f", пересечений {include_overlap}"
+            parts.append(chunk)
+        if exclude_games > 0 or exclude_cidrs > 0:
+            chunk = f"DIRECT: {exclude_games} игр, {exclude_cidrs} CIDR"
+            if exclude_domains > 0:
+                chunk += f", {exclude_domains} доменов"
+            if exclude_overlap > 0:
+                chunk += f", пересечений {exclude_overlap}"
+            parts.append(chunk)
+        return " · ".join(parts) if parts else "Игровые маршруты обновлены"
+
+    scope = "exclude" if key == "settings_cidr_games_exclude_sync" else "include"
+    scope_label = "DIRECT" if scope == "exclude" else "VPN"
+    games = _detail_int(detail_map, "selected_games")
+    domains = _detail_int(detail_map, "domains")
+    cidrs = _detail_int(detail_map, "cidrs")
+    overlap = _detail_int(detail_map, "overlap")
+    if games == 0 and cidrs == 0 and domains == 0:
+        return f"{scope_label}: фильтры очищены"
+    parts = [f"{scope_label}: {games} игр", f"{cidrs} CIDR"]
+    if domains > 0:
+        parts.append(f"{domains} доменов")
+    if overlap > 0:
+        parts.append(f"пересечений {overlap}")
+    return ", ".join(parts)
+
+
 def _humanize_raw_details_for_tg(details: str | None) -> str | None:
     """Translate common technical audit detail strings to Russian for Telegram."""
     text = str(details or "").strip()
@@ -487,6 +542,8 @@ def user_action_event_label(event_type: str | None) -> str:
         "settings_cidr_db_clear": "Очистка базы CIDR",
         "settings_cidr_generate_from_db": "Генерация CIDR из базы",
         "settings_cidr_games_sync": "Синхронизация игровых хостов",
+        "settings_cidr_games_exclude_sync": "Синхронизация игровых хостов (DIRECT)",
+        "settings_cidr_games_routes_sync": "Синхронизация игровых маршрутов",
         "settings_cidr_total_limit_update": "Изменение лимита CIDR",
         "settings_cidr_preset_create": "Создание пресета CIDR",
         "settings_cidr_preset_update": "Изменение пресета CIDR",
@@ -684,18 +741,26 @@ def user_action_event_display(
         return f"Лимит CIDR изменён: {value} маршрутов" if value else label
 
     if event_key == "settings_cidr_games_sync":
+        formatted = _format_games_sync_tg_line(event_key, details)
+        if formatted:
+            return formatted
         games = detail_map.get("selected_games", "")
         domains = detail_map.get("domains", "")
         cidrs = detail_map.get("cidrs", "")
         parts = []
-        if games:
-            parts.append(f"игр: {games}")
-        if domains:
-            parts.append(f"доменов: {domains}")
-        if cidrs:
-            parts.append(f"CIDR: {cidrs}")
+        if _detail_int(detail_map, "selected_games") > 0:
+            parts.append(f"игр: {_detail_int(detail_map, 'selected_games')}")
+        if _detail_int(detail_map, "domains") > 0:
+            parts.append(f"доменов: {_detail_int(detail_map, 'domains')}")
+        if _detail_int(detail_map, "cidrs") > 0:
+            parts.append(f"CIDR: {_detail_int(detail_map, 'cidrs')}")
         suffix = ", ".join(parts)
-        return f"Синхронизация игровых хостов — {suffix}" if suffix else label
+        return f"Синхронизация игровых хостов — {suffix}" if suffix else "Синхронизация игровых хостов — фильтры очищены"
+
+    if event_key in {"settings_cidr_games_exclude_sync", "settings_cidr_games_routes_sync"}:
+        formatted = _format_games_sync_tg_line(event_key, details)
+        if formatted:
+            return formatted
 
     if event_key in {
         "settings_cidr_preset_create", "settings_cidr_preset_update",
@@ -820,6 +885,15 @@ def user_action_tg_action_line(
         old_val, new_val = _parse_arrow_change(details_value) or ("—", "—")
         user = target_value or "пользователь"
         return f"Telegram ID пользователя {user}: с {old_val} на {new_val}"
+
+    if key in {
+        "settings_cidr_games_sync",
+        "settings_cidr_games_exclude_sync",
+        "settings_cidr_games_routes_sync",
+    }:
+        formatted = _format_games_sync_tg_line(key, details_value)
+        if formatted:
+            return formatted
 
     humanized = _humanize_raw_details_for_tg(details_value)
     if humanized:

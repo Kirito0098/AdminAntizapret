@@ -1,6 +1,6 @@
 import secrets
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 class ActiveWebSessionService:
@@ -28,7 +28,7 @@ class ActiveWebSessionService:
         return sid
 
     def cleanup_stale_active_web_sessions(self, now=None):
-        now = now or datetime.utcnow()
+        now = now or datetime.now(timezone.utc)
         ttl_seconds, _ = self.get_active_web_session_settings()
         cutoff = now - timedelta(seconds=max(int(ttl_seconds) * 2, 300))
         self.active_web_session_model.query.filter(
@@ -40,7 +40,7 @@ class ActiveWebSessionService:
         if not username:
             return
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         now_ts = int(time.time())
         _, touch_interval_seconds = self.get_active_web_session_settings()
 

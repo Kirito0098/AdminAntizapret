@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from core.services.audit_view_presenter import (
     build_telegram_mini_audit_view,
@@ -89,7 +89,7 @@ def build_settings_page_context(
     active_web_session_ttl_seconds, active_web_session_touch_interval_seconds = get_active_web_session_settings()
     active_web_sessions_count = active_web_session_model.query.filter(
         active_web_session_model.last_seen_at
-        >= datetime.utcnow() - timedelta(seconds=active_web_session_ttl_seconds)
+        >= datetime.now(timezone.utc) - timedelta(seconds=active_web_session_ttl_seconds)
     ).count()
 
     qr_download_audit_logs = qr_download_audit_log_model.query.order_by(

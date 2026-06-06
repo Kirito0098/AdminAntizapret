@@ -25,7 +25,7 @@
   <div class="login-shell">
     <section class="login-stage" aria-label="Страница авторизации">
       <div class="login login--embedded">
-        <script id="flash-messages" type="application/json">
+        <script id="flash-messages" type="application/json" nonce="{{ csp_nonce }}">
             {{ get_flashed_messages(with_categories=True) | tojson }}
           </script>
 
@@ -108,7 +108,7 @@
 
   {% if telegram_login_enabled and telegram_bot_username %}
   <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
-  <script>
+  <script nonce="{{ csp_nonce }}">
     (function () {
       try {
         if (!window.Telegram || !window.Telegram.WebApp) {

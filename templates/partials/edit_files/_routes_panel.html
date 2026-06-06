@@ -15,8 +15,8 @@
 
     {% for action in route_actions %}
     <button class="route-btn" type="button"{% if action.open_in_new_tab %}
-      onclick="window.open('{{ action.href }}', '_blank', 'noopener')"{% else %}
-      onclick="window.location.href='{{ action.href }}'"{% endif %}>
+      data-open-url="{{ action.href }}"{% else %}
+      data-nav-url="{{ action.href }}"{% endif %}>
       {{ action.label }}
     </button>
     {% endfor %}

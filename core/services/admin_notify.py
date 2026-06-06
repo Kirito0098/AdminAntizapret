@@ -1,6 +1,6 @@
 import threading
 import psutil
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from core.services.audit_view_presenter import (
     _mini_protocol_label,
@@ -52,6 +52,8 @@ SETTINGS_CHANGE_NOTIFY = frozenset({
     "settings_cidr_update_queued",
     "settings_cidr_rollback_queued",
     "settings_cidr_games_sync",
+    "settings_cidr_games_exclude_sync",
+    "settings_cidr_games_routes_sync",
     "settings_cidr_total_limit_update",
     "settings_cidr_db_refresh_queued",
     "settings_cidr_db_clear",
@@ -99,6 +101,8 @@ SETTINGS_CHANGE_LABELS = {
     "settings_cidr_update_queued": "Обновление CIDR-файлов",
     "settings_cidr_rollback_queued": "Откат CIDR-файлов",
     "settings_cidr_games_sync": "Синхронизация игровых фильтров",
+    "settings_cidr_games_exclude_sync": "Синхронизация игровых фильтров (DIRECT)",
+    "settings_cidr_games_routes_sync": "Синхронизация игровых маршрутов",
     "settings_cidr_total_limit_update": "Изменён лимит CIDR",
     "settings_cidr_db_refresh_queued": "Обновление CIDR из базы",
     "settings_cidr_db_clear": "Очистка базы CIDR",
@@ -141,6 +145,8 @@ SETTINGS_TG_TITLES = {
     "settings_cidr_update_queued": "Обновление CIDR",
     "settings_cidr_rollback_queued": "Откат CIDR",
     "settings_cidr_games_sync": "Игровые фильтры",
+    "settings_cidr_games_exclude_sync": "Игровые фильтры",
+    "settings_cidr_games_routes_sync": "Игровые маршруты",
     "settings_cidr_total_limit_update": "Лимит CIDR",
     "settings_cidr_db_refresh_queued": "База CIDR",
     "settings_cidr_db_clear": "База CIDR",
@@ -167,6 +173,8 @@ SETTINGS_ACTION_EVENTS = frozenset({
     "settings_cidr_db_clear",
     "settings_cidr_generate_from_db",
     "settings_cidr_games_sync",
+    "settings_cidr_games_exclude_sync",
+    "settings_cidr_games_routes_sync",
     "settings_ip_files_sync",
     "settings_antifilter_refresh",
     "settings_cidr_preset_reset",
@@ -504,7 +512,7 @@ class AdminNotifyService:
 
                 cpu = psutil.cpu_percent(interval=1)
                 ram = psutil.virtual_memory().percent
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 cooldown = timedelta(minutes=cooldown_min)
 
                 with self._monitor_lock:

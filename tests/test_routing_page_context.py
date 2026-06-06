@@ -23,11 +23,24 @@ class RoutingPageContextTests(unittest.TestCase):
             "core.services.routing.page_context.get_available_regions",
             return_value=["eu"],
         ), patch(
-            "core.services.routing.page_context.get_available_game_filters",
+            "core.services.routing.page_context.get_available_provider_filters",
+            return_value=[{"key": "steam", "title": "Steam"}],
+        ), patch(
+            "core.services.routing.page_context.get_saved_provider_keys",
             return_value=["steam"],
         ), patch(
-            "core.services.routing.page_context.get_saved_game_keys",
-            return_value=["steam"],
+            "core.services.routing.page_context.get_saved_exclude_provider_keys",
+            return_value=[],
+        ), patch(
+            "core.services.routing.page_context.get_config_include_ips_route_stats",
+            return_value={"total_routes": 0, "limit": 900, "limit_enforced": True},
+        ), patch(
+            "core.services.routing.page_context.get_game_filter_route_limit_settings",
+            return_value={
+                "disable_route_limit": False,
+                "route_limit_risk_ack": False,
+                "route_limit_enforced": True,
+            },
         ), patch(
             "core.services.routing.page_context.read_antizapret_settings",
             return_value={"route_all": "n"},
@@ -43,8 +56,10 @@ class RoutingPageContextTests(unittest.TestCase):
         self.assertEqual(context["ip_file_states"], {"include_ips": True})
         self.assertEqual(context["ip_source_states"], {"include_ips": "manual"})
         self.assertEqual(context["cidr_regions"], ["eu"])
-        self.assertEqual(context["cidr_game_filters"], ["steam"])
+        self.assertEqual(context["cidr_provider_filters"], [{"key": "steam", "title": "Steam"}])
+        self.assertEqual(context["saved_provider_keys"], ["steam"])
         self.assertEqual(context["saved_game_keys"], ["steam"])
+        self.assertEqual(context["game_filter_route_limit_settings"]["route_limit_enforced"], True)
         self.assertEqual(context["cidr_total_limit"], "500")
         self.assertEqual(context["antizapret_settings"], {"route_all": "n"})
 

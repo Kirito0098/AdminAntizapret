@@ -27,7 +27,7 @@
 {% include "partials/index/_qr_modal.html" %}
 {% include "partials/index/_client_details_modal.html" %}
 
-<script id="index-client-details-data" type="application/json">{{ client_details_payload | tojson }}</script>
+<script id="index-client-details-data" type="application/json" nonce="{{ csp_nonce }}">{{ client_details_payload | tojson }}</script>
 {% endblock %}
 
 {% block scripts %}

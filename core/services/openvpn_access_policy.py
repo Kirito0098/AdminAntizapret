@@ -1,4 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+from core.services.time_utils import as_utc
 
 
 class OpenVpnAccessPolicyService:
@@ -18,7 +20,7 @@ class OpenVpnAccessPolicyService:
         self.ensure_client_connect_ban_check_block = ensure_client_connect_ban_check_block
 
     def _now(self):
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
     def normalize_client_name(self, client_name):
         return (client_name or "").strip()
@@ -86,13 +88,13 @@ class OpenVpnAccessPolicyService:
         if not target_dt:
             return None
         try:
-            return (target_dt - now).days
+            return (as_utc(target_dt) - as_utc(now)).days
         except Exception:
             return None
 
     def _resolve_effective_state(self, row, now=None):
-        now = now or self._now()
-        temp_blocked = bool(row.is_temp_blocked and row.block_until and row.block_until > now)
+        now = as_utc(now) or self._now()
+        temp_blocked = bool(row.is_temp_blocked and row.block_until and as_utc(row.block_until) > now)
         permanent_blocked = bool(row.is_permanent_blocked)
         if permanent_blocked:
             reason = "manual_permanent"
@@ -116,7 +118,7 @@ class OpenVpnAccessPolicyService:
         }
 
     def _cleanup_expired_temp_block(self, row, now):
-        if row.is_temp_blocked and row.block_until and row.block_until <= now:
+        if row.is_temp_blocked and row.block_until and as_utc(row.block_until) <= as_utc(now):
             row.is_temp_blocked = False
             row.block_reason = None
             row.block_started_at = None

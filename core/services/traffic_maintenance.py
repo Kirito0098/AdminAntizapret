@@ -1,5 +1,7 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
+
+from core.services.time_utils import as_utc
 
 
 class TrafficMaintenanceService:
@@ -113,7 +115,7 @@ class TrafficMaintenanceService:
 
     def seed_traffic_session_baseline_for_scope(self, status_rows, protocol_scope, now=None):
         scope = self.normalize_traffic_protocol_scope(protocol_scope)
-        now = now or datetime.utcnow()
+        now = now or datetime.now(timezone.utc)
 
         sessions_by_key = {
             row.session_key: row
@@ -197,7 +199,7 @@ class TrafficMaintenanceService:
         }
 
     def rebuild_user_traffic_stats_from_samples(self, seed_users=None, now=None):
-        now = now or datetime.utcnow()
+        now = now or datetime.now(timezone.utc)
         self.user_traffic_stat_model.query.delete(synchronize_session=False)
         self.user_traffic_stat_protocol_model.query.delete(synchronize_session=False)
 
@@ -217,7 +219,9 @@ class TrafficMaintenanceService:
                 normalized_protocol = "wireguard"
 
             stat = stats_map.get(common_name)
-            sample_dt = sample.created_at or now
+            # created_at читается из БД как naive; приводим к aware, чтобы
+            # сравнения с aware first/last_seen_at не падали при mix naive/aware.
+            sample_dt = as_utc(sample.created_at) or now
             if stat is None:
                 stat = {
                     "total_received": 0,
@@ -379,7 +383,7 @@ class TrafficMaintenanceService:
         }
 
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             status_rows = self.collect_status_rows_for_snapshot()
 
             deleted_info = self.delete_persisted_traffic_rows_by_scope(scope)

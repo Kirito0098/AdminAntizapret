@@ -10,6 +10,49 @@ from core.services.cidr.constants import (
     GAME_INCLUDE_HOSTS_FILE,
     GAME_INCLUDE_IPS_FILE,
 )
+from core.services.cidr.game_server_data import (
+    ACTIVISION_GAME_ASNS,
+    ACTIVISION_IP_SOURCE_URL,
+    ALBION_GAME_ASNS,
+    ALBION_IP_SOURCE_URL,
+    ALBION_SERVER_IPS,
+    AMONG_US_GAME_ASNS,
+    AMONG_US_IP_SOURCE_URL,
+    ARENA_OF_VALOR_GAME_ASNS,
+    ARENA_OF_VALOR_IP_SOURCE_URL,
+    FACEIT_GAME_ASNS,
+    FACEIT_IP_SOURCE_URL,
+    FFXIV_IP_SOURCE_URL,
+    FFXIV_SERVER_IPS,
+    GAMEFORGE_GAME_ASNS,
+    GAMEFORGE_IP_SOURCE_URL,
+    MINECRAFT_GAME_ASNS,
+    MINECRAFT_IP_SOURCE_URL,
+    MOBILE_LEGENDS_GAME_ASNS,
+    MOBILE_LEGENDS_IP_SOURCE_URL,
+    NBA_2K_GAME_ASNS,
+    NBA_2K_IP_SOURCE_URL,
+    POE_GAME_ASNS,
+    POE_IP_SOURCE_URL,
+    RIOT_DIRECT_ASNS,
+    RIOT_IP_SOURCE_URL,
+    RIOT_LOL_SERVER_IPS,
+    RIOT_VALORANT_SERVER_IPS,
+    RIOT_WILD_RIFT_SERVER_IPS,
+    ROBLOX_GAME_ASNS,
+    ROBLOX_GAME_SERVER_CIDRS,
+    ROBLOX_IP_SOURCE_URL,
+    SUPERCELL_GAME_ASNS,
+    SUPERCELL_IP_SOURCE_URL,
+    VALORANT_IP_SOURCE_URL,
+    WARFRAME_GAME_ASNS,
+    WARFRAME_IP_SOURCE_URL,
+    WILD_RIFT_IP_SOURCE_URL,
+    WUTHERING_WAVES_GAME_ASNS,
+    WUTHERING_WAVES_IP_SOURCE_URL,
+    ZENIMAX_GAME_ASNS,
+    ZENIMAX_IP_SOURCE_URL,
+)
 
 PROVIDER_SOURCES = {
     "akamai-ips.txt": [
@@ -167,24 +210,30 @@ GAME_FILTER_CATALOG = [
     {
         "key": "lol",
         "title": "League of Legends",
-        "subtitle": "Riot Games — DNS",
-        "asns": [],
+        "subtitle": "Riot Games — Riot Direct",
+        "asns": list(RIOT_DIRECT_ASNS),
+        "server_ips": list(RIOT_LOL_SERVER_IPS),
+        "ip_source_url": RIOT_IP_SOURCE_URL,
         "domains": ["riotgames.com", "leagueoflegends.com", "pvp.net"],
     },
     # ── Riot Games ── VALORANT ────────────────────────────────────────
     {
         "key": "valorant",
         "title": "VALORANT",
-        "subtitle": "Riot Games — DNS",
-        "asns": [],
+        "subtitle": "Riot Games — Riot Direct",
+        "asns": list(RIOT_DIRECT_ASNS),
+        "server_ips": list(RIOT_VALORANT_SERVER_IPS),
+        "ip_source_url": VALORANT_IP_SOURCE_URL,
         "domains": ["playvalorant.com", "riotgames.com"],
     },
     # ── Riot Games ── Wild Rift ───────────────────────────────────────
     {
         "key": "wild_rift",
         "title": "Wild Rift",
-        "subtitle": "Riot Games — DNS",
-        "asns": [],
+        "subtitle": "Riot Games — Riot Direct",
+        "asns": list(RIOT_DIRECT_ASNS),
+        "server_ips": list(RIOT_WILD_RIFT_SERVER_IPS),
+        "ip_source_url": WILD_RIFT_IP_SOURCE_URL,
         "domains": ["wildrift.leagueoflegends.com", "riotgames.com"],
     },
     # ── Valve ── Dota 2 ───────────────────────────────────────────────
@@ -231,24 +280,24 @@ GAME_FILTER_CATALOG = [
     {
         "key": "hearthstone",
         "title": "Hearthstone",
-        "subtitle": "Blizzard — DNS",
-        "asns": [],
+        "subtitle": "Blizzard — AS57976",
+        "asns": [57976],
         "domains": ["playhearthstone.com", "battle.net"],
     },
     # ── Blizzard ── Diablo IV ─────────────────────────────────────────
     {
         "key": "diablo4",
         "title": "Diablo IV",
-        "subtitle": "Blizzard — DNS",
-        "asns": [],
+        "subtitle": "Blizzard — AS57976",
+        "asns": [57976],
         "domains": ["diablo.com", "battle.net"],
     },
     # ── Blizzard ── StarCraft II ──────────────────────────────────────
     {
         "key": "starcraft2",
         "title": "StarCraft II",
-        "subtitle": "Blizzard — DNS",
-        "asns": [],
+        "subtitle": "Blizzard — AS57976",
+        "asns": [57976],
         "domains": ["starcraft2.com", "battle.net"],
     },
     # ── Electronic Arts ── Apex Legends ──────────────────────────────
@@ -263,16 +312,16 @@ GAME_FILTER_CATALOG = [
     {
         "key": "battlefield",
         "title": "Battlefield",
-        "subtitle": "EA — DNS",
-        "asns": [],
+        "subtitle": "EA — AS12222",
+        "asns": [12222],
         "domains": ["battlefield.com", "ea.com"],
     },
     # ── Electronic Arts ── EA Sports FC ──────────────────────────────
     {
         "key": "ea_fc",
         "title": "EA Sports FC",
-        "subtitle": "EA — DNS",
-        "asns": [],
+        "subtitle": "EA — AS12222",
+        "asns": [12222],
         "domains": ["easports.com", "ea.com"],
     },
     # ── Wargaming ── World of Tanks ───────────────────────────────────
@@ -295,8 +344,8 @@ GAME_FILTER_CATALOG = [
     {
         "key": "wot_blitz",
         "title": "WoT Blitz",
-        "subtitle": "Wargaming — DNS",
-        "asns": [],
+        "subtitle": "Wargaming — AS42396",
+        "asns": [42396, 62317],
         "domains": ["wotblitz.com", "wargaming.net"],
     },
     # ── Lesta Games ── Мир Танков ────────────────────────────────────
@@ -335,8 +384,8 @@ GAME_FILTER_CATALOG = [
     {
         "key": "crossout",
         "title": "Crossout",
-        "subtitle": "Gaijin — DNS",
-        "asns": [],
+        "subtitle": "Gaijin — AS44530",
+        "asns": [44530],
         "domains": ["crossout.net", "gaijin.net"],
     },
     # ── Krafton ── PUBG ───────────────────────────────────────────────
@@ -351,8 +400,8 @@ GAME_FILTER_CATALOG = [
     {
         "key": "pubg_mobile",
         "title": "PUBG Mobile",
-        "subtitle": "Krafton — DNS",
-        "asns": [],
+        "subtitle": "Krafton — AS263444",
+        "asns": [263444, 209242],
         "domains": ["pubgmobile.com", "krafton.com"],
     },
     # ── HoYoverse ── Genshin Impact ───────────────────────────────────
@@ -367,16 +416,16 @@ GAME_FILTER_CATALOG = [
     {
         "key": "honkai_star_rail",
         "title": "Honkai: Star Rail",
-        "subtitle": "HoYoverse — DNS",
-        "asns": [],
+        "subtitle": "HoYoverse — AS45062",
+        "asns": [45062],
         "domains": ["hsr.hoyoverse.com", "hoyoverse.com"],
     },
     # ── HoYoverse ── Zenless Zone Zero ───────────────────────────────
     {
         "key": "zzz",
         "title": "Zenless Zone Zero",
-        "subtitle": "HoYoverse — DNS",
-        "asns": [],
+        "subtitle": "HoYoverse — AS45062",
+        "asns": [45062],
         "domains": ["zzz.hoyoverse.com", "hoyoverse.com"],
     },
     # ── Bungie ── Destiny 2 ───────────────────────────────────────────
@@ -407,16 +456,17 @@ GAME_FILTER_CATALOG = [
     {
         "key": "minecraft",
         "title": "Minecraft",
-        "subtitle": "Mojang / Microsoft — DNS",
-        "asns": [],
+        "subtitle": "Mojang / Microsoft — AS8075",
+        "asns": list(MINECRAFT_GAME_ASNS),
+        "ip_source_url": MINECRAFT_IP_SOURCE_URL,
         "domains": ["minecraft.net", "mojang.com"],
     },
     # ── Microsoft ── Halo Infinite ────────────────────────────────────
     {
         "key": "halo_infinite",
         "title": "Halo Infinite",
-        "subtitle": "343 Industries / Microsoft — DNS",
-        "asns": [],
+        "subtitle": "343 Industries / Microsoft — AS8075",
+        "asns": [8075],
         "domains": ["halowaypoint.com", "xbox.com"],
     },
     # ── Ubisoft ── Rainbow Six Siege ──────────────────────────────────
@@ -431,8 +481,8 @@ GAME_FILTER_CATALOG = [
     {
         "key": "xdefiant",
         "title": "XDefiant",
-        "subtitle": "Ubisoft — DNS",
-        "asns": [],
+        "subtitle": "Ubisoft — AS25376",
+        "asns": [25376],
         "domains": ["xdefiant.com", "ubisoft.com"],
     },
     # ── Take-Two ── GTA Online ────────────────────────────────────────
@@ -447,8 +497,9 @@ GAME_FILTER_CATALOG = [
     {
         "key": "nba_2k",
         "title": "NBA 2K",
-        "subtitle": "2K / Take-Two — DNS",
-        "asns": [],
+        "subtitle": "2K / Take-Two — AS46652",
+        "asns": list(NBA_2K_GAME_ASNS),
+        "ip_source_url": NBA_2K_IP_SOURCE_URL,
         "domains": ["2k.com", "nba.2k.com"],
     },
     # ── Bohemia ── DayZ ───────────────────────────────────────────────
@@ -463,8 +514,8 @@ GAME_FILTER_CATALOG = [
     {
         "key": "arma",
         "title": "ARMA Reforger",
-        "subtitle": "Bohemia Interactive — DNS",
-        "asns": [],
+        "subtitle": "Bohemia Interactive — AS56704",
+        "asns": [56704],
         "domains": ["bohemia.net", "arma.com"],
     },
     # ── Pearl Abyss ── Black Desert Online ───────────────────────────
@@ -487,8 +538,8 @@ GAME_FILTER_CATALOG = [
     {
         "key": "crossfire",
         "title": "CrossFire",
-        "subtitle": "Smilegate — DNS",
-        "asns": [],
+        "subtitle": "Smilegate — AS38631",
+        "asns": [38631],
         "domains": ["crossfire.z8games.com", "smilegate.com"],
     },
     # ── Plarium ── RAID: Shadow Legends ──────────────────────────────
@@ -511,8 +562,8 @@ GAME_FILTER_CATALOG = [
     {
         "key": "skyforge",
         "title": "Skyforge",
-        "subtitle": "MY.GAMES — DNS",
-        "asns": [],
+        "subtitle": "MY.GAMES — AS47764",
+        "asns": [47764],
         "domains": ["skyforge.com", "my.games"],
     },
     # ── Axlebolt ── Standoff 2 ────────────────────────────────────────
@@ -551,8 +602,8 @@ GAME_FILTER_CATALOG = [
     {
         "key": "tarkov_arena",
         "title": "Tarkov Arena",
-        "subtitle": "Battlestate Games — DNS",
-        "asns": [],
+        "subtitle": "Battlestate Games — AS48172",
+        "asns": [48172],
         "domains": ["tarkovarena.com", "battlestategames.com"],
     },
     # ── NCSoft ── Lineage 2 ───────────────────────────────────────────
@@ -567,16 +618,16 @@ GAME_FILTER_CATALOG = [
     {
         "key": "guild_wars2",
         "title": "Guild Wars 2",
-        "subtitle": "NCSoft — DNS",
-        "asns": [],
+        "subtitle": "NCSoft — AS9318",
+        "asns": [9318],
         "domains": ["guildwars2.com", "ncsoft.com"],
     },
     # ── NCSoft ── Blade & Soul ────────────────────────────────────────
     {
         "key": "blade_and_soul",
         "title": "Blade & Soul",
-        "subtitle": "NCSoft — DNS",
-        "asns": [],
+        "subtitle": "NCSoft — AS9318",
+        "asns": [9318],
         "domains": ["bladeandsoul.com", "ncsoft.com"],
     },
     # ── Garena ── Free Fire ───────────────────────────────────────────
@@ -591,8 +642,9 @@ GAME_FILTER_CATALOG = [
     {
         "key": "arena_of_valor",
         "title": "Arena of Valor",
-        "subtitle": "TiMi / Garena — DNS",
-        "asns": [],
+        "subtitle": "TiMi / Garena — AS38561",
+        "asns": list(ARENA_OF_VALOR_GAME_ASNS),
+        "ip_source_url": ARENA_OF_VALOR_IP_SOURCE_URL,
         "domains": ["arenaofvalor.com", "garena.com"],
     },
     # ── Epic Games ── Fortnite ────────────────────────────────────────
@@ -607,160 +659,181 @@ GAME_FILTER_CATALOG = [
     {
         "key": "rocket_league",
         "title": "Rocket League",
-        "subtitle": "Psyonix / Epic Games — DNS",
-        "asns": [],
+        "subtitle": "Psyonix / Epic Games — AS14593",
+        "asns": [14593],
         "domains": ["rocketleague.com", "epicgames.com"],
     },
-    # ── FACEIT ── (DNS) ───────────────────────────────────────────────
+    # ── FACEIT ── matchmaking platform ───────────────────────────────
     {
         "key": "faceit",
         "title": "FACEIT",
-        "subtitle": "Платформа для CS2, Dota 2 и других — DNS",
-        "asns": [],
+        "subtitle": "FACEIT — AS200613",
+        "asns": list(FACEIT_GAME_ASNS),
+        "ip_source_url": FACEIT_IP_SOURCE_URL,
         "domains": ["faceit.com", "faceit-cdn.net", "faceitusercontent.com"],
     },
     # ── Supercell ── Clash of Clans ───────────────────────────────────
     {
         "key": "clash_of_clans",
         "title": "Clash of Clans",
-        "subtitle": "Supercell — DNS",
-        "asns": [],
+        "subtitle": "Supercell — AS396982",
+        "asns": list(SUPERCELL_GAME_ASNS),
+        "ip_source_url": SUPERCELL_IP_SOURCE_URL,
         "domains": ["clashofclans.com", "supercell.com"],
     },
     # ── Supercell ── Clash Royale ─────────────────────────────────────
     {
         "key": "clash_royale",
         "title": "Clash Royale",
-        "subtitle": "Supercell — DNS",
-        "asns": [],
+        "subtitle": "Supercell — AS396982",
+        "asns": list(SUPERCELL_GAME_ASNS),
+        "ip_source_url": SUPERCELL_IP_SOURCE_URL,
         "domains": ["clashroyale.com", "supercell.com"],
     },
     # ── Supercell ── Brawl Stars ──────────────────────────────────────
     {
         "key": "brawl_stars",
         "title": "Brawl Stars",
-        "subtitle": "Supercell — DNS",
-        "asns": [],
+        "subtitle": "Supercell — AS396982",
+        "asns": list(SUPERCELL_GAME_ASNS),
+        "ip_source_url": SUPERCELL_IP_SOURCE_URL,
         "domains": ["brawlstars.com", "supercell.com"],
     },
     # ── Activision ── Call of Duty: Warzone ───────────────────────────
     {
         "key": "warzone",
         "title": "Call of Duty: Warzone",
-        "subtitle": "Activision — DNS",
-        "asns": [],
+        "subtitle": "Activision — AS394536",
+        "asns": list(ACTIVISION_GAME_ASNS),
+        "ip_source_url": ACTIVISION_IP_SOURCE_URL,
         "domains": ["callofduty.com", "activision.com"],
     },
     # ── Activision ── CoD Mobile ──────────────────────────────────────
     {
         "key": "cod_mobile",
         "title": "Call of Duty Mobile",
-        "subtitle": "Activision / TiMi — DNS",
-        "asns": [],
+        "subtitle": "Activision / TiMi — AS394536",
+        "asns": list(ACTIVISION_GAME_ASNS),
+        "ip_source_url": ACTIVISION_IP_SOURCE_URL,
         "domains": ["codmobile.activision.com", "callofduty.com"],
     },
     # ── Roblox ────────────────────────────────────────────────────────
     {
         "key": "roblox",
         "title": "Roblox",
-        "subtitle": "Roblox Corporation — DNS",
-        "asns": [],
+        "subtitle": "Roblox Corporation — AS22697",
+        "asns": list(ROBLOX_GAME_ASNS),
+        "server_ips": list(ROBLOX_GAME_SERVER_CIDRS),
+        "ip_source_url": ROBLOX_IP_SOURCE_URL,
         "domains": ["roblox.com", "rbxcdn.com"],
     },
     # ── Kuro Games ── Wuthering Waves ────────────────────────────────
     {
         "key": "wuthering_waves",
         "title": "Wuthering Waves",
-        "subtitle": "Kuro Games — DNS",
-        "asns": [],
+        "subtitle": "Kuro Games — AS45062",
+        "asns": list(WUTHERING_WAVES_GAME_ASNS),
+        "ip_source_url": WUTHERING_WAVES_IP_SOURCE_URL,
         "domains": ["wutheringwaves.com", "kurogames.com"],
     },
     # ── Moonton ── Mobile Legends ────────────────────────────────────
     {
         "key": "mobile_legends",
         "title": "Mobile Legends: Bang Bang",
-        "subtitle": "Moonton / ByteDance — DNS",
-        "asns": [],
+        "subtitle": "Moonton / ByteDance — AS138699",
+        "asns": list(MOBILE_LEGENDS_GAME_ASNS),
+        "ip_source_url": MOBILE_LEGENDS_IP_SOURCE_URL,
         "domains": ["mobilelegends.com", "moonton.com"],
     },
     # ── Digital Extremes ── Warframe ──────────────────────────────────
     {
         "key": "warframe",
         "title": "Warframe",
-        "subtitle": "Digital Extremes — DNS",
-        "asns": [],
+        "subtitle": "Digital Extremes — AS16509",
+        "asns": list(WARFRAME_GAME_ASNS),
+        "ip_source_url": WARFRAME_IP_SOURCE_URL,
         "domains": ["warframe.com", "digitalextremes.com"],
     },
     # ── Gameforge ── Metin2 ───────────────────────────────────────────
     {
         "key": "metin2",
         "title": "Metin2",
-        "subtitle": "Gameforge — DNS",
-        "asns": [],
+        "subtitle": "Gameforge — AS48173",
+        "asns": list(GAMEFORGE_GAME_ASNS),
+        "ip_source_url": GAMEFORGE_IP_SOURCE_URL,
         "domains": ["gameforge.com", "metin2.gameforge.com"],
     },
     # ── Sandbox Interactive ── Albion Online ─────────────────────────
     {
         "key": "albion_online",
         "title": "Albion Online",
-        "subtitle": "Sandbox Interactive — DNS",
-        "asns": [],
+        "subtitle": "Sandbox Interactive — AS58212",
+        "asns": list(ALBION_GAME_ASNS),
+        "server_ips": list(ALBION_SERVER_IPS),
+        "ip_source_url": ALBION_IP_SOURCE_URL,
         "domains": ["albiononline.com", "sandbox-interactive.com"],
     },
     # ── Square Enix ── Final Fantasy XIV ─────────────────────────────
     {
         "key": "final_fantasy_xiv",
         "title": "Final Fantasy XIV",
-        "subtitle": "Square Enix — DNS",
+        "subtitle": "Square Enix — Game DCs",
         "asns": [],
+        "server_ips": list(FFXIV_SERVER_IPS),
+        "ip_source_url": FFXIV_IP_SOURCE_URL,
         "domains": ["finalfantasyxiv.com", "square-enix.com"],
     },
     # ── Bethesda ── Elder Scrolls Online ─────────────────────────────
     {
         "key": "elder_scrolls_online",
         "title": "Elder Scrolls Online",
-        "subtitle": "ZeniMax / Bethesda — DNS",
-        "asns": [],
+        "subtitle": "ZeniMax / Bethesda — AS30109",
+        "asns": list(ZENIMAX_GAME_ASNS),
+        "ip_source_url": ZENIMAX_IP_SOURCE_URL,
         "domains": ["elderscrollsonline.com", "bethesda.net"],
     },
     # ── Bethesda ── Fallout 76 ────────────────────────────────────────
     {
         "key": "fallout_76",
         "title": "Fallout 76",
-        "subtitle": "Bethesda — DNS",
-        "asns": [],
+        "subtitle": "Bethesda — AS30109",
+        "asns": list(ZENIMAX_GAME_ASNS),
+        "ip_source_url": ZENIMAX_IP_SOURCE_URL,
         "domains": ["fallout.bethesda.net", "bethesda.net"],
     },
     # ── Grinding Gear Games ── Path of Exile ─────────────────────────
     {
         "key": "path_of_exile",
         "title": "Path of Exile",
-        "subtitle": "Grinding Gear Games — DNS",
-        "asns": [],
+        "subtitle": "Grinding Gear Games — AS36351",
+        "asns": list(POE_GAME_ASNS),
+        "ip_source_url": POE_IP_SOURCE_URL,
         "domains": ["pathofexile.com", "grindinggear.com"],
     },
     # ── Grinding Gear Games ── Path of Exile 2 ───────────────────────
     {
         "key": "path_of_exile2",
         "title": "Path of Exile 2",
-        "subtitle": "Grinding Gear Games — DNS",
-        "asns": [],
+        "subtitle": "Grinding Gear Games — AS36351",
+        "asns": list(POE_GAME_ASNS),
+        "ip_source_url": POE_IP_SOURCE_URL,
         "domains": ["pathofexile.com", "grindinggear.com"],
     },
     # ── Facepunch Studios ── Rust ─────────────────────────────────────
     {
         "key": "rust",
         "title": "Rust",
-        "subtitle": "Facepunch Studios — DNS",
-        "asns": [],
+        "subtitle": "Facepunch Studios — AS32590",
+        "asns": [32590],
         "domains": ["facepunch.com", "rust.facepunch.com"],
     },
     # ── InnerSloth ── Among Us ────────────────────────────────────────
     {
         "key": "among_us",
         "title": "Among Us",
-        "subtitle": "InnerSloth — DNS",
-        "asns": [],
+        "subtitle": "InnerSloth — AS60068",
+        "asns": list(AMONG_US_GAME_ASNS),
+        "ip_source_url": AMONG_US_IP_SOURCE_URL,
         "domains": ["innersloth.com", "among.us"],
     },
 ]

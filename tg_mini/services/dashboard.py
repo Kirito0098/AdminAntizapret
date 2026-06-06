@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 
@@ -25,7 +25,7 @@ def build_tg_mini_dashboard_payload(
         reverse=True,
     )
 
-    one_hour_since = datetime.utcnow() - timedelta(hours=1)
+    one_hour_since = datetime.now(timezone.utc) - timedelta(hours=1)
     one_hour_rows = user_traffic_sample_model.query.filter(
         user_traffic_sample_model.created_at >= one_hour_since
     ).all()

@@ -198,7 +198,7 @@
     </div>
 
     <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
-    <script>
+    <script nonce="{{ csp_nonce }}">
         (function () {
             const status = document.getElementById("status");
             const targetUrl = "{{ url_for('tg_mini_app') }}";

@@ -1,3 +1,4 @@
+import os
 import subprocess
 import unittest
 from dataclasses import dataclass
@@ -114,6 +115,26 @@ class BackgroundTaskServiceTests(unittest.TestCase):
                 self.service.run_checked_command(["test"])
 
         self.assertIn("кодом 7", str(ctx.exception))
+
+    def test_task_run_doall_runs_client_sh_7_after_doall(self) -> None:
+        install_dir = "/root/antizapret"
+
+        with patch.object(self.service, "_antizapret_install_dir", return_value=install_dir), patch.object(
+            self.service,
+            "run_checked_command",
+            return_value=("doall-out", ""),
+        ) as run_cmd_mock, patch.object(
+            self.service,
+            "_run_client_sh_recreate_profiles",
+            return_value=("recreate-out", ""),
+        ) as recreate_mock:
+            result = self.service.task_run_doall(sync_wireguard_peer_cache_callback=None)
+
+        self.assertIn("пересоздание", result["message"])
+        run_cmd_mock.assert_called_once_with([os.path.join(install_dir, "doall.sh")], timeout=900)
+        recreate_mock.assert_called_once_with(install_dir)
+        self.assertIn("doall-out", result["output"])
+        self.assertIn("recreate-out", result["output"])
 
 
 if __name__ == "__main__":

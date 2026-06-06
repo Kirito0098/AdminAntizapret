@@ -9,7 +9,7 @@
 </head>
 
 <body>
-    <script id="blocked-flash-messages" type="application/json">
+    <script id="blocked-flash-messages" type="application/json" nonce="{{ csp_nonce }}">
         {{ get_flashed_messages(with_categories=True) | tojson }}
     </script>
 
@@ -34,7 +34,7 @@
         </div>
     </div>
 
-    <script id="ip-blocked-config" type="application/json">
+    <script id="ip-blocked-config" type="application/json" nonce="{{ csp_nonce }}">
         {{ {
             "dwellEnabled": ip_blocked_dwell_tracking,
             "pingUrl": ping_url,

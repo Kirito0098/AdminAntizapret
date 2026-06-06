@@ -1,9 +1,10 @@
 import os
 import re
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timezone
 
 from core.services.access_remaining import format_access_remaining
+from core.services.time_utils import as_utc
 
 _CLIENT_NAME_SUFFIX_RE = re.compile(r"-(?:udp|tcp|wg|am)$", re.IGNORECASE)
 _CLIENT_NAME_EXTRA_RE = re.compile(r"-\([^)]+\)$")
@@ -157,8 +158,8 @@ def _resolve_wg_days_left(expires_at):
     if not expires_at:
         return None
     try:
-        now = datetime.utcnow()
-        return (expires_at - now).days
+        now = datetime.now(timezone.utc)
+        return (as_utc(expires_at) - now).days
     except Exception:
         return None
 
@@ -167,7 +168,7 @@ def _resolve_access_days_left(expires_at_dt):
     if not expires_at_dt:
         return None
     try:
-        return (expires_at_dt - datetime.utcnow()).days
+        return (as_utc(expires_at_dt) - datetime.now(timezone.utc)).days
     except Exception:
         return None
 

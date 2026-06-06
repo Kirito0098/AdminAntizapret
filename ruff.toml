@@ -1,0 +1,49 @@
+# Ruff configuration — intentionally a soft starter ruleset.
+# Goal: catch real errors (undefined names, unused imports, bad imports)
+# without forcing a large stylistic refactor across the existing codebase.
+
+target-version = "py312"
+line-length = 120
+
+# Directories that are vendored, generated, runtime state, or not Python source.
+extend-exclude = [
+    "venv",
+    ".venv",
+    "env",
+    "ENV",
+    "static",
+    "templates",
+    "instance",
+    "logs",
+    "runtime_backups",
+    "ips",
+    "ip_blocked",
+    "data",
+    "build",
+    "dist",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+]
+
+[lint]
+# E  = pycodestyle errors
+# F  = pyflakes (undefined names, syntax-level problems, ...)
+# I  = isort (import ordering)
+#
+# The categories are enabled so genuinely dangerous issues (syntax errors,
+# undefined names, star-import fallout, etc.) are caught. A handful of noisy
+# legacy sub-rules are relaxed below so this starter config is green on the
+# current code without forcing a repo-wide refactor. Tighten these over time.
+select = ["E", "F", "I"]
+
+ignore = [
+    "E501",  # line too long (cosmetic; not worth a mass reflow)
+    "E741",  # ambiguous variable name (l, I, O)
+    "E402",  # module import not at top (CLI helpers tweak sys.path first)
+    "F401",  # unused import (legacy re-exports; revisit module by module)
+    "F541",  # f-string without placeholders
+    "F811",  # redefinition of unused name
+    "F841",  # assigned-but-unused local variable
+    "I001",  # unsorted/unformatted import block (enable after a cleanup pass)
+]

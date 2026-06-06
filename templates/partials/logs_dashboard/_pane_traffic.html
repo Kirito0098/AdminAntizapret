@@ -50,21 +50,21 @@
                     <div class="section-actions">
                         <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
                             class="cleanup-form-inline"
-                            onsubmit="return confirm('Очистить накопленную статистику только WireGuard/AmneziaWG и начать сбор с нуля для WG/AWG?');">
+                            data-confirm-submit="Очистить накопленную статистику только WireGuard/AmneziaWG и начать сбор с нуля для WG/AWG?">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                             <input type="hidden" name="protocol_scope" value="wireguard" />
                             <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить WG/AWG</button>
                         </form>
                         <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
                             class="cleanup-form-inline"
-                            onsubmit="return confirm('Очистить накопленную статистику только OpenVPN и начать сбор с нуля для OpenVPN?');">
+                            data-confirm-submit="Очистить накопленную статистику только OpenVPN и начать сбор с нуля для OpenVPN?">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                             <input type="hidden" name="protocol_scope" value="openvpn" />
                             <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить OpenVPN</button>
                         </form>
                         <form method="post" action="{{ url_for('logs_reset_persisted_traffic') }}"
                             class="cleanup-form-inline"
-                            onsubmit="return confirm('Очистить всю накопленную статистику трафика и начать сбор с нуля?');">
+                            data-confirm-submit="Очистить всю накопленную статистику трафика и начать сбор с нуля?">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                             <input type="hidden" name="protocol_scope" value="all" />
                             <button type="submit" class="cleanup-btn cleanup-btn-danger">Очистить всё и начать с
@@ -202,7 +202,7 @@
                                 {% if current_user and current_user.is_admin() %}
                                 <td>
                                     <form method="post" action="{{ url_for('logs_delete_deleted_client_traffic') }}"
-                                        onsubmit="return confirm('Удалить всю статистику для клиента {{ client.common_name }}?');">
+                                        data-confirm-submit="Удалить всю статистику для клиента {{ client.common_name }}?">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                                         <input type="hidden" name="client_name" value="{{ client.common_name }}" />
                                         <button type="submit" class="cleanup-btn cleanup-btn-danger">Удалить
