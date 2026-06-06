@@ -8,29 +8,39 @@
 {% block content %}
 <div class="tg-mini-shell" id="tgMiniApp"
     data-is-admin="{% if current_user and current_user.is_admin() %}1{% else %}0{% endif %}">
-    <header class="tg-mini-header">
-        <div class="tg-mini-headline">
-            <p class="tg-mini-kicker">AdminAntizapret</p>
-            <div class="tg-mini-brand">Панель в Telegram</div>
+    <header class="tg-mini-header" id="tgMiniHeader">
+        <div class="tg-mini-header-row">
+            <div class="tg-mini-headline">
+                <p class="tg-mini-kicker">AdminAntizapret</p>
+                <div class="tg-mini-brand">Панель в Telegram</div>
+            </div>
+            <button type="button" class="tg-mini-header-toggle" id="tgMiniHeaderToggle"
+                aria-expanded="false" aria-controls="tgMiniHeaderDetails">
+                <span class="tg-mini-header-toggle-label">Подробнее</span>
+                <span class="tg-mini-header-toggle-icon" aria-hidden="true"></span>
+            </button>
         </div>
-        <p class="tg-mini-subtitle">Те же цвета и стиль, что и в веб-панели: клиенты, дашборд и настройки.</p>
-        <div class="tg-mini-header-chips" role="list" aria-label="Разделы mini app">
-            <span class="tg-mini-header-chip" role="listitem">Клиенты</span>
-            <span class="tg-mini-header-chip" role="listitem">Дашборд</span>
-            <span class="tg-mini-header-chip" role="listitem">Настройки</span>
-        </div>
-        <div class="tg-mini-identity" aria-live="polite">
-            <span class="tg-mini-identity-item">Панель: <strong>{{ panel_username or '-' }}</strong></span>
-            {% if telegram_mini_tg_username %}
-            <span class="tg-mini-identity-item">Telegram: <strong>@{{ telegram_mini_tg_username }}</strong></span>
-            {% endif %}
-            {% if telegram_mini_tg_display_name %}
-            <span class="tg-mini-identity-item">Имя: <strong>{{ telegram_mini_tg_display_name }}</strong></span>
-            {% endif %}
-            <span class="tg-mini-identity-item">TG ID: <strong>{{ telegram_mini_id or '-' }}</strong></span>
+        <div class="tg-mini-header-details" id="tgMiniHeaderDetails" hidden>
+            <p class="tg-mini-subtitle">Клиенты, дашборд и настройки — в стиле веб-панели.</p>
+            <div class="tg-mini-header-chips" role="list" aria-label="Разделы mini app">
+                <span class="tg-mini-header-chip" role="listitem">Клиенты</span>
+                <span class="tg-mini-header-chip" role="listitem">Дашборд</span>
+                <span class="tg-mini-header-chip" role="listitem">Настройки</span>
+            </div>
+            <div class="tg-mini-identity" aria-live="polite">
+                <span class="tg-mini-identity-item">Панель: <strong>{{ panel_username or '-' }}</strong></span>
+                {% if telegram_mini_tg_username %}
+                <span class="tg-mini-identity-item">Telegram: <strong>@{{ telegram_mini_tg_username }}</strong></span>
+                {% endif %}
+                {% if telegram_mini_tg_display_name %}
+                <span class="tg-mini-identity-item">Имя: <strong>{{ telegram_mini_tg_display_name }}</strong></span>
+                {% endif %}
+                <span class="tg-mini-identity-item">TG ID: <strong>{{ telegram_mini_id or '-' }}</strong></span>
+            </div>
         </div>
     </header>
 
+    <div class="tg-mini-tabs-sticky" id="tgMiniTabsSticky">
     <nav class="tg-mini-tabs" role="tablist" aria-label="Mini app tabs">
         <button class="tg-mini-tab is-active" data-pane="main" type="button">Главная</button>
         {% if current_user and current_user.is_admin() %}
@@ -38,6 +48,7 @@
         <button class="tg-mini-tab" data-pane="settings" type="button">Настройки</button>
         {% endif %}
     </nav>
+    </div>
 
     <section class="tg-mini-pane is-active" data-pane="main">
         <div class="tg-mini-status" id="tgMiniMainStatus">Загрузка данных главной страницы...</div>
@@ -45,6 +56,11 @@
         <article class="tg-mini-panel">
             <h3>Клиенты и конфиги</h3>
             <div class="tg-mini-main-toolbar">
+                <div class="tg-mini-main-control-group tg-mini-main-control-search">
+                    <div class="tg-mini-main-label">Поиск</div>
+                    <input id="tgMiniMainSearch" type="search" inputmode="search" autocomplete="off"
+                        placeholder="Поиск клиента по имени" />
+                </div>
                 <div class="tg-mini-main-control-group">
                     <div class="tg-mini-main-label">Протокол</div>
                     <div class="tg-mini-range tg-mini-main-protocol-range" role="tablist" aria-label="Protocol switch">
@@ -56,27 +72,32 @@
                             data-main-protocol="wireguard">WireGuard</button>
                     </div>
                 </div>
-                <div class="tg-mini-main-control-group">
-                    <div class="tg-mini-main-label">Поиск</div>
-                    <input id="tgMiniMainSearch" type="text" placeholder="Поиск клиента по имени" />
-                </div>
                 {% if current_user and current_user.is_admin() %}
-                <div class="tg-mini-main-control-group">
-                    <div class="tg-mini-main-label">Сортировка по статусу</div>
-                    <div class="tg-mini-range tg-mini-main-status-range" role="tablist" aria-label="Config status sort">
-                        <button type="button" class="tg-mini-range-btn is-active"
-                            data-main-status-filter="all">Все</button>
-                        <button type="button" class="tg-mini-range-btn"
-                            data-main-status-filter="enabled">Включенные</button>
-                        <button type="button" class="tg-mini-range-btn"
-                            data-main-status-filter="disabled">Выключенные</button>
-                    </div>
-                </div>
-                <div class="tg-mini-main-control-group">
-                    <div class="tg-mini-main-label">Telegram бот</div>
-                    <div class="tg-mini-bot-indicator is-idle" id="tgMiniBotDeliveryIndicator" aria-live="polite">
-                        <span class="tg-mini-bot-indicator-dot" aria-hidden="true"></span>
-                        <span class="tg-mini-bot-indicator-text" id="tgMiniBotDeliveryText">Статус не проверен</span>
+                <div class="tg-mini-toolbar-filters" id="tgMiniToolbarFilters">
+                    <button type="button" class="tg-mini-toolbar-filters-toggle" id="tgMiniToolbarFiltersToggle"
+                        aria-expanded="false" aria-controls="tgMiniToolbarFiltersBody">
+                        <span>Фильтры и бот</span>
+                        <span class="tg-mini-toolbar-filters-icon" aria-hidden="true"></span>
+                    </button>
+                    <div class="tg-mini-toolbar-filters-body" id="tgMiniToolbarFiltersBody" hidden>
+                        <div class="tg-mini-main-control-group">
+                            <div class="tg-mini-main-label">Сортировка по статусу</div>
+                            <div class="tg-mini-range tg-mini-main-status-range" role="tablist" aria-label="Config status sort">
+                                <button type="button" class="tg-mini-range-btn is-active"
+                                    data-main-status-filter="all">Все</button>
+                                <button type="button" class="tg-mini-range-btn"
+                                    data-main-status-filter="enabled">Включенные</button>
+                                <button type="button" class="tg-mini-range-btn"
+                                    data-main-status-filter="disabled">Выключенные</button>
+                            </div>
+                        </div>
+                        <div class="tg-mini-main-control-group">
+                            <div class="tg-mini-main-label">Telegram бот</div>
+                            <div class="tg-mini-bot-indicator is-idle" id="tgMiniBotDeliveryIndicator" aria-live="polite">
+                                <span class="tg-mini-bot-indicator-dot" aria-hidden="true"></span>
+                                <span class="tg-mini-bot-indicator-text" id="tgMiniBotDeliveryText">Статус не проверен</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 {% endif %}

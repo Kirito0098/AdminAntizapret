@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Telegram Mini App
+
+- **Mobile UX/UI**: улучшена мобильная вёрстка mini app — sticky tab bar, safe-area insets для Telegram WebView, collapsible шапка и фильтры, компактные карточки клиентов с «Ещё действия», bottom-sheet модалки, touch targets ≥44px, empty/loading states (`app.html`, `base.html`, `tg_mini_app.css`, `tg_mini_app.js`).
+- **OpenVPN — управление доступом**: на вкладке «Главная» для клиентов OpenVPN добавлены действия как в веб-панели — временная и бессрочная блокировка, снятие блокировки, установка/снятие лимита трафика (с выбором периода 1/7/30 дней) и продление сертификата; используются существующие API `/api/openvpn/client-block` и `POST /` (`tg_mini_app.js`, `tg_mini_app.css`).
+- **WG/AWG — управление доступом**: те же действия для WireGuard и AmneziaWG — блокировка, снятие блокировки, лимит трафика и продление срока (`extend`); API `/api/wg/client-access`, бейджи blocked/лимит/срок в карточках (`tg_mini_app.js`).
+
 ## [1.8.2] – 06.06.2026
 
 ### Модули и фоновые задачи
