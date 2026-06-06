@@ -151,7 +151,7 @@ class IndexPageContextTests(unittest.TestCase):
         }
         cert_expiry = {
             "active-user": {"days_left": 90, "expires_at": "2026-12-01 00:00:00"},
-            "warn-user": {"days_left": 15, "expires_at": "2026-06-01 00:00:00"},
+            "warn-user": {"days_left": 15, "expires_at": "2026-06-21 00:00:00"},
             "one-day-user": {"days_left": 0, "expires_at": future_expires_at},
             "dead-user": {"days_left": -1, "expires_at": "2025-01-01 00:00:00"},
         }

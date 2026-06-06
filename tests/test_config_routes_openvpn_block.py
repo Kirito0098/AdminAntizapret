@@ -33,6 +33,14 @@ class ConfigRoutesOpenVpnBlockTests(unittest.TestCase):
             self.calls.append(("unblock", client_name, actor_username))
             return SimpleNamespace(block_until=None)
 
+        def ovpn_set_traffic_limit(client_name, limit_bytes, actor_username=None):
+            self.calls.append(("set_traffic_limit", client_name, limit_bytes, actor_username))
+            return SimpleNamespace()
+
+        def ovpn_clear_traffic_limit(client_name, actor_username=None):
+            self.calls.append(("clear_traffic_limit", client_name, actor_username))
+            return SimpleNamespace()
+
         register_config_routes(
             self.app,
             auth_manager=FakeAuthManager(),
@@ -48,6 +56,9 @@ class ConfigRoutesOpenVpnBlockTests(unittest.TestCase):
             openvpn_set_temp_block_days=ovpn_temp,
             openvpn_set_permanent_block=ovpn_perm,
             openvpn_clear_block=ovpn_unblock,
+            openvpn_set_traffic_limit_bytes=ovpn_set_traffic_limit,
+            openvpn_clear_traffic_limit=ovpn_clear_traffic_limit,
+            human_bytes=lambda value: f"{value} B",
             openvpn_reconcile_client_policy=lambda _name: {
                 "state": {
                     "is_blocked": True,
