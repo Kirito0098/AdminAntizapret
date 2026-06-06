@@ -2341,7 +2341,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (applyData.queued && applyData.task_id) {
       statusElement.textContent = "Применение запущено в фоне...";
-      const task = await pollBackgroundTask(applyData.task_id, { timeoutMs: 900000 });
+      statusElement.className = "notification notification-info notification-inline-progress";
+      const pollFn = window.pollBackgroundTaskWithProgress || pollBackgroundTask;
+      const task = await pollFn(applyData.task_id, {
+        timeoutMs: 900000,
+        title: "Применение настроек AntiZapret…",
+      });
       statusElement.textContent = task.message || "Изменения успешно применены.";
       statusElement.className = "notification notification-success";
       return true;

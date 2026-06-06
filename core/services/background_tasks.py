@@ -44,6 +44,8 @@ class BackgroundTaskService:
             "message": task.message,
             "output": task.output,
             "error": task.error,
+            "progress_percent": getattr(task, "progress_percent", 0) or 0,
+            "progress_stage": getattr(task, "progress_stage", None),
             "created_at": task.created_at.isoformat() if task.created_at else None,
             "started_at": task.started_at.isoformat() if task.started_at else None,
             "finished_at": task.finished_at.isoformat() if task.finished_at else None,
@@ -66,6 +68,8 @@ class BackgroundTaskService:
             status="running",
             started_at=datetime.now(timezone.utc),
             message="Задача выполняется",
+            progress_percent=5,
+            progress_stage="Запуск…",
         )
 
         try:
@@ -78,6 +82,8 @@ class BackgroundTaskService:
                 message=(result.get("message") or "Задача выполнена")[:255],
                 output=self.trim_background_task_text(result.get("output", "")),
                 error=None,
+                progress_percent=100,
+                progress_stage="Готово",
             )
         except Exception as e:
             self.app.logger.exception("Ошибка фоновой задачи %s: %s", task_id, e)
@@ -96,6 +102,8 @@ class BackgroundTaskService:
                 finished_at=datetime.now(timezone.utc),
                 message="Задача завершилась с ошибкой",
                 error=self.trim_background_task_text(str(e)),
+                progress_percent=100,
+                progress_stage="Ошибка",
             )
 
     def enqueue_background_task(

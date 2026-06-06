@@ -438,7 +438,11 @@ editForms.forEach(form => {
 
             if (data.queued && data.task_id) {
                 window.showNotification(data.message || 'Изменения сохранены. Применение запущено в фоне.', 'success');
-                const task = await pollBackgroundTask(data.task_id);
+                const pollFn = window.pollBackgroundTaskWithProgress || pollBackgroundTask;
+                const task = await pollFn(data.task_id, {
+                    title: 'Применение изменений файла…',
+                    timeoutMs: 900000,
+                });
                 window.showNotification(task.message || 'Изменения успешно применены', 'success');
             } else {
                 window.showNotification(data.message || 'Изменения сохранены', data.success ? 'success' : 'error');
@@ -503,7 +507,11 @@ runDoAllBtn?.addEventListener('click', async () => {
 
         if (data.queued && data.task_id) {
             window.showNotification(data.message || 'Обновление списка запущено в фоне', 'success');
-            const task = await pollBackgroundTask(data.task_id);
+            const pollFn = window.pollBackgroundTaskWithProgress || pollBackgroundTask;
+            const task = await pollFn(data.task_id, {
+                title: 'Обновление списка AntiZapret (doall)…',
+                timeoutMs: 900000,
+            });
             window.showNotification(task.message || 'Список успешно обновлён', 'success');
         } else {
             window.showNotification(data.message || 'Список успешно обновлён', data.success ? 'success' : 'error');

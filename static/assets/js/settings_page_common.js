@@ -117,6 +117,110 @@ window.getCsrfToken = () =>
   document.querySelector('meta[name="csrf-token"]')?.content ||
   "";
 
+const taskProgressUiState = {
+  host: null,
+  simulatedTimerId: null,
+  simulatedPercent: 4,
+};
+
+function ensureTaskProgressHost() {
+  if (taskProgressUiState.host) {
+    return taskProgressUiState.host;
+  }
+
+  const host = document.createElement("div");
+  host.id = "global-task-progress";
+  host.className = "global-task-progress";
+  host.hidden = true;
+  host.innerHTML = `
+    <div class="upd-progress-block" role="status" aria-live="polite">
+      <div class="upd-progress-block__title" id="global-task-progress-title"></div>
+      <div class="upd-progress-block__track" id="global-task-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="upd-progress-block__fill" id="global-task-progress-fill"></div>
+      </div>
+      <div class="upd-progress-block__foot">
+        <span class="upd-progress-block__spinner" aria-hidden="true"></span>
+        <span id="global-task-progress-label">Выполняется…</span>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(host);
+  taskProgressUiState.host = host;
+  return host;
+}
+
+function stopSimulatedTaskProgress() {
+  if (!taskProgressUiState.simulatedTimerId) return;
+  window.clearInterval(taskProgressUiState.simulatedTimerId);
+  taskProgressUiState.simulatedTimerId = null;
+}
+
+function renderTaskProgress({ title, percent, stage }) {
+  const host = ensureTaskProgressHost();
+  const titleEl = host.querySelector("#global-task-progress-title");
+  const fillEl = host.querySelector("#global-task-progress-fill");
+  const labelEl = host.querySelector("#global-task-progress-label");
+  const trackEl = host.querySelector("#global-task-progress-track");
+
+  if (titleEl && title) {
+    titleEl.textContent = title;
+  }
+
+  const safePercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  if (fillEl) {
+    fillEl.style.width = `${safePercent}%`;
+  }
+  if (trackEl) {
+    trackEl.setAttribute("aria-valuenow", String(safePercent));
+    trackEl.setAttribute("aria-valuetext", `${safePercent}%`);
+  }
+  if (labelEl && stage) {
+    labelEl.textContent = stage;
+  }
+}
+
+function showTaskProgress(title) {
+  const host = ensureTaskProgressHost();
+  host.hidden = false;
+  taskProgressUiState.simulatedPercent = 4;
+  renderTaskProgress({
+    title: title || "Выполняется операция…",
+    percent: taskProgressUiState.simulatedPercent,
+    stage: "Подготовка…",
+  });
+}
+
+function updateTaskProgress({ percent, stage } = {}) {
+  if (Number.isFinite(Number(percent))) {
+    taskProgressUiState.simulatedPercent = Math.max(
+      taskProgressUiState.simulatedPercent,
+      Number(percent)
+    );
+  }
+  renderTaskProgress({
+    percent: taskProgressUiState.simulatedPercent,
+    stage: stage || "Выполняется…",
+  });
+}
+
+function hideTaskProgress() {
+  stopSimulatedTaskProgress();
+  if (taskProgressUiState.host) {
+    taskProgressUiState.host.hidden = true;
+  }
+}
+
+function startSimulatedTaskProgress() {
+  stopSimulatedTaskProgress();
+  taskProgressUiState.simulatedTimerId = window.setInterval(() => {
+    taskProgressUiState.simulatedPercent = Math.min(
+      92,
+      taskProgressUiState.simulatedPercent + Math.floor(Math.random() * 3) + 1
+    );
+    updateTaskProgress({ percent: taskProgressUiState.simulatedPercent });
+  }, 1200);
+}
+
 async function pollBackgroundTask(taskId, options = {}) {
   const intervalMs = options.intervalMs || 3000;
   const timeoutMs = options.timeoutMs || 600000;
@@ -153,6 +257,9 @@ async function pollBackgroundTask(taskId, options = {}) {
 
     consecutiveErrors = 0;
     const task = await response.json();
+    if (typeof options.onProgress === "function") {
+      options.onProgress(task);
+    }
     if (task.status === "completed") {
       return task;
     }
@@ -166,7 +273,45 @@ async function pollBackgroundTask(taskId, options = {}) {
   throw new Error("Превышено время ожидания фоновой задачи");
 }
 
+async function pollBackgroundTaskWithProgress(taskId, options = {}) {
+  const title = options.title || "Выполняется операция…";
+  const useSimulated = options.simulated !== false;
+  showTaskProgress(title);
+  if (useSimulated) {
+    startSimulatedTaskProgress();
+  }
+
+  try {
+    return await pollBackgroundTask(taskId, {
+      intervalMs: options.intervalMs || 1500,
+      timeoutMs: options.timeoutMs,
+      maxConsecutiveErrors: options.maxConsecutiveErrors,
+      onProgress: (task) => {
+        const pct = Number(task.progress_percent);
+        const hasRealProgress = Number.isFinite(pct) && pct > 0;
+        if (hasRealProgress) {
+          stopSimulatedTaskProgress();
+        }
+        updateTaskProgress({
+          percent: hasRealProgress ? pct : undefined,
+          stage: task.progress_stage || task.message || title,
+        });
+        if (typeof options.onProgress === "function") {
+          options.onProgress(task);
+        }
+      },
+    });
+  } finally {
+    stopSimulatedTaskProgress();
+    updateTaskProgress({ percent: 100, stage: "Готово" });
+    window.setTimeout(hideTaskProgress, 700);
+  }
+}
+
 window.pollBackgroundTask = pollBackgroundTask;
+window.pollBackgroundTaskWithProgress = pollBackgroundTaskWithProgress;
+window.showTaskProgress = showTaskProgress;
+window.hideTaskProgress = hideTaskProgress;
 
 function initContentTabs() {
   const navLinks = document.querySelectorAll(".nav-sublink[data-settings-tab]");
