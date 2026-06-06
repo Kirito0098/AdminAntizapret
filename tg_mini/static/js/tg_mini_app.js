@@ -34,14 +34,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const botDeliveryIndicatorEl = document.getElementById("tgMiniBotDeliveryIndicator");
     const botDeliveryTextEl = document.getElementById("tgMiniBotDeliveryText");
 
-    function setThemeClass(_scheme) {
-        /* Внешний вид совпадает с веб-панелью (theme.css); не переключаем палитру по Telegram. */
-    }
-
-    function applyTelegramThemeParams(_themeParams) {
-        /* Не подменяем CSS-переменные панели цветами Telegram — дизайн как на сайте. */
-    }
-
     function applySystemThemeFallback() {
         /* Браузер без Telegram WebApp: остаёмся на стилях панели из base.html. */
     }

@@ -1,0 +1,10 @@
+{
+  "name": "adminantizapret-js-lint",
+  "private": true,
+  "scripts": {
+    "lint:js": "cd ../.. && eslint --config tools/js/.eslintrc.json static/ tg_mini/ ip_blocked/"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1"
+  }
+}

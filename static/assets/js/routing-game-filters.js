@@ -177,13 +177,6 @@
 
   const normalizeProviderName = (value) => String(value || "").trim();
 
-  const inferProviderFromSubtitle = (subtitle) => {
-    const raw = String(subtitle || "").trim();
-    if (!raw) return "Unknown";
-    const parts = raw.split("—");
-    return normalizeProviderName(parts[0] || raw) || "Unknown";
-  };
-
   const formatGamesSubtitle = (item) => {
     const gameTitles = Array.isArray(item?.game_titles) ? item.game_titles.filter(Boolean) : [];
     const gameCount = Number(item?.game_count || gameTitles.length || 0);
@@ -480,10 +473,6 @@
     state.modeByGameKey[normalizedKey] = nextMode;
   };
 
-  const setModeForKeys = (keys, mode) => {
-    (Array.isArray(keys) ? keys : []).forEach((key) => setMode(key, mode));
-  };
-
   const setSelectedKeys = (keys) => {
     const next = new Set(
       (Array.isArray(keys) ? keys : [])
@@ -632,7 +621,6 @@
       preview.selected_provider_count || preview.selected_game_count || preview.selected_count || 0
     );
     const domainCount = Number(preview.domain_count || 0);
-    const cidrCount = Number(preview.cidr_count || 0);
     const unresolvedCount = Number(preview.unresolved_domain_count || 0);
     const warningMessage = String(preview.warning || preview.message || "").trim();
     const overlapSummary = preview?.overlap_summary || {};

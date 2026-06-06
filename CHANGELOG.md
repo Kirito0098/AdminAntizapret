@@ -4,15 +4,67 @@
 
 ## [1.9.0] – 06.06.2026
 
+Релиз ветки **Testing** относительно `main` (1.8.1): модули и лимиты трафика, UI карточек, Telegram Mini App, аудит JS↔Python, оптимизация runtime CLI ([PR #38](https://github.com/Kirito0098/AdminAntizapret/pull/38)).
+
+### Модули и фоновые задачи
+
+- **Настройки → «Модули и задачи»**: новая вкладка с двумя группами — **«Фоновые задачи»** (синхронизация трафика, WG/AWG, мониторинг CPU/RAM, учёт сессий, очистка runtime-бэкапов) и **«Разделы приложения»** (полное отключение модулей панели). Значения в `.env` (`FEATURE_*_ENABLED`, `TRAFFIC_SYNC_ENABLED` и др.), cron обновляется при сохранении; по умолчанию всё включено (`feature_toggles.py`, `feature_guards.py`, `post_handlers/feature_toggles.py`, `feature_disabled.html`, `.env.example`).
+- **Полное отключение разделов**: при выключении модуля скрываются пункты меню и вкладки настроек, блокируются маршруты/API (страница «модуль отключён» или JSON 403), POST-обработчики настроек и кнопки скачивания/QR на главной; для отключённых протоколов на главной не выполняется reconcile (`base.html`, `settings.html`, post-handlers, `page_context.py`, `route_wiring.py`).
+- **Разделы приложения — расширение**: 8 новых переключателей — пользователи и доступ, безопасность, логи действий, обновления системы, тесты и диагностика, скачивание и QR, порт/HTTPS/Nginx, обслуживание (ночной рестарт и перезапуск службы; бэкапы — отдельный модуль). `api_cidr_task_status` доступен при включённой маршрутизации или тестах.
+- **UI «Модули и задачи»**: KPI (всего / включено / выключено), две группы с цветовым акцентом, карточки модулей в адаптивной сетке с иконками, бейджами типа, ключом `.env`, статус-индикатором, блоком «При отключении» (усиленное предупреждение для синхронизации трафика), сегментированным переключателем «Включён / Выключен», callout в шапке и live-обновлением карточки при выборе (`_tab_feature_toggles.html`, `settings_maintenance.css`, `settings-page-extra.js`).
+- **Оценки нагрузки**: на карточках модулей блок «Нагрузка при включении» с бейджем уровня (минимальная / низкая / средняя / высокая) и описанием экономии ресурсов при отключении; под KPI — примечание, что оценки приблизительные.
+
+### Ограничения трафика клиентов
+
+- **Блокировка по объёму трафика** для OpenVPN и WG/AWG: лимит в БД (`traffic_limit_bytes` в `wg_access_policy` / `openvpn_access_policy`), учёт потреблённого трафика из `user_traffic_stat_protocol`, автоматическая блокировка при превышении (`block_reason=traffic_limit`, `block_mode=traffic_limit`; `traffic_limit.py`, `wg_access_policy.py`, `openvpn_access_policy.py`).
+- **Периодические лимиты (1 / 7 / 30 дней)**: поле `traffic_limit_period_days`; потребление по **календарным** периодам (UTC): сутки 00:00–23:59:59, неделя пн–вс, месяц с 1-го по последний день. Блокировка **временная** — при наступлении нового периода reconcile снимает её; для legacy-лимитов без периода — all-time из `user_traffic_stat_protocol`.
+- **API**: `POST /api/wg/client-access` и `POST /api/openvpn/client-block` — `set_traffic_limit` (`limit_value`, `limit_unit`: MB/GB/TB, `limit_period_days`: 1/7/30) и `clear_traffic_limit`; при разблокировке без снятия лимита — `409` с `error_code=traffic_limit_exceeded`.
+- **UI главной**: в модалке лимита — выбор периода; в карточке — лимит, период, использовано и остаток; на графике «Трафик клиента (БД)» — линия накопленного трафика и пунктирная линия лимита.
+- **Автосверка после sync трафика**: после cron `utils/traffic_sync.py` вызывается reconcile лимитов через `utils/traffic_limit_reconcile.py` (`ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP`); в веб-панели — hook `on_after_persist` в `TrafficPersistenceService`.
+- **Telegram-уведомления**: при автоблокировке (`traffic_limit_block`) и авторазблокировке в новом периоде (`traffic_limit_unblock`); событие `traffic_limit` в настройках TG-уведомлений; дедупликация по периоду в памяти процесса (`traffic_limit_notify.py`, `admin_notify.py`).
+
+### UI главной — карточки и модалки клиентов
+
+- **Карточки клиентов**: переработан layout — имя и статус в одной строке, stat-пилюли онлайн/7д/30д из `client_details_payload`, бейдж срока сертификата, блокировка и лимит трафика с mini-bar, цветной акцент статуса, кнопка «Открыть действия и график» внизу; сетка **5 колонок** на широких экранах (≥1500px), независимая высота карточек в ряду (`_macros.html`, `styles_index.css`, `page-core.js`, `page_context.py`).
+- **Компактный layout (v3)**: бейджи статуса и сертификата в одной строке, статистика 2×2 (онлайн с пульсирующей точкой, трафик 7д/30д), «Был» из `last_seen_at`, подписи «Сертификат»/«Срок» по протоколу, компактный алерт блокировки, усиленный hover.
+- **Типографика и переносы**: увеличены шрифты (имя, бейджи, трафик, сертификат, блокировка); дата сертификата и «· N дн.» в одной группе, алерт блокировки в две строки, «Превышен» на отдельной строке, подпись «БЫЛ» единообразно; полное имя с переносом вместо обрезки.
+- **Модалка «Открыть действия и график»**: липкий заголовок со статус-чипами, сводка и трафик в stat-pills, ограничения в отдельной секции, сегментированные кнопки диапазона графика, заметнее линия лимита, спиннер загрузки (`_client_details_modal.html`, `client-details.js`).
+
+### Редактор файлов
+
+- **`deny-ips.txt` в веб-редакторе**: файл добавлен в каталог редактора и группу «Безопасность» (`file_editor.py`, `editor_metadata.py`, `file_groups.py`).
+
+### Установка и обновление
+
+- **script_sh/env_defaults.sh**: общий модуль `ensure_env_defaults` — единый список значений по умолчанию из `.env.example` (пути, сессии, IP, бэкапы, фоновые задачи, `FEATURE_*_ENABLED`, мониторинг, CIDR); существующие ключи не перезаписываются.
+- **install.sh**: bootstrap подключает `env_defaults.sh` вместо дублирования логики.
+- **adminpanel.sh**: при `--install` и `--update` вызывает `ensure_env_defaults` (раньше задавались только `ALLOWED_IPS`, `IP_RESTRICTION_MODE` и `OPENVPN_ROUTE_TOTAL_CIDR_LIMIT`, причём первые два перезаписывались). `SECRET_KEY`, порт и HTTPS по-прежнему задаёт `ssl_setup.sh`.
+
+### Telegram Mini App
+
+- **Mobile UX/UI**: улучшена мобильная вёрстка mini app — sticky tab bar, safe-area insets для Telegram WebView, collapsible шапка и фильтры, компактные карточки клиентов с «Ещё действия», bottom-sheet модалки, touch targets ≥44px, empty/loading states (`app.html`, `base.html`, `tg_mini_app.css`, `tg_mini_app.js`).
+- **OpenVPN — управление доступом**: на вкладке «Главная» для клиентов OpenVPN добавлены действия как в веб-панели — временная и бессрочная блокировка, снятие блокировки, установка/снятие лимита трафика (с выбором периода 1/7/30 дней) и продление сертификата; используются существующие API `/api/openvpn/client-block` и `POST /` (`tg_mini_app.js`, `tg_mini_app.css`).
+- **WG/AWG — управление доступом**: те же действия для WireGuard и AmneziaWG — блокировка, снятие блокировки, лимит трафика и продление срока (`extend`); API `/api/wg/client-access`, бейджи blocked/лимит/срок в карточках (`tg_mini_app.js`).
+
 ### Улучшено
 
-- **Runtime CLI (`traffic_sync`, `wg_awg_runtime_apply`)** — слияние [PR #38](https://github.com/Kirito0098/AdminAntizapret/pull/38): скрипты переписаны без импорта полного `app.py` для сбора/записи трафика и WG/AWG block/unblock. На слабых VPS ускорение заметное: `wg_awg_runtime_apply` unblock ~10 с → ~1.3 с, block ~11 с → ~0.8 с; `traffic_sync` ~15 с → ~0.5 с; RAM ~70 MB → ~16–18 MB. Автор оптимизации: [**@JIEgOKOJI**](https://github.com/JIEgOKOJI). В `Testing` сохранена автосверка лимитов трафика после cron sync через `utils/traffic_limit_reconcile.py` (`ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP`, флаг `--no-reconcile`, env `TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC`).
+- **Качество JavaScript**: ESLint 8 в `tools/js/` (`package.json`, `.eslintrc.json`; правила `no-undef`, `no-unused-vars`, `no-empty`, `no-unreachable`, `no-extra-semi`; globals и `overrides` под архитектуру script-тегов — `index/`, `routing`, `settings`, `logs_dashboard`, `server_monitor`, `tg_mini`, `ip_blocked`). В CI — `node --check` для всех `.js` в `static/`, `tg_mini/`, `ip_blocked/` и прогон ESLint (`npm run lint:js`).
+- **Мёртвый код JS**: удалены неиспользуемые функции и переменные из аудита (`setAllCidrGamesChecked`, `applyCidrGameSearchFilter`, `inferProviderFromSubtitle`, `setModeForKeys`, `buildClientStatPill`, `setThemeClass`, `applyTelegramThemeParams` и др.); исправлена лишняя `;` после `async function saveAntizapretSettings` в `routing.js`.
+- **Пустые `catch`**: в `routing-page-extra.js` (статус антифильтра, удаление/сброс пресетов) — `console.warn` или `showNotification` вместо пустых блоков.
+- **Runtime CLI (`traffic_sync`, `wg_awg_runtime_apply`)** — слияние [PR #38](https://github.com/Kirito0098/AdminAntizapret/pull/38): скрипты переписаны без импорта полного `app.py` для сбора/записи трафика и WG/AWG block/unblock. На слабых VPS ускорение заметное: `wg_awg_runtime_apply` unblock ~10 с → ~1.3 с, block ~11 с → ~0.8 с; `traffic_sync` ~15 с → ~0.5 с; RAM ~70 MB → ~16–18 MB. Автор оптимизации: [**@JIEgOKOJI**](https://github.com/JIEgOKOJI). Сохранена автосверка лимитов трафика после cron sync через `utils/traffic_limit_reconcile.py` (`ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP`, флаг `--no-reconcile`, env `TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC`).
 
 ### Исправлено
 
+- **Страница входа**: при автозаполнении логина/пароля браузером текст читаем на тёмной теме — тёмный фон вместо жёлтой подсветки, светлый текст, подпись поля поднимается вверх (`login_styles.css`, `main.js`).
+- **Настройки (500)**: `tab_state` объявляется до `{% block content %}`, чтобы Jinja видела переменную в `{% block scripts %}` при активации первой доступной вкладки (`settings.html`).
+- **Главная (500)**: исправлена ошибка Jinja `round` на списке в расчёте процента progress-bar при клиентах с лимитом трафика (`_macros.html`).
+- **Карточки клиентов**: блок статистики (онлайн, 7д/30д, «Был») всегда отображается — при отсутствии данных «—» / «нет данных»; сопоставление имён без учёта регистра; у активных клиентов без лимита — строка «Трафик · Лимит не задан».
+- **OpenVPN — авторазблокировка**: `reconcile_all` больше не превращает устаревшие banlist-записи от `traffic_limit` в `is_permanent_blocked`; при `set_traffic_limit` / `clear_traffic_limit` reconcile снимает ошибочную permanent-блокировку, если потребление ниже нового лимита.
+- **Бейдж сертификата**: «Сертификат истёк» не показывается для свежих 1-дневных сертификатов — `days_left=0` при остатке <24 ч считается «истекающим» (`access_remaining.py`).
+
 - **Подробные сообщения progress bar**: фоновые задачи (doall, перезапуск, обновление, бэкапы) и CIDR-операции показывают понятные этапы на русском — «Akamai: загрузка префиксов AS20940 (3 из 15)…», «Резервная копия: архивирование…», «AntiZapret: пересоздание профилей клиентов…»; `BackgroundTaskService` и `pollBackgroundTaskWithProgress` подставляют описание по `task_type`, если backend ещё не прислал детальный `progress_stage`.
 
-- **Глобальный progress bar для фоновых задач**: `pollBackgroundTaskWithProgress` в `settings_page_common.js` — плавающая полоса прогресса на страницах настроек, редактора файлов и маршрутизации; подключено к doall, сохранению файлов, бэкапам и применению AntiZapret; API `/api/tasks` отдаёт `progress_percent` / `progress_stage`.
+- **Глобальный progress bar для фоновых задач**: `pollBackgroundTaskWithProgress` в `settings_page_common.js` — плавающая полоса прогресса (`notifications.css`) на страницах настроек, редактора файлов и маршрутизации; подключено к doall, сохранению файлов, бэкапам и применению AntiZapret; API `/api/tasks` отдаёт `progress_percent` / `progress_stage`.
 - **CIDR DB / прогресс UI**: во время длительной загрузки провайдеров (RIPE, Akamai и др.) прогресс больше не «залипает» на «Подготовка обновления провайдеров» (~3–5%): backend пишет в `BackgroundTask` текущий провайдер, этап (обнаружение ASN, RIPE AS{n}, прямые источники) и долю выполнения; poll в `routing.js` отображает обновлённые `progress_stage` / `progress_percent`.
 - **CIDR DB / RIPE (Akamai AS20940)**: увеличены таймауты и добавлен retry (до 3 попыток) при загрузке источников провайдера; `akamai-ips.txt` — сначала `announced-prefixes`, затем `bgp-state` как fallback, geo MaxMind последним; кэш ответов пишется только после успешного парсинга (пустые/битые ответы RIPE не «залипают» на 15 мин). Переменные: `CIDR_DB_SOURCE_FETCH_TIMEOUT` (по умолчанию 90 с), `CIDR_DB_SOURCE_FETCH_RETRIES` (3).
 
@@ -44,62 +96,19 @@
 - **`app_auto_backup.py`**: ненулевой exit code при ошибке бэкапа.
 - **Cron**: вывод задач планировщика (`traffic_sync`, `wg_policy_sync`, `app_auto_backup`, nightly restart) пишется в `{app_root}/logs/*.log` вместо `/dev/null`.
 
-### Telegram Mini App
-
-- **Mobile UX/UI**: улучшена мобильная вёрстка mini app — sticky tab bar, safe-area insets для Telegram WebView, collapsible шапка и фильтры, компактные карточки клиентов с «Ещё действия», bottom-sheet модалки, touch targets ≥44px, empty/loading states (`app.html`, `base.html`, `tg_mini_app.css`, `tg_mini_app.js`).
-- **OpenVPN — управление доступом**: на вкладке «Главная» для клиентов OpenVPN добавлены действия как в веб-панели — временная и бессрочная блокировка, снятие блокировки, установка/снятие лимита трафика (с выбором периода 1/7/30 дней) и продление сертификата; используются существующие API `/api/openvpn/client-block` и `POST /` (`tg_mini_app.js`, `tg_mini_app.css`).
-- **WG/AWG — управление доступом**: те же действия для WireGuard и AmneziaWG — блокировка, снятие блокировки, лимит трафика и продление срока (`extend`); API `/api/wg/client-access`, бейджи blocked/лимит/срок в карточках (`tg_mini_app.js`).
-
-## [1.8.2] – 06.06.2026
-
-### Модули и фоновые задачи
-
-- **Настройки → «Модули и задачи»**: новая вкладка с двумя группами — **«Фоновые задачи»** (синхронизация трафика, WG/AWG, мониторинг CPU/RAM, учёт сессий, очистка runtime-бэкапов) и **«Разделы приложения»** (полное отключение модулей панели). Значения в `.env` (`FEATURE_*_ENABLED`, `TRAFFIC_SYNC_ENABLED` и др.), cron обновляется при сохранении; по умолчанию всё включено (`feature_toggles.py`, `feature_guards.py`, `post_handlers/feature_toggles.py`, `feature_disabled.html`, `.env.example`).
-- **Полное отключение разделов**: при выключении модуля скрываются пункты меню и вкладки настроек, блокируются маршруты/API (страница «модуль отключён» или JSON 403), POST-обработчики настроек и кнопки скачивания/QR на главной; для отключённых протоколов на главной не выполняется reconcile (`base.html`, `settings.html`, post-handlers, `page_context.py`, `route_wiring.py`).
-- **Разделы приложения — расширение**: 8 новых переключателей — пользователи и доступ, безопасность, логи действий, обновления системы, тесты и диагностика, скачивание и QR, порт/HTTPS/Nginx, обслуживание (ночной рестарт и перезапуск службы; бэкапы — отдельный модуль). `api_cidr_task_status` доступен при включённой маршрутизации или тестах.
-- **UI «Модули и задачи»**: KPI (всего / включено / выключено), две группы с цветовым акцентом, карточки модулей в адаптивной сетке с иконками, бейджами типа, ключом `.env`, статус-индикатором, блоком «При отключении» (усиленное предупреждение для синхронизации трафика), сегментированным переключателем «Включён / Выключен», callout в шапке и live-обновлением карточки при выборе (`_tab_feature_toggles.html`, `settings_maintenance.css`, `settings-page-extra.js`).
-- **Оценки нагрузки**: на карточках модулей блок «Нагрузка при включении» с бейджем уровня (минимальная / низкая / средняя / высокая) и описанием экономии ресурсов при отключении; под KPI — примечание, что оценки приблизительные.
-
-### Ограничения трафика клиентов
-
-- **Блокировка по объёму трафика** для OpenVPN и WG/AWG: лимит в БД (`traffic_limit_bytes` в `wg_access_policy` / `openvpn_access_policy`), учёт потреблённого трафика из `user_traffic_stat_protocol`, автоматическая блокировка при превышении (`block_reason=traffic_limit`, `block_mode=traffic_limit`; `traffic_limit.py`, `wg_access_policy.py`, `openvpn_access_policy.py`).
-- **Периодические лимиты (1 / 7 / 30 дней)**: поле `traffic_limit_period_days`; потребление по **календарным** периодам (UTC): сутки 00:00–23:59:59, неделя пн–вс, месяц с 1-го по последний день. Блокировка **временная** — при наступлении нового периода reconcile снимает её; для legacy-лимитов без периода — all-time из `user_traffic_stat_protocol`.
-- **API**: `POST /api/wg/client-access` и `POST /api/openvpn/client-block` — `set_traffic_limit` (`limit_value`, `limit_unit`: MB/GB/TB, `limit_period_days`: 1/7/30) и `clear_traffic_limit`; при разблокировке без снятия лимита — `409` с `error_code=traffic_limit_exceeded`.
-- **UI главной**: в модалке лимита — выбор периода; в карточке — лимит, период, использовано и остаток; на графике «Трафик клиента (БД)» — линия накопленного трафика и пунктирная линия лимита.
-- **Автосверка после sync трафика**: hook `on_after_persist` в `TrafficPersistenceService` вызывает reconcile для клиентов с активным лимитом (cron `utils/traffic_sync.py`).
-- **Telegram-уведомления**: при автоблокировке (`traffic_limit_block`) и авторазблокировке в новом периоде (`traffic_limit_unblock`); событие `traffic_limit` в настройках TG-уведомлений; дедупликация по периоду в памяти процесса (`traffic_limit_notify.py`, `admin_notify.py`).
-
-### UI главной — карточки и модалки клиентов
-
-- **Карточки клиентов**: переработан layout — имя и статус в одной строке, stat-пилюли онлайн/7д/30д из `client_details_payload`, бейдж срока сертификата, блокировка и лимит трафика с mini-bar, цветной акцент статуса, кнопка «Открыть действия и график» внизу; сетка **5 колонок** на широких экранах (≥1500px), независимая высота карточек в ряду (`_macros.html`, `styles_index.css`, `page-core.js`, `page_context.py`).
-- **Компактный layout (v3)**: бейджи статуса и сертификата в одной строке, статистика 2×2 (онлайн с пульсирующей точкой, трафик 7д/30д), «Был» из `last_seen_at`, подписи «Сертификат»/«Срок» по протоколу, компактный алерт блокировки, усиленный hover.
-- **Типографика и переносы**: увеличены шрифты (имя, бейджи, трафик, сертификат, блокировка); дата сертификата и «· N дн.» в одной группе, алерт блокировки в две строки, «Превышен» на отдельной строке, подпись «БЫЛ» единообразно; полное имя с переносом вместо обрезки.
-- **Модалка «Открыть действия и график»**: липкий заголовок со статус-чипами, сводка и трафик в stat-pills, ограничения в отдельной секции, сегментированные кнопки диапазона графика, заметнее линия лимита, спиннер загрузки (`_client_details_modal.html`, `client-details.js`).
-
-### Редактор файлов
-
-- **`deny-ips.txt` в веб-редакторе**: файл добавлен в каталог редактора и группу «Безопасность» (`file_editor.py`, `editor_metadata.py`, `file_groups.py`).
-
-### Установка и обновление
-
-- **script_sh/env_defaults.sh**: общий модуль `ensure_env_defaults` — единый список значений по умолчанию из `.env.example` (пути, сессии, IP, бэкапы, фоновые задачи, `FEATURE_*_ENABLED`, мониторинг, CIDR); существующие ключи не перезаписываются.
-- **install.sh**: bootstrap подключает `env_defaults.sh` вместо дублирования логики.
-- **adminpanel.sh**: при `--install` и `--update` вызывает `ensure_env_defaults` (раньше задавались только `ALLOWED_IPS`, `IP_RESTRICTION_MODE` и `OPENVPN_ROUTE_TOTAL_CIDR_LIMIT`, причём первые два перезаписывались). `SECRET_KEY`, порт и HTTPS по-прежнему задаёт `ssl_setup.sh`.
-
-### Исправлено
-
-- **Страница входа**: при автозаполнении логина/пароля браузером текст читаем на тёмной теме — тёмный фон вместо жёлтой подсветки, светлый текст, подпись поля поднимается вверх (`login_styles.css`, `main.js`).
-- **Настройки (500)**: `tab_state` объявляется до `{% block content %}`, чтобы Jinja видела переменную в `{% block scripts %}` при активации первой доступной вкладки (`settings.html`).
-- **Главная (500)**: исправлена ошибка Jinja `round` на списке в расчёте процента progress-bar при клиентах с лимитом трафика (`_macros.html`).
-- **Карточки клиентов**: блок статистики (онлайн, 7д/30д, «Был») всегда отображается — при отсутствии данных «—» / «нет данных»; сопоставление имён без учёта регистра; у активных клиентов без лимита — строка «Трафик · Лимит не задан».
-- **OpenVPN — авторазблокировка**: `reconcile_all` больше не превращает устаревшие banlist-записи от `traffic_limit` в `is_permanent_blocked`; при `set_traffic_limit` / `clear_traffic_limit` reconcile снимает ошибочную permanent-блокировку, если потребление ниже нового лимита.
-- **Бейдж сертификата**: «Сертификат истёк» не показывается для свежих 1-дневных сертификатов — `days_left=0` при остатке <24 ч считается «истекающим» (`access_remaining.py`).
-
 ### Тесты
 
 - **`tests/test_feature_toggles.py`**: реестр переключателей, guards, POST-сохранение, cron/scheduler, рендер вкладки, метаданные нагрузки, `tab_state` в `settings.html`.
 - **`tests/test_traffic_limit.py`**, **`tests/test_traffic_limit_notify.py`**: календарные периоды, reconcile, API, TG-уведомления.
-- Обновлены **`tests/test_openvpn_access_policy_service.py`**, **`tests/test_wg_access_policy_service.py`**, **`tests/test_admin_notify.py`**, **`tests/test_index_page_context.py`**, **`tests/test_access_remaining.py`**, **`tests/test_settings_page_context.py`**, **`tests/test_edit_files_page_context.py`**, **`tests/test_catalog_data.py`**.
+- **`tests/test_traffic_sync_cli.py`**: post-sync reconcile, флаги `--no-reconcile` и env `TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC`.
+- **`tests/test_cidr_db_updater_service.py`**: прогресс CIDR DB, RIPE/Akamai, retry и таймауты источников.
+- **`tests/test_safe_browsing_status_cli.py`**, **`tests/test_http_security.py`**, **`tests/test_auth_routes_login.py`**: Safe Browsing CLI, noindex/robots, `get_env_value` в auth.
+- **`tests/test_script_executor.py`**, **`tests/test_app_auto_backup.py`**, **`tests/test_maintenance_scheduler_backup.py`**: shell-выравнивание, cron-логи, exit code бэкапа.
+- Обновлены **`tests/test_openvpn_access_policy_service.py`**, **`tests/test_wg_access_policy_service.py`**, **`tests/test_admin_notify.py`**, **`tests/test_index_page_context.py`**, **`tests/test_access_remaining.py`**, **`tests/test_settings_page_context.py`**, **`tests/test_edit_files_page_context.py`**, **`tests/test_catalog_data.py`**, **`tests/test_config_routes_openvpn_block.py`**, **`tests/test_settings_post_handlers.py`**, **`tests/test_index_routes_wg_access.py`**.
+
+## [1.8.2] – 06.06.2026
+
+> Промежуточная внутренняя веха ветки Testing (не публиковалась в `main` отдельно). Полный состав изменений включён в [1.9.0].
 
 ## [1.8.1] – 03.06.2026
 

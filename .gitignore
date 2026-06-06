@@ -83,6 +83,10 @@ ips/list/*.txt
 .DS_Store
 Thumbs.db
 
+# Node (ESLint, tools/js/)
+tools/js/node_modules/
+tools/js/package-lock.json
+
 # Local tool state
 .qwen/
 .claude/

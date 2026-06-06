@@ -579,7 +579,9 @@
         if (badge) { badge.textContent = labels[st] || st; badge.className = "cidr-db-badge cidr-db-badge--" + st; }
         if (total) total.textContent = d.cidr_count ? `${d.cidr_count.toLocaleString("ru-RU")} заблок. подсетей` : "";
         if (ts && d.last_refreshed_at) ts.textContent = "Обновлено: " + fmtDt(d.last_refreshed_at);
-      } catch { }
+      } catch (e) {
+        console.warn("Не удалось загрузить статус антифильтра:", e);
+      }
     }
 
     document.getElementById("antifilter-refresh-btn")?.addEventListener("click", async () => {
@@ -804,7 +806,6 @@
     const id = document.getElementById("cidr-preset-edit-id").value;
     const name = document.getElementById("cidr-preset-name-input").value.trim();
     const desc = document.getElementById("cidr-preset-desc-input").value.trim();
-    const formMsg = document.getElementById("cidr-preset-form-msg");
     if (!name) {
       window.showNotification?.("Введите название", "error");
       return;
@@ -838,7 +839,9 @@
       const r = await fetch(`/api/cidr-presets/${id}`, { method: "DELETE", headers: { "X-CSRFToken": csrf() } });
       const d = await r.json();
       if (d.success) await loadPresets();
-    } catch (e) { }
+    } catch (e) {
+      window.showNotification?.("Ошибка: " + (e.message || e), "error");
+    }
   }
 
   async function resetPreset(id) {
@@ -847,7 +850,9 @@
       const r = await fetch(`/api/cidr-presets/${id}/reset`, { method: "POST", headers: { "X-CSRFToken": csrf() } });
       const d = await r.json();
       if (d.success) await loadPresets();
-    } catch (e) { }
+    } catch (e) {
+      window.showNotification?.("Ошибка: " + (e.message || e), "error");
+    }
   }
 
   document.getElementById("cidr-preset-create-btn")?.addEventListener("click", () => openPresetForm(null));

@@ -1,3 +1,4 @@
+/* exported getThemeColor, syncClientBlockedBadge, showQRModal, copyTextToClipboard, parseAccessExpiresAt, formatAccessRemaining, syncClientCardStats, syncAllClientCardStats, syncClientAccessMeta, applyWgAccessPayloadToRow, applyWgAccessPayloadToClientRows, applyOpenVpnAccessPayloadToClientRows */
 // ============ INITIALIZATION ============
 document.addEventListener('DOMContentLoaded', function () {
     initializeUI();
@@ -31,13 +32,6 @@ function getThemeColor(token, fallback) {
 
     const rootValue = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
     return rootValue || fallback;
-}
-
-function buildClientStatPill(label, value, extraClass) {
-    const pill = createMetaElement('div', `client-stat-pill${extraClass ? ` ${extraClass}` : ''}`);
-    pill.appendChild(createMetaElement('span', 'client-stat-pill-k', label));
-    pill.appendChild(createMetaElement('strong', 'client-stat-pill-v', value));
-    return pill;
 }
 
 const CLIENT_CARD_STATS_FALLBACK = '—';
@@ -1376,7 +1370,6 @@ function showQRModal(configUrl) {
                 }
 
                 const mode = response.headers.get('X-QR-Mode') || 'config';
-                const messageCode = response.headers.get('X-QR-Message-Code') || '';
                 const oneTimeDownloadUrl = response.headers.get('X-QR-Download-Url') || '';
                 const blob = await response.blob();
 

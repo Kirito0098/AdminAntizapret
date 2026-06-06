@@ -755,21 +755,6 @@ document.addEventListener("DOMContentLoaded", function () {
       .filter(Boolean);
   };
 
-  const setAllCidrGamesChecked = (checked) => {
-    if (window.AntiZapretGameFilters?.setSelectedKeys) {
-      const keys = checked
-        ? Array.from(document.querySelectorAll("#cidr-game-filters .cidr-game-mode-input"))
-          .map((input) => String(input.getAttribute("data-game-key") || "").trim().toLowerCase())
-          .filter(Boolean)
-        : [];
-      window.AntiZapretGameFilters.setSelectedKeys(keys);
-      return;
-    }
-    document.querySelectorAll(".cidr-game-checkbox").forEach((input) => {
-      input.checked = Boolean(checked);
-    });
-  };
-
   const renderCidrMeta = () => {
     const selectedProvidersCount = getSelectedCidrRegions().length;
     const { regionScopes, includeGameKeys, excludeGameKeys } = getCidrRegionSettings();
@@ -1178,45 +1163,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       return;
     }
-  };
-
-  const applyCidrGameSearchFilter = () => {
-    if (window.AntiZapretGameFilters?.applyFilters) {
-      window.AntiZapretGameFilters.applyFilters();
-      return;
-    }
-    const searchInput = document.getElementById("cidr-games-search-input");
-    const onlySelectedInput = document.getElementById("cidr-games-only-selected");
-    const metaElement = document.getElementById("cidr-games-search-meta");
-    const visibleEl = document.getElementById("cidr-games-visible-count");
-    const chips = Array.from(document.querySelectorAll("#cidr-game-filters .cidr-game-chip"));
-    if (!chips.length) {
-      if (metaElement) metaElement.textContent = "Показано: 0/0";
-      if (visibleEl) visibleEl.textContent = "0";
-      return;
-    }
-
-    const query = String(searchInput?.value || "").trim().toLowerCase();
-    const onlySelected = Boolean(onlySelectedInput?.checked);
-    let visibleCount = 0;
-
-    chips.forEach((chip) => {
-      const title = String(chip.querySelector(".cidr-game-chip__title")?.textContent || chip.querySelector("span")?.textContent || "").trim().toLowerCase();
-      const subtitle = String(chip.querySelector(".cidr-game-chip__sub")?.textContent || chip.dataset.subtitle || "").trim().toLowerCase();
-      const value = String(chip.dataset.providerKey || chip.dataset.gameKey || chip.querySelector(".cidr-game-mode-input")?.dataset?.providerKey || chip.querySelector(".cidr-game-mode-input")?.dataset?.gameKey || "").trim().toLowerCase();
-      const mode = String(chip.querySelector(".cidr-game-mode-input")?.value || "none").trim().toLowerCase();
-      const matchesSearch = !query || title.includes(query) || subtitle.includes(query) || value.includes(query);
-      const matchesSelected = !onlySelected || mode === "include" || mode === "exclude";
-      const matches = matchesSearch && matchesSelected;
-      chip.hidden = !matches;
-      chip.classList.toggle("is-filter-hidden", !matches);
-      if (matches) visibleCount += 1;
-    });
-
-    if (metaElement) {
-      metaElement.textContent = `Показано: ${visibleCount}/${chips.length}`;
-    }
-    if (visibleEl) visibleEl.textContent = String(visibleCount);
   };
 
   const fetchCidrRegions = async () => {
@@ -2450,7 +2396,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       updateActionSurface();
     }
-  };
+  }
 
   const cancelAntizapretChanges = async () => {
     await loadAntizapretSettings();

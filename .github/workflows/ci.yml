@@ -45,6 +45,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: tools/js/package.json
+
+      - name: Install Node dependencies (ESLint)
+        working-directory: tools/js
+        run: npm install
+
+      - name: JavaScript syntax check (node --check)
+        run: |
+          find static tg_mini ip_blocked -name '*.js' -print0 \
+            | sort -z \
+            | xargs -0 -r -n1 node --check
+
+      - name: ESLint (JavaScript)
+        working-directory: tools/js
+        run: npm run lint:js
+
       - name: Ruff (lint + import order)
         run: ruff check .
 

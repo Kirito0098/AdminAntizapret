@@ -1,3 +1,4 @@
+/* exported getIndexClientDetailsPayload, initializeClientDetailsModal, initializeIndexTrafficMiniSummary, indexClientDetailsCache, indexClientDetailsFetchPromise */
 let indexClientDetailsCache = null;
 let indexClientDetailsFetchPromise = null;
 
