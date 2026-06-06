@@ -25,6 +25,7 @@ class MaintenanceSchedulerService:
         runtime_backup_cleanup_cron_expr,
         runtime_backup_root,
         runtime_backup_retention_hours,
+        runtime_backup_cleanup_enabled=True,
         is_valid_cron_expression,
         get_nightly_idle_restart_settings,
         get_backup_settings,
@@ -46,6 +47,7 @@ class MaintenanceSchedulerService:
         self.runtime_backup_cleanup_cron_expr = runtime_backup_cleanup_cron_expr
         self.runtime_backup_root = runtime_backup_root
         self.runtime_backup_retention_hours = max(0, int(runtime_backup_retention_hours or 0))
+        self.runtime_backup_cleanup_enabled = bool(runtime_backup_cleanup_enabled)
         self.is_valid_cron_expression = is_valid_cron_expression
         self.get_nightly_idle_restart_settings = get_nightly_idle_restart_settings
         self.get_backup_settings = get_backup_settings
@@ -252,7 +254,7 @@ class MaintenanceSchedulerService:
 
         lines = [line for line in lines if self.runtime_backup_cleanup_marker not in line]
 
-        if self.runtime_backup_retention_hours > 0:
+        if self.runtime_backup_cleanup_enabled and self.runtime_backup_retention_hours > 0:
             if not self.is_valid_cron_expression(self.runtime_backup_cleanup_cron_expr):
                 return False, "Некорректное cron-выражение для очистки runtime_backups."
             command = self.runtime_backup_cleanup_command()
@@ -265,7 +267,7 @@ class MaintenanceSchedulerService:
         except Exception as e:
             return False, f"Ошибка записи cron очистки runtime_backups: {e}"
 
-        if self.runtime_backup_retention_hours > 0:
+        if self.runtime_backup_cleanup_enabled and self.runtime_backup_retention_hours > 0:
             return True, (
                 "Cron очистки runtime_backups включен "
                 f"(хранение: {self.runtime_backup_retention_hours} ч)"

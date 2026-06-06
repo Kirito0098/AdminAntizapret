@@ -248,6 +248,7 @@ def build_client_table_rows(
     wg_policy_status_by_client,
     url_for,
     human_bytes=None,
+    qr_downloads_enabled=True,
 ):
     config = _PROTOCOL_TABLE_CONFIG[protocol]
     is_admin = bool(current_user and current_user.is_admin())
@@ -347,26 +348,34 @@ def build_client_table_rows(
             "delete_option": config["delete_option"],
             "has_vpn": bool(files.get("vpn")),
             "has_antizapret": bool(files.get("antizapret")),
-            "download_vpn_url": _build_file_url(url_for, "download", file_type, files.get("vpn")),
-            "download_az_url": _build_file_url(url_for, "download", file_type, files.get("antizapret")),
+            "download_vpn_url": (
+                _build_file_url(url_for, "download", file_type, files.get("vpn"))
+                if qr_downloads_enabled
+                else None
+            ),
+            "download_az_url": (
+                _build_file_url(url_for, "download", file_type, files.get("antizapret"))
+                if qr_downloads_enabled
+                else None
+            ),
             "qr_vpn_url": (
                 _build_file_url(url_for, "generate_qr", file_type, files.get("vpn"))
-                if config["supports_qr"]
+                if qr_downloads_enabled and config["supports_qr"]
                 else None
             ),
             "qr_az_url": (
                 _build_file_url(url_for, "generate_qr", file_type, files.get("antizapret"))
-                if config["supports_qr"]
+                if qr_downloads_enabled and config["supports_qr"]
                 else None
             ),
             "one_time_vpn_endpoint": (
                 _build_file_url(url_for, "generate_one_time_download", file_type, files.get("vpn"))
-                if is_admin
+                if qr_downloads_enabled and is_admin
                 else None
             ),
             "one_time_az_endpoint": (
                 _build_file_url(url_for, "generate_one_time_download", file_type, files.get("antizapret"))
-                if is_admin
+                if qr_downloads_enabled and is_admin
                 else None
             ),
             **traffic_fields,
@@ -433,6 +442,7 @@ def build_index_get_context(
     wg_build_status_map,
     url_for,
     human_bytes=None,
+    get_env_value=None,
 ):
     (
         group,
@@ -493,6 +503,12 @@ def build_index_get_context(
     amneziawg_grouped = group_config_files_by_client(amneziawg_files)
     wireguard_grouped = group_config_files_by_client(wg_files)
 
+    qr_downloads_enabled = True
+    if callable(get_env_value):
+        from core.services.feature_toggles import is_app_module_enabled
+
+        qr_downloads_enabled = is_app_module_enabled("qr_downloads", get_env_value=get_env_value)
+
     row_kwargs = {
         "current_user": idx_user,
         "cert_expiry": cert_expiry,
@@ -501,6 +517,7 @@ def build_index_get_context(
         "wg_policy_status_by_client": wg_policy_status_by_client,
         "url_for": url_for,
         "human_bytes": human_bytes,
+        "qr_downloads_enabled": qr_downloads_enabled,
     }
 
     return {

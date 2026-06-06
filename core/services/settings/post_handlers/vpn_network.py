@@ -2,10 +2,16 @@ import os
 import platform
 import subprocess
 
+from core.services.feature_toggles import app_module_disabled_message, is_app_module_enabled
+
 
 def handle_vpn_network_port(form, *, flash, get_env_value, set_env_value, log_user_action_event):
     new_port_raw = (form.get("port") or "").strip()
     if not new_port_raw:
+        return None
+
+    if not is_app_module_enabled("vpn_network", get_env_value=get_env_value):
+        flash(app_module_disabled_message("vpn_network"), "error")
         return None
 
     if new_port_raw.isdigit() and 1 <= int(new_port_raw) <= 65535:

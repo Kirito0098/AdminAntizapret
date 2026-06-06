@@ -571,6 +571,13 @@ def _inject_csp_nonce():
     return {"csp_nonce": get_csp_nonce()}
 
 
+@app.context_processor
+def _inject_feature_modules():
+    from core.services.feature_toggles import get_app_module_states
+
+    return {"feature_modules": get_app_module_states(get_env_value=_get_env_value)}
+
+
 @app.after_request
 def _apply_http_security_headers(response):
     apply_security_headers(response, request.path or "")
@@ -620,6 +627,9 @@ APP_BACKUP_SERVICE_NAME = runtime_settings["APP_BACKUP_SERVICE_NAME"]
 RUNTIME_BACKUP_CLEANUP_MARKER = runtime_settings["RUNTIME_BACKUP_CLEANUP_MARKER"]
 RUNTIME_BACKUP_CLEANUP_CRON_EXPR = runtime_settings["RUNTIME_BACKUP_CLEANUP_CRON_EXPR"]
 RUNTIME_BACKUP_RETENTION_HOURS = runtime_settings["RUNTIME_BACKUP_RETENTION_HOURS"]
+RUNTIME_BACKUP_CLEANUP_ENABLED = runtime_settings["RUNTIME_BACKUP_CLEANUP_ENABLED"]
+MONITOR_ENABLED = runtime_settings["MONITOR_ENABLED"]
+ACTIVE_WEB_SESSION_TRACKING_ENABLED = runtime_settings["ACTIVE_WEB_SESSION_TRACKING_ENABLED"]
 RUNTIME_BACKUP_ROOT = os.path.join(APP_ROOT, "ips", "runtime_backups")
 _runtime_set("NIGHTLY_IDLE_RESTART_CRON_EXPR", runtime_settings["NIGHTLY_IDLE_RESTART_CRON_EXPR"])
 _runtime_set("NIGHTLY_IDLE_RESTART_ENABLED", runtime_settings["NIGHTLY_IDLE_RESTART_ENABLED"])
@@ -635,6 +645,17 @@ _runtime_set("ACTIVE_WEB_SESSION_TTL_SECONDS", runtime_settings["ACTIVE_WEB_SESS
 _runtime_set(
     "ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS",
     runtime_settings["ACTIVE_WEB_SESSION_TOUCH_INTERVAL_SECONDS"],
+)
+_runtime_set("TRAFFIC_SYNC_ENABLED", runtime_settings["TRAFFIC_SYNC_ENABLED"])
+_runtime_set("WG_POLICY_SYNC_ENABLED", runtime_settings["WG_POLICY_SYNC_ENABLED"])
+_runtime_set("MONITOR_ENABLED", runtime_settings["MONITOR_ENABLED"])
+_runtime_set(
+    "ACTIVE_WEB_SESSION_TRACKING_ENABLED",
+    runtime_settings["ACTIVE_WEB_SESSION_TRACKING_ENABLED"],
+)
+_runtime_set(
+    "RUNTIME_BACKUP_CLEANUP_ENABLED",
+    runtime_settings["RUNTIME_BACKUP_CLEANUP_ENABLED"],
 )
 
 
@@ -746,6 +767,7 @@ _services = build_services(
     runtime_backup_cleanup_cron_expr=RUNTIME_BACKUP_CLEANUP_CRON_EXPR,
     runtime_backup_root=RUNTIME_BACKUP_ROOT,
     runtime_backup_retention_hours=RUNTIME_BACKUP_RETENTION_HOURS,
+    runtime_backup_cleanup_enabled=RUNTIME_BACKUP_CLEANUP_ENABLED,
     backup_root=APP_BACKUP_ROOT,
     backup_service_name=APP_BACKUP_SERVICE_NAME,
     backup_retention_count=APP_BACKUP_RETENTION_COUNT,
@@ -812,6 +834,8 @@ logs_dashboard_cache_service = _services["logs_dashboard_cache_service"]
 
 
 def _touch_active_web_session(username, force=False):
+    if not bool(_runtime_get("ACTIVE_WEB_SESSION_TRACKING_ENABLED", True)):
+        return
     active_web_session_service.touch_active_web_session(
         username,
         session_obj=session,
@@ -1359,6 +1383,14 @@ def _send_tg_admin_notification(event_type, *, actor_username=None,
 
 
 register_all_routes(app, sock, locals())
-admin_notify_service.start_monitor()
+
+from core.services.feature_guards import register_feature_guards
+
+register_feature_guards(app, get_env_value=_get_env_value)
+
+if bool(_runtime_get("MONITOR_ENABLED", True)):
+    admin_notify_service.start_monitor()
+else:
+    app.logger.info("Мониторинг нагрузки CPU/RAM отключён (MONITOR_ENABLED=false)")
 
 

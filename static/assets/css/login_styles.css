@@ -438,20 +438,56 @@ img {
   justify-content: center;
 }
 
-/* Input focus move up label */
-.login__input:focus + .login__label {
+/* Floating label: raised state (focus, filled, autofill) */
+.login__label--raised,
+.login__input:focus + .login__label,
+.login__input:not(:placeholder-shown) + .login__label,
+.login__input:-webkit-autofill + .login__label,
+.login__input:-moz-autofill + .login__label {
   top: -0.35rem;
   transform: none;
   font-size: 0.72rem;
+}
+
+.login__input:focus + .login__label {
   color: var(--ink-100);
 }
 
-/* Input focus sticky top label */
-.login__input:not(:placeholder-shown).login__input:not(:focus) + .login__label {
-  top: -0.35rem;
-  transform: none;
-  font-size: 0.72rem;
+.login__input:not(:placeholder-shown):not(:focus) + .login__label,
+.login__input:-webkit-autofill + .login__label,
+.login__input:-moz-autofill + .login__label {
   color: var(--ink-70);
+}
+
+/* Browser autofill: keep dark theme instead of yellow highlight */
+@keyframes login-autofill-start {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.login__input:-webkit-autofill,
+.login__input:-webkit-autofill:hover,
+.login__input:-webkit-autofill:focus,
+.login__input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-field-focus) inset !important;
+  box-shadow: 0 0 0 1000px var(--surface-field-focus) inset !important;
+  -webkit-text-fill-color: var(--ink-100) !important;
+  caret-color: var(--ink-100);
+  animation-name: login-autofill-start;
+  animation-duration: 0.001s;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.login__input:-moz-autofill,
+.login__input:-moz-autofill-preview {
+  background-color: var(--surface-field-focus) !important;
+  color: var(--ink-100) !important;
+  box-shadow: 0 0 0 1000px var(--surface-field-focus) inset !important;
 }
 
 /*=============== CAPTCHA ===============*/
@@ -638,15 +674,6 @@ img {
     animation: none !important;
     transition: none !important;
   }
-}
-
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-input:-webkit-autofill:active {
-  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
-  -webkit-text-fill-color: #f8f7f7 !important;
-  transition: background-color 5000s ease-in-out 0s;
 }
 
 @keyframes card-in {

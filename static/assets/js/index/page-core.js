@@ -690,9 +690,11 @@ function initializeUI() {
 
     extractCertExpiryData();
 
-    // Set first tab active
-    document.querySelector('.tab-btn[data-protocol="openvpn"]').classList.add('active');
-    document.querySelector('#openvpn-tab').classList.add('active');
+    // Set first visible protocol tab active
+    const firstTabBtn = document.querySelector('.tab-btn[data-protocol]');
+    if (firstTabBtn) {
+        switchTab(firstTabBtn.getAttribute('data-protocol'));
+    }
 
     // Set "All" filter as active
     const allFilterButton = document.querySelector('[data-filter="all"]');

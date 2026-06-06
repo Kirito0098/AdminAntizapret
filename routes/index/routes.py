@@ -1,9 +1,13 @@
+import os
 import re
 import subprocess
 import threading
 import time
 
 from flask import jsonify, render_template, request, session, url_for
+
+from core.services.feature_guards import check_index_post_option
+from core.services.feature_toggles import is_app_module_enabled
 
 from core.services.index import (
     build_client_details_payload,
@@ -140,21 +144,27 @@ def register_index_routes(
     def index():
         if request.method == "GET":
             idx_user = get_current_user(user_model)
+
             # Тяжёлый reconcile выполняем с TTL-debounce, чтобы частые GET /
             # не создавали лишнюю нагрузку и гонки. Корректность не страдает:
             # мутирующие POST-операции синхронизируют политики напрямую.
             if _should_run_index_reconcile():
-                try:
-                    openvpn_reconcile_all_policies()
-                except Exception as e:
-                    db.session.rollback()
-                    app.logger.warning("Не удалось синхронизировать OpenVPN политики при загрузке index: %s", e)
-                try:
-                    wg_reconcile_all_policies(apply_runtime=False)
-                    trigger_wg_policy_sync_background()
-                except Exception as e:
-                    db.session.rollback()
-                    app.logger.warning("Не удалось синхронизировать WG/AWG политики при загрузке index: %s", e)
+                _env_get = lambda key, default="": os.getenv(key, default)
+                if is_app_module_enabled("openvpn", get_env_value=_env_get):
+                    try:
+                        openvpn_reconcile_all_policies()
+                    except Exception as e:
+                        db.session.rollback()
+                        app.logger.warning("Не удалось синхронизировать OpenVPN политики при загрузке index: %s", e)
+                if is_app_module_enabled("wireguard", get_env_value=_env_get) or is_app_module_enabled(
+                    "amneziawg", get_env_value=_env_get
+                ):
+                    try:
+                        wg_reconcile_all_policies(apply_runtime=False)
+                        trigger_wg_policy_sync_background()
+                    except Exception as e:
+                        db.session.rollback()
+                        app.logger.warning("Не удалось синхронизировать WG/AWG политики при загрузке index: %s", e)
             context = build_index_get_context(
                 session=session,
                 group_folders=group_folders,
@@ -166,6 +176,7 @@ def register_index_routes(
                 wg_build_status_map=wg_build_status_map,
                 url_for=url_for,
                 human_bytes=human_bytes,
+                get_env_value=lambda key, default="": os.getenv(key, default),
             )
             context["service_statuses"] = collect_grouped_service_statuses()
             return render_template("index.html", **context)
@@ -173,6 +184,14 @@ def register_index_routes(
         post_user = get_current_user(user_model)
         if not post_user or post_user.role != "admin":
             return jsonify({"success": False, "message": "Доступ запрещён."}), 403
+
+        blocked = check_index_post_option(
+            request.form.get("option"),
+            get_env_value=lambda key, default="": os.getenv(key, default),
+        )
+        if blocked is not None:
+            return blocked
+
         try:
             option = request.form.get("option")
             client_name = request.form.get("client-name", "").strip()

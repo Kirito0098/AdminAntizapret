@@ -57,6 +57,15 @@ for module in "${modules[@]}"; do
     fi
 done
 
+# Значения по умолчанию для .env (общий модуль с install.sh)
+if [ -f "$INCLUDE_DIR/env_defaults.sh" ]; then
+    # shellcheck disable=SC1090
+    . "$INCLUDE_DIR/env_defaults.sh"
+else
+    printf "  ${RED}✗${NC}  Не найден модуль: env_defaults.sh\n" >&2
+    exit 1
+fi
+
 # ─── Генерация секретного ключа ───────────────────
 generate_secret_key() {
     if command -v openssl >/dev/null 2>&1; then
@@ -388,6 +397,7 @@ auto_update() {
         ui_info "Найдены обновления. Установка..."
         git pull origin main
         check_error "Не удалось выполнить git pull"
+        ensure_env_defaults
         "$VENV_PATH/bin/pip" install -q -r requirements.txt
         check_error "Не удалось обновить Python-зависимости"
         systemctl restart "$SERVICE_NAME"
@@ -548,6 +558,11 @@ install() {
     check_error "Не удалось установить Python-зависимости"
     ui_ok "Python-зависимости установлены"
 
+    # Начальные ключи .env (без перезаписи существующих; SECRET_KEY/порт/HTTPS — ниже)
+    ui_info "Проверка конфигурации .env..."
+    ensure_env_defaults
+    ui_ok "Конфигурация .env актуальна"
+
     # Тип установки
     if ! choose_installation_type; then
         finish_install_logging 1
@@ -699,13 +714,8 @@ EOL
     check_error "Не удалось запустить vnstat"
     ui_ok "vnstat настроен и запущен"
 
-    # Дополнительные настройки .env
-    ui_info "Запись конфигурации .env..."
-    set_env_value "ALLOWED_IPS" ""
-    set_env_value "IP_RESTRICTION_MODE" "strict"
-    grep -q "^OPENVPN_ROUTE_TOTAL_CIDR_LIMIT=" "$INSTALL_DIR/.env" 2>/dev/null || \
-        set_env_value "OPENVPN_ROUTE_TOTAL_CIDR_LIMIT" "1500"
-    ui_ok "Конфигурация записана"
+    # Дозапись новых ключей .env после vnstat (VNSTAT_IFACE уже задан выше)
+    ensure_env_defaults
 
     # Итог установки
     if systemctl is-active --quiet "$SERVICE_NAME"; then

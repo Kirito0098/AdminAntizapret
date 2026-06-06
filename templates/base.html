@@ -41,11 +41,16 @@
         <div class="nav-group">
           <a href="{{ url_for('index') }}" class="nav-link{% if endpoint == 'index' %} is-active{% endif %}">Главная</a>
           {% if current_user and current_user.is_admin() %}
+          {% if feature_modules.get('edit_files', true) %}
           <a href="{{ url_for('edit_files') }}"
             class="nav-link{% if endpoint == 'edit_files' %} is-active{% endif %}">Редактировать файлы</a>
+          {% endif %}
+          {% if feature_modules.get('server_monitor', true) %}
           <a href="{{ url_for('server_monitor') }}"
             class="nav-link{% if endpoint == 'server_monitor' %} is-active{% endif %}">Мониторинг сервера</a>
+          {% endif %}
 
+          {% if feature_modules.get('logs_dashboard', true) %}
           <div class="nav-settings-group{% if endpoint == 'logs_dashboard' %} is-open{% endif %}">
             <a href="{{ url_for('logs_dashboard') }}"
               class="nav-link nav-link-settings{% if endpoint == 'logs_dashboard' %} is-active{% endif %}">
@@ -62,7 +67,9 @@
                 data-logs-tab="traffic">Трафик (БД)</a>
             </div>
           </div>
+          {% endif %}
 
+          {% if feature_modules.get('routing', true) %}
           <div class="nav-settings-group{% if endpoint == 'routing' %} is-open{% endif %}">
             <a href="{{ url_for('routing') }}"
               class="nav-link nav-link-settings{% if endpoint == 'routing' %} is-active{% endif %}">
@@ -79,6 +86,7 @@
                 data-settings-tab="game-filters">Игровые серверы</a>
             </div>
           </div>
+          {% endif %}
 
           <div class="nav-settings-group{% if endpoint == 'settings' %} is-open{% endif %}">
             <a href="{{ url_for('settings') }}"
@@ -88,24 +96,44 @@
             </a>
 
             <div class="nav-settings-submenu" aria-label="Разделы настроек">
+              {% if feature_modules.get('vpn_network', true) %}
               <a href="{{ url_for('settings', _anchor='vpn-network') }}" class="nav-sublink"
                 data-settings-tab="vpn-network">Порт, HTTPS и Nginx</a>
+              {% endif %}
+              {% if feature_modules.get('security', true) %}
               <a href="{{ url_for('settings', _anchor='security') }}" class="nav-sublink"
                 data-settings-tab="security">Безопасность</a>
+              {% endif %}
+              {% if feature_modules.get('telegram', true) %}
               <a href="{{ url_for('settings', _anchor='telegram-auth') }}" class="nav-sublink"
                 data-settings-tab="telegram-auth">Telegram авторизация</a>
+              {% endif %}
+              {% if feature_modules.get('user_management', true) %}
               <a href="{{ url_for('settings', _anchor='user-management') }}" class="nav-sublink"
                 data-settings-tab="user-management">Пользователи и доступ</a>
+              {% endif %}
+              {% if feature_modules.get('qr_downloads', true) %}
               <a href="{{ url_for('settings', _anchor='qr-settings') }}" class="nav-sublink"
                 data-settings-tab="qr-settings">Одноразовые ссылки</a>
+              {% endif %}
+              {% if feature_modules.get('maintenance', true) or feature_modules.get('backups', true) %}
               <a href="{{ url_for('settings', _anchor='maintenance') }}" class="nav-sublink"
                 data-settings-tab="maintenance">Обслуживание</a>
+              {% endif %}
+              <a href="{{ url_for('settings', _anchor='feature-toggles') }}" class="nav-sublink"
+                data-settings-tab="feature-toggles">Модули и задачи</a>
+              {% if feature_modules.get('action_logs', true) %}
               <a href="{{ url_for('settings', _anchor='action-logs') }}" class="nav-sublink"
                 data-settings-tab="action-logs">Логи действий</a>
+              {% endif %}
+              {% if feature_modules.get('system_updates', true) %}
               <a href="{{ url_for('settings', _anchor='system-updates') }}" class="nav-sublink"
                 data-settings-tab="system-updates">Обновления</a>
+              {% endif %}
+              {% if feature_modules.get('diagnostics_tests', true) %}
               <a href="{{ url_for('settings', _anchor='tests') }}" class="nav-sublink"
                 data-settings-tab="tests">Тесты</a>
+              {% endif %}
             </div>
           </div>
           {% endif %}

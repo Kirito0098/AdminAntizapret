@@ -13,9 +13,15 @@
       {% include "partials/index/_protocol_tabs.html" %}
 
       <div class="tab-content">
+        {% if feature_modules.get('openvpn', true) %}
         {% include "partials/index/_tab_openvpn.html" %}
+        {% endif %}
+        {% if feature_modules.get('amneziawg', true) %}
         {% include "partials/index/_tab_amneziawg.html" %}
+        {% endif %}
+        {% if feature_modules.get('wireguard', true) %}
         {% include "partials/index/_tab_wireguard.html" %}
+        {% endif %}
       </div>
     </div>
 

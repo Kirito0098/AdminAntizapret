@@ -53,6 +53,13 @@ class RuntimeSettingsService:
         )
         wg_policy_sync_enabled = self._env_bool("WG_POLICY_SYNC_ENABLED", default=True)
         wg_policy_sync_cron_expr = self._env_str("WG_POLICY_SYNC_CRON", "*/2 * * * *")
+        monitor_enabled = self._env_bool("MONITOR_ENABLED", default=True)
+        active_web_session_tracking_enabled = self._env_bool(
+            "ACTIVE_WEB_SESSION_TRACKING_ENABLED", default=True
+        )
+        runtime_backup_cleanup_enabled = self._env_bool(
+            "RUNTIME_BACKUP_CLEANUP_ENABLED", default=True
+        )
         backup_root = self._env_str("APP_BACKUP_ROOT", "/var/backups/antizapret")
         backup_interval_days = self._env_int("APP_BACKUP_INTERVAL_DAYS", 1, min_value=1)
         if backup_interval_days not in (1, 7, 30):
@@ -110,6 +117,9 @@ class RuntimeSettingsService:
             "WG_POLICY_SYNC_ENABLED": wg_policy_sync_enabled,
             "WG_POLICY_SYNC_CRON_MARKER": "# adminantizapret-wg-policy-sync",
             "WG_POLICY_SYNC_CRON_EXPR": wg_policy_sync_cron_expr,
+            "MONITOR_ENABLED": monitor_enabled,
+            "ACTIVE_WEB_SESSION_TRACKING_ENABLED": active_web_session_tracking_enabled,
+            "RUNTIME_BACKUP_CLEANUP_ENABLED": runtime_backup_cleanup_enabled,
             "APP_BACKUP_CRON_MARKER": "# adminantizapret-app-backup",
             "APP_BACKUP_ENABLED": self._env_bool("APP_BACKUP_ENABLED", default=False),
             "APP_BACKUP_INTERVAL_DAYS": backup_interval_days,

@@ -130,6 +130,8 @@ class SettingsPageContextTests(unittest.TestCase):
         self.assertIn("user_action_day_groups", context)
         self.assertEqual(context["nightly_idle_restart_time"], "04:00")
         self.assertIn("app_backup_list", context)
+        self.assertIn("feature_toggles", context)
+        self.assertIn("feature_toggle_groups", context)
         self.assertFalse(context["telegram_auth_enabled"])
 
 

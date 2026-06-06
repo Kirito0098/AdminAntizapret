@@ -1,7 +1,19 @@
 import os
 
+from core.services.feature_toggles import app_module_disabled_message, is_app_module_enabled
+
 
 def handle_qr_settings(form, *, flash, get_env_value, set_env_value, log_user_action_event):
+    if not is_app_module_enabled("qr_downloads", get_env_value=get_env_value):
+        if (
+            form.get("qr_download_token_ttl_seconds")
+            or form.get("qr_download_token_max_downloads")
+            or form.get("qr_download_pin")
+            or form.get("clear_qr_download_pin") == "on"
+        ):
+            flash(app_module_disabled_message("qr_downloads"), "error")
+        return None
+
     ttl_raw = form.get("qr_download_token_ttl_seconds", "").strip()
     if ttl_raw:
         if ttl_raw.isdigit():

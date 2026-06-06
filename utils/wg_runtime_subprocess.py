@@ -67,6 +67,9 @@ def apply_wg_client_runtime(client_name, *, is_blocked, timeout_seconds=60):
 
 
 def trigger_wg_policy_sync_background():
+    enabled = (os.getenv("WG_POLICY_SYNC_ENABLED", "true") or "true").strip().lower()
+    if enabled not in {"1", "true", "yes", "on"}:
+        return None
     script_path = _policy_sync_script_path()
     if not os.path.isfile(script_path):
         return None

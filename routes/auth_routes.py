@@ -72,6 +72,10 @@ def register_auth_routes(
             return 300
 
     def _is_telegram_auth_enabled() -> bool:
+        from core.services.feature_toggles import is_app_module_enabled
+
+        if not is_app_module_enabled("telegram", get_env_value=lambda key, default="": os.getenv(key, default)):
+            return False
         return bool(_get_telegram_bot_username() and _get_telegram_bot_token())
 
     def _safe_internal_next_url(raw_next_url: str, default_endpoint: str = "tg_mini_app") -> str:

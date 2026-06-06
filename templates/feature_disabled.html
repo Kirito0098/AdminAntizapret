@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Модуль отключён{% endblock %}
+{% block content %}
+<div class="page-unified-wrapper">
+  <div class="page-unified-card" style="max-width: 720px; margin: 2rem auto; padding: 2rem;">
+    <p class="settings-workbench__kicker">Модуль отключён</p>
+    <h1 style="margin-top: 0.5rem;">{{ module_label }}</h1>
+    <p class="maintenance-page-lead">
+      Этот раздел панели отключён администратором и недоступен для просмотра и API-запросов.
+    </p>
+    <p class="help-text">
+      Чтобы снова включить модуль, перейдите в
+      <a href="{{ url_for('settings', _anchor='feature-toggles') }}">Настройки → Модули и задачи</a>.
+    </p>
+    <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <a href="{{ url_for('index') }}" class="button">На главную</a>
+      <a href="{{ url_for('settings', _anchor='feature-toggles') }}" class="button save-button">Модули и задачи</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

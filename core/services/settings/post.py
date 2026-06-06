@@ -1,3 +1,4 @@
+from core.services.settings.post_handlers.feature_toggles import handle_feature_toggles_settings
 from core.services.settings.post_handlers.maintenance import (
     handle_backup_create,
     handle_backup_delete,
@@ -22,6 +23,7 @@ def process_settings_post(form, *, session, flash, redirect_url, **deps):
         user_model=deps["user_model"],
         log_user_action_event=deps["log_user_action_event"],
         redirect_url=redirect_url,
+        get_env_value=deps["get_env_value"],
     )
     if early_redirect:
         return early_redirect
@@ -51,6 +53,7 @@ def process_settings_post(form, *, session, flash, redirect_url, **deps):
         set_active_web_session_settings=deps["set_active_web_session_settings"],
         set_env_value=deps["set_env_value"],
         log_user_action_event=deps["log_user_action_event"],
+        get_env_value=deps["get_env_value"],
     )
     handle_backup_settings(
         form,
@@ -97,6 +100,20 @@ def process_settings_post(form, *, session, flash, redirect_url, **deps):
         flash=flash,
         ip_restriction=deps["ip_restriction"],
         log_user_action_event=deps["log_user_action_event"],
+        get_env_value=deps["get_env_value"],
+    )
+    handle_feature_toggles_settings(
+        form,
+        flash=flash,
+        to_bool=deps["to_bool"],
+        set_env_value=deps["set_env_value"],
+        runtime_set=deps["runtime_set"],
+        maintenance_scheduler_service=deps["maintenance_scheduler_service"],
+        ensure_traffic_sync_cron=deps["ensure_traffic_sync_cron"],
+        ensure_wg_policy_sync_cron=deps["ensure_wg_policy_sync_cron"],
+        ensure_runtime_backup_cleanup_cron=deps["ensure_runtime_backup_cleanup_cron"],
+        ensure_app_backup_cron=deps["ensure_app_backup_cron"],
+        log_user_action_event=deps["log_user_action_event"],
     )
     handle_restart_service(
         form,
@@ -105,6 +122,7 @@ def process_settings_post(form, *, session, flash, redirect_url, **deps):
         enqueue_background_task=deps["enqueue_background_task"],
         task_restart_service=deps["task_restart_service"],
         log_user_action_event=deps["log_user_action_event"],
+        get_env_value=deps["get_env_value"],
     )
 
     return redirect_url

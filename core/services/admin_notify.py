@@ -438,12 +438,19 @@ class AdminNotifyService:
             self.logger.warning("TG admin notify error: %s", exc)
 
     def start_monitor(self):
+        if not self._monitor_enabled():
+            self.logger.info("Resource monitor disabled (MONITOR_ENABLED=false)")
+            return
         t = threading.Thread(
             target=self._monitor_loop,
             daemon=True,
             name="resource-monitor",
         )
         t.start()
+
+    def _monitor_enabled(self):
+        raw = (self.get_env_value("MONITOR_ENABLED", "true") or "true").strip().lower()
+        return raw in {"1", "true", "yes", "on"}
 
     # ── Internal ──────────────────────────────────────────────────────────────
 
@@ -595,6 +602,11 @@ class AdminNotifyService:
         time.sleep(1)
         while True:
             try:
+                if not self._monitor_enabled():
+                    import time as _t
+                    _t.sleep(60)
+                    continue
+
                 cpu_thr = int((self.get_env_value("MONITOR_CPU_THRESHOLD", "90") or "90").strip())
                 ram_thr = int((self.get_env_value("MONITOR_RAM_THRESHOLD", "90") or "90").strip())
                 cooldown_min = int((self.get_env_value("MONITOR_COOLDOWN_MINUTES", "30") or "30").strip())

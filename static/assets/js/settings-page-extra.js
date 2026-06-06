@@ -580,3 +580,29 @@ document.querySelectorAll(".maintenance-recipient-chip__input").forEach((input) 
   input.addEventListener("change", syncChipState);
   syncChipState();
 });
+
+(function initFeatureToggleCards() {
+  const root = document.getElementById("feature-toggles");
+  if (!root) return;
+
+  root.querySelectorAll(".feature-toggle-card").forEach((card) => {
+    const statusText = card.querySelector(".feature-toggle-card__status-text");
+    const radios = card.querySelectorAll('.feature-toggle-segment__option input[type="radio"]');
+
+    const syncCardState = () => {
+      const checked = card.querySelector('.feature-toggle-segment__option input[type="radio"]:checked');
+      const enabled = checked?.value === "true";
+      card.classList.toggle("is-on", enabled);
+      card.classList.toggle("is-off", !enabled);
+      card.querySelectorAll(".feature-toggle-segment__option").forEach((option) => {
+        const input = option.querySelector('input[type="radio"]');
+        option.classList.toggle("is-active", Boolean(input?.checked));
+      });
+      if (statusText) {
+        statusText.textContent = enabled ? "Включён" : "Выключен";
+      }
+    };
+
+    radios.forEach((radio) => radio.addEventListener("change", syncCardState));
+  });
+})();

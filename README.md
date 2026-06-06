@@ -1,6 +1,6 @@
 # AdminAntizapret 🚀
 
-![Version](https://img.shields.io/badge/version-1.8.1-blue)
+![Version](https://img.shields.io/badge/version-1.8.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Stars](https://img.shields.io/github/stars/Kirito0098/AdminAntizapret?style=social)
 ![Forks](https://img.shields.io/github/forks/Kirito0098/AdminAntizapret?style=social)

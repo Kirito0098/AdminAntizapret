@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Настройки{% endblock %}
 
+{% set tab_state = namespace(first='') %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings_page_shared.css') }}" />
 <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/settings_styles.css') }}" />
@@ -10,19 +12,53 @@
 
 {% block content %}
 {% include "partials/settings/_layout_start.html" %}
-{% include "partials/settings/_tab_vpn_network.html" %}
-{% include "partials/settings/_tab_qr_settings.html" %}
-{% include "partials/settings/_tab_maintenance.html" %}
-{% include "partials/settings/_tab_user_management.html" %}
-{% include "partials/settings/_tab_security.html" %}
-{% include "partials/settings/_tab_telegram_auth.html" %}
-{% include "partials/settings/_tab_action_logs.html" %}
+{% if feature_modules.get('vpn_network', true) %}
+  {% if not tab_state.first %}{% set tab_state.first = 'vpn-network' %}{% endif %}
+  {% include "partials/settings/_tab_vpn_network.html" %}
+{% endif %}
+{% if feature_modules.get('qr_downloads', true) %}
+  {% if not tab_state.first %}{% set tab_state.first = 'qr-settings' %}{% endif %}
+  {% include "partials/settings/_tab_qr_settings.html" %}
+{% endif %}
+{% if feature_modules.get('maintenance', true) or feature_modules.get('backups', true) %}
+  {% if not tab_state.first %}{% set tab_state.first = 'maintenance' %}{% endif %}
+  {% include "partials/settings/_tab_maintenance.html" %}
+{% endif %}
+{% if not tab_state.first %}{% set tab_state.first = 'feature-toggles' %}{% endif %}
+{% include "partials/settings/_tab_feature_toggles.html" %}
+{% if feature_modules.get('user_management', true) %}
+  {% if not tab_state.first %}{% set tab_state.first = 'user-management' %}{% endif %}
+  {% include "partials/settings/_tab_user_management.html" %}
+{% endif %}
+{% if feature_modules.get('security', true) %}
+  {% if not tab_state.first %}{% set tab_state.first = 'security' %}{% endif %}
+  {% include "partials/settings/_tab_security.html" %}
+{% endif %}
+{% if feature_modules.get('telegram', true) %}
+  {% if not tab_state.first %}{% set tab_state.first = 'telegram-auth' %}{% endif %}
+  {% include "partials/settings/_tab_telegram_auth.html" %}
+{% endif %}
+{% if feature_modules.get('action_logs', true) %}
+  {% if not tab_state.first %}{% set tab_state.first = 'action-logs' %}{% endif %}
+  {% include "partials/settings/_tab_action_logs.html" %}
+{% endif %}
 {% include "partials/settings/_modal_user_action.html" %}
-{% include "partials/settings/_tab_updates.html" %}
-{% include "partials/settings/_tab_tests.html" %}
+{% if feature_modules.get('system_updates', true) %}
+  {% if not tab_state.first %}{% set tab_state.first = 'system-updates' %}{% endif %}
+  {% include "partials/settings/_tab_updates.html" %}
+{% endif %}
+{% if feature_modules.get('diagnostics_tests', true) %}
+  {% if not tab_state.first %}{% set tab_state.first = 'tests' %}{% endif %}
+  {% include "partials/settings/_tab_tests.html" %}
+{% endif %}
 {% include "partials/settings/_layout_end.html" %}
 {% endblock %}
 
 {% block scripts %}
 {% include "partials/settings/_scripts.html" %}
+<script nonce="{{ csp_nonce }}">
+  document.querySelectorAll(".content-tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.id === {{ tab_state.first | tojson }});
+  });
+</script>
 {% endblock %}

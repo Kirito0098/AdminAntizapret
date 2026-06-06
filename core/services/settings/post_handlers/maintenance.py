@@ -1,6 +1,8 @@
 import os
 import re
 
+from core.services.feature_toggles import app_module_disabled_message, is_app_module_enabled
+
 
 def _form_getlist(form, key):
     getter = getattr(form, "getlist", None)
@@ -26,8 +28,13 @@ def handle_maintenance_settings(
     set_active_web_session_settings,
     set_env_value,
     log_user_action_event,
+    get_env_value=None,
 ):
     if form.get("nightly_settings_action") != "save":
+        return None
+
+    if get_env_value is not None and not is_app_module_enabled("maintenance", get_env_value=get_env_value):
+        flash(app_module_disabled_message("maintenance"), "error")
         return None
 
     nightly_enabled_raw = (form.get("nightly_idle_restart_enabled") or "true").strip().lower()
@@ -383,8 +390,13 @@ def handle_restart_service(
     enqueue_background_task,
     task_restart_service,
     log_user_action_event,
+    get_env_value=None,
 ):
     if form.get("restart_action") != "restart_service":
+        return None
+
+    if get_env_value is not None and not is_app_module_enabled("maintenance", get_env_value=get_env_value):
+        flash(app_module_disabled_message("maintenance"), "error")
         return None
 
     try:
