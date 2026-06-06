@@ -35,15 +35,24 @@ jobs:
       # (via shutil.which / dpkg in the site-diagnostics tests). Installing them
       # keeps the whole pytest suite green on a clean runner without excluding
       # any tests. iptables is preinstalled on ubuntu-latest; ipset is not.
-      - name: Install system dependencies (firewall tooling for tests)
+      - name: Install system dependencies (firewall tooling, shellcheck)
         run: |
           sudo apt-get update
-          sudo apt-get install -y iptables ipset
+          sudo apt-get install -y iptables ipset shellcheck
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+
+      - name: pip check (dependency consistency)
+        run: pip check
+
+      # Advisory: known CVEs in pinned Flask/Pillow/Werkzeug are tracked here
+      # until dependency bumps are reviewed separately.
+      - name: pip-audit (dependency vulnerabilities, advisory)
+        continue-on-error: true
+        run: pip-audit -r requirements.txt
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -67,7 +76,10 @@ jobs:
         run: npm run lint:js
 
       - name: Ruff (lint + import order)
-        run: ruff check .
+        run: ruff check . --config tools/python/ruff.toml
+
+      - name: Shell scripts (syntax + shellcheck)
+        run: bash tests/test_script_sh_all.sh
 
       - name: Pytest (unit tests)
         # Hard gate: a failure here fails the build.

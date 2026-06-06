@@ -38,6 +38,7 @@ AdminAntizapret - веб-панель для [AntiZapret-VPN](https://github.com
 - [Интерфейс и роли доступа](#интерфейс-и-роли-доступа)
 - [Установка и использование](#установка-и-использование)
 - [Панель обслуживания adminpanel.sh](#панель-обслуживания-adminpanelsh)
+- [Разработка / CI](#разработка--ci)
 - [Документация и релизы](#документация-и-релизы)
 - [Поддержка проекта](#поддержка-проекта)
 
@@ -281,6 +282,34 @@ sudo /opt/AdminAntizapret/script_sh/adminpanel.sh --ip-add-temp 203.0.113.10 12h
 - `script_sh/monitoring.sh` - системный мониторинг;
 - `script_sh/safe_browsing_status_cli.py` - проверка статуса домена в Google Safe Browsing;
 - `script_sh/safe_browsing_reclassification.md` - чеклист по снятию предупреждений браузера.
+
+## 🛠 Разработка / CI
+
+Локально можно прогнать те же проверки, что и в [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+```bash
+# Python: зависимости, согласованность пакетов, линтер и тесты
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements-dev.txt
+pip check
+pytest tests/ -q
+ruff check . --config tools/python/ruff.toml
+
+# Shell-скрипты (нужен shellcheck: apt install shellcheck)
+bash tests/test_script_sh_all.sh
+
+# JavaScript: синтаксис и ESLint (Node.js 20)
+cd tools/js && npm install && npm run lint:js
+cd ../..
+find static tg_mini ip_blocked -name '*.js' -print0 | sort -z | xargs -0 -r -n1 node --check
+
+# Опционально: pre-commit перед коммитом (ruff, shellcheck, eslint, trailing whitespace)
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+`pip-audit -r requirements.txt` в CI пока **совещательный** (известные CVE в закреплённых версиях Flask/Pillow/Werkzeug отслеживаются отдельно). Dependabot предлагает обновления pip/npm/GitHub Actions по [`.github/dependabot.yml`](.github/dependabot.yml).
 
 ## 📋 Требования
 

@@ -53,6 +53,16 @@
 - **Пустые `catch`**: в `routing-page-extra.js` (статус антифильтра, удаление/сброс пресетов) — `console.warn` или `showNotification` вместо пустых блоков.
 - **Runtime CLI (`traffic_sync`, `wg_awg_runtime_apply`)** — слияние [PR #38](https://github.com/Kirito0098/AdminAntizapret/pull/38): скрипты переписаны без импорта полного `app.py` для сбора/записи трафика и WG/AWG block/unblock. На слабых VPS ускорение заметное: `wg_awg_runtime_apply` unblock ~10 с → ~1.3 с, block ~11 с → ~0.8 с; `traffic_sync` ~15 с → ~0.5 с; RAM ~70 MB → ~16–18 MB. Автор оптимизации: [**@JIEgOKOJI**](https://github.com/JIEgOKOJI). Сохранена автосверка лимитов трафика после cron sync через `utils/traffic_limit_reconcile.py` (`ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP`, флаг `--no-reconcile`, env `TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC`).
 
+### CI и разработка
+
+- **Ruff**: конфигурация перенесена из корня репозитория в `tools/python/ruff.toml`; CI, pre-commit и README используют `--config tools/python/ruff.toml`.
+- **CI / shell-скрипты**: в `.github/workflows/ci.yml` устанавливается `shellcheck`, прогоняется `tests/test_script_sh_all.sh` (bash `-n`, shellcheck `-S warning`, smoke `ssl_setup`); в `script_sh/` устранены предупреждения shellcheck (неиспользуемые переменные, `SC1091` для `env_defaults.sh`); info-уровень (ANSI в `printf`, `&&/||`) оставлен как легаси-стиль.
+- **CI / зависимости Python**: блокирующий `pip check`; совещательный `pip-audit -r requirements.txt` (`continue-on-error`); `pip-audit` добавлен в `requirements-dev.txt`.
+- **CI / Jinja2**: тест `tests/test_jinja_templates_compile.py` компилирует все `.html` в `templates/`, `tg_mini/templates/`, `ip_blocked/templates/`.
+- **Dependabot**: `.github/dependabot.yml` — еженедельные PR для pip (`requirements.txt`, `requirements-dev.txt`), npm (`tools/js/package.json`) и GitHub Actions.
+- **Pre-commit**: `.pre-commit-config.yaml` — ruff, shellcheck (`script_sh/`), `node --check` и ESLint для JS, trailing whitespace и end-of-file-fixer.
+- **README**: раздел «Разработка / CI» с командами локального прогона проверок и ссылками на workflow/dependabot.
+
 ### Исправлено
 
 - **Страница входа**: при автозаполнении логина/пароля браузером текст читаем на тёмной теме — тёмный фон вместо жёлтой подсветки, светлый текст, подпись поля поднимается вверх (`login_styles.css`, `main.js`).

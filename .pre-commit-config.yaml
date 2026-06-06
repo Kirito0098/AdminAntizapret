@@ -1,0 +1,41 @@
+# Локальные проверки, совпадающие с .github/workflows/ci.yml (без pytest/pip-audit).
+# Установка: pip install pre-commit && pre-commit install
+
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.13
+    hooks:
+      - id: ruff
+        args: [--config, tools/python/ruff.toml]
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: [-x, -S, warning]
+        files: ^script_sh/.*\.sh$
+
+  - repo: local
+    hooks:
+      - id: node-syntax-check
+        name: node --check (JS syntax)
+        entry: bash -c 'cd "$(git rev-parse --show-toplevel)" && find static tg_mini ip_blocked -name "*.js" -print0 | sort -z | xargs -0 -r -n1 node --check'
+        language: system
+        files: \.js$
+        pass_filenames: false
+
+      - id: eslint
+        name: eslint (tools/js)
+        entry: bash -c 'cd "$(git rev-parse --show-toplevel)/tools/js" && npm run lint:js'
+        language: system
+        files: \.js$
+        pass_filenames: false

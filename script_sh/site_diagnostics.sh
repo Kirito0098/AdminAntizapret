@@ -36,7 +36,7 @@ _site_diagnostics_invoke() {
 }
 
 _site_diagnostics_print_colored() {
-    local line status tag
+    local line
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in
         "[OK]"*)

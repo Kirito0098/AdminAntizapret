@@ -10,7 +10,6 @@ RED=$(printf '\033[0;31m')
 GREEN=$(printf '\033[0;32m')
 YELLOW=$(printf '\033[1;33m')
 CYAN=$(printf '\033[0;36m')
-BOLD=$(printf '\033[1m')
 DIM=$(printf '\033[2m')
 NC=$(printf '\033[0m')
 
@@ -59,7 +58,7 @@ done
 
 # Значения по умолчанию для .env (общий модуль с install.sh)
 if [ -f "$INCLUDE_DIR/env_defaults.sh" ]; then
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1090,SC1091
     . "$INCLUDE_DIR/env_defaults.sh"
 else
     printf "  ${RED}✗${NC}  Не найден модуль: env_defaults.sh\n" >&2
@@ -87,6 +86,7 @@ PY
 }
 
 # SECRET_KEY задаётся в .env только при первой настройке (ssl_setup.sh)
+# shellcheck disable=SC2034
 SECRET_KEY=""
 
 # ─── Проверка занятости порта ─────────────────────

@@ -11,3 +11,6 @@ ruff>=0.6,<1.0
 
 # Security static analysis.
 bandit>=1.7,<2.0
+
+# Dependency vulnerability audit (CI: advisory via continue-on-error).
+pip-audit>=2.7,<3.0
