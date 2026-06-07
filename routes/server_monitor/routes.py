@@ -12,6 +12,7 @@ from core.services.server_monitor import (
     fetch_bandwidth_chart,
     resolve_bw_iface,
 )
+from core.services.server_monitor.page_context import WS_PUSH_INTERVAL_MS
 
 
 def register_server_monitor_routes(
@@ -72,7 +73,7 @@ def register_server_monitor_routes(
                 return
 
             while True:
-                time.sleep(2)
+                time.sleep(WS_PUSH_INTERVAL_MS / 1000)
                 try:
                     cpu_usage = server_monitor_proc.get_cpu_usage_nonblocking()
                     memory_usage = server_monitor_proc.get_memory_usage()

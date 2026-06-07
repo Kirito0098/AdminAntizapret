@@ -1,5 +1,10 @@
 <script nonce="{{ csp_nonce }}">
   window.__bwIfaceGroups = {{ bw_iface_groups | tojson }};
+  window.ServerMonitorConfig = {
+    metricsPollIntervalMs: {{ metrics_poll_interval_ms }},
+    wsPushIntervalMs: {{ ws_push_interval_ms }},
+    historyLen: {{ metrics_history_len }},
+  };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@latest/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='assets/js/server_monitor/format.js') }}"></script>

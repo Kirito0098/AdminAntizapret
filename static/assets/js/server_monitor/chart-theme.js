@@ -15,6 +15,9 @@
     gridSoft: getThemeColor("--theme-chart-grid-soft", "rgba(255, 255, 255, 0.05)"),
     gridStrong: getThemeColor("--theme-chart-grid-strong", "rgba(255, 255, 255, 0.1)"),
     miniGrid: getThemeColor("--theme-chart-grid-monitor", "#444"),
+    miniGridStrong: getThemeColor("--theme-chart-grid-monitor-strong", "rgba(255, 255, 255, 0.2)"),
+    cpuFillStrong: getThemeColor("--theme-primary-alpha-24", "rgba(63, 160, 131, 0.24)"),
+    memoryFillStrong: getThemeColor("--theme-secondary-alpha-25", "rgba(90, 157, 203, 0.25)"),
   };
 
   const chartTypography = {

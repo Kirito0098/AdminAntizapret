@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const { ifaceGroups } = window.ServerMonitorIfaceGroups;
-  const { initMiniCharts, loadSystemInfo, startWebSocket } = window.ServerMonitorSystemMetrics;
+  const { initMiniCharts, loadSystemInfo, startWebSocket, METRICS_POLL_MS } = window.ServerMonitorSystemMetrics;
   const { loadBandwidth, rebuildBwChartOnResize } = window.ServerMonitorBandwidth;
 
   let pollInterval = null;
@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function ensureFallbackPoll() {
     setMonitorLiveMode(false);
     if (!pollInterval) {
-      pollInterval = setInterval(() => loadSystemInfo(), 15000);
+      pollInterval = setInterval(() => loadSystemInfo(), METRICS_POLL_MS);
     }
   }
 
@@ -148,7 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   if (!pollInterval) {
-    pollInterval = setInterval(() => loadSystemInfo(), 15000);
+    pollInterval = setInterval(() => loadSystemInfo(), METRICS_POLL_MS);
   }
 
   let resizeTimer = null;

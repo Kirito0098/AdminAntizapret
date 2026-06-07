@@ -49,8 +49,12 @@ body.server-monitor-page {
 
 .server-monitor-wrapper.page-unified-wrapper img,
 .server-monitor-wrapper.page-unified-wrapper video,
-.server-monitor-wrapper.page-unified-wrapper canvas,
 .server-monitor-wrapper.page-unified-wrapper svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.server-monitor-wrapper.page-unified-wrapper canvas:not(.metric-mini-chart):not(.bw-chart) {
   max-width: 100%;
   height: auto;
 }
@@ -304,36 +308,70 @@ body.server-monitor-page {
 .metrics-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 0.8rem;
+  gap: 0.65rem;
 }
 
 .info-item {
-  padding: 0.78rem;
+  padding: 0.65rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.32rem;
   min-height: 0;
 }
 
-.info-item h3 {
-  margin: 0;
-  font-size: clamp(0.86rem, 0.82rem + 0.22vw, 0.96rem);
-  color: var(--theme-text-primary);
-  letter-spacing: 0.01em;
+.metric-card {
+  --metric-footer-height: clamp(100px, 26vw, 128px);
+  --metric-ring-size: clamp(3.5rem, calc(var(--metric-footer-height) * 0.78), 4.85rem);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  column-gap: 0.48rem;
+  align-items: stretch;
 }
 
-.metric-status {
+.metric-card__head {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.6rem;
+  gap: 0.4rem;
+  min-height: 1.2rem;
+}
+
+.metric-card__head h3,
+.info-item h3 {
+  margin: 0;
+  flex: 1;
+  font-size: clamp(0.86rem, 0.82rem + 0.22vw, 0.96rem);
+  color: var(--theme-text-primary);
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+
+.metric-card__hero {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-height: 0;
+  padding: 0;
+}
+
+.metric-card__footer {
+  grid-column: 2;
+  grid-row: 2;
+  width: 100%;
+  min-width: 0;
+  align-self: stretch;
 }
 
 .metric-ring {
   --ring-value: 0;
   --ring-color: var(--sm-accent);
   position: relative;
-  width: clamp(3.4rem, 12vw, 4.5rem);
+  width: var(--metric-ring-size);
   aspect-ratio: 1;
   border-radius: 50%;
   background: conic-gradient(
@@ -347,7 +385,7 @@ body.server-monitor-page {
 
 .metric-ring__track {
   position: absolute;
-  inset: 5px;
+  inset: 4px;
   border-radius: 50%;
   background: var(--theme-bg-darker);
   border: 1px solid var(--sm-border);
@@ -356,14 +394,19 @@ body.server-monitor-page {
 
 .metric-ring__value,
 .metric-ring .metric-value {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0;
-  font-size: clamp(0.72rem, 0.68rem + 0.25vw, 0.86rem);
-  line-height: 1.1;
+  font-size: clamp(0.78rem, 0.72rem + 0.28vw, 0.92rem);
+  line-height: 1;
   font-weight: 700;
   color: var(--sm-text);
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .metric-ring--warn {
@@ -375,8 +418,9 @@ body.server-monitor-page {
 }
 
 .status-indicator {
-  width: 12px;
-  height: 12px;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
@@ -393,61 +437,129 @@ body.server-monitor-page {
   background: var(--sm-danger);
 }
 
-.disk-info {
-  margin-top: auto;
-  border: 1px dashed var(--sm-border-strong);
-  border-radius: 0.7rem;
-  background: var(--theme-bg-dark-soft);
-  padding: 0.52rem;
-}
-
-.disk-info p {
-  margin: 0;
-  font-size: 0.84rem;
-  color: var(--theme-text-secondary);
-  line-height: 1.45;
-}
-
-.metric-card--load h3::before {
-  content: "⚡";
-  margin-right: 0.35rem;
-  color: var(--sm-accent);
-}
-
-.load-info {
-  display: grid;
-  gap: 0.36rem;
-  margin-top: 0.06rem;
-}
-
-.load-item {
+.metric-disk-footer {
   display: flex;
-  justify-content: space-between;
-  gap: 0.7rem;
-  border: 1px solid var(--sm-border);
-  border-radius: 999px;
-  background: var(--theme-bg-dark-soft);
-  padding: 0.38rem 0.62rem;
-  color: var(--theme-text-secondary);
-  font-size: 0.8rem;
-  line-height: 1.45;
-}
-
-.load-item span:last-child {
-  font-family: "JetBrains Mono", monospace;
-  color: var(--sm-text);
-}
-
-.uptime-icon {
-  margin-top: auto;
-  color: var(--sm-accent-soft);
-  display: flex;
+  flex-direction: column;
   justify-content: center;
+  gap: 0.48rem;
+  height: var(--metric-footer-height);
+  border: 1px solid var(--sm-border);
+  border-radius: 0.72rem;
+  background: var(--theme-bg-darker);
+  padding: 0.5rem 0.62rem;
 }
 
-.uptime-icon svg {
-  width: clamp(34px, 9vw, 42px);
-  height: auto;
+.metric-disk-bar {
+  height: 0.42rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.metric-disk-bar__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--sm-accent-soft), var(--sm-accent));
+  transition: width 0.35s ease;
+}
+
+.metric-disk-bar__fill.is-warn {
+  background: linear-gradient(90deg, var(--sm-warn), #e6a700);
+}
+
+.metric-disk-bar__fill.is-danger {
+  background: linear-gradient(90deg, var(--sm-danger), #ff5252);
+}
+
+.metric-disk-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.metric-disk-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.metric-disk-stat__label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--theme-text-secondary);
+}
+
+.metric-disk-stat__value {
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-size: clamp(0.74rem, 0.7rem + 0.2vw, 0.82rem);
+  font-variant-numeric: tabular-nums;
+  color: var(--sm-text);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-load-footer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.42rem;
+  height: var(--metric-footer-height);
+  border: 1px solid var(--sm-border);
+  border-radius: 0.72rem;
+  background: var(--theme-bg-darker);
+  padding: 0.5rem 0.62rem;
+}
+
+.metric-load-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.metric-load-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.16rem;
+  padding: 0.3rem 0.24rem;
+  border: 1px solid var(--sm-border);
+  border-radius: 0.62rem;
+  background: var(--theme-bg-dark-soft);
+}
+
+.metric-load-cell__label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--theme-text-secondary);
+}
+
+.metric-load-cell__value {
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-size: clamp(0.88rem, 0.82rem + 0.3vw, 1rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--sm-text);
+  line-height: 1.1;
+}
+
+.metric-ring--load .metric-ring__value {
+  font-size: clamp(0.78rem, 0.72rem + 0.28vw, 0.92rem);
+}
+
+.metric-footer-caption {
+  margin: 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--theme-text-secondary);
+  line-height: 1.35;
 }
 
 .bw-section {
@@ -690,15 +802,25 @@ body.server-monitor-page {
   transform: rotate(90deg);
 }
 
-.server-monitor-wrapper .info-item canvas.metric-mini-chart,
-.server-monitor-wrapper .info-item canvas {
-  margin-top: auto;
-  width: 100% !important;
-  max-width: none;
-  height: clamp(116px, 34vw, 150px) !important;
+.metric-mini-chart-wrap {
+  position: relative;
+  height: var(--metric-footer-height);
   border: 1px solid var(--sm-border);
   border-radius: 0.72rem;
   background: var(--theme-bg-darker);
+  overflow: visible;
+  padding-top: 10px;
+}
+
+.server-monitor-wrapper .info-item .metric-mini-chart-wrap canvas.metric-mini-chart {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
 }
 
 @media (min-width: 429px) {
@@ -813,8 +935,8 @@ body.server-monitor-page {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
-  .info-item {
-    min-height: 238px;
+  .metric-card {
+    min-height: calc(var(--metric-footer-height) + 2.4rem);
   }
 }
 
@@ -880,8 +1002,16 @@ body.server-monitor-page {
     font-size: 0.82rem;
   }
 
-  .metric-ring {
-    width: 3.2rem;
+  .metric-card {
+    --metric-ring-size: clamp(3.15rem, calc(var(--metric-footer-height) * 0.72), 3.75rem);
+  }
+
+  .metric-disk-stats {
+    gap: 0.3rem;
+  }
+
+  .metric-disk-stat__value {
+    font-size: 0.7rem;
   }
 }
 

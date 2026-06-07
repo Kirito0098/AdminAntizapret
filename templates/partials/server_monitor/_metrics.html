@@ -1,63 +1,95 @@
 <section class="server-info metrics-grid" aria-label="Ключевые метрики">
-  <article class="info-item page-unified-card">
-    <h3>Использование CPU</h3>
-    <div class="metric-status">
+  <article class="info-item page-unified-card metric-card">
+    <header class="metric-card__head">
+      <h3>Использование CPU</h3>
+      <div id="cpu-indicator" class="status-indicator green" role="status" aria-label="Статус CPU"></div>
+    </header>
+    <div class="metric-card__hero">
       <div id="cpu-ring" class="metric-ring">
         <span class="metric-ring__track" aria-hidden="true"></span>
         <p id="cpu-usage" class="metric-ring__value metric-value">{% if cpu_usage is not none %}{{ cpu_usage }}%{% else %}—%{% endif %}</p>
       </div>
-      <div id="cpu-indicator" class="status-indicator green"></div>
     </div>
-    <canvas id="cpuChart" class="metric-mini-chart"></canvas>
+    <div class="metric-card__footer metric-mini-chart-wrap">
+      <canvas id="cpuChart" class="metric-mini-chart" aria-label="График загрузки CPU"></canvas>
+    </div>
   </article>
 
-  <article class="info-item page-unified-card">
-    <h3>Использование памяти</h3>
-    <div class="metric-status">
+  <article class="info-item page-unified-card metric-card">
+    <header class="metric-card__head">
+      <h3>Использование памяти</h3>
+      <div id="memory-indicator" class="status-indicator green" role="status" aria-label="Статус памяти"></div>
+    </header>
+    <div class="metric-card__hero">
       <div id="memory-ring" class="metric-ring">
         <span class="metric-ring__track" aria-hidden="true"></span>
         <p id="memory-usage" class="metric-ring__value metric-value">{% if memory_usage is not none %}{{ memory_usage }}%{% else %}—%{% endif %}</p>
       </div>
-      <div id="memory-indicator" class="status-indicator green"></div>
     </div>
-    <canvas id="memoryChart" class="metric-mini-chart"></canvas>
+    <div class="metric-card__footer metric-mini-chart-wrap">
+      <canvas id="memoryChart" class="metric-mini-chart" aria-label="График загрузки памяти"></canvas>
+    </div>
   </article>
 
-  <article class="info-item page-unified-card">
-    <h3>Использование диска</h3>
-    <div class="metric-status">
+  <article class="info-item page-unified-card metric-card">
+    <header class="metric-card__head">
+      <h3>Использование диска</h3>
+      <div id="disk-indicator" class="status-indicator green" role="status" aria-label="Статус диска"></div>
+    </header>
+    <div class="metric-card__hero">
       <div id="disk-ring" class="metric-ring">
         <span class="metric-ring__track" aria-hidden="true"></span>
         <p id="disk-usage" class="metric-ring__value metric-value">—%</p>
       </div>
-      <div id="disk-indicator" class="status-indicator green"></div>
     </div>
-    <div class="disk-info">
-      <p id="disk-details">—</p>
+    <div class="metric-card__footer metric-disk-footer">
+      <div class="metric-disk-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Заполнение диска">
+        <div id="disk-bar-fill" class="metric-disk-bar__fill"></div>
+      </div>
+      <div class="metric-disk-stats">
+        <div class="metric-disk-stat">
+          <span class="metric-disk-stat__label">Занято</span>
+          <span id="disk-used" class="metric-disk-stat__value">—</span>
+        </div>
+        <div class="metric-disk-stat">
+          <span class="metric-disk-stat__label">Свободно</span>
+          <span id="disk-free" class="metric-disk-stat__value">—</span>
+        </div>
+        <div class="metric-disk-stat">
+          <span class="metric-disk-stat__label">Всего</span>
+          <span id="disk-total" class="metric-disk-stat__value">—</span>
+        </div>
+      </div>
     </div>
   </article>
 
-  <article class="info-item page-unified-card metric-card--load">
-    <h3>Load Average</h3>
-    <div class="load-info">
-      <div class="load-item">
-        <span>1m</span>
-        <span id="load-1m">—</span>
-      </div>
-      <div class="load-item">
-        <span>5m</span>
-        <span id="load-5m">—</span>
-      </div>
-      <div class="load-item">
-        <span>15m</span>
-        <span id="load-15m">—</span>
+  <article class="info-item page-unified-card metric-card">
+    <header class="metric-card__head">
+      <h3>Load Average</h3>
+      <div id="load-indicator" class="status-indicator green" role="status" aria-label="Статус нагрузки"></div>
+    </header>
+    <div class="metric-card__hero">
+      <div id="load-ring" class="metric-ring metric-ring--load">
+        <span class="metric-ring__track" aria-hidden="true"></span>
+        <p id="load-hero" class="metric-ring__value">—</p>
       </div>
     </div>
-    <div class="uptime-icon" aria-hidden="true">
-      <svg width="40" height="40" viewBox="0 0 40 40">
-        <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="3" fill="none" />
-        <path d="M20 10 v10 l7 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" />
-      </svg>
+    <div class="metric-card__footer metric-load-footer">
+      <div class="metric-load-grid">
+        <div class="metric-load-cell">
+          <span class="metric-load-cell__label">1m</span>
+          <span id="load-1m" class="metric-load-cell__value">—</span>
+        </div>
+        <div class="metric-load-cell">
+          <span class="metric-load-cell__label">5m</span>
+          <span id="load-5m" class="metric-load-cell__value">—</span>
+        </div>
+        <div class="metric-load-cell">
+          <span class="metric-load-cell__label">15m</span>
+          <span id="load-15m" class="metric-load-cell__value">—</span>
+        </div>
+      </div>
+      <p id="load-cpu-hint" class="metric-footer-caption">—</p>
     </div>
   </article>
 </section>
