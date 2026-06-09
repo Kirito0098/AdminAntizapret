@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.10.0] – 09.06.2026
+
+### Трафик и OpenVPN
+
+- **Cron `utils/traffic_sync.py`**: учёт OpenVPN-трафика переведён на management socket (`status 3`), как в дашборде логов; при недоступном или пустом сокете — fallback на `*-status.log`. Откат на файлы: `TRAFFIC_SYNC_OPENVPN_SOURCE=file` (см. `.env.example`). Переход file → socket **не снижает CPU** заметно; выигрыш — единый источник с UI и более свежие счётчики.
+- **Нагрузка VPS**: systemd-таймер `admin-antizapret-traffic-sync` — **90 с** вместо 30 с (`script_sh/adminpanel.sh`); по умолчанию `TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC=false` (`.env.example`, `env_defaults.sh`) — reconcile лимитов без тяжёлого bootstrap после каждого sync.
+  - **Производительность (ориентиры на VPS):** snapshot-only (`--no-reconcile`) — **~0.5–2 с**, **~16–18 МБ RAM**; с reconcile после sync — **~1–3 с**, **~100+ МБ RAM** (подгрузка `app.py`). Интервал **30 → 90 с** — **~в 3 раза реже** запуск cron; `TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC=false` убирает тяжёлый hook на каждом тике. *Пример:* при 30 с + reconcile — ~120 запусков/час с bootstrap; при 90 с без reconcile — ~40 лёгких запусков/час.
+  - **Влияние на CPU:** переход file → socket **почти не меняет** CPU (те же 4 опроса status + парсинг). Основная экономия — **реже тики** и **без reconcile**. Один запуск snapshot-only — краткий всплеск **~2–5%** на 1–2 с (socket/`wg`/SQLite); с reconcile — **~5–15%** на 2–4 с (дополнительно bootstrap `app.py`). *Суммарно за час:* было ~120 тяжёлых циклов (30 с + reconcile) → стало ~40 лёгких (90 с без reconcile), т.е. **примерно в 6–9 раз меньше** CPU‑времени на `traffic_sync`. На слабом VPS (1–2 vCPU) это заметно в `top`/`journalctl`; на сервере с запасом CPU — умеренный эффект, OpenVPN и gunicorn по-прежнему дают основную нагрузку.
+  - **Потери учёта при интервале 90 с** (оценка по `traffic_session_state` / `user_traffic_sample`, 7 дней): для **долгих сессий** (часы) — **~0%**; суммарный недоучёт OpenVPN vs идеальный непрерывный опрос — **~4.3%** при 90 с против **~1.5%** при 30 с, т.е. **дополнительно ~2.8%** (практический диапазон **~1.7–3.1%**). *Пример на нагруженном VPS:* ~993 GiB OpenVPN за 7 дней → **~+28 GiB** недоучёта при переходе 30→90 с (~4 GiB/сутки); **99% трафика** — сессии ≥90 с, медиана длительности ~68 с. Риск в основном у **коротких переподключений** и **хвоста при disconnect** (~45 с вместо ~15 с). Онлайн-клиенты в `CLIENT_LIST` не теряют трафик между опросами (накопительные счётчики).
+
 ## [1.9.0] – 06.06.2026
 
 Релиз ветки **Testing** относительно `main` (1.8.1): модули и лимиты трафика, UI карточек, Telegram Mini App, аудит JS↔Python, оптимизация runtime CLI ([PR #38](https://github.com/Kirito0098/AdminAntizapret/pull/38)).
