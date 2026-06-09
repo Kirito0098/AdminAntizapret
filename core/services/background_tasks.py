@@ -7,6 +7,8 @@ from typing import Any, Callable, Protocol
 
 from flask import jsonify, url_for
 
+from core.services.time_utils import as_utc
+
 
 class BackgroundTaskCallable(Protocol):
     def __call__(self, *args: Any, **kwargs: Any) -> dict[str, str] | None:
@@ -56,6 +58,18 @@ _TASK_DONE_PROGRESS: dict[str, str] = {
     "app_backup_test_tg": "Бэкап отправлен в Telegram",
     "logs_dashboard_refresh": "Панель логов обновлена",
 }
+
+_TASK_STALE_SECONDS: dict[str, int] = {
+    "logs_dashboard_refresh": 600,
+    "restart_service": 300,
+    "run_doall": 300,
+    "update_system": 3600,
+    "app_backup_create": 3600,
+    "app_backup_restore": 3600,
+    "app_backup_test_tg": 3600,
+}
+
+_DEFAULT_TASK_STALE_SECONDS = 3600
 
 
 class BackgroundTaskService:
@@ -107,6 +121,51 @@ class BackgroundTaskService:
                 setattr(task, key, value)
 
             self.db.session.commit()
+
+    def _task_stale_seconds(self, task_type: str) -> int:
+        return _TASK_STALE_SECONDS.get(task_type, _DEFAULT_TASK_STALE_SECONDS)
+
+    def recover_stale_background_tasks(
+        self,
+        *,
+        task_types: list[str] | None = None,
+        now: datetime | None = None,
+    ) -> int:
+        now = now or datetime.now(timezone.utc)
+        query = self.background_task_model.query.filter(
+            self.background_task_model.status.in_(["queued", "running"])
+        )
+        if task_types:
+            query = query.filter(self.background_task_model.task_type.in_(task_types))
+
+        recovered = 0
+        for task in query.all():
+            stale_seconds = self._task_stale_seconds(task.task_type)
+            if task.status == "running":
+                reference_at = as_utc(task.started_at) or as_utc(task.created_at)
+            else:
+                reference_at = as_utc(task.created_at)
+            if reference_at is None:
+                continue
+
+            age_seconds = int((now - reference_at).total_seconds())
+            if age_seconds <= stale_seconds:
+                continue
+
+            self.update_background_task(
+                task.id,
+                status="failed",
+                finished_at=now,
+                message="Задача прервана (истёк таймаут выполнения)",
+                error=self.trim_background_task_text(
+                    f"Задача {task.task_type} зависла в статусе {task.status} более {age_seconds} с"
+                ),
+                progress_percent=100,
+                progress_stage="Прервано",
+            )
+            recovered += 1
+
+        return recovered
 
     def _read_task_type(self, task_id: str) -> str:
         with self.app.app_context():

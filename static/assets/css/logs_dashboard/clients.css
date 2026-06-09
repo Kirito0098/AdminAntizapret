@@ -263,6 +263,11 @@
   padding: 0.58rem 0.62rem 0.62rem;
 }
 
+/* styles_index.css задаёт .client-card-body { display: flex } глобально — перебивает [hidden]. */
+.client-card-body[hidden] {
+  display: none;
+}
+
 .client-card-meta {
   margin-bottom: 0.45rem;
   color: var(--theme-text-primary, rgba(208, 236, 226, 0.9));
