@@ -5,7 +5,8 @@ This is a lightweight replacement for utils/traffic_sync.py.
 
 It intentionally does NOT import app.py, Flask, SQLAlchemy, routes, schedulers,
 or the full services bundle for the traffic snapshot itself. It reads OpenVPN status
-logs and `wg show all dump`, persists traffic deltas directly into SQLite, then
+via management socket (`status 3`, file fallback) and `wg show all dump`, persists
+traffic deltas directly into SQLite, then
 optionally runs a lightweight traffic-limit reconcile via utils.traffic_limit_reconcile
 (ADMIN_ANTIZAPRET_SKIP_APP_BOOTSTRAP).
 
@@ -30,14 +31,20 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+
 import warnings
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from utils.openvpn_status_source import read_openvpn_status_source
+
 warnings.filterwarnings(
     "ignore",
     category=DeprecationWarning,
     message=r"datetime\.datetime\.utcnow\(\) is deprecated.*",
 )
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
 INSTANCE_DB = ROOT_DIR / "instance" / "users.db"
 FALLBACK_DB = ROOT_DIR / "users.db"
 
@@ -203,8 +210,11 @@ def read_status_file(profile_key: str, filename: str) -> Dict[str, Any]:
     }
 
 
-def parse_status_log(profile_key: str, filename: str) -> Dict[str, Any]:
-    source = read_status_file(profile_key, filename)
+def parse_status_from_source(
+    profile_key: str,
+    filename: str,
+    source: Dict[str, Any],
+) -> Dict[str, Any]:
     raw = source.get("raw", "")
     meta = profile_meta(profile_key)
 
@@ -323,6 +333,11 @@ def parse_status_log(profile_key: str, filename: str) -> Dict[str, Any]:
         "total_sent": total_sent,
         "clients": clients,
     }
+
+
+def parse_status_log(profile_key: str, filename: str) -> Dict[str, Any]:
+    source = read_openvpn_status_source(profile_key, filename)
+    return parse_status_from_source(profile_key, filename, source)
 
 
 def parse_wireguard_config_peer_rows(config_path: str, interface_name: str) -> List[Dict[str, Any]]:

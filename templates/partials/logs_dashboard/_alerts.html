@@ -10,7 +10,7 @@
 {% if cache_meta and cache_meta.is_stale %}
 <section class="logs-section">
     <div class="logs-alert">
-        Показаны данные из кэша (возраст: {{ cache_meta.age_seconds }} сек).
+        Показаны данные из кэша (возраст: {{ cache_meta.age_human or (cache_meta.age_seconds ~ ' сек') }}).
         {% if cache_meta.refresh_in_progress %}
         Фоновое обновление выполняется. Страница обновится автоматически после завершения.
         {% else %}

@@ -611,11 +611,11 @@ EOL
 
     cat > "/etc/systemd/system/admin-antizapret-traffic-sync.timer" << EOL
 [Unit]
-Description=Run AdminAntizapret traffic sync every 30 seconds
+Description=Run AdminAntizapret traffic sync every 90 seconds
 
 [Timer]
 OnBootSec=45sec
-OnUnitActiveSec=30sec
+OnUnitActiveSec=90sec
 AccuracySec=1s
 Unit=admin-antizapret-traffic-sync.service
 Persistent=true

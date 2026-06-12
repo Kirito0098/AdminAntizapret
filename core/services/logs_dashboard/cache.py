@@ -24,6 +24,17 @@ class LogsDashboardCacheService:
         self.enqueue_background_task = enqueue_background_task
         self.human_bytes = human_bytes
 
+    @staticmethod
+    def _format_cache_age_seconds(seconds_value):
+        value = int(seconds_value or 0)
+        if value < 60:
+            return f"{value} сек"
+        if value < 3600:
+            return f"{value // 60} мин"
+        if value < 86400:
+            return f"{value // 3600} ч"
+        return f"{value // 86400} д"
+
     def logs_dashboard_cache_row(self):
         return self.logs_dashboard_cache_model.query.filter_by(cache_key="main").first()
 
@@ -190,6 +201,7 @@ class LogsDashboardCacheService:
                 "from_cache": True,
                 "is_stale": is_stale,
                 "age_seconds": age_seconds,
+                "age_human": self._format_cache_age_seconds(age_seconds),
                 "refresh_in_progress": refresh_task is not None,
                 "refresh_task_id": refresh_task.id if refresh_task is not None else None,
                 "ttl_seconds": self.logs_dashboard_cache_ttl_seconds,
@@ -204,6 +216,7 @@ class LogsDashboardCacheService:
                 "from_cache": False,
                 "is_stale": False,
                 "age_seconds": 0,
+                "age_human": self._format_cache_age_seconds(0),
                 "refresh_in_progress": False,
                 "refresh_task_id": None,
                 "ttl_seconds": self.logs_dashboard_cache_ttl_seconds,
@@ -219,6 +232,7 @@ class LogsDashboardCacheService:
                 "from_cache": False,
                 "is_stale": True,
                 "age_seconds": None,
+                "age_human": "-",
                 "refresh_in_progress": refresh_task is not None,
                 "refresh_task_id": refresh_task.id if refresh_task is not None else None,
                 "ttl_seconds": self.logs_dashboard_cache_ttl_seconds,

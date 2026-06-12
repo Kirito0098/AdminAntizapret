@@ -62,6 +62,7 @@ ensure_env_defaults() {
 
     # Фоновые задачи (Настройки → «Модули и задачи»)
     _ensure_env_default "TRAFFIC_SYNC_ENABLED" "true"
+    _ensure_env_default "TRAFFIC_LIMIT_RECONCILE_AFTER_SYNC" "false"
     _ensure_env_default "WG_POLICY_SYNC_ENABLED" "true"
     _ensure_env_default "MONITOR_ENABLED" "true"
     _ensure_env_default "ACTIVE_WEB_SESSION_TRACKING_ENABLED" "true"

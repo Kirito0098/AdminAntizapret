@@ -2,7 +2,7 @@ import os
 import subprocess
 import unittest
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from flask import Flask
@@ -19,6 +19,8 @@ class FakeTask:
     message: str = ""
     output: str = ""
     error: str | None = None
+    progress_percent: int = 0
+    progress_stage: str | None = None
     created_at: datetime | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
@@ -43,6 +45,35 @@ class FakeSession:
 
     def rollback(self) -> None:
         self.rollback_calls += 1
+
+
+class FakeColumn:
+    def in_(self, values):
+        return ("in", values)
+
+
+class FakeQuery:
+    def __init__(self, tasks: list[FakeTask]):
+        self._tasks = tasks
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def all(self) -> list[FakeTask]:
+        return list(self._tasks)
+
+
+def _make_fake_background_task_model(tasks: list[FakeTask]):
+    class FakeBackgroundTaskModel:
+        status = FakeColumn()
+        task_type = FakeColumn()
+        query = FakeQuery(tasks)
+
+        def __init__(self, **kwargs):
+            task = FakeTask(**kwargs)
+            tasks.append(task)
+
+    return FakeBackgroundTaskModel
 
 
 class FakeDb:
@@ -135,6 +166,38 @@ class BackgroundTaskServiceTests(unittest.TestCase):
         recreate_mock.assert_called_once_with(install_dir)
         self.assertIn("doall-out", result["output"])
         self.assertIn("recreate-out", result["output"])
+
+    def test_recover_stale_background_tasks_marks_old_running_task_failed(self) -> None:
+        now = datetime(2026, 6, 9, 12, 0, tzinfo=timezone.utc)
+        stale_task = FakeTask(
+            id="stale-task",
+            task_type="logs_dashboard_refresh",
+            status="running",
+            started_at=now - timedelta(seconds=3600),
+            created_at=now - timedelta(seconds=3600),
+        )
+        fresh_task = FakeTask(
+            id="fresh-task",
+            task_type="logs_dashboard_refresh",
+            status="running",
+            started_at=now - timedelta(seconds=30),
+            created_at=now - timedelta(seconds=30),
+        )
+        self.db.session.storage[stale_task.id] = stale_task
+        self.db.session.storage[fresh_task.id] = fresh_task
+        self.service.background_task_model = _make_fake_background_task_model(
+            [stale_task, fresh_task]
+        )
+
+        recovered = self.service.recover_stale_background_tasks(
+            task_types=["logs_dashboard_refresh"],
+            now=now,
+        )
+
+        self.assertEqual(recovered, 1)
+        self.assertEqual(stale_task.status, "failed")
+        self.assertEqual(fresh_task.status, "running")
+        self.assertIsNotNone(stale_task.finished_at)
 
 
 if __name__ == "__main__":

@@ -494,6 +494,20 @@ background_task_service = BackgroundTaskService(
     app_root=APP_ROOT,
 )
 
+try:
+    with app.app_context():
+        _recovered_stale_tasks = background_task_service.recover_stale_background_tasks()
+        if _recovered_stale_tasks:
+            app.logger.warning(
+                "Помечено как failed %s зависших фоновых задач после старта процесса",
+                _recovered_stale_tasks,
+            )
+except Exception as _stale_tasks_exc:
+    app.logger.warning(
+        "Не удалось восстановить зависшие фоновые задачи при старте: %s",
+        _stale_tasks_exc,
+    )
+
 
 def _serialize_background_task(task):
     return background_task_service.serialize_background_task(task)
@@ -535,6 +549,9 @@ def _task_update_system():
 
 
 def _get_logs_dashboard_data_cached(created_by_username=None):
+    background_task_service.recover_stale_background_tasks(
+        task_types=["logs_dashboard_refresh"]
+    )
     return logs_dashboard_cache_service.get_logs_dashboard_data_cached(created_by_username=created_by_username)
 
 def _run_db_migrations():
