@@ -7,7 +7,7 @@
 pytest==9.0.3
 
 # Linter / import sorter.
-ruff>=0.15.16,<1.0
+ruff>=0.15.17,<1.0
 
 # Security static analysis.
 bandit>=1.9.4,<2.0
