@@ -2,10 +2,19 @@
 
 ## [Unreleased]
 
+## [1.10.1] – 12.06.2026
+
 ### Подключенные клиенты
 
 - **Карточки клиентов**: исправлено сворачивание — глобальный стиль `.client-card-body` из главной страницы перебивал атрибут `hidden`, из‑за чего детали подключений всегда оставались развёрнутыми.
 - **Зависшие фоновые задачи**: `logs_dashboard_refresh`, `run_doall` и другие типы, оставшиеся в `queued`/`running` после перезапуска службы или сбоя, автоматически помечаются как `failed` по таймауту (`run_doall` — 5 мин, с запасом на `client.sh 7` после `doall.sh`). Для dashboard: при открытии страницы «Подключенные клиенты» ставится новое обновление кэша; возраст кэша в предупреждении — в человекочитаемом виде (мин/ч/д); при ошибке или долгом ожидании страница перезагружается автоматически.
+
+### CI и зависимости
+
+- **GitHub Actions**: `actions/checkout`, `actions/setup-python` и `actions/setup-node` обновлены до v6 (Dependabot [#41](https://github.com/Kirito0098/AdminAntizapret/pull/41)–[#43](https://github.com/Kirito0098/AdminAntizapret/pull/43)).
+- **Python (production)**: click 8.4.1, Flask-Limiter 4.1.1, Pillow 12.2.0, qrcode 8.2, SQLAlchemy 2.0.50, Werkzeug 3.1.8, MarkupSafe 3.0.3 ([#45](https://github.com/Kirito0098/AdminAntizapret/pull/45), [#47](https://github.com/Kirito0098/AdminAntizapret/pull/47)–[#50](https://github.com/Kirito0098/AdminAntizapret/pull/50), [#53](https://github.com/Kirito0098/AdminAntizapret/pull/53), [#54](https://github.com/Kirito0098/AdminAntizapret/pull/54)).
+- **Python (dev/CI)**: ruff ≥0.15.16, bandit ≥1.9.4, pip-audit ≥2.10.0 ([#46](https://github.com/Kirito0098/AdminAntizapret/pull/46), [#51](https://github.com/Kirito0098/AdminAntizapret/pull/51), [#52](https://github.com/Kirito0098/AdminAntizapret/pull/52)).
+- **ESLint 10** ([#44](https://github.com/Kirito0098/AdminAntizapret/pull/44)): намеренно не обновлён — требует миграции с `.eslintrc.json` на flat config (`eslint.config.js`).
 
 ## [1.10.0] – 09.06.2026
 
